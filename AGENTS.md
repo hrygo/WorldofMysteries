@@ -220,8 +220,16 @@ repo/
 4. **修改协议与 Schema**：
    - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/schemas/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
 5. **专精 Agent Skills 协同规范**：
-   - **Swift 6 并发安全**：使用 `swift-concurrency` 指南消除数据竞态与 actor 隔离问题；
-   - **SwiftUI 架构与设计**：使用 `swiftui-expert-skill` 遵循规范的状态与视图分层设计；
-   - **Python 异步与测试**：Local Engine 核心开发严格遵守 `async-python-patterns` 与 `python-testing-patterns`；
-   - **架构治理与安全重构**：跨模块解耦与深模块设计遵循 `improve-codebase-architecture`；
-   - **现代 Swift 测试**：macOS 客户端测试严格基于 `swift-testing-pro` 宏体系。
+   - **项目级专精业务 Skills ([`.agents/skills/`](.agents/skills/))**：
+     - **`wom-collaborator`**：HACF 2.0 人机协同总枢纽，指导 Task Capsule 切片、Git Worktree 事务隔离、sha256 机器验签与 GitHub Actions 双层合流；
+     - **`wom-invariants-guard`**：15 项核心不变量守护者，提供逐项违例判定标准、反模式排查清单与 AST 架构适应度静态扫描；
+     - **`wom-domain-weaver`**：纯领域核心业务编织，指导 World/Character/Story 状态机与确定性 Outcome Resolver（纯函数 Reducer 模式）；
+     - **`wom-data-steward`**：四库物理隔离管家，指导 SQLite 多模型隔离架构、Transactional Outbox 异步事件与 100% 幂等重建；
+     - **`wom-macos-craft`**：macOS 原生客户端极客，指导 SwiftUI 界面交互、Swift 6 严格并发与 `WorldSession` 响应式叙事流消费。
+   - **全局通用工程 Skills (`~/.gemini/config/skills/`)**：
+     - **Swift 6 并发安全**：使用 `swift-concurrency` 指南消除数据竞态与 actor 隔离问题；
+     - **SwiftUI 架构与设计**：使用 `swiftui-expert-skill` 遵循规范的状态与视图分层设计；
+     - **Python 异步与测试**：Local Engine 核心开发严格遵守 `async-python-patterns` 与 `python-testing-patterns`；
+     - **架构治理与安全重构**：跨模块解耦与深模块设计遵循 `improve-codebase-architecture`；
+     - **代码知识图谱智能**：利用 `code-intelligence` 进行高阶 Cypher 查询与调用链路追踪；
+     - **现代 Swift 测试**：macOS 客户端测试严格基于 `swift-testing-pro` 宏体系。
