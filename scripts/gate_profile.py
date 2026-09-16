@@ -328,6 +328,122 @@ def verify_registry(repo_root: Path = REPO_ROOT) -> bool:
     return ok
 
 
+# 变更集 → 门禁档案路由：命中单一角色域则只跑该域门禁，跨域或未知则回退全量。
+# 目的：让协同流程按改动面付时间成本，而不是每轮都跑全量三阶段。
+PROFILE_ROUTING: List[Tuple[str, str]] = [
+    ("macos-app/", "MACOS_APP_P0"),
+    ("engine/ai/", "AI_GATEWAY_P0"),
+    ("engine/infrastructure/", "DATA_KERNEL_P0"),
+    ("engine/domain/", "DOMAIN_P0"),
+    ("engine/tests/", "DOMAIN_P0"),
+    ("contracts/", "DOMAIN_P0"),
+]
+FALLBACK_PROFILE = "FULL_P0"
+
+# 治理与工具链路径：改动面小但影响全局，一律走全量门禁，不接受"看起来只碰了一个文件"的降档。
+GOVERNANCE_PREFIXES: Tuple[str, ...] = (
+    "scripts/",
+    ".github/",
+    ".hacf/",
+    "contracts/",
+    "engine/uv.lock",
+    "engine/pyproject.toml",
+    "macos-app/Package.swift",
+)
+
+
+def _is_meta_path(path: str) -> bool:
+    """元数据路径：不触发领域测试。受保护门禁档案（.hacf/gates/**）不算元数据。"""
+    if path in ("README.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md", ".gitignore"):
+        return True
+    if path.endswith(".md") or path.startswith(("docs/", ".agents/")):
+        return True
+    return path == ".hacf/required-checks.json"
+
+
+def _stage_count(profile_id: str) -> int:
+    try:
+        entry = load_registry()["profiles"][profile_id]
+        profile = json.loads((REPO_ROOT / entry["file"]).read_text(encoding="utf-8"))
+        return len(profile.get("stages", []))
+    except Exception:  # noqa: BLE001 - 路由尽力而为，异常即视为最重
+        return 99
+
+
+def route_profile(files: List[str]) -> Tuple[str, str]:
+    """返回 (profile_id, 选档理由)。只做路由建议，不执行门禁。"""
+    known = load_registry()["profiles"]
+    code_files = [f for f in files if not _is_meta_path(f)]
+
+    if not code_files:
+        lightest = min(known, key=_stage_count)
+        return (
+            lightest,
+            f"纯元数据变更（{len(files)} 个文件）：选用阶段最少的档案"
+            f"（{_stage_count(lightest)} 阶段，仅做架构适应度级校验）",
+        )
+
+    if any(f.startswith(GOVERNANCE_PREFIXES) for f in code_files):
+        return FALLBACK_PROFILE, "触及治理/工具链路径：一律全量门禁"
+
+    hits = set()
+    for path in code_files:
+        for prefix, profile_id in PROFILE_ROUTING:
+            if path.startswith(prefix):
+                hits.add(profile_id)
+                break
+
+    if len(hits) == 1:
+        candidate = next(iter(hits))
+        if candidate in known:
+            return candidate, f"命中单一角色域：{', '.join(sorted(code_files)[:3])} …"
+        return FALLBACK_PROFILE, f"路由目标 '{candidate}' 不在 registry：回退全量门禁"
+    if not hits:
+        return FALLBACK_PROFILE, "未命中任何路由规则：回退全量门禁（宁可多跑不可漏跑）"
+    return (
+        FALLBACK_PROFILE,
+        f"跨 {len(hits)} 个角色域（{', '.join(sorted(hits))}）：回退全量门禁",
+    )
+
+
+def cmd_resolve(args: argparse.Namespace) -> int:
+    if args.changed_files:
+        files = [f.strip() for f in args.changed_files.split(",") if f.strip()]
+    else:
+        res = subprocess.run(
+            [
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "diff",
+                "--name-only",
+                f"{args.base_ref}...{args.head_ref}",
+            ],
+            cwd=Path(args.cwd),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+
+    profile_id, reason = route_profile(files)
+    print(f"📋 变更文件 {len(files)} 个")
+    print(f" 建议门禁档案: {profile_id}")
+    print(f"   理由: {reason}")
+    print(f"\n   执行: python3 scripts/gate_profile.py run --profile {profile_id}")
+    if args.json_out:
+        Path(args.json_out).write_text(
+            json.dumps(
+                {"profile": profile_id, "reason": reason, "changed_files": files},
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     cwd = Path(args.cwd).resolve()
     env_overrides: Dict[str, str] = {}
@@ -379,6 +495,15 @@ def main() -> int:
     show_parser = subparsers.add_parser("show", help="展示门禁档案与摘要")
     show_parser.add_argument("--profile", required=True)
 
+    resolve_parser = subparsers.add_parser(
+        "resolve", help="按变更集路由到最省时的门禁档案（不改状态）"
+    )
+    resolve_parser.add_argument("--base-ref", default="origin/main")
+    resolve_parser.add_argument("--head-ref", default="HEAD")
+    resolve_parser.add_argument("--changed-files", help="逗号分隔；默认由 git diff 计算")
+    resolve_parser.add_argument("--cwd", default=str(REPO_ROOT))
+    resolve_parser.add_argument("--json-out", help="可选：结构化结果输出路径")
+
     subparsers.add_parser("check", help="校验 registry 与 profile 文件摘要一致性")
     subparsers.add_parser("refresh-registry", help="重算 registry 摘要（受权变更专用）")
 
@@ -387,6 +512,8 @@ def main() -> int:
     try:
         if args.command == "run":
             return cmd_run(args)
+        if args.command == "resolve":
+            return cmd_resolve(args)
         if args.command == "show":
             profile, path, digest = resolve_profile(args.profile)
             print(f"🏷️  {profile['gate_profile_id']}  (risk_class: {profile.get('risk_class')})")

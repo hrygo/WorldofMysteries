@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -240,6 +241,11 @@ def integrate_pipeline(
         sys.exit(1)
     merged_sha = policy.run_git(["rev-parse", "HEAD"], cwd=REPO_ROOT)
     print(f"🎉 main 现已推进到 {merged_sha[:12]}")
+    print(
+        "⚠️  本地 main 已推进但**未推送**：受保护主分支只接受 PR 合入。\n"
+        "   请执行 'python3 scripts/collab_pipeline.py submit --branch "
+        f"{branch}' 推送分支并开 PR；本步骤仅视为合入前的本地预演。"
+    )
 
     # 4. Post-merge smoke：对合入后的真实 main 重新执行门禁
     smoke_result: Dict[str, Any] = {"result": "skipped", "coverage_gaps": ["post-merge smoke 被显式跳过"]}
@@ -322,6 +328,59 @@ def integrate_pipeline(
         print("✅ Worktree（含独立 .venv 与资源租约目录）与分支已清理。")
 
 
+def submit_pipeline(
+    branch: str,
+    base: str = "main",
+    title: Optional[str] = None,
+    body: Optional[str] = None,
+    auto_merge: bool = False,
+) -> None:
+    """推送隔离分支并开出 PR —— 受保护主分支的唯一合入通道。
+
+    主分支启用规则集后直接 push main 会被拒绝，本地快进合入只作为预演。
+    本命令补齐「推送分支 → 建（或复用）PR → 开启 auto-merge」闭环，
+    让协同流程只在需要判断时（PR 是否过门禁、是否要人工评审）才停一次。
+    """
+    target_dir = get_worktree_dir(branch)
+    cwd = target_dir if target_dir.exists() else REPO_ROOT
+    head_sha = run_cmd("git rev-parse --short HEAD", cwd=cwd).stdout.strip()
+
+    print(f" [CollabPipeline] 推送 {branch} @ {head_sha} 到 origin …")
+    run_cmd(f"git push -u origin {shlex.quote(branch)}", cwd=cwd)
+
+    existing = run_cmd(
+        f"gh pr list --head {shlex.quote(branch)} --json number --jq '.[0].number'",
+        cwd=cwd,
+        check=False,
+    ).stdout.strip()
+
+    if existing:
+        number = existing
+        print(f"ℹ️  PR #{number} 已存在：分支已更新，CI 将自动重跑（无需重建 PR）")
+    else:
+        pr_title = title or run_cmd("git log -1 --pretty=%s", cwd=cwd).stdout.strip()
+        pr_body = body or "由 CollabPipeline 提交；门禁证据见本 PR 的检查面板。"
+        created = run_cmd(
+            "gh pr create"
+            f" --base {shlex.quote(base)}"
+            f" --head {shlex.quote(branch)}"
+            f" --title {shlex.quote(pr_title)}"
+            f" --body {shlex.quote(pr_body)}",
+            cwd=cwd,
+        ).stdout.strip()
+        print(created)
+        number = run_cmd(
+            f"gh pr list --head {shlex.quote(branch)} --json number --jq '.[0].number'",
+            cwd=cwd,
+        ).stdout.strip()
+
+    if auto_merge and number:
+        run_cmd(f"gh pr merge {shlex.quote(number)} --squash --auto", cwd=cwd)
+        print(f"✅ 已为 PR #{number} 开启 auto-merge：必需检查通过后自动合入 {base}")
+    elif number:
+        print(f"👉 下一步：门禁通过后合入 `gh pr merge {number} --squash`")
+
+
 def abort_pipeline(branch: str) -> None:
     target_dir = get_worktree_dir(branch)
     if not target_dir.exists():
@@ -366,6 +425,15 @@ def main() -> int:
     p_abort = subparsers.add_parser("abort", help="放弃并清理工作区")
     p_abort.add_argument("--branch", required=True)
 
+    p_submit = subparsers.add_parser(
+        "submit", help="推送分支 + 开 PR（受保护主分支的唯一合入通道）"
+    )
+    p_submit.add_argument("--branch", required=True)
+    p_submit.add_argument("--base", default="main")
+    p_submit.add_argument("--title", help="PR 标题；默认取分支最新提交标题")
+    p_submit.add_argument("--body", help="PR 描述")
+    p_submit.add_argument("--auto-merge", action="store_true", help="开启 auto-merge（门禁过即合入）")
+
     subparsers.add_parser("status", help="列出活跃工作区与资源租约")
 
     args = parser.parse_args()
@@ -376,6 +444,8 @@ def main() -> int:
             integrate_pipeline(args.branch, args.auto_clean, args.task_id, args.no_smoke)
         elif args.command == "abort":
             abort_pipeline(args.branch)
+        elif args.command == "submit":
+            submit_pipeline(args.branch, args.base, args.title, args.body, args.auto_merge)
         elif args.command == "status":
             list_worktrees()
     except (RuntimeError, policy.PolicyError, gate_profile.GateProfileError) as exc:
