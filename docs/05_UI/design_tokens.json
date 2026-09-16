@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "World of Mysteries Design Tokens",
+  "version": "1.0.0",
+  "platform": "macOS 26+ / SwiftUI 6",
+  "theme": "Victorian Esoteric Steampunk & Cthulhu Mysticism",
+  "tokens": {
+    "colors": {
+      "background": {
+        "obsidianBase": { "value": "#0D0F12", "description": "Deep obsidian abyss background for main window canvas" },
+        "obsidianElevated": { "value": "#14181D", "description": "Elevated sidebar and floating panel canvas" },
+        "obsidianCard": { "value": "#1B2026", "description": "Frosted glass container and surface card background" },
+        "obsidianGlass": { "value": "#14181DCC", "description": "Translucent acrylic frosted glass layer" }
+      },
+      "brassGold": {
+        "primary": { "value": "#C5A059", "description": "Signature antique brass gold for active accents and borders" },
+        "hover": { "value": "#D4B26F", "description": "Brightened brass gold for hover and focused states" },
+        "muted": { "value": "#8C733E", "description": "Subdued antique bronze for inactive indicators and dividers" },
+        "border": { "value": "#4A3E25", "description": "Deep chamfered brass outline for Victorian cards" },
+        "glow": { "value": "#C5A0594D", "description": "Warm golden spiritual aura for active Listening Ring" }
+      },
+      "spirituality": {
+        "bluePrimary": { "value": "#4A90E2", "description": "Ethereal spirit vision and divination aura" },
+        "blueGlow": { "value": "#64B5F666", "description": "Translucent spiritual ripple for pendulum and scrying" },
+        "deepVoid": { "value": "#1D3557", "description": "Abyssal astral void backdrop for divination" }
+      },
+      "crimson": {
+        "star": { "value": "#E63946", "description": "Pulsing red celestial stars above the gray fog" },
+        "thread": { "value": "#B71C1C", "description": "Detective deduction red thread connecting clues" },
+        "glow": { "value": "#E6394666", "description": "Faint red moonlight and prayer beacon resonance" }
+      },
+      "parchment": {
+        "base": { "value": "#EADBB6", "description": "Aged yellowed Victorian parchment background for clues and chronicles" },
+        "card": { "value": "#F4EBD0", "description": "Pinned detective photo backing and case notes" },
+        "border": { "value": "#C8B282", "description": "Weathered vintage paper outline" },
+        "ink": { "value": "#2B2118", "description": "Sepia fountain pen ink for case notes" }
+      },
+      "text": {
+        "primary": { "value": "#F3F4F6", "description": "Primary high-contrast UI title and narrative dialogue" },
+        "secondary": { "value": "#9CA3AF", "description": "Secondary metadata, timestamps, and sequence pathways" },
+        "tertiary": { "value": "#6B7280", "description": "Muted system hints, placeholder texts, and footprints" },
+        "goldAccent": { "value": "#E2C485", "description": "Highlight text for Tarot titles and Beyonder attributes" }
+      },
+      "status": {
+        "online": { "value": "#2EC4B6", "description": "SpeechRail engine active and database healthy" },
+        "warning": { "value": "#FF9F1C", "description": "Approaching high spirituality / mental pressure alert" },
+        "danger": { "value": "#E71D36", "description": "Loss of control risk / corruption alert" },
+        "immutable": { "value": "#4895EF", "description": "Canon read-only immutable lock badge" }
+      }
+    },
+    "typography": {
+      "displayLarge": { "fontSize": 28, "fontWeight": "bold", "lineHeight": 36, "letterSpacing": 0.5 },
+      "titleMedium": { "fontSize": 18, "fontWeight": "semibold", "lineHeight": 24, "letterSpacing": 0.2 },
+      "titleSmall": { "fontSize": 15, "fontWeight": "semibold", "lineHeight": 20, "letterSpacing": 0.1 },
+      "bodyLarge": { "fontSize": 14, "fontWeight": "regular", "lineHeight": 22, "letterSpacing": 0.0 },
+      "bodyMedium": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 18, "letterSpacing": 0.0 },
+      "caption": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.1 },
+      "monoBadge": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.4, "fontFamily": "Monospaced" },
+      "parchmentCursive": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 19, "letterSpacing": 0.2, "fontDesign": "serif" }
+    },
+    "spacing": {
+      "xxs": 2,
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32,
+      "xxxl": 48
+    },
+    "radii": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "full": 9999
+    },
+    "borders": {
+      "hairline": 0.5,
+      "standard": 1.0,
+      "chamfer": 1.5,
+      "heavy": 2.0
+    },
+    "motion": {
+      "listeningPulseDuration": 2.4,
+      "voiceWaveformResponse": 0.12,
+      "stateTransitionDuration": 0.35,
+      "pendulumSwingPeriod": 3.2
+    }
+  }
+}
