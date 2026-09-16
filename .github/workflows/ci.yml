@@ -58,6 +58,10 @@ jobs:
         run: |
           python3 scripts/gate_profile.py check
 
+      - name: Verify Required-Check Contract
+        run: |
+          python3 scripts/check_required_checks.py
+
   # Stage 2: Python Engine & Contracts Test Suite (Apple Silicon runner, macOS 26+ baseline)
   python-engine:
     name: "Stage 2: Python Engine & Contracts"

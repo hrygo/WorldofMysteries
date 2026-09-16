@@ -20,7 +20,9 @@ defaults:
 
 jobs:
   audit-capsule-scope:
-    name: "Audit Task Capsule Scope, Gate Sovereignty & Receipt Evidence"
+    # ⚠️ 检查名是公开接口：分支保护按名字匹配必需检查，改名会让所有 PR 永久 pending。
+    # 该名字受 .hacf/required-checks.json 契约与 scripts/check_required_checks.py 守卫。
+    name: "Capsule Gate"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
