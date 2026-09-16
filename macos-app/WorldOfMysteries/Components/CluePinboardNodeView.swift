@@ -78,7 +78,7 @@ public struct CluePinboardNodeView: View {
             )
             .shadow(color: Color.black.opacity(0.2), radius: 6, y: 3)
         }
-        .buttonStyle(.plain)
+        .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
     }
 }
 

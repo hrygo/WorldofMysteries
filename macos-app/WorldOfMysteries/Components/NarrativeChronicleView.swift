@@ -14,10 +14,15 @@ public enum NarrativeSpeakerRole: Sendable {
     }
     
     public var badgeColor: Color {
+        tone.accent
+    }
+    
+    /// 统一语义色调（与 `MysticTone` 单一事实源对齐）
+    public var tone: MysticTone {
         switch self {
-        case .narrator: return Color.Mystic.textTertiary
-        case .character: return Color.Mystic.brassGoldPrimary
-        case .playerAdvice: return Color.Mystic.spiritualBlue
+        case .narrator: return .neutral
+        case .character: return .gold
+        case .playerAdvice: return .azure
         }
     }
 }
@@ -49,14 +54,7 @@ public struct NarrativeChronicleView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 // 头部说话人标签与时间戳
                 HStack(spacing: DesignTokens.Spacing.sm) {
-                    Text(role.displayName)
-                        .font(Font.Mystic.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(role.badgeColor)
-                        .padding(.horizontal, DesignTokens.Spacing.sm)
-                        .padding(.vertical, DesignTokens.Spacing.xxs)
-                        .background(role.badgeColor.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+                    MysticBadge(role.displayName, tone: role.tone, variant: .panel, isEmphasized: true)
                     
                     Spacer()
                     
@@ -78,15 +76,22 @@ public struct NarrativeChronicleView: View {
                             .foregroundStyle(Color.Mystic.brassGoldHover)
                             .padding(.horizontal, DesignTokens.Spacing.xs)
                         }
-                        .buttonStyle(.plain)
+                        .mysticPressable(scale: 0.97)
                     }
                 }
                 
                 // 核心叙事正文
-                Text(content)
-                    .font(Font.Mystic.narrativeSubtitle)
-                    .foregroundStyle(Color.Mystic.textPrimary)
-                    .lineSpacing(6)
+                if content.isEmpty {
+                    MysticEmptyState(
+                        systemIcon: "text.alignleft",
+                        title: "本章回尚无已提交叙事",
+                        message: "叙事只在 COMMIT 之后落库；条目为空即表示尚未产生已提交章回。",
+                        tone: .neutral
+                    )
+                } else {
+                    Text(content)
+                        .mysticNarrativeStyle()
+                }
             }
         }
     }

@@ -40,16 +40,18 @@ public struct CitrinePendulumArtwork: View {
                     artworkLayer(artwork: artwork, layout: layout, image: artworkImage)
                         .mask(stationaryMask(artwork: artwork, layout: layout))
                     
-                    // 灵摆层：同一原画裁切到条带，绕手指捏链点摆动
+                    // 灵摆层：同一原画绕手指捏链点摆动，再套用**固定**条带遮罩。
+                    // 遮罩必须位于旋转之后：遮罩若随内容旋转，会与静态层缺口错位成月牙鬼影。
                     artworkLayer(artwork: artwork, layout: layout, image: artworkImage)
-                        .mask(swingingMask(artwork: artwork, layout: layout))
                         .rotationEffect(
-                            .degrees(swingAngle),
+                            // SwiftUI 正角为屏幕顺时针（y 轴向下），取负使正角语义化为「向右偏摆」
+                            .degrees(-swingAngle),
                             anchor: UnitPoint(
                                 x: layout.swingAnchorUnitPoint.x,
                                 y: layout.swingAnchorUnitPoint.y
                             )
                         )
+                        .mask(swingingMask(artwork: artwork, layout: layout))
                 } else {
                     vectorFallback
                 }

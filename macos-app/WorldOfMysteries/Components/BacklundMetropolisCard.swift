@@ -28,11 +28,16 @@ public enum BacklundDistrict: String, CaseIterable, Identifiable, Sendable {
     }
     
     public var dangerColor: Color {
+        tone.accent
+    }
+    
+    /// 统一语义色调（与 `MysticTone` 单一事实源对齐）
+    public var tone: MysticTone {
         switch self {
-        case .cherwood: return Color.Mystic.brassGoldPrimary
-        case .bridge: return Color.Mystic.statusWarning
-        case .eastEnd: return Color.Mystic.crimsonStar
-        case .empress: return Color.Mystic.statusOnline
+        case .cherwood: return .gold
+        case .bridge: return .amber
+        case .eastEnd: return .crimson
+        case .empress: return .teal
         }
     }
 }
@@ -118,34 +123,19 @@ public struct BacklundMetropolisCard: View {
             HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
                 // 大雾霾指数
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Image(systemName: "smoke.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.Mystic.statusWarning)
-                        Text("贝克兰德大雾霾")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.Mystic.textSecondary)
-                        Spacer()
-                        Text("\(Int(smogLevel * 100))%")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.Mystic.statusWarning)
-                    }
+                    MysticKeyValueRow(
+                        key: "贝克兰德大雾霾",
+                        value: "\(Int(smogLevel * 100))%",
+                        tone: .amber,
+                        isMonospaced: true,
+                        systemIcon: "smoke.fill"
+                    )
                     
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color.Mystic.obsidianCard)
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.Mystic.statusWarning, Color.Mystic.crimsonStar],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: proxy.size.width * smogLevel)
-                        }
-                    }
-                    .frame(height: 5)
+                    MysticMetricBar(
+                        value: smogLevel,
+                        tone: .amber,
+                        gradientTones: [.amber, .crimson]
+                    )
                 }
                 .padding(DesignTokens.Spacing.sm)
                 .background(Color.Mystic.obsidianCard)
@@ -153,18 +143,12 @@ public struct BacklundMetropolisCard: View {
                 
                 // 塔索克河航运与官方警戒
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Image(systemName: "water.waves")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.Mystic.spiritualBlue)
-                        Text("塔索克河航运")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.Mystic.textSecondary)
-                        Spacer()
-                        Text("通畅")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.Mystic.statusOnline)
-                    }
+                    MysticKeyValueRow(
+                        key: "塔索克河航运",
+                        value: "通畅",
+                        tone: .teal,
+                        systemIcon: "water.waves"
+                    )
                     
                     Text("代罚者与军情九处巡航中")
                         .font(.system(size: 9))
@@ -225,13 +209,7 @@ public struct BacklundMetropolisCard: View {
                             .foregroundStyle(isSelected ? Color.Mystic.textPrimary : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary))
                             .tracking(DesignTokens.TypographyMetrics.bodyTracking)
                         
-                        Text(district.dangerLevel)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(district.dangerColor)
-                            .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal - 2)
-                            .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical - 1)
-                            .background(district.dangerColor.opacity(0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 2))
+                        MysticBadge(district.dangerLevel, tone: district.tone, isEmphasized: true)
                     }
                     
                     Text(district.description)

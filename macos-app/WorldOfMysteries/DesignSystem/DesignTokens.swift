@@ -3,7 +3,9 @@ import SwiftUI
 // MARK: - DesignTokens Namespace v1.2
 
 /// 《诡秘世界》跨端同源设计 Token 语言体系 (Single Source of Truth)
-/// 严格对齐 `docs/05_UI/design_tokens.json` (v1.2.0)
+/// 对齐 `docs/05_UI/design_tokens.json`（v1.1.0）。
+/// v1.2 增补族（`LayoutInsets` / `Interaction` / `ComponentMetrics.CitrineArtwork`）与排版度量扩项
+/// 尚未回写该 JSON：`docs/` 属 AGT-ARB 管辖，需扩权或架构评审后同步，避免出现第二份事实源。
 public enum DesignTokens: Sendable {
     
     // MARK: - Spacing Grid (4pt / 8pt 阶梯)
@@ -107,8 +109,8 @@ public enum DesignTokens: Sendable {
             public static let coverageGuard: CGFloat = 1.01
             
             /// 摆动条带：仅「银链 + 黄水晶」参与摇晃，静态场景保持不动
-            public static let swingStripWidth: CGFloat = 100
-            public static let swingStripBottomOffset: CGFloat = 120
+            public static let swingStripWidth: CGFloat = 72
+            public static let swingStripBottomOffset: CGFloat = 112
         }
     }
     

@@ -43,10 +43,7 @@ public struct DatabaseStatusHUDCard: View {
         VictorianCard(style: .obsidianGlass, cornerRadius: DesignTokens.Radii.md) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 HStack {
-                    Circle()
-                        .fill(isHealthy ? Color.Mystic.statusOnline : Color.Mystic.statusDanger)
-                        .frame(width: 8, height: 8)
-                        .shadow(color: isHealthy ? Color.Mystic.statusOnline : Color.Mystic.statusDanger, radius: 4)
+                    MysticStatusDot(tone: isHealthy ? .teal : .crimson, isPulsing: !isHealthy)
                     
                     Text(role.rawValue)
                         .font(Font.Mystic.titleSmall)
@@ -64,22 +61,13 @@ public struct DatabaseStatusHUDCard: View {
                     .foregroundStyle(Color.Mystic.textSecondary)
                 
                 if role.isRebuildable {
-                    Button {
-                        onRebuildTapped?()
-                    } label: {
-                        HStack(spacing: DesignTokens.Spacing.xs) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 11))
-                            Text("100% 幂等重建索引")
-                                .font(Font.Mystic.caption)
-                        }
-                        .padding(.horizontal, DesignTokens.Spacing.sm)
-                        .padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(Color.Mystic.brassGoldBorder.opacity(0.6))
-                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
-                        .foregroundStyle(Color.Mystic.brassGoldHover)
-                    }
-                    .buttonStyle(.plain)
+                    MysticIconButton(
+                        systemIcon: "arrow.triangle.2.circlepath",
+                        title: "100% 幂等重建索引",
+                        tone: .teal,
+                        helpText: "retrieval.db 为异步投影，删除后可 100% 幂等重建",
+                        action: { onRebuildTapped?() }
+                    )
                     .padding(.top, DesignTokens.Spacing.xxs)
                 }
             }

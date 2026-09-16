@@ -137,9 +137,9 @@ public struct WorldlineNodeView: View {
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
             .shadow(color: Color.black.opacity(0.3), radius: 6, y: 2)
         }
-        .buttonStyle(.plain)
+        .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
         .onHover { hovering in
-            withAnimation(DesignTokens.Motion.smoothSpring) {
+            withAnimation(DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering
             }
         }
