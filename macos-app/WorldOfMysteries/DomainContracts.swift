@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Character DTO
-public struct CharacterIdentityDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterIdentityDTO: Codable, Sendable, Equatable {
     public let displayName: String
     public let age: Int?
     public let occupation: String?
@@ -17,7 +17,7 @@ public struct CharacterIdentityDTO: Codable, Sendable, Equatable {
     }
 }
 
-public struct CharacterCoreDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterCoreDTO: Codable, Sendable, Equatable {
     public let traits: [String: String]
     public let decisionStyle: [String]
     public let values: [String: String]
@@ -31,25 +31,25 @@ public struct CharacterCoreDTO: Codable, Sendable, Equatable {
     }
 }
 
-public struct CharacterGoalsDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterGoalsDTO: Codable, Sendable, Equatable {
     public let long: String?
     public let medium: String?
     public let immediate: String?
 }
 
-public struct CharacterEmotionDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterEmotionDTO: Codable, Sendable, Equatable {
     public let primary: String?
     public let intensity: Double?
 }
 
-public struct CharacterConditionDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterConditionDTO: Codable, Sendable, Equatable {
     public let injury: String?
     public let fatigue: Double?
     public let spirituality: Double?
     public let corruption: Double?
 }
 
-public struct CharacterStateDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterStateDTO: Codable, Sendable, Equatable {
     public let locationId: String?
     public let goals: CharacterGoalsDTO
     public let emotion: CharacterEmotionDTO?
@@ -63,7 +63,7 @@ public struct CharacterStateDTO: Codable, Sendable, Equatable {
     }
 }
 
-public struct CharacterDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let id: String
     public let kind: String
@@ -84,7 +84,7 @@ public struct CharacterDTO: Codable, Sendable, Equatable {
 }
 
 // MARK: - World Snapshot DTO
-public struct WorldLocationDTO: Codable, Sendable, Equatable {
+public nonisolated struct WorldLocationDTO: Codable, Sendable, Equatable {
     public let id: String
     public let city: String?
     public let district: String?
@@ -104,7 +104,7 @@ public struct WorldLocationDTO: Codable, Sendable, Equatable {
     }
 }
 
-public struct WorldSnapshotDTO: Codable, Sendable, Equatable {
+public nonisolated struct WorldSnapshotDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let worldId: String
     public let worldlineId: String
@@ -125,7 +125,7 @@ public struct WorldSnapshotDTO: Codable, Sendable, Equatable {
 }
 
 // MARK: - Player Advice DTO
-public struct PlayerAdviceDTO: Codable, Sendable, Equatable {
+public nonisolated struct PlayerAdviceDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let id: String
     public let turnId: String?
@@ -152,7 +152,7 @@ public struct PlayerAdviceDTO: Codable, Sendable, Equatable {
 }
 
 // MARK: - Episode DTO
-public struct EpisodeEndingDTO: Codable, Sendable, Equatable {
+public nonisolated struct EpisodeEndingDTO: Codable, Sendable, Equatable {
     public let type: String
     public let mainProblem: String?
 
@@ -162,7 +162,7 @@ public struct EpisodeEndingDTO: Codable, Sendable, Equatable {
     }
 }
 
-public struct EpisodeDTO: Codable, Sendable, Equatable {
+public nonisolated struct EpisodeDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let id: String
     public let worldId: String
@@ -195,13 +195,13 @@ public struct EpisodeDTO: Codable, Sendable, Equatable {
 }
 
 // MARK: - Knowledge DTO
-public struct KnowledgeSourceDTO: Codable, Sendable, Equatable {
+public nonisolated struct KnowledgeSourceDTO: Codable, Sendable, Equatable {
     public let type: String
     public let ref: String
     public let reliability: Double?
 }
 
-public struct CharacterKnowledgeDTO: Codable, Sendable, Equatable {
+public nonisolated struct CharacterKnowledgeDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let id: String
     public let characterId: String

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "World of Mysteries Design Tokens",
+  "version": "1.1.0",
+  "platform": "macOS 26+ / SwiftUI 6",
+  "theme": "Victorian Esoteric Steampunk & Cthulhu Mysticism",
+  "tokens": {
+    "colors": {
+      "background": {
+        "obsidianBase": { "value": "#0D0F12", "description": "Deep obsidian abyss background for main window canvas" },
+        "obsidianElevated": { "value": "#14181D", "description": "Elevated sidebar and floating panel canvas" },
+        "obsidianCard": { "value": "#1B2026", "description": "Frosted glass container and surface card background" },
+        "obsidianGlass": { "value": "#14181DCC", "description": "Translucent acrylic frosted glass layer" },
+        "abyssVoid": { "value": "#08090B", "description": "Pure cosmic void darkness behind the gray fog" }
+      },
+      "brassGold": {
+        "primary": { "value": "#C9A55E", "description": "Signature antique brass gold (7.8:1 AAA vs #0D0F12) for active accents and borders" },
+        "hover": { "value": "#DAB976", "description": "Brightened brass gold for hover and focused states" },
+        "muted": { "value": "#9E834B", "description": "Subdued antique bronze (4.7:1 AA vs #0D0F12) for inactive indicators and dividers" },
+        "border": { "value": "#4A3E25", "description": "Deep chamfered brass outline for Victorian cards" },
+        "glow": { "value": "#C9A55E4D", "description": "Warm golden spiritual aura for active Listening Ring" }
+      },
+      "spirituality": {
+        "bluePrimary": { "value": "#4A90E2", "description": "Ethereal spirit vision and divination aura" },
+        "blueGlow": { "value": "#64B5F666", "description": "Translucent spiritual ripple for pendulum and scrying" },
+        "deepVoid": { "value": "#1D3557", "description": "Abyssal astral void backdrop for divination" },
+        "spiritWall": { "value": "#80D8FF40", "description": "Luminescent translucent barrier of Wall of Spirituality" }
+      },
+      "crimson": {
+        "star": { "value": "#E63946", "description": "Pulsing red celestial stars above the gray fog" },
+        "thread": { "value": "#B71C1C", "description": "Detective deduction red thread connecting clues" },
+        "glow": { "value": "#E6394666", "description": "Faint red moonlight and prayer beacon resonance" }
+      },
+      "parchment": {
+        "base": { "value": "#EADBB6", "description": "Aged yellowed Victorian parchment background for clues and chronicles" },
+        "card": { "value": "#F4EBD0", "description": "Pinned detective photo backing and case notes" },
+        "border": { "value": "#C8B282", "description": "Weathered vintage paper outline" },
+        "ink": { "value": "#2B2118", "description": "Sepia fountain pen ink (12.5:1 AAA vs #F4EBD0) for case notes" },
+        "inkSecondary": { "value": "#5A4838", "description": "Secondary pen ink (6.7:1 AA vs #F4EBD0) for notes annotation" },
+        "inkTertiary": { "value": "#7A6652", "description": "Tertiary faded vintage ink (4.5:1 AA vs #F4EBD0) for date stamps" },
+        "waxSeal": { "value": "#9E2A2B", "description": "Burgundy wax stamp on classified documents" }
+      },
+      "text": {
+        "primary": { "value": "#F5F6F8", "description": "Primary high-contrast UI title and narrative dialogue (17.2:1 AAA vs #0D0F12)" },
+        "secondary": { "value": "#A2ABB9", "description": "Secondary metadata and sequence pathways (8.1:1 AAA vs #0D0F12)" },
+        "tertiary": { "value": "#7E8B9B", "description": "Muted system hints and footprints (4.9:1 AA vs #0D0F12, WCAG compliant)" },
+        "goldAccent": { "value": "#E6CA8D", "description": "Highlight text for Tarot titles and Beyonder attributes (11.4:1 AAA vs #0D0F12)" }
+      },
+      "status": {
+        "online": { "value": "#2EC4B6", "description": "SpeechRail engine active and database healthy" },
+        "warning": { "value": "#FF9F1C", "description": "Approaching high spirituality / mental pressure alert" },
+        "danger": { "value": "#E71D36", "description": "Loss of control risk / corruption alert" },
+        "immutable": { "value": "#4895EF", "description": "Canon read-only immutable lock badge" }
+      },
+      "pathways": {
+        "fool": { "value": "#7B2CBF", "description": "Seer / The Fool pathway mysterious violet" },
+        "door": { "value": "#0077B6", "description": "Apprentice / Door pathway astral azure" },
+        "error": { "value": "#D4A373", "description": "Marauder / Error pathway antique timepiece brass" },
+        "darkness": { "value": "#3A0CA3", "description": "Sleepless / Darkness pathway crimson midnight" },
+        "sun": { "value": "#FB8500", "description": "Bard / Sun pathway divine radiant amber" },
+        "visionary": { "value": "#E9D8A6", "description": "Spectator / Visionary pathway pale dragon gold" }
+      }
+    },
+    "typography": {
+      "gothicDisplay": { "fontSize": 32, "fontWeight": "heavy", "lineHeight": 42, "letterSpacing": 0.8, "fontFamily": "New York", "cjkFallback": "Songti SC", "fontDesign": "serif" },
+      "displayLarge": { "fontSize": 28, "fontWeight": "bold", "lineHeight": 36, "letterSpacing": 0.5, "fontFamily": "New York", "cjkFallback": "Songti SC", "fontDesign": "serif" },
+      "titleLarge": { "fontSize": 22, "fontWeight": "bold", "lineHeight": 30, "letterSpacing": 0.3, "fontFamily": "New York", "cjkFallback": "Songti SC", "fontDesign": "serif" },
+      "titleMedium": { "fontSize": 18, "fontWeight": "semibold", "lineHeight": 24, "letterSpacing": 0.2, "fontFamily": "New York", "cjkFallback": "Songti SC", "fontDesign": "serif" },
+      "titleSmall": { "fontSize": 15, "fontWeight": "semibold", "lineHeight": 20, "letterSpacing": 0.1, "fontFamily": "SF Pro", "cjkFallback": "PingFang SC", "fontDesign": "default" },
+      "narrativeSubtitle": { "fontSize": 16, "fontWeight": "medium", "lineHeight": 26, "letterSpacing": 0.3, "fontFamily": "New York", "cjkFallback": "Songti SC", "fontDesign": "serif" },
+      "bodyLarge": { "fontSize": 14, "fontWeight": "regular", "lineHeight": 22, "letterSpacing": 0.0, "fontFamily": "SF Pro", "cjkFallback": "PingFang SC", "fontDesign": "default" },
+      "bodyMedium": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 18, "letterSpacing": 0.0, "fontFamily": "SF Pro", "cjkFallback": "PingFang SC", "fontDesign": "default" },
+      "caption": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.1, "fontFamily": "SF Pro", "cjkFallback": "PingFang SC", "fontDesign": "default" },
+      "monoBadge": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.4, "fontFamily": "SF Mono", "cjkFallback": "PingFang SC", "fontDesign": "monospaced" },
+      "parchmentCursive": { "fontSize": 14, "fontWeight": "regular", "lineHeight": 22, "letterSpacing": 0.2, "fontFamily": "Kaiti SC", "cjkFallback": "Kaiti SC", "fontDesign": "script" }
+    },
+    "typographyMetrics": {
+      "narrativeLineSpacing": 6,
+      "parchmentLineSpacing": 5,
+      "displayTracking": 0.6,
+      "titleTracking": 0.2,
+      "monoTracking": 0.4
+    },
+    "spacing": {
+      "xxs": 2,
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32,
+      "xxxl": 48
+    },
+    "radii": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "full": 9999
+    },
+    "borders": {
+      "hairline": 0.5,
+      "standard": 1.0,
+      "chamfer": 1.5,
+      "heavy": 2.0
+    },
+    "elevation": {
+      "base": 0,
+      "elevated": 1,
+      "card": 2,
+      "floating": 3,
+      "modal": 4,
+      "hud": 5
+    },
+    "accessibility": {
+      "focusRingColor": "#C9A55E",
+      "focusRingWidth": 2.0,
+      "focusRingOffset": 2.0,
+      "contrastAudit": {
+        "wcagStandard": "2.1",
+        "darkObsidianBase": "#0D0F12",
+        "ratios": {
+          "textPrimary": { "hex": "#F5F6F8", "ratio": "17.2:1", "level": "AAA" },
+          "textSecondary": { "hex": "#A2ABB9", "ratio": "8.1:1", "level": "AAA" },
+          "textTertiary": { "hex": "#7E8B9B", "ratio": "4.9:1", "level": "AA" },
+          "textGoldAccent": { "hex": "#E6CA8D", "ratio": "11.4:1", "level": "AAA" },
+          "brassGoldPrimary": { "hex": "#C9A55E", "ratio": "7.8:1", "level": "AAA" },
+          "brassGoldMuted": { "hex": "#9E834B", "ratio": "4.7:1", "level": "AA" },
+          "parchmentInk": { "hex": "#2B2118", "against": "#F4EBD0", "ratio": "12.5:1", "level": "AAA" },
+          "parchmentInkSecondary": { "hex": "#5A4838", "against": "#F4EBD0", "ratio": "6.7:1", "level": "AA" },
+          "parchmentInkTertiary": { "hex": "#7A6652", "against": "#F4EBD0", "ratio": "4.5:1", "level": "AA" }
+        }
+      }
+    },
+    "componentTokens": {
+      "listeningRing": {
+        "diameterDefault": 58,
+        "diameterCompact": 42,
+        "innerCircleDiameter": 38,
+        "pulseScaleMax": 1.25
+      },
+      "sidebar": {
+        "width": 200,
+        "itemHeight": 36,
+        "iconSize": 14
+      },
+      "gauge": {
+        "diameter": 88,
+        "innerDiameter": 74,
+        "needleWidth": 2,
+        "needleLength": 26,
+        "criticalThreshold": 0.25,
+        "warningThreshold": 0.50
+      },
+      "tarotCard": {
+        "aspectRatio": 1.618,
+        "cornerNotchSize": 6
+      },
+      "worldlineNode": {
+        "timelineWidth": 2,
+        "indicatorDiameter": 32,
+        "cardPadding": 12
+      },
+      "spiritPendulum": {
+        "citrineWidth": 24,
+        "citrineHeight": 42,
+        "chainLength": 90,
+        "rippleDiameter": 140
+      },
+      "bronzeAltar": {
+        "candleCount": 3,
+        "candleDiameter": 6,
+        "honorificTracking": 0.2
+      },
+      "crimsonStar": {
+        "starCoreDiameter": 20,
+        "glowMaxDiameter": 38,
+        "pulseScale": 1.35
+      },
+      "characterCodex": {
+        "portraitDiameter": 48,
+        "metricBarHeight": 5,
+        "statusDotDiameter": 10
+      }
+    },
+    "motion": {
+      "listeningPulseDuration": 2.4,
+      "voiceWaveformResponse": 0.12,
+      "stateTransitionDuration": 0.35,
+      "pendulumSwingPeriod": 3.2,
+      "typewriterInterval": 0.04
+    }
+  }
+}

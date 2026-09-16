@@ -1,7 +1,7 @@
 import Foundation
 
 /// Structured error payload for IPC communications.
-public struct IPCErrorPayload: Codable, Sendable, Equatable {
+public nonisolated struct IPCErrorPayload: Codable, Sendable, Equatable {
     public let code: String
     public let message: String
     public let retryable: Bool
@@ -14,7 +14,7 @@ public struct IPCErrorPayload: Codable, Sendable, Equatable {
 }
 
 /// Type-erased Codable and Sendable JSON representation.
-public enum AnyCodableValue: Codable, Sendable, Equatable {
+public nonisolated enum AnyCodableValue: Codable, Sendable, Equatable {
     case string(String)
     case int(Int)
     case double(Double)
@@ -68,7 +68,7 @@ public enum AnyCodableValue: Codable, Sendable, Equatable {
 }
 
 /// Standard IPC Envelope representing message transfer over UDS between macOS App and Engine.
-public struct IPCEnvelope: Codable, Sendable {
+public nonisolated struct IPCEnvelope: Codable, Sendable {
     public let kind: String
     public let protocolVersion: String
     public let traceId: String

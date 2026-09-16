@@ -1,0 +1,10 @@
+{
+  "name": "World of Mysteries Design Kit",
+  "id": "wom-design-kit-local-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}

@@ -116,9 +116,12 @@ logs/
 run/
 outbox/
 tmp/
+.tmp/
 scratch/
 assets/temp/
 assets/generated/
+*.tmp
+*.temp
 # IPC Unix Domain Socket 套接字文件
 *.sock
 *.socket
