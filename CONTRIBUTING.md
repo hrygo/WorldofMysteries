@@ -35,8 +35,11 @@ python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --
 # 3. 授权范围核验 + sha256 验收签名
 python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
 
-# 4. 跑批门禁并 Fast-Forward 原子合入 main
-python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
+# 4. 本地集成预演（门禁 + CAS 复核 + ff 合入 + post-merge smoke + 集成凭单）
+python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
+
+# 5. 提交 PR（受保护主分支的唯一合入通道，可直接开 auto-merge）
+python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
 ```
 
 7 大专精角色的职责与授权目录见 [`AGENTS.md`](AGENTS.md) 第 4 节；`.github/CODEOWNERS` 是目录所有权的硬防线。
@@ -46,10 +49,15 @@ python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 提交前必须本地全绿：
 
 ```bash
-bash scripts/gate_runner.sh        # Stage 1 架构适应度 + Stage 2 pytest + Stage 3 swift test
+bash scripts/gate_runner.sh                       # 全量：架构适应度 + pytest + swift test
+python3 scripts/gate_profile.py resolve           # 按改动面给出建议档案，避免每轮都跑全量
+python3 scripts/gate_profile.py run --profile <ID>
 ```
 
-云端由 `.github/workflows/` 复跑同一套门禁，聚合结论为 `All Quality Gates Passed`。
+云端由 `.github/workflows/` 复跑同一套门禁。main 的必需检查为 `All Quality Gates Passed`
+与 `Capsule Gate`，定义在 [`.hacf/required-checks.json`](.hacf/required-checks.json)：
+检查名是公开接口，由 `scripts/check_required_checks.py` 在 CI 守卫，
+`scripts/sync_branch_protection.py`（默认 dry-run）负责与 ruleset 同步。
 
 ## 5. 提交与 PR 规范
 

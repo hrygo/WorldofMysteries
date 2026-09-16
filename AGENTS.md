@@ -170,12 +170,23 @@ repo/
    # 1. 四类边界裁决（read/write/forbidden/privileged）+ 受保护门禁 + 签发 Work Receipt
    rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
    ```
-4. **集成合入 (Integrate)**：
+4. **集成预演 (Integrate · 本地)**：
    ```bash
-   # 2. 门禁 → expected_main_sha CAS 复核 → ff 合入 → post-merge smoke → Integration Receipt → 自愈清理
-   rtk python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
+   # 门禁 → expected_main_sha CAS 复核 → 本地 ff 合入 → post-merge smoke → Integration Receipt
+   rtk python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
    ```
    *越界或需扩权时退出码 1；高风险面（`contracts/`、`.hacf/`、`.github/`、`migrations/`）须由 `AGT-ARB` 显式 grant。*
+   *本地 main 仅作预演：受保护主分支拒绝直接 push，合入必须走 PR。*
+5. **提交 PR (Submit)**：
+   ```bash
+   # 推送分支 → 建（或复用）PR → 可选 auto-merge（必需检查通过后自动合入）
+   rtk python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
+   ```
+   *必需检查为 `All Quality Gates Passed` 与 `Capsule Gate`。检查名是公开接口：定义在
+   `.hacf/required-checks.json`，由 `scripts/check_required_checks.py` 在 CI 守卫，
+   `scripts/sync_branch_protection.py`（默认 dry-run）负责与 ruleset 同步——改名而未同步会让所有 PR 永久 pending。*
+   *按改动面收窄本地门禁耗时：`rtk python3 scripts/gate_profile.py resolve` 给出建议档案
+   （治理/工具链路径一律全量，纯元数据走最轻档案）。*
 
 ---
 
@@ -187,9 +198,9 @@ repo/
 本地工作区 (Local)                      GitHub Actions (Cloud CI)
 ┌───────────────────────────┐         ┌─────────────────────────────────┐
 │ collab_pipeline.py        │         │ 1. capsule-audit.yml            │
-│ 跑批受保护门禁 + CAS 合入 │──Push──>│    核验 PR 未超出 capsule.scope  │
+│ 跑批受保护门禁 + PR 提交   │──Push──>│    核验 PR 未超出 capsule.scope  │
 │ 签发摘要凭单 (Receipt)     │         │    门禁档案主权 (目标分支 registry)│
-│                           │         │    凭单证据完整性 (无证据不放行)  │
+│                           │         │    分级：BLOCKING 才阻断合入      │
 └───────────────────────────┘         ├─────────────────────────────────┤
                                       │ 2. ci.yml (3-Stage Gates)       │
                                       │    Stage 1: 架构 AST 检查 & Schema│
@@ -201,7 +212,7 @@ repo/
                                       └─────────────────────────────────┘
                                                        │
                                                        ▼
-                                      保护分支主线 (main) Fast-Forward 演进
+                                      保护分支主线 (main)：严格 PR 合入（squash / rebase）
 ```
 
 ### GitHub Actions 现代工程基线准则

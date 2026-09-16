@@ -188,12 +188,19 @@ def changes_digest(base_ref: str, head_ref: str, cwd: Path = REPO_ROOT) -> str:
     凭单以此摘要绑定"验收过的内容"，而不是绑定某个 commit：
     rebase、合入最新 main、或纯提交信息变更都不改变摘要，凭单继续有效；
     只有实际改动（含文件增删改）或胶囊变化才要求重跑门禁。
+
+    证据文件（`.agents/capsules/`、`.agents/receipts/`）不计入摘要，否则
+    "签发凭单 → 提交凭单"会改变摘要并让凭单立刻失效（自指死循环）。
+    胶囊内容另由凭单的 `capsule_digest` 字段独立绑定。
     """
     names = split_nul(
         run_git_bytes(["diff", "--name-only", "-z", f"{base_ref}...{head_ref}"], cwd=cwd)
     )
     entries: List[str] = []
-    for name in sorted(n for n in names if n):
+    substantive = [
+        n for n in names if n and not n.startswith((".agents/capsules/", ".agents/receipts/"))
+    ]
+    for name in sorted(substantive):
         res = subprocess.run(
             ["git", "ls-tree", head_ref, "--", name],
             cwd=cwd,
