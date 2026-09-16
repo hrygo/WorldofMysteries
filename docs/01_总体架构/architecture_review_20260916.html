@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>《诡秘世界》架构深化与人机协同演进报告</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Banner -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
+          Ω
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white">World of Mysteries · 架构深度优化报告</h1>
+          <p class="text-xs text-slate-400">基于 Deep Modules 理论 · 系统实现架构 &amp; 人机协同研发架构双重视角</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3 text-xs">
+        <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">AST Nodes: 4,386</span>
+        <span class="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Edges: 5,771</span>
+        <span class="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">Clean Architecture: A+</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-10 space-y-12">
+
+    <!-- Executive Intro -->
+    <section class="rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-8 shadow-xl">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-semibold mb-4 border border-indigo-500/20">
+          <span>ARCHITECTURAL VOCABULARY</span>
+          <span class="text-slate-600">·</span>
+          <span>DEPTH · SEAM · ADAPTER · LEVERAGE · LOCALITY</span>
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight text-white mb-3">
+          从“浅模块拼装”到“高杠杆深模块”的架构跃迁
+        </h2>
+        <p class="text-slate-300 text-sm leading-relaxed mb-6">
+          当前项目在 <strong>Phase 0 契约冻结</strong> 阶段已建立极佳的分层隔离（领域层 Fan-in: 6, Fan-out: 0；macOS App Fan-in: 13, Fan-out: 0）。
+          然而，随着工程向 <strong>Phase 1 数据内核</strong> 与 <strong>多 Agent 并发开发</strong> 演进，系统与人机流程中均潜藏着若干 <em>Shallow Modules（浅模块）</em>。
+          本次架构体检聚焦于：<strong>通过加深模块（Deepening），以极简接口（Interface）隐藏极致复杂度，并在物理接缝（Seams）处提供极高的杠杆率（Leverage）与局部性（Locality）。</strong>
+        </p>
+      </div>
+
+      <!-- Key Metrics Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-6 border-t border-slate-800/80">
+        <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+          <div class="text-slate-400 text-xs font-medium">Domain Purity (Fan-out)</div>
+          <div class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+          <div class="text-xs text-slate-500 mt-1">纯纯领域逻辑，零外部驱动</div>
+        </div>
+        <div class="grid-item bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+          <div class="text-slate-400 text-xs font-medium">App Sink Isolation (Fan-out)</div>
+          <div class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+          <div class="text-xs text-slate-500 mt-1">UDS 纯信封通讯，零直连 DB</div>
+        </div>
+        <div class="grid-item bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+          <div class="text-slate-400 text-xs font-medium">Contract Truth (Schemas)</div>
+          <div class="text-2xl font-bold text-indigo-400 mt-1">27</div>
+          <div class="text-xs text-slate-500 mt-1">跨语言同构 Pydantic &amp; Swift DTO</div>
+        </div>
+        <div class="grid-item bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+          <div class="text-slate-400 text-xs font-medium">Deepening Candidates</div>
+          <div class="text-2xl font-bold text-amber-400 mt-1">4</div>
+          <div class="text-xs text-slate-500 mt-1">2 处系统实现 + 2 处协同研发</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deepening Opportunities Grid -->
+    <section class="space-y-10">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white tracking-tight">四项深模块化演进候选 (Deepening Opportunities)</h2>
+          <p class="text-xs text-slate-400 mt-0.5">严格基于 Deletion Test 与 Locality 准则，消除跨模块弹跳摩擦</p>
+        </div>
+      </div>
+
+      <!-- Candidate 1: WorldSession (System Architecture) -->
+      <article class="rounded-2xl border border-slate-800 bg-slate-900/40 p-7 space-y-6 hover:border-slate-700 transition">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Candidate 1 · 系统实现</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Recommendation: Strong</span>
+            </div>
+            <h3 class="text-lg font-bold text-white">WorldSession 深模块：将浅信封调度收缩为单一响应式叙事流</h3>
+            <p class="text-xs text-slate-400 font-mono">涉及文件: macos-app/WorldOfMysteries/AppState.swift · EngineIPCClient.swift · IPCEnvelope.swift</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+          <div class="space-y-4">
+            <div>
+              <div class="text-rose-400 font-semibold text-xs tracking-wider uppercase mb-1">当前摩擦与浅接缝 (Problem)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                当前 <code>AppState</code> 直接面对多个浅模块：<code>processManager.startEngine()</code>、<code>ipcClient.connect()</code>、<code>ipcClient.performHandshake()</code>，以及动态信封编解码。UI 必须手动编排多步骤状态机；一旦增加断线重连、心跳恢复或流式音频调度，<code>AppState</code> 将产生严重复杂度泄漏（<strong>无 Locality</strong>），在 UI 视图与网络通讯之间来回弹跳。
+              </p>
+            </div>
+            <div>
+              <div class="text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">深模块演进方案 (Solution)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                引入 <strong>深模块 <code>WorldSession</code></strong>，对外暴露极限精简的 <strong>interface</strong>：
+                <code class="block bg-slate-950 p-2.5 rounded border border-slate-800 text-indigo-300 my-1 font-mono text-xs">
+                  func sendAdvice(_ text: String) async throws -> AsyncStream&lt;NarrativeTurn&gt;
+                </code>
+                在接缝（<strong>seam</strong>）之后深度内聚：进程自愈拉起、Unix Socket 双向通道、心跳监听、重连退避、强类型 DTO 泛型折叠。UI 仅需一行代码接入叙事流。
+              </p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+              <div class="font-bold text-indigo-300">杠杆率与删除测试 (Leverage &amp; Deletion Test)</div>
+              <p class="text-slate-400">
+                <strong>Deletion Test:</strong> 删除 <code>AppState</code> 中零散的进程与 Socket 控制代码，并没有将逻辑搬迁，而是将其彻底收敛入 <code>WorldSession</code> 深模块。
+              </p>
+              <p class="text-slate-400">
+                <strong>Testability:</strong> 视图层单元测试只需注入 <code>MockWorldSession</code>，实现毫秒级 UI 测试，彻底摆脱多进程真实依赖。
+              </p>
+            </div>
+          </div>
+
+          <!-- Diagram Before / After -->
+          <div class="bg-slate-950 rounded-xl p-4 border border-slate-800/80 flex flex-col justify-center">
+            <div class="text-xs font-semibold text-slate-400 mb-2 flex items-center justify-between">
+              <span>架构拓扑演进对比 (Before vs After)</span>
+              <span class="text-[10px] text-slate-500">Mermaid Graph</span>
+            </div>
+            <div class="mermaid text-xs">
+graph TD
+  subgraph Before["Before: 浅模块编排与泄漏"]
+    UI1[SwiftUI View] --> AS1[AppState]
+    AS1 --> PM1[EngineProcessManager]
+    AS1 --> IPC1[EngineIPCClient]
+    AS1 --> ENV1[IPCEnvelope AnyCodable]
+  end
+
+  subgraph After["After: WorldSession 高杠杆深模块"]
+    UI2[SwiftUI View] --> WS[WorldSession 深模块]
+    subgraph InsideSeam["深度封装在接缝背后 (Hidden Inside)"]
+      WS -.-> PM2[Process Supervisor]
+      WS -.-> UDS[UDS Connection Pool]
+      WS -.-> DTO[Typed DTO Stream]
+    end
+  end
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Candidate 2: ContextCompiler (System Architecture) -->
+      <article class="rounded-2xl border border-slate-800 bg-slate-900/40 p-7 space-y-6 hover:border-slate-700 transition">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Candidate 2 · 系统实现</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Recommendation: Worth exploring</span>
+            </div>
+            <h3 class="text-lg font-bold text-white">ContextCompiler 深模块：多路召回与语义授权硬核内聚</h3>
+            <p class="text-xs text-slate-400 font-mono">涉及文件: engine/application/context_compiler.py · memory_engine.py · lore_engine.py</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+          <div class="space-y-4">
+            <div>
+              <div class="text-rose-400 font-semibold text-xs tracking-wider uppercase mb-1">当前摩擦与浅接缝 (Problem)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                若在编排器 <code>SessionOrchestrator</code> 中逐步串联“语义授权校验”、“图谱关系检索”、“向量召回”、“多路排序”和“Token 预算打包”，将导致编排器成为膨胀的胶水代码（<strong>Lack of Locality</strong>），并且微小模块之间的依赖会导致不变量 6（零知识越界）在多处存在漏防漏洞。
+              </p>
+            </div>
+            <div>
+              <div class="text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">深模块演进方案 (Solution)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                将 <code>ContextCompiler</code> 塑造成绝对深模块。仅暴露单一不可妥协接口：
+                <code class="block bg-slate-950 p-2.5 rounded border border-slate-800 text-indigo-300 my-1 font-mono text-xs">
+                  compile_authorized_context(character_id, world_time, observation) -> ContextPacket
+                </code>
+                在接缝后彻底锁死语义硬门禁（Hard Boundary）、四库检索路由与 Token 动态裁切，调用方无从触碰未授权的 Canon 隐藏知识。
+              </p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+              <div class="font-bold text-indigo-300">杠杆率与删除测试 (Leverage &amp; Deletion Test)</div>
+              <p class="text-slate-400">
+                <strong>Leverage:</strong> 编排层仅用一次无参感知调用，撬动背后多数据库并发查询、重排序算法与动态预算算法。
+              </p>
+              <p class="text-slate-400">
+                <strong>Security:</strong> 授权过滤在检索发生之前就物理生效，彻底杜绝大模型“越界幻觉召回”。
+              </p>
+            </div>
+          </div>
+
+          <!-- Diagram Before / After -->
+          <div class="bg-slate-950 rounded-xl p-4 border border-slate-800/80 flex flex-col justify-center">
+            <div class="text-xs font-semibold text-slate-400 mb-2 flex items-center justify-between">
+              <span>架构拓扑演进对比 (Before vs After)</span>
+              <span class="text-[10px] text-slate-500">Mermaid Graph</span>
+            </div>
+            <div class="mermaid text-xs">
+graph TD
+  subgraph Shallow["浅编排模式: 泄露多路细节与风险"]
+    Orch1[Session Orchestrator] --> Auth1[Auth Check]
+    Orch1 --> Graph1[Graph Search]
+    Orch1 --> Vec1[Vector Search]
+    Orch1 --> Budget1[Token Trimmer]
+  end
+
+  subgraph Deep["深模块模式: ContextCompiler 铁壁授权"]
+    Orch2[Session Orchestrator] --> CC[ContextCompiler 深模块]
+    subgraph SecuritySeam["接缝后物理保障 (Invariant 6 & 7)"]
+      CC -.-> AuthGate[Hard Authorization Filter]
+      CC -.-> MultiRet[Multi-model Hybrid Retrieval]
+      CC -.-> BudgetPack[Budget Packing]
+    end
+  end
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Candidate 3: AgentCapsule (Collaboration Architecture) -->
+      <article class="rounded-2xl border border-slate-800 bg-slate-900/40 p-7 space-y-6 hover:border-slate-700 transition">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">Candidate 3 · 人机协同研发</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Recommendation: Strong</span>
+            </div>
+            <h3 class="text-lg font-bold text-white">AgentCapsule 深任务胶囊：消除多角色交接中的上下文稀释</h3>
+            <p class="text-xs text-slate-400 font-mono">涉及文件: .agents/prompts/ · docs/03_工程规范/HANDOFF_CHECKLIST.md · scripts/gate_runner.sh</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+          <div class="space-y-4">
+            <div>
+              <div class="text-rose-400 font-semibold text-xs tracking-wider uppercase mb-1">当前摩擦与浅接缝 (Problem)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                当前定义了 7 个 Markdown 角色提示词与一份人工交接清单（<code>HANDOFF_CHECKLIST.md</code>）。当 Arbiter 将任务派发给 Domain Agent 时，需要人类在不同文件与分支状态间反复横跳，手动拼接 Git diff、测试命令与图谱符号。这种“纯文本浅接缝”导致极高的人工摩擦，且极易因疏忽发生 Context Dilution（上下文稀释）或漏测。
+              </p>
+            </div>
+            <div>
+              <div class="text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">深模块演进方案 (Solution)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                构建 <strong>深任务胶囊脚手架 <code>scripts/agent_capsule.py</code></strong>。接口极其简明：
+                <code class="block bg-slate-950 p-2.5 rounded border border-slate-800 text-indigo-300 my-1 font-mono text-xs">
+                  rtk python3 scripts/agent_capsule.py pack --role AGT-DOM --task M2-DataKernel
+                </code>
+                在接缝背后自动：提取分支 git 状态、调用 <code>codebase-memory-mcp</code> 定位目标符号与上游调用链、动态拼接最小必要上下文、并内嵌针对该角色的专精测试断言。
+              </p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+              <div class="font-bold text-indigo-300">杠杆率与删除测试 (Leverage &amp; Deletion Test)</div>
+              <p class="text-slate-400">
+                <strong>Locality:</strong> 角色指令、代码拓扑切片、执行边界与后置门禁完全内聚为一个单一可交付“胶囊”。
+              </p>
+              <p class="text-slate-400">
+                <strong>AI-Navigability:</strong> Agent 仅需阅读 1 个自动生成的任务胶囊即可开始精准工作，避免大模型因全量扫描无用文档导致 Token 爆炸。
+              </p>
+            </div>
+          </div>
+
+          <!-- Diagram Before / After -->
+          <div class="bg-slate-950 rounded-xl p-4 border border-slate-800/80 flex flex-col justify-center">
+            <div class="text-xs font-semibold text-slate-400 mb-2 flex items-center justify-between">
+              <span>架构拓扑演进对比 (Before vs After)</span>
+              <span class="text-[10px] text-slate-500">Mermaid Graph</span>
+            </div>
+            <div class="mermaid text-xs">
+graph TD
+  subgraph Manual["Before: 浅文本接缝与人工横跳"]
+    Dev1[人类 / Arbiter] --> MD1[02_domain_agent.md]
+    Dev1 --> CK1[HANDOFF_CHECKLIST]
+    Dev1 --> Git1[手动查 git status]
+    Dev1 --> AST1[手动查图谱符号]
+    Dev1 --> AI1[粘贴给 Domain Agent]
+  end
+
+  subgraph Capsule["After: AgentCapsule 自动化深胶囊"]
+    Dev2[人类 / Arbiter] --> Tool[agent_capsule.py 深工具]
+    Tool -.-> Auto[自动化拓扑切片与门禁装配]
+    Auto --> CapFile[task_capsule_M2.json]
+    CapFile --> AI2[Domain Agent 零摩擦秒开工]
+  end
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Candidate 4: CollabWorktree (Collaboration Architecture) -->
+      <article class="rounded-2xl border border-slate-800 bg-slate-900/40 p-7 space-y-6 hover:border-slate-700 transition">
+        <div class="flex items-start justify-between flex-wrap gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2.5">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">Candidate 4 · 人机协同研发</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Recommendation: Worth exploring</span>
+            </div>
+            <h3 class="text-lg font-bold text-white">CollabWorktree 事务级并行工作区：无锁流水线化集成</h3>
+            <p class="text-xs text-slate-400 font-mono">涉及文件: scripts/worktree_manager.sh · scripts/gate_runner.sh · .github/PULL_REQUEST_TEMPLATE.md</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+          <div class="space-y-4">
+            <div>
+              <div class="text-rose-400 font-semibold text-xs tracking-wider uppercase mb-1">当前摩擦与浅接缝 (Problem)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                现存的 <code>worktree_manager.sh</code> 只是 <code>git worktree add/remove</code> 的极薄封装（<strong>Shallow wrapper</strong>）。多 Agent 在并行分支完成代码后，仍需手工切换目录、手工跑 <code>gate_runner.sh</code>、探测 main 分支冲突并手工清理目录。在多人/多 Agent 并发场景下，任何中间步骤的疏漏都会导致未测试代码合入。
+              </p>
+            </div>
+            <div>
+              <div class="text-emerald-400 font-semibold text-xs tracking-wider uppercase mb-1">深模块演进方案 (Solution)</div>
+              <p class="text-slate-300 leading-relaxed text-xs">
+                将工作区分支生命周期升级为事务性深管道 <code>scripts/collab_pipeline.py</code>：
+                <code class="block bg-slate-950 p-2.5 rounded border border-slate-800 text-indigo-300 my-1 font-mono text-xs">
+                  rtk python3 scripts/collab_pipeline.py integrate --branch feat/data-kernel --auto-clean
+                </code>
+                将“工作区隔离”、“跨语言三阶段门禁自动化跑批”、“Rebase 冲突探测”、“架构适应度核验”及“原子合流与自愈清理”一体化封装。
+              </p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+              <div class="font-bold text-indigo-300">杠杆率与删除测试 (Leverage &amp; Deletion Test)</div>
+              <p class="text-slate-400">
+                <strong>Leverage:</strong> 一行命令完成从分支代码交付到主分支洁净合入的全流程，杜绝脏状态污染。
+              </p>
+              <p class="text-slate-400">
+                <strong>Locality:</strong> 门禁检验与分支清理强绑定，任何测试失败直接回滚该 Worktree，保证 <code>main</code> 分支的绝对不变量。
+              </p>
+            </div>
+          </div>
+
+          <!-- Diagram Before / After -->
+          <div class="bg-slate-950 rounded-xl p-4 border border-slate-800/80 flex flex-col justify-center">
+            <div class="text-xs font-semibold text-slate-400 mb-2 flex items-center justify-between">
+              <span>架构拓扑演进对比 (Before vs After)</span>
+              <span class="text-[10px] text-slate-500">Mermaid Graph</span>
+            </div>
+            <div class="mermaid text-xs">
+graph TD
+  subgraph Fragile["Before: 手动分散步骤 (容易疏漏)"]
+    W1[创建 Worktree] --> Code1[编写代码]
+    Code1 --> ManualGate[手动执行 gate_runner]
+    ManualGate --> GitMerge[手动 git merge]
+    GitMerge --> CleanW[手动删除 worktree]
+  end
+
+  subgraph Pipeline["After: 事务级原子流水线 (Atomic Seam)"]
+    Agent[Agent / Human] --> Pipe[collab_pipeline.py integrate]
+    subgraph Transaction["事务锁内部 (Atomic Verification)"]
+      Pipe -.-> AutoGate[Automated 3-Stage Gates]
+      Pipe -.-> Rebase[Main Rebase Conflict Check]
+      Pipe -.-> FastMerge[Atomic Fast-Forward Merge]
+      Pipe -.-> AutoClean[Self-healing Cleanup]
+    end
+  end
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Top Recommendations Section -->
+    <section class="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-950 p-8 space-y-6 shadow-2xl">
+      <div class="flex items-center space-x-3">
+        <div class="h-8 w-8 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
+          ★
+        </div>
+        <h2 class="text-xl font-bold text-white tracking-tight">架构专家首要推进建议 (Top Recommendations)</h2>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed">
+        根据 <em>YAGNI</em> 原则与接下来的工程实施路径（<strong>Phase 1: M1 本地引擎部署拓扑 &amp; M2 数据内核</strong>），我们建议优先实施以下两个最具<strong>杠杆效应</strong>的深模块：
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+        <div class="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-400">系统实现首选</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Priority P0</span>
+          </div>
+          <h4 class="font-bold text-white text-base">实施 Candidate 1: WorldSession 深模块</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            在进入 M1/M2 之前，将 Swift 客户端与本地引擎的进程管理、NDJSON 信封通信彻底锁死在 <code>WorldSession</code> 之后，使 UI 面对单一纯净的响应式数据流。这为后续所有端到端测试与 UI 界面迭代提供了牢不可破的接缝。
+          </p>
+        </div>
+
+        <div class="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-400">协同研发首选</span>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Priority P0</span>
+          </div>
+          <h4 class="font-bold text-white text-base">实施 Candidate 3: AgentCapsule 任务胶囊</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            在大规模并行开发启动前，将人机交接从“纯文本清单”升级为“自动化拓扑切片与门禁装配脚本”。彻底消除跨 Agent、跨人类角色交接时的上下文稀释，确保每个任务一键直达、零多余消耗。
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-slate-900 bg-slate-950 py-8 text-center text-xs text-slate-500">
+    《诡秘世界》（World of Mysteries）工程架构体检报告 · 遵循 15 项核心不变量与 Deep Modules 准则
+  </footer>
+
+</body>
+</html>

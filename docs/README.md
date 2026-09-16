@@ -167,6 +167,7 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - `01_总体架构/ADR-002_数据架构.md`
 - `01_总体架构/ADR-003_AgentScope_AI_Runtime.md`
 - `01_总体架构/架构专家评估与系统优化报告_v1.0.md`
+- `01_总体架构/系统核心深模块演进设计方案_v1.0.md`
 
 ### Domain Engines
 
@@ -190,6 +191,7 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - `03_工程规范/Engine_Quality_Gates_v1.0.md`
 - `03_工程规范/Technical_Vertical_Slice_v1.0.md`
 - `03_工程规范/人机协同研发工作框架_v1.0.md`
+- `03_工程规范/高效人机协同研发体系实施方案_v1.0.md`
 
 ### Executable Contracts
 
