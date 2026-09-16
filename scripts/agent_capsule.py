@@ -175,6 +175,23 @@ def rank_symbols(
     return (focused + rest)[:limit], "focus-ranked"
 
 
+def _detect_target_ref() -> str:
+    """目标分支引用；detached HEAD（CI 拉取 PR merge ref / 定点检出）时回退查找默认分支。
+
+    否则 `pack` 会在 CI 里因为拿不到本地 `main` 而直接崩溃。
+    """
+    ref = policy.run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+    if ref != "HEAD":
+        return ref
+    for candidate in ("origin/main", "main", "origin/master", "master"):
+        try:
+            policy.run_git(["rev-parse", "--verify", f"{candidate}^{{commit}}"])
+            return candidate
+        except policy.PolicyError:
+            continue
+    return "HEAD"
+
+
 def pack_capsule(
     role: str,
     task_id: str,
@@ -192,9 +209,14 @@ def pack_capsule(
         raise ValueError(f"Unknown role '{role}'. Choose from {list(ROLE_DEFAULTS.keys())}")
 
     defaults = ROLE_DEFAULTS[role]
-    target_ref = policy.run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+    target_ref = _detect_target_ref()
     base_sha = policy.run_git(["rev-parse", "HEAD"])
-    target_sha = policy.run_git(["rev-parse", "main"]) if target_ref != "main" else base_sha
+    # target_sha 必须与 verify 的复核口径一致：verify 用 `rev-parse <target_ref>` 判定
+    # 目标是否前进；因此这里记录 target_ref 自身的 sha，而不是硬取 main 的 sha。
+    try:
+        target_sha = policy.run_git(["rev-parse", target_ref])
+    except policy.PolicyError:
+        target_sha = base_sha
 
     profile, profile_path, profile_digest = gate_profile.resolve_profile(
         defaults["gate_profile"]
