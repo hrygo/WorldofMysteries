@@ -31,6 +31,14 @@
   ],
   "milestones": [
     {
+      "id": "M0-UI-SPEC",
+      "name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
+      "phase": "Design Baseline",
+      "status": "IN_PROGRESS",
+      "lead_role": "AGT-MAC",
+      "description": "具象化锚定桌面端心智模型：三栏卷宗流、灵感波形微动效与灰雾长桌全景，反向锁定 DTO 与流式事件契约"
+    },
+    {
       "id": "M1",
       "name": "Local Engine 运行守护与 UDS IPC 双向通路",
       "phase": "Phase 1",
@@ -84,32 +92,31 @@
     }
   ],
   "critical_path": {
-    "next_milestone_id": "M2",
-    "next_milestone_name": "四库 SQLite 数据内核与迁移机制 (Data Kernel & Four-DB Isolation)",
-    "strategic_rationale": "系统拓扑不变量（#5, #8, #10, #11, #12）强制规定领域数据库为事实源，且领域与 AI 彻底物理隔离。在四库物理隔离与单写多读连接池未奠定前，任何上层角色状态与叙事推进均无法持久化（会沦为易失内存）。因此数据内核是整个系统状态机的唯一物理基石。",
+    "next_milestone_id": "M0-UI-SPEC",
+    "next_milestone_name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
+    "strategic_rationale": "通过高保真视觉与交互心智模型（以终为始），直观锁定克莱恩在廷根市的叙事卷宗呈现、理智值波动、实时语音波形与 Advice 启示输入面板，反向精确裁决 DTO 与 IPC 流式协议字段。",
     "target_deliverables": [
-      "四库物理隔离 DDL 初始化与迁移脚本 (canon.db, world.db, retrieval.db, runtime.db)",
-      "单写多读互斥队列与只读连接池 (WAL mode, busy_timeout=5000ms, mmap_size=256MB)",
-      "Transactional Outbox 事件表与幂等写入机制",
-      "Golden 001 种子数据（克莱恩·莫雷蒂初始状态）导入回归"
+      "高保真画面 1: 主应用沉浸主界面 (三栏叙事卷宗、实体状态盘与 Advice 网关)",
+      "高保真画面 2: 秘祈与语音交互中枢 (命运丝线波形微光与建议动机评估浮层)",
+      "高保真画面 3: 灰雾之上·青铜长桌神殿全景 (全局宇宙宏观态势与二十二塔罗席位)",
+      "macOS SwiftUI 高保真组件与 Xcode Previews 资产准备"
     ],
     "dispatch": {
-      "assigned_role": "AGT-DATA",
-      "role_title": "数据内核管家 (Data Steward)",
-      "task_id": "M2-DATA-KERNEL",
-      "task_title": "四库 SQLite 数据内核迁移与连接池实现",
+      "assigned_role": "AGT-MAC",
+      "role_title": "macOS App 极客 (SwiftUI & UX Specialist)",
+      "task_id": "M0-UI-SPEC",
+      "task_title": "macOS 原生客户端高保真设计与视觉资产落地",
       "authorized_scope": [
-        "engine/infrastructure/database*",
-        "engine/infrastructure/outbox*",
-        "engine/tests/infrastructure*"
+        "macos-app/WorldOfMysteries/**",
+        "docs/03_工程规范/macOS_App*"
       ],
       "forbidden_patterns": [
-        "macos-app/*",
-        "engine/domain/*",
-        "engine/ai/*"
+        "engine/domain/**",
+        "engine/infrastructure/**",
+        "engine/ai/**"
       ],
-      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M2-DATA-KERNEL --title \"四库 SQLite 数据内核迁移与连接池实现\"",
-      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m2-data-kernel --role AGT-DATA --task-id M2-DATA-KERNEL"
+      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-MAC --task-id M0-UI-SPEC --title \"macOS 原生客户端高保真设计与视觉资产落地\"",
+      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m0-ui-spec --role AGT-MAC --task-id M0-UI-SPEC"
     }
   }
 }
