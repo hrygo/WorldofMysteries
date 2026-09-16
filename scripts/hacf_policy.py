@@ -44,6 +44,22 @@ PRIVILEGED_SURFACES: List[str] = [
     "engine/**/migrations/",
 ]
 
+# 根目录治理与仓库元文件：不属于任何业务角色，纳入 AGT-ARB 治理通道。
+# 非特权角色触碰需显式 privileged grant，避免"无人认领路径"成为审核盲区。
+ROOT_GOVERNANCE_SURFACES: List[str] = [
+    "AGENTS.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "NOTICE.md",
+    "CODE_OF_CONDUCT.md",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+]
+
+PRIVILEGED_SURFACES.extend(ROOT_GOVERNANCE_SURFACES)
+
 # 范围审计豁免：这些路径属于协同元数据或本地证据，不构成业务越界。
 SCOPE_EXEMPT_PREFIXES = (
     ".agents/capsules/",
@@ -166,6 +182,31 @@ def capsule_digest(capsule_path: Path) -> str:
     return sha256_file(capsule_path)
 
 
+def changes_digest(base_ref: str, head_ref: str, cwd: Path = REPO_ROOT) -> str:
+    """变更集内容摘要：文件清单 + 每个文件在 head 的对象摘要。
+
+    凭单以此摘要绑定"验收过的内容"，而不是绑定某个 commit：
+    rebase、合入最新 main、或纯提交信息变更都不改变摘要，凭单继续有效；
+    只有实际改动（含文件增删改）或胶囊变化才要求重跑门禁。
+    """
+    names = split_nul(
+        run_git_bytes(["diff", "--name-only", "-z", f"{base_ref}...{head_ref}"], cwd=cwd)
+    )
+    entries: List[str] = []
+    for name in sorted(n for n in names if n):
+        res = subprocess.run(
+            ["git", "ls-tree", head_ref, "--", name],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        fields = res.stdout.split()
+        object_id = fields[2] if len(fields) >= 3 else "DELETED"
+        entries.append(f"{name}\0{object_id}")
+    return hashlib.sha256("\n".join(entries).encode("utf-8")).hexdigest()
+
+
 def load_capsule(capsule_path: Path) -> Dict[str, Any]:
     if not capsule_path.exists():
         raise PolicyError(f"capsule not found: {capsule_path}")
@@ -181,48 +222,69 @@ def load_capsule(capsule_path: Path) -> Dict[str, Any]:
     return capsule
 
 
-def audit_scope(capsule: Dict[str, Any], files: List[str]) -> Dict[str, Any]:
-    """四类边界裁决。返回 violations / escalations / granted 三类结论。"""
-    scope = capsule.get("scope", {})
-    write_scope = scope.get("write", [])
-    forbidden = scope.get("forbidden", [])
+def path_verdict(capsule: Dict[str, Any], path: str) -> Dict[str, str]:
+    """单文件裁决原语。
+
+    返回 `{"path", "verdict", "reason"}`，verdict 取值：
+      - `authorized`：该胶囊足以授权此路径
+      - `escalation_required`：可行，但需仲裁扩权（高风险面缺 grant）
+      - `forbidden`：命中该胶囊的 forbidden 禁区
+      - `out_of_scope`：超出该胶囊 write scope 且非高风险面
+
+    覆盖式归属（多胶囊 PR）以此原语逐胶囊判定后取并集，
+    避免"每枚胶囊都必须覆盖 PR 里每个文件"的并集语义把正常协同判成越权。
+    """
+    scope = capsule.get("scope", {}) or {}
+    write_scope = scope.get("write", []) or []
+    forbidden = scope.get("forbidden", []) or []
     grants = scope.get("privileged_grants", []) or []
     role = capsule.get("assigned_role", "")
     in_privileged_lane = role in PRIVILEGED_LANE_ROLES
 
+    if matches_any(path, forbidden):
+        return {"path": path, "verdict": "forbidden", "reason": "命中 forbidden 禁区"}
+    if not in_privileged_lane and matches_any(path, ESCALATION_ONLY_SURFACES):
+        if matches_any(path, grants):
+            return {"path": path, "verdict": "authorized", "reason": "已授予 privileged grant"}
+        return {
+            "path": path,
+            "verdict": "escalation_required",
+            "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）",
+        }
+    if matches_any(path, write_scope):
+        return {"path": path, "verdict": "authorized", "reason": "命中 write scope"}
+    if matches_any(path, PRIVILEGED_SURFACES):
+        if matches_any(path, grants):
+            return {"path": path, "verdict": "authorized", "reason": "已授予 privileged grant"}
+        return {
+            "path": path,
+            "verdict": "escalation_required",
+            "reason": "命中高风险面但未授予 privileged grant",
+        }
+    return {"path": path, "verdict": "out_of_scope", "reason": "超出 write scope"}
+
+
+def touches_high_risk(path: str) -> bool:
+    """该路径是否落在高风险面（privileged / escalation-only）上。"""
+    return bool(matches_any(path, PRIVILEGED_SURFACES) or matches_any(path, ESCALATION_ONLY_SURFACES))
+
+
+def audit_scope(capsule: Dict[str, Any], files: List[str]) -> Dict[str, Any]:
+    """四类边界裁决。返回 violations / escalations / granted 三类结论。"""
     violations: List[Dict[str, str]] = []
     escalations: List[Dict[str, str]] = []
     granted_uses: List[str] = []
 
     for path in files:
-        if matches_any(path, forbidden):
-            violations.append({"path": path, "reason": "命中 forbidden 禁区"})
-            continue
-        if not in_privileged_lane and matches_any(path, ESCALATION_ONLY_SURFACES):
-            if matches_any(path, grants):
-                granted_uses.append(path)
-            else:
-                escalations.append(
-                    {
-                        "path": path,
-                        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）",
-                    }
-                )
-            continue
-        in_write = matches_any(path, write_scope)
-        privileged = matches_any(path, PRIVILEGED_SURFACES)
-        if not in_write:
-            if privileged:
-                if matches_any(path, grants):
-                    granted_uses.append(path)
-                    continue
-                escalations.append(
-                    {"path": path, "reason": "命中高风险面但未授予 privileged grant"}
-                )
-            else:
-                violations.append({"path": path, "reason": "超出 write scope"})
-            continue
-        if privileged:
+        verdict = path_verdict(capsule, path)
+        kind = verdict["verdict"]
+        if kind == "forbidden":
+            violations.append({"path": path, "reason": verdict["reason"]})
+        elif kind == "escalation_required":
+            escalations.append({"path": path, "reason": verdict["reason"]})
+        elif kind == "out_of_scope":
+            violations.append({"path": path, "reason": verdict["reason"]})
+        elif touches_high_risk(path):
             granted_uses.append(path)
 
     return {
@@ -251,6 +313,7 @@ def build_receipt(
     scope_audit: Dict[str, Any],
     base_commit: str,
     head_commit: str,
+    diff_digest_value: str = "",
     target_ref: str,
     target_sha: str,
     stale_context: bool,
@@ -270,6 +333,8 @@ def build_receipt(
         "capsule_id": capsule.get("capsule_id"),
         "capsule_revision": capsule.get("capsule_revision", 1),
         "capsule_digest": f"sha256:{capsule_digest_value}",
+        # 内容绑定：CI 以 diff_digest 判定凭单是否仍对应当前变更集（head_commit 仅作信息记录）
+        "diff_digest": f"sha256:{diff_digest_value}" if diff_digest_value else "",
         "assigned_role": capsule.get("assigned_role"),
         "risk_class": capsule.get("risk_class", "medium"),
         "base_commit": base_commit,

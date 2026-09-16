@@ -395,6 +395,7 @@ def verify_capsule(
         scope_audit=audit,
         base_commit=base_commit,
         head_commit=head_commit,
+        diff_digest_value=policy.changes_digest(base_commit, head_commit, cwd=workspace_root),
         target_ref=target_ref,
         target_sha=target_sha_now,
         stale_context=stale_context,
@@ -439,6 +440,9 @@ def _emit_failed_receipt(
         scope_audit=audit,
         base_commit=capsule["base"]["base_sha"],
         head_commit=head_commit,
+        diff_digest_value=policy.changes_digest(
+            capsule["base"]["base_sha"], head_commit, cwd=cwd
+        ),
         target_ref=target_ref,
         target_sha=target_sha,
         stale_context=stale_context,

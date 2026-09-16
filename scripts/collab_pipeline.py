@@ -282,6 +282,7 @@ def integrate_pipeline(
         },
         base_commit=expected_main_sha,
         head_commit=merged_sha,
+        diff_digest_value=policy.changes_digest(expected_main_sha, merged_sha, cwd=REPO_ROOT),
         target_ref="main",
         target_sha=merged_sha,
         stale_context=False,
