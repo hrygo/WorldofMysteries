@@ -15,7 +15,7 @@ python3 "${REPO_ROOT}/scripts/check_architecture_fitness.py"
 echo -e "\n--- [Stage 2: Python Engine & Contract Tests (pytest)] ---"
 (
     cd "${REPO_ROOT}/engine"
-    uv run pytest -q
+    uv run --extra dev pytest -q
 )
 
 # 3. Swift 6 macOS App Gate

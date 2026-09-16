@@ -30,12 +30,12 @@ jobs:
       - name: Run Contract Full Roundtrip Suite
         run: |
           cd contracts
-          uv run --directory ../engine pytest tests/
+          uv run --directory ../engine --extra dev pytest ../contracts/tests -v
 
       - name: Run Engine Scaffolding & Golden 001 Scenario Replay
         run: |
           cd engine
-          uv run pytest tests/test_scaffolding.py -v
+          uv run --extra dev pytest tests/test_scaffolding.py -v
 
       - name: Run Full Swift 6 macOS Suite
         run: |

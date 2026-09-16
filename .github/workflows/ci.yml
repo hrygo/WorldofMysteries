@@ -69,7 +69,7 @@ jobs:
       - name: Run Python Pytest Suite
         run: |
           cd engine
-          uv run pytest -v
+          uv run --extra dev pytest -v
 
   # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip (macOS 26+ baseline)
   swift-macos-app:
