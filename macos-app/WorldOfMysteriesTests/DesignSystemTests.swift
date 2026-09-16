@@ -224,6 +224,18 @@ struct DesignSystemTests {
             location: "廷根"
         )
         _ = codexCard.body
+        
+        let scryingCard = CitrinePendulumScryingCard()
+        _ = scryingCard.body
+        #expect(ScryingResult.allCases.count == 4)
+        
+        let tingenCard = TingenCityDossierCard()
+        _ = tingenCard.body
+        #expect(TingenLocation.allCases.count == 4)
+        
+        let backlundCard = BacklundMetropolisCard()
+        _ = backlundCard.body
+        #expect(BacklundDistrict.allCases.count == 4)
     }
 }
 

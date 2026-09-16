@@ -191,6 +191,28 @@ public struct ComponentGalleryView: View {
                         }
                     }
                 }
+                
+                // 8. 原著正典地域与黄水晶占卜
+                gallerySection(title: "08 · 原著正典地域与黄水晶占卜 (Citrine & Canonical Geography)") {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                        Text("基于《占卜家·克莱恩》正典原画与原著地理风貌打造的核心神秘学实体与据点卡片：")
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                        
+                        // 黄水晶吊坠灵摆占卜法
+                        CitrinePendulumScryingCard()
+                            .frame(maxWidth: 580)
+                        
+                        // 廷根市与贝克兰德态势卡
+                        HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+                            TingenCityDossierCard()
+                                .frame(maxWidth: .infinity)
+                            
+                            BacklundMetropolisCard()
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
             }
             .padding(DesignTokens.Spacing.xxl)
         }
