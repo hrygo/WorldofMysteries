@@ -1,0 +1,41 @@
+# ==============================================================================
+# 《诡秘世界》(World of Mysteries) - GitHub CODEOWNERS 角色与所有权映射
+#
+# 7 大专精 Agent 与人类架构师职责边界映射表
+# 任何对以下目录的修改必须获得对应 Owner 的 Review 批准
+# ==============================================================================
+
+# 全局兜底：人类主架构师与 Arbiter 仲裁者拥有全仓决策权
+*                                       @hrygo
+
+# 1. 契约与协议规范 (单一事实源，需 Arbiter 严格审校)
+/contracts/                             @hrygo
+/contracts/schemas/                     @hrygo
+/contracts/protocol/                    @hrygo
+
+# 2. 领域核心层 (Domain Core: 纯领域逻辑，绝对零外部驱动，不变量 1, 2, 4, 5, 6, 8, 9)
+/engine/domain/                         @hrygo
+
+# 3. 数据内核与持久化 (Data Kernel: 四库隔离与 Outbox，不变量 3, 10, 11)
+/engine/infrastructure/database_manager.py  @hrygo
+/engine/infrastructure/outbox.py            @hrygo
+
+# 4. AI 运行时与网关 (AI Gateway: AgentScope 2.0.8 适配与 Proposal 网关，不变量 5, 6, 7, 8)
+/engine/ai/                             @hrygo
+/engine/application/                    @hrygo
+
+# 5. 语音交互子系统 (Voice & Audio: OpenAI 规范适配与 SpeechRail，不变量 9)
+/engine/domain/audio_voice.py           @hrygo
+/engine/infrastructure/audio/           @hrygo
+
+# 6. macOS 客户端宿主应用 (macOS App: Swift 6 严格并发与 UDS IPC，不变量 12)
+/macos-app/                             @hrygo
+
+# 7. 回归夹具、断言与全量测试套件 (Inquisitor QA: 质量裁决与 Golden Scenario 回归)
+/fixtures/                              @hrygo
+/engine/tests/                          @hrygo
+/macos-app/WorldOfMysteriesTests/       @hrygo
+
+# 8. 工程治理脚本与 CI 流水线 (Tooling & Infrastructure)
+/scripts/                               @hrygo
+/.github/                               @hrygo

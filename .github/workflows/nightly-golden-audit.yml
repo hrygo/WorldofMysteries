@@ -1,0 +1,48 @@
+name: Nightly Golden Scenario & Deep Security Audit
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # Daily at 02:00 UTC (10:00 AM CST)
+  workflow_dispatch:
+
+jobs:
+  golden-scenario-audit:
+    name: "Nightly Golden Scenario Replay & Contract Audit"
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv & Python 3.14
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "engine/uv.lock"
+
+      - name: Run Contract Full Roundtrip Suite
+        run: |
+          cd contracts
+          uv run --directory ../engine pytest tests/
+
+      - name: Run Engine Scaffolding & Golden 001 Scenario Replay
+        run: |
+          cd engine
+          uv run pytest tests/test_scaffolding.py -v
+
+      - name: Run Full Swift 6 macOS Suite
+        run: |
+          cd macos-app
+          swift test
+
+      - name: Architecture Impact & AST Consistency Check
+        run: |
+          python3 scripts/check_architecture_fitness.py
+
+      - name: Archive Verification Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-audit-report-${{ github.sha }}
+          path: |
+            fixtures/golden_001/
+            docs/01_总体架构/
+          retention-days: 14

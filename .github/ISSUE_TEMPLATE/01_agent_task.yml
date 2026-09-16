@@ -1,0 +1,83 @@
+name: "🤖 Agent 研发任务派发 (Agent Task Dispatch)"
+description: "通过结构化任务单向人类或特定专精 Agent 派发研发任务"
+title: "[TASK]: "
+labels: ["agent-task", "status:ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 《诡秘世界》结构化协同任务单 (Task Capsule Specification)
+        请准确填写以下信息。GitHub Actions 将根据本 Issue 自动生成任务分支与初始 Task Capsule。
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: 承接角色 (Assigned Role)
+      description: 选择负责该任务的专精角色
+      options:
+        - "AGT-DOM (Domain Weaver / 领域逻辑)"
+        - "AGT-DATA (Data Steward / 数据内核)"
+        - "AGT-AI (AI Weaver / AgentScope 适配)"
+        - "AGT-VOICE (Voice Maestro / 语音引擎)"
+        - "AGT-MAC (macOS Apprentice / SwiftUI 客户端)"
+        - "AGT-QA (Inquisitor / 自动化质检)"
+        - "AGT-ARB (Arbiter / 架构仲裁)"
+    validations:
+      required: true
+
+  - type: input
+    id: task_id
+    attributes:
+      label: 任务唯一标识 (Task ID)
+      description: 例如 M2-DATA-KERNEL, M1-ENGINE-PACKAGING, M3-RESOLVER
+      placeholder: "M2-DATA-KERNEL"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: 关联里程碑 (Target Milestone)
+      options:
+        - "Phase 1: M1 本地引擎环境与打包部署"
+        - "Phase 1: M2 四库 SQLite 数据内核与迁移"
+        - "Phase 2: M3 确定性 Outcome Resolver 实现"
+        - "Phase 2: M4 AgentScope 2.0.8 适配与网关"
+        - "Phase 3: M5 Golden 001 端到端 5 轮状态回归"
+        - "Phase 3: M6 macOS App 语音体验与发布就绪"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 任务详细描述与验收目标 (Task Objectives)
+      description: 明确本任务要实现的具体功能、接口变更或测试指标
+      placeholder: "实现 SQLite 四库隔离管理器与连接池，支持 PRAGMA query_only 与 WAL 模式..."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: 强约束核心不变量 (Critical Invariants)
+      description: 勾选该任务必须无条件遵守的架构不变量
+      options:
+        - label: "不变量 1 & 2: 世界先于故事，角色先于剧情"
+        - label: "不变量 5: AI 仅产出 Proposal，Domain Engine 负责 Commit"
+        - label: "不变量 6 & 7: 零知识越界，语义授权先行"
+        - label: "不变量 9: 提交即命运，重试绝不反向篡改已提交状态"
+        - label: "不变量 10: 用户世界绝不污染 Canon（只读隔离）"
+        - label: "不变量 11: 权威持久 (world.db) 与可重建投影 (retrieval.db) 分离"
+        - label: "不变量 12: App 进程不直连数据库（严格 UDS IPC 隔离）"
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: 专精测试与验证命令 (Verification Commands)
+      description: 该任务执行完毕后必须通过的命令
+      value: |
+        rtk python3 scripts/check_architecture_fitness.py
+        rtk uv run --directory engine pytest tests/

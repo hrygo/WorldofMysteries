@@ -122,6 +122,7 @@ assets/generated/
 # IPC Unix Domain Socket 套接字文件
 *.sock
 *.socket
+pr_report.md
 
 # ------------------------------------------------------------------------------
 # 6. 本地 Agent、IDE 与安全凭据 (Security & Local Configs)

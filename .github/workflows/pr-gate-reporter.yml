@@ -1,0 +1,61 @@
+name: PR Gate Reporter & Sticky Comment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  report-pr-status:
+    name: "Generate PR Quality Gate Report"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate PR Markdown Report
+        run: |
+          python3 scripts/generate_pr_report.py
+
+      - name: Post or Update Sticky PR Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportBody = fs.readFileSync('pr_report.md', 'utf8');
+            const commentHeader = '## 🛡️ 《诡秘世界》自动化质量门禁报告';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c => c.body.includes(commentHeader));
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: reportBody
+              });
+              console.log('Updated existing PR quality gate report comment.');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: reportBody
+              });
+              console.log('Created new PR quality gate report comment.');
+            }

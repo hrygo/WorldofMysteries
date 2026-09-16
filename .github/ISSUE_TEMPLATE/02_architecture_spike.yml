@@ -1,0 +1,54 @@
+name: "🔬 架构探索与 ADR 提案 (Architecture Spike & ADR)"
+description: "发起重大架构决策、技术 Spike 或不变量边界调整的提案"
+title: "[SPIKE/ADR]: "
+labels: ["architecture", "adr-candidate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 架构决策记录 (ADR) 提案与 Spike 规格
+        任何对跨语言协议、持久化模型、AI 运行时边界或核心拓扑的调整，必须在此登记并获得 Arbiter 批准。
+
+  - type: input
+    id: adr_title
+    attributes:
+      label: 提案标题 (ADR Title)
+      placeholder: "ADR-006: 引入流式音频推送与客户端实时解码管道"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景与痛点 (Context & Problem)
+      description: 为什么当前架构需要演进？遇到了什么瓶颈或摩擦？
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: 拟采取的决策方案 (Proposed Decision)
+      description: 核心设计、采用的技术栈、接口与接缝（Seam）定义
+    validations:
+      required: true
+
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: 权衡与代价 (Trade-offs & Costs)
+      description: 该方案带来了哪些好处，牺牲了什么，有哪些替代方案被否决？
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: invariants_impact
+    attributes:
+      label: 核心不变量波及评估 (Invariants Impact)
+      description: 该决策是否可能影响 15 项不可违背核心不变量？
+      options:
+        - label: "严格遵循全部 15 项不变量，无任何削弱或突破"
+        - label: "需修订现有 ADR 或工程规范基线"
+        - label: "需同步更新 contracts/schemas/ JSON Schemas"
+    validations:
+      required: true

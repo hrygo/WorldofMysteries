@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 《诡秘世界》架构与工程讨论区
+    url: https://github.com/hrygo/WorldofMysteries/discussions
+    about: 欢迎在此交流产品设计、小说 Canon 设定与人机协同研发体验
+  - name: 📖 工程基线主入口文档
+    url: https://github.com/hrygo/WorldofMysteries/blob/main/docs/README.md
+    about: 查阅 15 项不可违背核心不变量与全套技术规范
