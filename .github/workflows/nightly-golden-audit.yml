@@ -47,7 +47,7 @@ jobs:
           python3 scripts/check_architecture_fitness.py
 
       - name: Archive Verification Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nightly-audit-report-${{ github.sha }}
           path: |
