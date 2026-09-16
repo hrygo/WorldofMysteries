@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -58,7 +58,7 @@ jobs:
     needs: [architecture-and-contracts]
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv with Cache Enabled
         uses: astral-sh/setup-uv@v7
@@ -79,7 +79,7 @@ jobs:
     needs: [architecture-and-contracts]
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Select Xcode Toolchain
         run: |
