@@ -72,11 +72,16 @@ def integrate_pipeline(branch: str, auto_clean: bool = False):
 
     print(f"🛡️  [CollabPipeline] Initiating pre-merge integration verification for '{branch}'...")
 
-    # 1. Check for uncommitted changes in worktree
+    # 1. Check for uncommitted changes in worktree (ignoring ephemeral capsules & venv link)
     status_res = run_cmd("git status --porcelain", cwd=target_dir)
-    if status_res.stdout.strip():
+    dirty_lines = [
+        line for line in status_res.stdout.splitlines()
+        if not any(token in line for token in ["engine/.venv", ".agents/capsules/"])
+    ]
+    if dirty_lines:
         print("❌ Uncommitted changes detected in worktree. Please commit or stash first:")
-        print(status_res.stdout)
+        for dl in dirty_lines:
+            print(f"   {dl}")
         sys.exit(1)
 
     # 2. Run 3-stage gate runner inside the worktree
@@ -102,8 +107,11 @@ def integrate_pipeline(branch: str, auto_clean: bool = False):
     # 4. Cleanup if requested
     if auto_clean:
         print(f"🧹 [Auto-Clean] Removing worktree at: {target_dir}")
-        run_cmd(f"git worktree remove \"{target_dir}\"", cwd=REPO_ROOT)
-        run_cmd(f"git branch -d {branch}", cwd=REPO_ROOT, check=False)
+        target_venv = target_dir / "engine" / ".venv"
+        if target_venv.is_symlink():
+            target_venv.unlink()
+        run_cmd(f"git worktree remove --force \"{target_dir}\"", cwd=REPO_ROOT)
+        run_cmd(f"git branch -D {branch}", cwd=REPO_ROOT, check=False)
         print("✅ Worktree and branch cleaned up.")
 
 
