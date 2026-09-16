@@ -6,6 +6,8 @@
 > **语音交互**：OpenAI Audio API 规范适配器，默认对接本地 SpeechRail (WebSocket/REST)，支持任意兼容第三方热拔插  
 > **协同框架**：HACF 2.1 (人机与多专精 Agent 协同体系，门禁主权 + 契约凭证分离) + GitHub Actions 工业级双层防御流水线  
 > **核心规范根目录**：[`docs/`](docs/)（主入口：[`docs/README.md`](docs/README.md)）
+>
+> **关联仓库（卡牌制作工具）**：[`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art) —— Canon 内容生产面（22 条成神途径 × 序列 9→0 的正典核验、六维语义契约与分层卡面生产）；本仓库单向消费其结论，不重复维护、不反向写入。
 
 ---
 
@@ -122,6 +124,17 @@ repo/
 └── docs/                    # 完整设计文档与工程基线规范
 ```
 
+### 关联仓库 (Related Repositories)
+
+- **本仓库** `hrygo/WorldofMysteries`：应用本体（macOS 宿主应用 + Local Engine + 数据内核 + HACF 协同框架）。
+  - 地址：https://github.com/hrygo/WorldofMysteries
+- **卡牌制作工具** `hrygo/lotm-card-art`：Canon 内容生产面（22 条成神途径 × 序列 9→0 的序列卡槽、六维语义契约、分层卡面生产与素材 provenance）。
+  - 地址：https://github.com/hrygo/lotm-card-art
+- **边界约束**：
+  - 卡牌正典事实源（途径、序列、配方、扮演、晋升、限制与批准状态）只在卡牌仓库维护；本仓库**不得**重复维护第二份，也**不得**反向写入或据本仓库界面改动其卡牌契约与批准记录（不变量 10「用户世界绝不污染 Canon」的仓库级对应）。
+  - 两仓库**不共享代码依赖**：不互相 import、不互相引用本地文件路径；文档与记录中的跨仓库引用一律使用上面的 GitHub 地址。
+  - 本仓库消费卡牌内容只发生在「内容注入」边界上，不得把具体卡牌设定硬编码进 `engine/domain/`。
+
 ### 模块依赖边界约束 (Ownership Boundaries)
 - `engine/domain/`：**严禁** import AgentScope、SQLite 驱动（如 sqlite3 / aiosqlite）或任何云厂商 SDK。
 - `engine/ai/`：作为适配层接入 AgentScope，但**严禁**直接操作 SQLite 写事务。
@@ -236,6 +249,7 @@ repo/
 | **工程与协议契约** | [`docs/03_工程规范/`](docs/03_工程规范/) | `Context_Compiler`, `Engine_API_Contracts`, `Data_Architecture`, `macOS_App_Platform_Baseline`, `Swift6_Xcode27_Best_Practices` |
 | **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案 v1.1`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)（HACF 2.1 权威基线）, [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
 | **回归测试基准** | [`docs/04_Golden_Scenarios/`](docs/04_Golden_Scenarios/) | `golden_001` 5 轮状态断言与端到端期望 |
+| **关联仓库（卡牌制作工具）** | [`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art) | Canon 内容生产面：序列卡槽正典、六维语义契约与分层卡面生产（本仓库单向消费，见第 3 节） |
 
 ---
 
