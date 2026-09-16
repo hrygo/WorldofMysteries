@@ -78,7 +78,8 @@ Voice 是主入口：
 - three-button-only choice UI；
 - chat window。
 
-当前视觉实现必须依据本节重新设计；本基线没有批准的 Fate Intervention 图片。
+当前视觉实现依据本节设计；
+概念参考：`assets/03_命运干预_概念参考.png`
 
 ## 5. Story Player
 
@@ -108,7 +109,8 @@ Story Player 是沉浸体验页。
 - Chat transcript；
 - Dense RPG HUD。
 
-当前视觉实现必须依据本节重新设计；本基线没有批准的 Story Player 图片。
+当前视觉实现依据本节设计；
+概念参考：`assets/04_故事沉浸_概念参考.png`
 
 ## 6. Story Book
 
@@ -125,6 +127,8 @@ Episode 完成后成为私人历史。
 - audio replay。
 
 Story Book 使用实际 committed NarrativeBlock，不在 Episode 结束后重新编造历史。
+
+概念参考：`assets/07_故事书_概念参考.png`
 
 ## 7. Card Collection
 
@@ -179,15 +183,18 @@ UI 不提供“重新生成结果”按钮。允许：
 
 ## 10. Approved Visual References
 
-本基线批准四张概念参考：
+本基线批准八张核心概念参考：
 
-1. 世界首页；
-2. 人物档案；
-3. 卡牌详情；
-4. 卡牌馆。
+1. `assets/01_世界首页_概念参考.png` (World Home)
+2. `assets/02_人物档案_概念参考.png` (Character)
+3. `assets/03_命运干预_概念参考.png` (Fate Intervention)
+4. `assets/04_故事沉浸_概念参考.png` (Story Player)
+5. `assets/05_卡牌详情_概念参考.png` (Card Detail)
+6. `assets/06_卡牌馆_概念参考.png` (Card Collection)
+7. `assets/07_故事书_概念参考.png` (Story Book)
+8. `assets/08_世界线_概念参考.png` (Worldline Nexus)
 
 概念参考约束视觉方向，不替代产品交互规格和最终实施稿。
-
 
 ## 11. Runtime State
 
