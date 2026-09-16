@@ -221,6 +221,7 @@ repo/
    - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/schemas/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
 5. **专精 Agent Skills 协同规范**：
    - **项目级专精业务 Skills ([`.agents/skills/`](.agents/skills/))**：
+     - **`wom-navigator`**：工程态势罗盘与架构调度中枢，响应“当前项目状态和进展”、“下一步推进方向”与“任务指派”，联动 `scripts/project_status.py` 事实源；
      - **`wom-collaborator`**：HACF 2.0 人机协同总枢纽，指导 Task Capsule 切片、Git Worktree 事务隔离、sha256 机器验签与 GitHub Actions 双层合流；
      - **`wom-invariants-guard`**：15 项核心不变量守护者，提供逐项违例判定标准、反模式排查清单与 AST 架构适应度静态扫描；
      - **`wom-domain-weaver`**：纯领域核心业务编织，指导 World/Character/Story 状态机与确定性 Outcome Resolver（纯函数 Reducer 模式）；

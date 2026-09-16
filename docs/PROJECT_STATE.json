@@ -1,0 +1,115 @@
+{
+  "project_name": "World of Mysteries",
+  "version": "0.1.0",
+  "last_updated": "2026-09-16",
+  "current_phase": {
+    "phase_id": "Phase 1",
+    "phase_name": "引擎部署与数据内核 (Engine Deployment & Data Kernel)",
+    "status": "IN_PROGRESS",
+    "progress_summary": "Phase 0 基础设施与契约 100% 验收通过；Phase 1 数据内核与 IPC 通路正式就绪启动"
+  },
+  "gates_health": {
+    "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
+    "schemas_integrity": "PASSED (28/28 valid schemas)",
+    "python_tests": "PASSED (25/25 passed in <0.5s)",
+    "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
+    "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
+  },
+  "completed_phases": [
+    {
+      "phase_id": "Phase 0",
+      "phase_name": "基线契约与协同基础设施 (Baseline Contracts & HACF 2.0)",
+      "completed_at": "2026-09-16",
+      "key_deliverables": [
+        "28 个跨语言强类型 JSON Schemas 冻结",
+        "本地三阶段极速门禁 (AST 检查 + Python 25 项测试 + Swift 8 项并发测试 100% 通过)",
+        "HACF 2.0 任务胶囊切片 (agent_capsule.py) 与 Git Worktree 事务隔离流水线 (collab_pipeline.py)",
+        "GitHub Actions 工业级双层防御流与 CODEOWNERS 权限矩阵",
+        "macOS 26+ 平台基线全面对齐与持久化术语加固"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Local Engine 运行守护与 UDS IPC 双向通路",
+      "phase": "Phase 1",
+      "status": "READY",
+      "lead_role": "AGT-ARB",
+      "description": "实现独立 Python 3.14.7 守护进程生命周期管理与 UDS IPC NDJSON 传输通道"
+    },
+    {
+      "id": "M2",
+      "name": "SQLite 四库物理隔离架构与单写多读连接池",
+      "phase": "Phase 1",
+      "status": "READY",
+      "lead_role": "AGT-DATA",
+      "description": "落地 canon.db, world.db, retrieval.db, runtime.db 物理隔离、DDL 迁移与 Outbox 异步事件"
+    },
+    {
+      "id": "M3",
+      "name": "确定性 Outcome Resolver 与状态机实现",
+      "phase": "Phase 2",
+      "status": "BLOCKED",
+      "depends_on": ["M2"],
+      "lead_role": "AGT-DOM",
+      "description": "纯函数 Reducer 模式、State Delta 折叠与 Golden 001 5 轮状态比对"
+    },
+    {
+      "id": "M4",
+      "name": "AgentScope 2.0.8 适配与 Proposal 网关",
+      "phase": "Phase 2",
+      "status": "BLOCKED",
+      "depends_on": ["M3"],
+      "lead_role": "AGT-AI",
+      "description": "Bounded Tools 限制、Prompt 注册表与零写库 Proposal 输出"
+    },
+    {
+      "id": "M5",
+      "name": "Golden 001 端到端 5 轮状态全景回归",
+      "phase": "Phase 3",
+      "status": "BLOCKED",
+      "depends_on": ["M4"],
+      "lead_role": "AGT-QA",
+      "description": "全链路端到端 Golden Scenario 自动化回归审计"
+    },
+    {
+      "id": "M6",
+      "name": "macOS App 语音流式交互与发布门禁",
+      "phase": "Phase 3",
+      "status": "BLOCKED",
+      "depends_on": ["M5"],
+      "lead_role": "AGT-VOICE",
+      "description": "SpeechRail 实时低延迟流式对接与 SwiftUI 响应式渲染"
+    }
+  ],
+  "critical_path": {
+    "next_milestone_id": "M2",
+    "next_milestone_name": "四库 SQLite 数据内核与迁移机制 (Data Kernel & Four-DB Isolation)",
+    "strategic_rationale": "系统拓扑不变量（#5, #8, #10, #11, #12）强制规定领域数据库为事实源，且领域与 AI 彻底物理隔离。在四库物理隔离与单写多读连接池未奠定前，任何上层角色状态与叙事推进均无法持久化（会沦为易失内存）。因此数据内核是整个系统状态机的唯一物理基石。",
+    "target_deliverables": [
+      "四库物理隔离 DDL 初始化与迁移脚本 (canon.db, world.db, retrieval.db, runtime.db)",
+      "单写多读互斥队列与只读连接池 (WAL mode, busy_timeout=5000ms, mmap_size=256MB)",
+      "Transactional Outbox 事件表与幂等写入机制",
+      "Golden 001 种子数据（克莱恩·莫雷蒂初始状态）导入回归"
+    ],
+    "dispatch": {
+      "assigned_role": "AGT-DATA",
+      "role_title": "数据内核管家 (Data Steward)",
+      "task_id": "M2-DATA-KERNEL",
+      "task_title": "四库 SQLite 数据内核迁移与连接池实现",
+      "authorized_scope": [
+        "engine/infrastructure/database*",
+        "engine/infrastructure/outbox*",
+        "engine/tests/infrastructure*"
+      ],
+      "forbidden_patterns": [
+        "macos-app/*",
+        "engine/domain/*",
+        "engine/ai/*"
+      ],
+      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M2-DATA-KERNEL --title \"四库 SQLite 数据内核迁移与连接池实现\"",
+      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m2-data-kernel --role AGT-DATA --task-id M2-DATA-KERNEL"
+    }
+  }
+}

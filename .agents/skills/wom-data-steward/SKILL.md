@@ -36,6 +36,8 @@ PRAGMA foreign_keys = ON;
 ```
 - **写入隔离**：所有对 `world.db` 的写操作必须由单线程异步队列（Actor / Outbox Manager）串行提交，杜绝写写竞争。
 - **并发读取**：读取连接支持多连接并发开启，不阻塞写事务。
+- **生产级参考实现**：参考 [`examples/sqlite_pool_pattern.py`](./examples/sqlite_pool_pattern.py)。
+- **常见锁冲突排查**：参考 [`references/wal_troubleshooting.md`](./references/wal_troubleshooting.md)。
 
 ### 2.2 Transactional Outbox 异步投影模式
 当 `OutcomeResolver` 产生 `StateDelta` 并写入 `world.db` 时：
