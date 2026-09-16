@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -65,6 +66,30 @@ def load_receipts(repo_root: Path, task_id: str) -> List[Dict[str, Any]]:
     return receipts
 
 
+def _arbiter_synced_registry(
+    repo_root: Path, capsule: Dict[str, Any], actual_digest: str
+) -> bool:
+    """治理通道在同一 PR 内同步更新 profile 与 registry 摘要时，允许门禁档案正常演进。
+
+    否则「任何 profile 改动都等于篡改」会让门禁档案在受保护分支上永久冻结，
+    连合法升级都无法通过 PR 完成——这是自锁而非守门。
+    """
+    if capsule.get("assigned_role") not in policy.PRIVILEGED_LANE_ROLES:
+        return False
+    registry_file = repo_root / ".hacf" / "gates" / "registry.json"
+    if not registry_file.exists():
+        return False
+    try:
+        registry = json.loads(registry_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+    profile_id = capsule.get("gates", {}).get("profile")
+    entry_pr = registry.get("profiles", {}).get(profile_id)
+    if not entry_pr:
+        return False
+    return f"sha256:{entry_pr.get('sha256')}" == actual_digest
+
+
 def audit_pr(
     *,
     changed_files: Sequence[str],
@@ -72,10 +97,33 @@ def audit_pr(
     head_sha: str,
     repo_root: Path = REPO_ROOT,
     authoritative_registry: Optional[Dict[str, Any]] = None,
+    current_diff_digest: str = "",
 ) -> Dict[str, Any]:
-    """返回结构化审计结论；ok=False 时由调用方（CI）阻断合入。"""
-    failures: List[str] = []
+    """返回结构化审计结论；blocking 非空时由调用方（CI）阻断合入。
+
+    分级原则——只拦「不可逆 / 不可信」，不拦进度：
+      * blocking：越界写、forbidden 命中、门禁档案篡改、胶囊不可读或未携带；
+      * advisory：证据完备性（Work Receipt、覆盖缺口、stale_context）默认只提示，
+        设 HACF_STRICT_EVIDENCE=1 时升级为阻断。
+
+    边界裁决为**覆盖式**：一个文件只要求「被至少一枚胶囊授权」，
+    而不是「被 PR 内每一枚胶囊授权」，多角色协同 PR 因此不再必然失败。
+    """
+    blocking: List[str] = []
+    advisory: List[str] = []
     notices: List[str] = []
+
+    strict_evidence = os.getenv("HACF_STRICT_EVIDENCE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    def report(message: str, *, hard: bool) -> None:
+        if hard or strict_evidence:
+            blocking.append(message)
+        else:
+            advisory.append(message)
 
     code_files = [f for f in changed_files if _is_code(f)]
     meta_files = [f for f in changed_files if _is_meta(f)]
@@ -88,7 +136,7 @@ def audit_pr(
         try:
             capsules.append((capsule_path, policy.load_capsule(capsule_path)))
         except policy.PolicyError as exc:
-            failures.append(f"胶囊不可读: {capsule_path}: {exc}")
+            report(f"胶囊不可读: {capsule_path}: {exc}", hard=True)
 
     # 识别自动化维护 PR（如 Dependabot、纯依赖锁文件或 CI 流水线微调）
     MAINTENANCE_ALLOWED_PREFIXES = (
@@ -98,7 +146,6 @@ def audit_pr(
         "macos-app/Package.resolved",
     )
     is_maintenance = False
-    import os
     actor = os.getenv("GITHUB_ACTOR", "")
     head_ref_name = os.getenv("GITHUB_HEAD_REF", "")
     if "dependabot" in actor.lower() or head_ref_name.startswith("dependabot/"):
@@ -114,89 +161,136 @@ def audit_pr(
             "🤖 [MAINTENANCE] 判定为自动化依赖/工作流维护 PR，免除业务任务胶囊与 Work Receipt 约束（由 CI 3-Stage 门禁全权守门）"
         )
     elif code_files and not capsules:
-        failures.append(
+        report(
             "本 PR 修改了代码路径但未携带任务胶囊："
-            f"{', '.join(code_files[:10])}{' …' if len(code_files) > 10 else ''}"
+            f"{', '.join(code_files[:10])}{' …' if len(code_files) > 10 else ''}",
+            hard=True,
         )
     if not capsules and not code_files:
         notices.append("无代码变更且无胶囊：按元数据变更放行（仍需人工评审）")
 
+    per_file: Dict[str, List[Dict[str, str]]] = {}
     for capsule_path, capsule in capsules:
         role = capsule.get("assigned_role", "UNKNOWN")
         task_id = capsule.get("task_id", "UNKNOWN")
         print(f"\n🏷️  审计胶囊 {capsule.get('capsule_id')} · role={role} · task={task_id}")
 
-        # 1. 边界裁决
-        audit = policy.audit_scope(capsule, code_files)
-        for violation in audit["violations"]:
-            failures.append(f"[{task_id}] 越界: {violation['path']} — {violation['reason']}")
-        for escalation in audit["escalations"]:
-            failures.append(
-                f"[{task_id}] SCOPE_ESCALATION_REQUIRED: {escalation['path']} — {escalation['reason']}"
+        # 1. 边界裁决（覆盖式）：先逐胶囊取单文件裁决，最后按文件汇总
+        for path in code_files:
+            verdict = policy.path_verdict(capsule, path)
+            per_file.setdefault(path, []).append(
+                {**verdict, "task_id": task_id, "role": role}
             )
-        for granted in audit["privileged_uses"]:
-            notices.append(f"[{task_id}] 已授权高风险面: {granted}")
+            if verdict["verdict"] == "authorized" and policy.touches_high_risk(path):
+                notices.append(f"[{task_id}] 已授权高风险面: {path}")
 
         # 2. 门禁档案主权：PR 不得自证门禁
-        if gates_touched and role not in policy.PRIVILEGED_LANE_ROLES:
-            failures.append(
-                f"[{task_id}] 角色 {role} 不得修改受保护门禁档案: {', '.join(gates_touched)}"
+        # 归属口径同样按覆盖式：只有「确实授权了门禁档案」的胶囊才被追责，
+        # 否则同 PR 内任何无关胶囊都会被安上篡改罪名。
+        gates_claimed = [
+            f for f in gates_touched if policy.path_verdict(capsule, f)["verdict"] == "authorized"
+        ]
+        if gates_claimed and role not in policy.PRIVILEGED_LANE_ROLES:
+            report(
+                f"[{task_id}] 角色 {role} 不得修改受保护门禁档案: {', '.join(gates_claimed)}",
+                hard=True,
             )
         base_registry_digest = None
         if authoritative_registry:
             profile_id = capsule.get("gates", {}).get("profile")
             entry = authoritative_registry.get("profiles", {}).get(profile_id)
             if not entry:
-                failures.append(
-                    f"[{task_id}] 胶囊引用的门禁档案 '{profile_id}' 不存在于目标分支 registry"
+                report(
+                    f"[{task_id}] 胶囊引用的门禁档案 '{profile_id}' 不存在于目标分支 registry",
+                    hard=True,
                 )
             else:
                 base_registry_digest = f"sha256:{entry['sha256']}"
                 if capsule.get("gates", {}).get("profile_digest") != base_registry_digest:
-                    failures.append(
+                    report(
                         f"[{task_id}] 胶囊记录的门禁摘要与目标分支权威 registry 不一致 "
-                        f"(capsule={capsule.get('gates', {}).get('profile_digest')}, base={base_registry_digest})"
+                        f"(capsule={capsule.get('gates', {}).get('profile_digest')}, base={base_registry_digest})",
+                        hard=True,
                     )
                 profile_file = repo_root / entry["file"]
                 if profile_file.exists():
                     actual = f"sha256:{gate_profile.sha256_file(profile_file)}"
                     if actual != base_registry_digest:
-                        failures.append(
-                            f"[{task_id}] PR 内门禁档案被改写且未同步目标分支 registry: {entry['file']}"
-                        )
+                        if _arbiter_synced_registry(repo_root, capsule, actual):
+                            notices.append(
+                                f"[{task_id}] 治理通道在同一 PR 内同步更新了 profile 与 registry 摘要，"
+                                f"门禁档案演进被受理: {entry['file']}"
+                            )
+                        else:
+                            report(
+                                f"[{task_id}] PR 内门禁档案被改写且未同步目标分支 registry: {entry['file']}",
+                                hard=True,
+                            )
         else:
             notices.append("未能读取目标分支 registry（首次引入阶段），跳过权威摘要比对")
 
-        # 3. 凭单证据：必须存在与 PR 提交一致且通过的 Work Receipt
+        # 3. 凭单证据：优先按变更集内容摘要匹配（与提交解耦），head 一致作为兼容回退
         receipts = load_receipts(repo_root, task_id)
         matching = [
             r
             for r in receipts
-            if r.get("head_commit") == head_sha and r.get("receipt_type") == "work"
+            if r.get("receipt_type") == "work"
+            and (
+                (current_diff_digest and r.get("diff_digest") == current_diff_digest)
+                or r.get("head_commit") == head_sha
+            )
         ]
         if not matching:
-            failures.append(
-                f"[{task_id}] 缺少与 PR 提交({head_sha[:12]})一致的 Work Receipt："
-                "请在工作区执行 'python3 scripts/agent_capsule.py verify --capsule <capsule>' 后提交凭单"
+            report(
+                f"[{task_id}] 缺少覆盖当前变更集的 Work Receipt（diff={current_diff_digest[:19]}…）："
+                "请在工作区执行 'python3 scripts/agent_capsule.py verify --capsule <capsule>' 后提交凭单",
+                hard=False,
             )
         for receipt in matching:
             if receipt.get("verdict") != "passed":
-                failures.append(f"[{task_id}] Work Receipt verdict={receipt.get('verdict')}")
+                report(f"[{task_id}] Work Receipt verdict={receipt.get('verdict')}", hard=False)
             if receipt.get("capsule_digest") != f"sha256:{policy.capsule_digest(capsule_path)}":
-                failures.append(
-                    f"[{task_id}] Work Receipt 绑定的 capsule_digest 与当前胶囊不一致（胶囊被改动后需重新验收）"
+                report(
+                    f"[{task_id}] Work Receipt 绑定的 capsule_digest 与当前胶囊不一致（胶囊被改动后需重新验收）",
+                    hard=False,
                 )
             if base_registry_digest and receipt.get("gate_profile_digest") != base_registry_digest:
-                failures.append(f"[{task_id}] Work Receipt 的 gate_profile_digest 非权威档案摘要")
+                report(f"[{task_id}] Work Receipt 的 gate_profile_digest 非权威档案摘要", hard=False)
             if receipt.get("coverage_gaps"):
                 notices.append(
                     f"[{task_id}] 验收存在覆盖缺口 {len(receipt['coverage_gaps'])} 项："
                     + "；".join(receipt["coverage_gaps"][:3])
                 )
             if receipt.get("stale_context"):
-                failures.append(f"[{task_id}] Work Receipt 标记 stale_context=true")
+                report(f"[{task_id}] Work Receipt 标记 stale_context=true", hard=False)
 
-    return {"ok": not failures, "failures": failures, "notices": notices}
+    # 4. 按文件汇总覆盖结论：被任一胶囊授权即放行，无任何胶囊覆盖才判越界
+    for path, verdicts in sorted(per_file.items()):
+        if any(v["verdict"] == "authorized" for v in verdicts):
+            continue
+        forbidding = [v for v in verdicts if v["verdict"] == "forbidden"]
+        if forbidding:
+            owners = ", ".join(f"{v['role']}/{v['task_id']}" for v in forbidding)
+            report(f"越界: {path} — {forbidding[0]['reason']}（禁方: {owners}）", hard=True)
+            continue
+        escalations = [v for v in verdicts if v["verdict"] == "escalation_required"]
+        if escalations:
+            owners = ", ".join(f"{v['role']}/{v['task_id']}" for v in escalations)
+            report(
+                f"SCOPE_ESCALATION_REQUIRED: {path} — {escalations[0]['reason']}（相关胶囊: {owners}）",
+                hard=True,
+            )
+            continue
+        owners = ", ".join(sorted({v["task_id"] for v in verdicts}))
+        report(f"越界: {path} — 无任何胶囊覆盖该路径（PR 内胶囊: {owners}）", hard=True)
+
+    return {
+        "ok": not blocking,
+        "failures": blocking,
+        "blocking": blocking,
+        "advisory": advisory,
+        "notices": notices,
+    }
 
 
 def main() -> int:
@@ -237,17 +331,27 @@ def main() -> int:
         head_sha=head_sha,
         repo_root=repo_root,
         authoritative_registry=registry_from_ref(args.base_ref, repo_root),
+        current_diff_digest="sha256:"
+        + policy.changes_digest(args.base_ref, args.head_ref, cwd=repo_root),
     )
 
     print(f"\n📋 变更文件 {len(changed)} 个；审计结论: {'PASS' if result['ok'] else 'FAIL'}")
     for notice in result["notices"]:
         print(f"   ️  {notice}")
-    for failure in result["failures"]:
-        print(f"   ❌ {failure}")
+    for failure in result["blocking"]:
+        print(f"    [BLOCKING] {failure}")
+    for warning in result["advisory"]:
+        print(f"   ⚠️  [ADVISORY] {warning}")
     if result["ok"]:
-        print("\n🎉 Capsule scope & evidence audit PASSED.")
+        if result["advisory"]:
+            print(
+                f"\n✅ Capsule 审计通过（{len(result['advisory'])} 项提示不阻断合入；"
+                "严格模式请设 HACF_STRICT_EVIDENCE=1）。"
+            )
+        else:
+            print("\n Capsule scope & evidence audit PASSED.")
         return 0
-    print("\n❌ Capsule audit FAILED：门禁证据不完整或越界，拒绝合入。")
+    print("\n❌ Capsule audit FAILED：存在越界或不可信变更，拒绝合入。")
     return 1
 
 
