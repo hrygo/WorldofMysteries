@@ -5,15 +5,23 @@ on:
     - cron: "0 2 * * *" # Daily at 02:00 UTC (10:00 AM CST)
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   golden-scenario-audit:
     name: "Nightly Golden Scenario Replay & Contract Audit"
     runs-on: macos-14
+    timeout-minutes: 25
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install uv & Python 3.14
+      - name: Install uv with Cache Enabled
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true

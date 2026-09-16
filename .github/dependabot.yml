@@ -1,0 +1,43 @@
+# ==============================================================================
+# 《诡秘世界》(World of Mysteries) - Dependabot 自动化版本追踪规范 (2026 Baseline)
+#
+# 持续监控 GitHub Actions 与项目依赖，杜绝依赖陈旧与安全漏洞
+# ==============================================================================
+
+version: 2
+updates:
+  # 1. GitHub Actions 自动化升级与安全审查
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  # 2. Python (Engine) 依赖环境监控
+  - package-ecosystem: "pip"
+    directory: "/engine"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:30"
+    commit-message:
+      prefix: "build(engine)"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  # 3. Swift Package Manager (macOS App) 依赖监控
+  - package-ecosystem: "swift"
+    directory: "/macos-app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    commit-message:
+      prefix: "build(macos-app)"
+      include: "scope"
+    open-pull-requests-limit: 5

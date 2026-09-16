@@ -70,17 +70,37 @@
   4. **`all-gates-passed` (ubuntu-latest)**：
      - 作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）。
 
-### 2.2 任务胶囊与权限边界审计工作流 (`.github/workflows/capsule-audit.yml`)
-- **触发条件**：`pull_request` 打开、重新同步（synchronize）或重新打开。
+### 2.3 实时质量报告与 Sticky 评论工作流 (`.github/workflows/pr-gate-reporter.yml`)
+- **触发条件**：`pull_request` 打开、更新或重开。
 - **核心逻辑**：
-  1. 通过 `git diff --name-only origin/main...HEAD` 精确计算 PR 变动的文件列表；
-  2. 检索 PR 中包含的 `.agents/capsules/*.json` 任务胶囊；
-  3. **权限边界硬阻断 (Scope Hard Block)**：若修改的文件超出了胶囊 `authorized_scope.directories` 的范围（除文档与元文件外），直接报错并打印违规文件清单；
-  4. **防伪验签 (Attestation Verification)**：检查胶囊内是否包含由 `agent_capsule.py verify` 生成的有效 `sha256` 机器签名。
+  1. 调用 `scripts/generate_pr_report.py` 结构化提取任务胶囊状态、执行角色、不变量与防伪机器签名；
+  2. 使用 `actions/github-script@v7` (Node 20 驱动) 自动发布或更新 PR 顶部的实时门禁报告卡片，避免重复刷屏。
+
+### 2.4 夜间全景深度回放工作流 (`.github/workflows/nightly-golden-audit.yml`)
+- **触发条件**：每日 UTC 02:00 (北京时间 10:00) 定时触发，或支持 `workflow_dispatch` 手动一键触发。
+- **核心逻辑**：
+  1. 在 `macos-14` runner 运行全量契约双向往返验证；
+  2. 执行 Golden 001 场景 5 轮状态机深度回放；
+  3. 执行 Swift 6 全量测试与架构适应度 AST 扫描；
+  4. 使用 `actions/upload-artifact@v4` 归档为期 14 天的审计工件。
 
 ---
 
-## 3. 缓存与性能极致优化 (Caching & Performance Optimization)
+## 3. 2026 年 GitHub Actions 现代工程基线与安全准则
+
+为严格符合 2026 年现代 CI/CD 工业级安全与效能规范，全流水线强制贯彻以下准则：
+
+| 规范项 | 2026 标准要求 | 《诡秘世界》实施落地 |
+|:---|:---|:---|
+| **官方 Actions 生命周期** | 必须全面迁移至 Node 20 / Node 22 运行时，严禁使用已弃用的 v3 | 全面采用 `actions/checkout@v4`, `actions/setup-python@v5`, `astral-sh/setup-uv@v5`, `actions/cache@v4`, `actions/upload-artifact@v4`, `actions/github-script@v7`。 |
+| **最小权限原则 (Least Privilege)** | 顶层禁用通配写权限，显式限制只读 | 所有工作流顶层严格配置 `permissions: contents: read`；仅在 PR Reporter 中局部按需开放 `pull-requests: write, issues: write`。 |
+| **超时保护 (Timeout Guard)** | 严禁无超时任务，防止 runner 死锁耗费配额 | 所有 Job 均显式声明 `timeout-minutes: 5 ~ 25`，异常卡顿自动自愈熔断。 |
+| **Runner 架构匹配** | 淘汰 Intel x86 runner，对齐 Apple Silicon 硬件 | 编译与测试统一采用 `macos-14` (M1/M2 arm64) 与 `ubuntu-latest` 组合。 |
+| **自动化依赖升级** | 必须具备自动化依赖与 Actions 追踪机制 | 引入 `.github/dependabot.yml`，每周一全自动审查 Actions、Python 及 SPM 依赖更新。 |
+
+---
+
+## 4. 缓存与性能极致优化 (Caching & Performance Optimization)
 
 为避免 macOS 云端 Runner 排队等待与高昂配额消耗，工程落实了深度缓存策略：
 
@@ -94,7 +114,7 @@
 
 ---
 
-## 4. GitHub 仓库分支保护规则推荐 (Branch Protection Recommendations)
+## 5. GitHub 仓库分支保护规则推荐 (Branch Protection Recommendations)
 
 在 GitHub 仓库后台设置 `main` 分支保护规则（Settings -> Branches -> Branch protection rules）：
 
@@ -106,6 +126,6 @@
    - 添加以下两项必过检查：
      - `All Quality Gates Passed` (来自 `ci.yml`)；
      - `Audit Task Capsule Scope & Attestation` (来自 `capsule-audit.yml`)。
-3. **Require signed commits** (可选推荐)。
+3. **Require signed commits** (推荐)。
 4. **Require linear history**：
    - 强制只允许 Squash and merge 或 Rebase and merge，禁止生成非线性 Merge Commit。

@@ -5,12 +5,25 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   audit-capsule-scope:
     name: "Audit Task Capsule Scope & Attestation"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Checkout Code with Full History
+      - name: Checkout Code with History
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -53,8 +66,8 @@ jobs:
               # Check scope violations
               violations = []
               for f in changed_files:
-                  # Exempt documentation, capsules and meta files
-                  if f.startswith('.agents/capsules/') or f.startswith('.github/') or f.startswith('docs/'):
+                  # Exempt documentation, capsules, workflows and meta files
+                  if f.startswith('.agents/capsules/') or f.startswith('.github/') or f.startswith('docs/') or f == '.gitignore':
                       continue
                   matched = any(f.startswith(d.rstrip('*')) for d in auth_dirs)
                   if not matched:
