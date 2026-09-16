@@ -1,0 +1,20 @@
+{
+  "turn": 5,
+  "story_revision": 5,
+  "clues": [
+    "clue_doctor_pause",
+    "clue_appointment_book",
+    "clue_removed_page",
+    "clue_basement_powder",
+    "clue_jonathan_note"
+  ],
+  "secrets": {
+    "secret_01": "revealed",
+    "secret_02": "revealed",
+    "secret_03": "partial",
+    "secret_04": "hidden"
+  },
+  "doctor_suspicion": 2,
+  "closure_requested": true,
+  "outbox_min": 0
+}

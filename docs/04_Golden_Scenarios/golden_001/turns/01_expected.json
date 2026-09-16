@@ -1,0 +1,8 @@
+{
+  "outcome": "partial_success",
+  "clues_added": [
+    "clue_doctor_pause"
+  ],
+  "doctor_suspicion_delta": 0,
+  "adherence": "full"
+}

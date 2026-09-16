@@ -1,0 +1,153 @@
+baseline_version: '1.0'
+workstreams:
+- id: WS-CONTRACT
+  priority: P0
+  owner_role: Architecture/Platform
+  depends_on: []
+  tasks:
+  - id: T-CON-001
+    title: Freeze IPC envelope and version negotiation
+    acceptance: Swift/Python roundtrip fixtures pass
+  - id: T-CON-002
+    title: Generate/validate Pydantic models from contracts
+    acceptance: all Golden fixtures validate
+  - id: T-CON-003
+    title: Establish Swift DTO compatibility tests
+    acceptance: bidirectional canonical roundtrip passes
+- id: WS-PACKAGING
+  priority: P0
+  owner_role: macOS/Platform
+  depends_on:
+  - WS-CONTRACT
+  tasks:
+  - id: T-PKG-001
+    title: Bundle Python runtime and Engine
+    acceptance: clean target Mac needs no system Python
+  - id: T-PKG-002
+    title: Implement UDS helper lifecycle
+    acceptance: launch/shutdown/restart tests pass
+  - id: T-PKG-003
+    title: Validate signing/sandbox/release profile
+    acceptance: release packaging smoke passes
+- id: WS-DATA
+  priority: P0
+  owner_role: Engine/Data
+  depends_on:
+  - WS-CONTRACT
+  tasks:
+  - id: T-DAT-001
+    title: Implement world.db truth kernel
+    acceptance: STRICT/FK/WAL/FULL and revision tests pass
+  - id: T-DAT-002
+    title: Implement transactional outbox
+    acceptance: crash-after-commit recovers
+  - id: T-DAT-003
+    title: Implement retrieval.db rebuild pipeline
+    acceptance: delete/rebuild produces equivalent retrieval state
+  - id: T-DAT-004
+    title: Implement exact hybrid retrieval
+    acceptance: authorization leak zero on Data Golden
+  - id: T-DAT-005
+    title: Implement backup/migration recovery tests
+    acceptance: failure injection recovers authoritative state
+- id: WS-AI
+  priority: P0
+  owner_role: AI/Engine
+  depends_on:
+  - WS-CONTRACT
+  tasks:
+  - id: T-AI-001
+    title: Pin AgentScope runtime profile
+    acceptance: locked runtime manifest exists
+  - id: T-AI-002
+    title: Implement Mysterious AI Gateway
+    acceptance: Domain has no AgentScope dependency
+  - id: T-AI-003
+    title: Implement structured workers
+    acceptance: schema failure/retry tests pass
+  - id: T-AI-004
+    title: Implement bounded Story Director
+    acceptance: max step/tool tests pass
+  - id: T-AI-005
+    title: Implement trace/model version metadata
+    acceptance: every call is traceable
+- id: WS-DOMAIN
+  priority: P0
+  owner_role: Engine/Domain
+  depends_on:
+  - WS-DATA
+  - WS-AI
+  tasks:
+  - id: T-DOM-001
+    title: Implement World/Character repositories
+    acceptance: no direct SQL in Domain
+  - id: T-DOM-002
+    title: Implement Memory & Knowledge services
+    acceptance: knowledge/belief/memory tests pass
+  - id: T-DOM-003
+    title: Implement Context Compiler
+    acceptance: hidden/future/wrong-character leak zero
+  - id: T-DOM-004
+    title: Implement deterministic Outcome Resolver
+    acceptance: Golden expected deltas pass
+- id: WS-GOLDEN
+  priority: P0
+  owner_role: QA/Engine
+  depends_on:
+  - WS-DOMAIN
+  - WS-PACKAGING
+  tasks:
+  - id: T-GLD-001
+    title: Run Golden 001 with Mock Runtime
+    acceptance: G001-G012 pass
+  - id: T-GLD-002
+    title: Run failure checkpoints
+    acceptance: all durable-stage recoveries pass
+  - id: T-GLD-003
+    title: Run restart persistence
+    acceptance: post-restart world/character/episode equivalent
+- id: WS-SECURITY
+  priority: P1
+  owner_role: Security/Platform
+  depends_on:
+  - WS-PACKAGING
+  tasks:
+  - id: T-SEC-001
+    title: Keychain credential integration
+    acceptance: no secret in config/log/db
+  - id: T-SEC-002
+    title: Trace/log redaction
+    acceptance: diagnostic redaction tests pass
+  - id: T-SEC-003
+    title: Export/delete world lifecycle
+    acceptance: privacy lifecycle tests pass
+- id: WS-CONTENT
+  priority: P1
+  owner_role: Content/Product
+  depends_on: []
+  tasks:
+  - id: T-CNT-001
+    title: Content Pack provenance manifest
+    acceptance: every distributed Canon asset traceable
+  - id: T-CNT-002
+    title: Third-party notices
+    acceptance: dependency/content notices complete
+  - id: T-CNT-003
+    title: Release content rights gate
+    acceptance: distribution scope approved before public release
+- id: WS-INTERACTION
+  priority: P1
+  owner_role: macOS/Product
+  depends_on:
+  - WS-GOLDEN
+  tasks:
+  - id: T-UX-001
+    title: Implement unified InteractionState mapping
+    acceptance: Fate and Story Player consume engine events without a second truth
+      state machine
+  - id: T-UX-002
+    title: Implement PRE_COMMIT cancel and POST_COMMIT interruption UX
+    acceptance: interaction-state regression tests pass
+  - id: T-UX-003
+    title: Implement suggestion directions as non-exclusive Advice affordance
+    acceptance: free-form Advice remains available at every intervention node

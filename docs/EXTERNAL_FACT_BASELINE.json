@@ -1,0 +1,81 @@
+{
+  "validated_at": "2026-09-16",
+  "facts": [
+    {
+      "id": "EXT-SQLITE-WAL-ATTACH",
+      "claim": "In WAL mode, transactions across multiple attached SQLite database files are atomic per file but not crash-atomic across the set.",
+      "status": "verified_official",
+      "sources": [
+        "https://sqlite.org/lang_attach.html",
+        "https://www.sqlite.org/wal.html"
+      ],
+      "architecture_effect": "world.db transaction plus transactional outbox; retrieval.db is not part of Domain atomic commit"
+    },
+    {
+      "id": "EXT-SQLITE-VEC1",
+      "claim": "SQLite Vec1 is currently 0.7; its roadmap states testing is insufficient; ARM builds can use NEON.",
+      "status": "verified_official",
+      "sources": [
+        "https://sqlite.org/vec1/doc/trunk/doc/vec1.md",
+        "https://sqlite.org/forum/info/a09b103d9d41ed25a357a42aa22ca32a93d4a5fb9b10eb40ab3e14cde508e8f1"
+      ],
+      "architecture_effect": "VectorIndexProvider abstraction; exact-first; Vec1 ANN is optional and gated"
+    },
+    {
+      "id": "EXT-AGENTSCOPE-PYTHON",
+      "claim": "AgentScope current project metadata requires Python >=3.11.",
+      "status": "verified_upstream",
+      "sources": [
+        "https://github.com/agentscope-ai/agentscope/blob/main/pyproject.toml"
+      ],
+      "architecture_effect": "AgentScope requires Python >=3.11; shipped runtime uses CPython 3.14.7 standard GIL build and validates the full dependency lock in Packaging/AI gates."
+    },
+    {
+      "id": "EXT-APPLE-CHILD-SANDBOX",
+      "claim": "A sandboxed macOS app may launch a child process that inherits the parent sandbox; XPC is preferred where distinct sandbox entitlements or privilege separation are needed.",
+      "status": "verified_official",
+      "sources": [
+        "https://developer.apple.com/documentation/foundation/process",
+        "https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html"
+      ],
+      "architecture_effect": "child-process helper is MVP baseline; XPC remains supervisor/privilege-boundary option"
+    },
+    {
+      "id": "EXT-LOTM-FOOL-S9",
+      "claim": "Fool Pathway Sequence 9 is Seer / 占卜家.",
+      "status": "secondary_cross_check_only",
+      "sources": [
+        "https://lordofthemysteries.fandom.com/wiki/Sequence/List_of_Sequence_Names"
+      ],
+      "architecture_effect": "Golden 001 naming is cross-checked; release Canon Pack still requires project-approved primary/authorized evidence under Canon Content Accuracy Baseline"
+    },
+    {
+      "id": "EXT-AGENTSCOPE-RELEASE",
+      "claim": "AgentScope 2.0.8 is the current PyPI release as of 2026-09-16.",
+      "status": "verified_pypi",
+      "sources": [
+        "https://pypi.org/project/agentscope/"
+      ],
+      "architecture_effect": "runtime profile pins agentscope==2.0.8"
+    },
+    {
+      "id": "EXT-SQLITE-3534",
+      "claim": "SQLite 3.53.4 is the latest SQLite release as of 2026-09-16.",
+      "status": "verified_official",
+      "sources": [
+        "https://www.sqlite.org/changes.html"
+      ],
+      "architecture_effect": "runtime profile pins SQLite 3.53.4"
+    },
+    {
+      "id": "EXT-PYTHON-3147",
+      "claim": "Python 3.14.7 is the latest stable Python 3 release as of 2026-09-16; Python 3.14 is in bugfix status while Python 3.11 is security-only.",
+      "status": "verified_official",
+      "sources": [
+        "https://www.python.org/downloads/release/python-3147/",
+        "https://www.python.org/getit/"
+      ],
+      "architecture_effect": "ship CPython 3.14.7 standard GIL build; do not use Python 3.15 pre-release or 3.14 free-threaded build in the MVP runtime."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "turn": 2,
+  "story_revision": 2,
+  "clues": [
+    "clue_doctor_pause",
+    "clue_appointment_book",
+    "clue_removed_page"
+  ],
+  "secrets": {
+    "secret_01": "suspected",
+    "secret_02": "suspected",
+    "secret_03": "hidden",
+    "secret_04": "hidden"
+  },
+  "doctor_suspicion": 1,
+  "outbox_min": 0
+}

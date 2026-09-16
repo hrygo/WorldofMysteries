@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "intent_g001_t01",
+  "turn_id": "turn_g001_01",
+  "character_id": "char_evelyn_gray",
+  "intent": "observe_subject",
+  "adherence": "full",
+  "actions": [
+    {
+      "type": "continue_conversation",
+      "purpose": "observe_morris_reaction"
+    }
+  ],
+  "reason_summary": "暂不直接追问，先观察 Morris 对相关话题的细微反应。",
+  "speech_intent": null,
+  "evidence_ids": [
+    "advice_g001_t01"
+  ]
+}

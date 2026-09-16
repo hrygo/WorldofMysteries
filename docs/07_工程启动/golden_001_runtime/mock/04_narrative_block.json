@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "nb_g001_t04",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 4,
+  "scene_id": "basement",
+  "segments": [
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "被水浸过的纸片只剩下一句尚能辨认的话：如果今晚还会做那个梦……"
+    }
+  ],
+  "ambient_cues": [],
+  "sfx_cues": [],
+  "source_state_delta_id": "delta_g001_t04"
+}

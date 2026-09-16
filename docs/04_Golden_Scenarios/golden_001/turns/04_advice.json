@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "advice_g001_t04",
+  "turn_id": "turn_g001_04",
+  "raw_input": "不要直接进去，想办法让医生先离开。",
+  "input_mode": "voice",
+  "primary_intent": "manipulate_situation",
+  "secondary_intents": [
+    "conceal"
+  ],
+  "proposed_actions": [
+    "create_natural_reason_for_morris_to_leave"
+  ],
+  "risk_preference": "cautious",
+  "confidence": 0.96
+}

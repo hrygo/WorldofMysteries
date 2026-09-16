@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/closure_plan.schema.json",
+  "title": "ClosurePlan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "story_session_id",
+    "source_story_revision",
+    "stop_new_major_elements",
+    "resolve_thread_ids",
+    "preserve_unresolved_thread_ids",
+    "target_ending_type"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_story_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stop_new_major_elements": {
+      "type": "boolean",
+      "const": true
+    },
+    "resolve_thread_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "preserve_unresolved_thread_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "target_ending_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

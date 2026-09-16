@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "beat_g001_t05",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 5,
+  "beat_type": "closure",
+  "dramatic_goal": "安全离开并形成 partial-truth ending，不新增主要人物、秘密或冲突。",
+  "world_event_opportunities": [],
+  "reveal_ids": [],
+  "npc_intents": [],
+  "tension_delta": "decrease",
+  "constraints": [
+    "no_new_major_conflict",
+    "secret_04_hidden"
+  ],
+  "intervention_required": false
+}

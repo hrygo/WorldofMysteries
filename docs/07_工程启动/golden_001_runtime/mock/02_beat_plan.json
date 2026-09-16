@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "id": "beat_g001_t02",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 2,
+  "beat_type": "investigation",
+  "dramatic_goal": "让预约记录异常变成可验证线索，同时提高 Morris 的警觉。",
+  "world_event_opportunities": [],
+  "reveal_ids": [
+    "clue_appointment_book",
+    "clue_removed_page"
+  ],
+  "npc_intents": [
+    {
+      "intent": "monitor_evelyn_attention",
+      "character_id": "npc_doctor_morris"
+    }
+  ],
+  "tension_delta": "increase",
+  "constraints": [
+    "secret_01_suspected",
+    "secret_02_suspected"
+  ],
+  "intervention_required": true
+}

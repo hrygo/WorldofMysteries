@@ -1,0 +1,81 @@
+{
+  "package": "诡秘世界_工程交付基线_v1.0",
+  "validated_at": "2026-09-16",
+  "validation_status": "PASS",
+  "scope": "cross_asset_consistency_contract_integrity_content_scope_and_terminal_wording",
+  "checks": {
+    "json_parse": {
+      "status": "PASS",
+      "count": 82,
+      "errors": []
+    },
+    "yaml_parse": {
+      "status": "PASS",
+      "count": 4,
+      "errors": []
+    },
+    "schema_metaschema": {
+      "status": "PASS",
+      "count": 25,
+      "errors": []
+    },
+    "golden_schema_validation": {
+      "status": "PASS",
+      "count": 36,
+      "errors": []
+    },
+    "ipc": {
+      "status": "PASS",
+      "errors": []
+    },
+    "markdown_structure": {
+      "status": "PASS",
+      "count": 40,
+      "bad_fences": [],
+      "duplicate_numbered_h2": []
+    },
+    "no_superseded_semantics": {
+      "status": "PASS",
+      "failures": []
+    },
+    "schema_inventory": {
+      "status": "PASS",
+      "actual_count": 25,
+      "prd_missing": [],
+      "prd_extra": [],
+      "schema_doc_missing": [],
+      "schema_doc_extra": []
+    },
+    "asset_index": {
+      "status": "PASS",
+      "missing": []
+    },
+    "invariants": {
+      "status": "PASS",
+      "details": {
+        "session_overlay": true,
+        "episode_promotion": true,
+        "one_open_story": true,
+        "knowledge_separation": true,
+        "memory_after_episode": true,
+        "agent_no_write": true,
+        "outbox": true,
+        "lineage": true,
+        "commit_boundary": true,
+        "test_fixture_not_canon": true,
+        "versions": true
+      }
+    },
+    "golden_content_scope": {
+      "status": "PASS"
+    },
+    "gate_task_ids": {
+      "status": "PASS",
+      "gate_count": 9,
+      "task_count": 32
+    },
+    "gate_status_truthful": {
+      "status": "PASS"
+    }
+  }
+}

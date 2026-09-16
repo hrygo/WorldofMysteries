@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "nb_g001_t05",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 5,
+  "scene_id": "clinic_exit",
+  "segments": [
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "这一次调查已经得到足够的答案，也留下了更大的未知。伊芙琳收好线索，在雨里离开了诊所。"
+    }
+  ],
+  "ambient_cues": [],
+  "sfx_cues": [],
+  "source_state_delta_id": "delta_g001_t05"
+}

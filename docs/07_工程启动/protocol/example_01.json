@@ -1,0 +1,15 @@
+{
+  "kind": "request",
+  "protocol_version": "1.0",
+  "request_id": "req_001",
+  "trace_id": "trace_001",
+  "idempotency_key": null,
+  "method": "system.handshake",
+  "payload": {
+    "app_version": "0.1.0",
+    "app_build": "100",
+    "supported_protocols": [
+      "1.0"
+    ]
+  }
+}

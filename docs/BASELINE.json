@@ -1,0 +1,58 @@
+{
+  "product": "诡秘世界",
+  "baseline_version": "1.0",
+  "date": "2026-09-16",
+  "status": "engineering_delivery_baseline",
+  "platform_profile": {
+    "first_release": "macOS 26+",
+    "user_model": "single_real_user",
+    "persistence": "local_first",
+    "architecture": "arm64_apple_silicon"
+  },
+  "architecture_decisions": {
+    "engine_topology": "bundled_same_device_separate_process_local_engine",
+    "ipc_profile": "unix_domain_socket_typed_protocol",
+    "ai_runtime": "AgentScope_2.x_exact_version_pinned",
+    "domain_truth_owner": "MysteriousWorld_Domain_Engines",
+    "authoritative_store": "world.db",
+    "canon_store": "canon.db_read_only",
+    "retrieval_store": "retrieval.db_rebuildable",
+    "projection_sync": "transactional_outbox",
+    "graph": "specialized_domain_truth_plus_rebuildable_authorization_scoped_cross_domain_projection",
+    "vector": "provider_abstraction_exact_first",
+    "full_text": "FTS5_trigram_plus_alias_search",
+    "story_session": "durable_overlay_then_atomic_episode_finalization",
+    "interaction": "voice_first_player_advice_freeform_with_optional_suggestion_directions",
+    "content_accuracy": "verified_canon_only_for_hard_constraints"
+  },
+  "invariants": [
+    "Canon != UserWorld",
+    "Truth != CharacterKnowledge",
+    "CharacterKnowledge != CharacterBelief",
+    "CharacterKnowledge != CharacterMemory",
+    "Advice != Command",
+    "Proposal != Commit",
+    "CommittedState != Narrative",
+    "DomainMemory != AgentRuntimeMemory",
+    "WorldTime != RealTime",
+    "AuthoritativeData != RetrievalIndex",
+    "StoryTurnCommit = DurableSessionFact",
+    "EpisodeFinalization = GlobalDomainPromotion",
+    "TestFixture != Canon"
+  ],
+  "golden_scenario": "golden_001",
+  "approved_visual_refs": [
+    "01_world_home",
+    "02_character",
+    "05_card_detail",
+    "06_card_hall"
+  ],
+  "runtime_profile": {
+    "python": "3.14.7",
+    "agentscope": "2.0.8",
+    "sqlite": "3.53.4",
+    "vec1": "0.7_optional",
+    "python_build": "CPython standard GIL build",
+    "python_architecture": "arm64"
+  }
+}

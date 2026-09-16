@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "nb_g001_t03",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 3,
+  "scene_id": "basement_entrance",
+  "segments": [
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "下方确实传来轻微的金属摩擦声，但那只是风推动老旧管道。门框附近却残留着一层不属于灰尘的黑色粉末。"
+    }
+  ],
+  "ambient_cues": [],
+  "sfx_cues": [],
+  "source_state_delta_id": "delta_g001_t03"
+}

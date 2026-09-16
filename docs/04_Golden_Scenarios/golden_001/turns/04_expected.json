@@ -1,0 +1,8 @@
+{
+  "outcome": "success_with_cost",
+  "clues_added": [
+    "clue_jonathan_note"
+  ],
+  "doctor_suspicion_delta": 1,
+  "adherence": "reinterpret"
+}

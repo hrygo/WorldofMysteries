@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/state_delta.schema.json",
+  "title": "StateDelta",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "turn_id",
+    "outcome",
+    "story_delta",
+    "character_deltas",
+    "world_event_candidates",
+    "evidence_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "turn_id": {
+      "type": "string"
+    },
+    "outcome": {
+      "enum": [
+        "clean_success",
+        "success_with_cost",
+        "partial_success",
+        "complication",
+        "failure",
+        "catastrophic_failure"
+      ]
+    },
+    "story_delta": {
+      "type": "object",
+      "properties": {
+        "scene_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "world_time_delta_minutes": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "clue_ids_add": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "clue_ids_remove": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "secret_state_updates": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "hidden",
+              "suspected",
+              "partial",
+              "revealed"
+            ]
+          }
+        },
+        "local_state_patches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "operation"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "operation": {
+                "enum": [
+                  "set",
+                  "remove",
+                  "increment"
+                ]
+              },
+              "value": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "character_deltas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "character_id",
+          "patches",
+          "evidence_ids"
+        ],
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "patches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "operation"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operation": {
+                  "enum": [
+                    "set",
+                    "remove",
+                    "increment",
+                    "add_to_set",
+                    "remove_from_set"
+                  ]
+                },
+                "value": {}
+              },
+              "additionalProperties": false
+            }
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "relationship_deltas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from_character_id",
+          "to_character_id",
+          "dimension_deltas",
+          "evidence_ids"
+        ],
+        "properties": {
+          "from_character_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_character_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dimension_deltas": {
+            "type": "object",
+            "properties": {
+              "trust": {
+                "type": "number"
+              },
+              "affection": {
+                "type": "number"
+              },
+              "respect": {
+                "type": "number"
+              },
+              "fear": {
+                "type": "number"
+              },
+              "dependency": {
+                "type": "number"
+              },
+              "hostility": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "knowledge_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "character_id",
+          "proposition_id",
+          "certainty",
+          "source_ref",
+          "status"
+        ],
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proposition_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "certainty": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "confirmed",
+              "probable",
+              "uncertain",
+              "contradicted",
+              "revoked"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pressure_delta": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "world_event_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_type",
+          "actors",
+          "targets",
+          "payload",
+          "visibility"
+        ],
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "payload": {
+            "type": "object"
+          },
+          "visibility": {
+            "type": "object",
+            "required": [
+              "public"
+            ],
+            "properties": {
+              "public": {
+                "type": "boolean"
+              },
+              "known_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              },
+              "possibly_known_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

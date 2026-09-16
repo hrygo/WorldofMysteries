@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "world_id": "world_001",
+  "worldline_id": "wl_main",
+  "world_time": "1349-06-12T21:40:00",
+  "revision": 103,
+  "location": {
+    "id": "loc_morris_clinic",
+    "city": "Backlund",
+    "district": "East Borough",
+    "open": true,
+    "closes_at": "00:00",
+    "rooms": [
+      "reception",
+      "consultation_room",
+      "archive_room",
+      "basement"
+    ],
+    "discovered_rooms": [
+      "reception",
+      "consultation_room",
+      "archive_room"
+    ]
+  },
+  "weather": "light_rain"
+}

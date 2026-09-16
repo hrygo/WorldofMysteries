@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/character.schema.json",
+  "title": "Character",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "identity",
+    "core",
+    "state",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "canonical",
+        "original",
+        "npc"
+      ]
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "display_name"
+      ],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "age": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "occupation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pathway_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sequence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9
+        }
+      },
+      "additionalProperties": false
+    },
+    "canon_anchor": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "core": {
+      "type": "object",
+      "required": [
+        "traits",
+        "decision_style",
+        "values",
+        "hard_boundaries"
+      ],
+      "properties": {
+        "traits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "decision_style": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "hard_boundaries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "speech_style": {
+          "type": "object",
+          "properties": {
+            "tone": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "verbosity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "formality": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "humor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "metaphor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "location_id",
+        "goals"
+      ],
+      "properties": {
+        "location_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "goals": {
+          "type": "object",
+          "properties": {
+            "long": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "medium": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "immediate": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "emotion": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "primary": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "intensity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "secondary": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            },
+            "cause_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "condition": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "injury": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fatigue": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            },
+            "spirituality": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "corruption": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

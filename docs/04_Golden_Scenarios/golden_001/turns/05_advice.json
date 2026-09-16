@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "id": "advice_g001_t05",
+  "turn_id": "turn_g001_05",
+  "raw_input": "已经够了，把我们知道的东西整理清楚，然后离开。",
+  "input_mode": "voice",
+  "primary_intent": "closure",
+  "secondary_intents": [],
+  "proposed_actions": [
+    "summarize_and_leave"
+  ],
+  "risk_preference": "cautious",
+  "confidence": 0.99
+}

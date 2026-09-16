@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "intent_g001_t04",
+  "turn_id": "turn_g001_04",
+  "character_id": "char_evelyn_gray",
+  "intent": "create_distraction",
+  "adherence": "reinterpret",
+  "actions": [
+    {
+      "type": "create_natural_reason_for_morris_to_leave",
+      "purpose": "gain_brief_access_without_direct_manipulation"
+    }
+  ],
+  "reason_summary": "不执行高强度操纵，而以符合能力和人格的自然借口创造短暂空间。",
+  "speech_intent": "deflect",
+  "evidence_ids": [
+    "advice_g001_t04"
+  ]
+}

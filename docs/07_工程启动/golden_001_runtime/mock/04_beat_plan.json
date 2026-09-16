@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "beat_g001_t04",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 4,
+  "beat_type": "truth",
+  "dramatic_goal": "获得 Jonathan 留下的片段证据，使 occult connection 得到确认但保持组织身份未知。",
+  "world_event_opportunities": [],
+  "reveal_ids": [
+    "clue_jonathan_note"
+  ],
+  "npc_intents": [
+    {
+      "intent": "return_soon",
+      "character_id": "npc_doctor_morris"
+    }
+  ],
+  "tension_delta": "high",
+  "constraints": [
+    "secret_03_partial_only",
+    "secret_04_hidden"
+  ],
+  "intervention_required": true
+}

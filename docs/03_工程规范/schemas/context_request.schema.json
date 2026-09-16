@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/context_request.schema.json",
+  "title": "ContextRequest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "role",
+    "world_id",
+    "worldline_id",
+    "token_budget"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "story_genesis",
+        "story_director",
+        "character_reasoner",
+        "advice_interpreter",
+        "narrative_compiler",
+        "memory_distiller",
+        "validation",
+        "ui_observer"
+      ]
+    },
+    "world_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "character_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "story_session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scene_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "world_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "story_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 256
+    }
+  },
+  "additionalProperties": false
+}

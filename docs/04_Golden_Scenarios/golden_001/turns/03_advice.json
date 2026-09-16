@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "advice_g001_t03",
+  "turn_id": "turn_g001_03",
+  "raw_input": "我觉得地下室有问题，先听听下面有没有声音。",
+  "input_mode": "voice",
+  "primary_intent": "investigate_environment",
+  "secondary_intents": [
+    "observe"
+  ],
+  "proposed_actions": [
+    "listen_near_basement"
+  ],
+  "risk_preference": "cautious",
+  "confidence": 0.94
+}

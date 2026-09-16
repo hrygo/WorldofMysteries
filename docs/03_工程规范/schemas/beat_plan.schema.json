@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/beat_plan.schema.json",
+  "title": "BeatPlan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "story_session_id",
+    "source_story_revision",
+    "beat_type",
+    "dramatic_goal",
+    "intervention_required"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "story_session_id": {
+      "type": "string"
+    },
+    "source_story_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "beat_type": {
+      "type": "string"
+    },
+    "dramatic_goal": {
+      "type": "string"
+    },
+    "world_event_opportunities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actor_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "target_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "reveal_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "npc_intents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "character_id",
+          "intent"
+        ],
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tension_delta": {
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "intervention_required": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

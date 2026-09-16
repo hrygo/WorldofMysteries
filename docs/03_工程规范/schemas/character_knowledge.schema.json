@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/character_knowledge.schema.json",
+  "title": "CharacterKnowledge",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "character_id",
+    "worldline_id",
+    "proposition_id",
+    "certainty",
+    "source",
+    "status",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "character_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "proposition_id": {
+      "type": "string"
+    },
+    "certainty": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "type",
+        "ref"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "observation",
+            "conversation",
+            "document",
+            "investigation",
+            "ability",
+            "organization",
+            "canon_event",
+            "inference",
+            "memory_recall"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "reliability": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "acquired_world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "confirmed",
+        "probable",
+        "uncertain",
+        "contradicted",
+        "revoked"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

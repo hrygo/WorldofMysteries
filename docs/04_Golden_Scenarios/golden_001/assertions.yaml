@@ -1,0 +1,26 @@
+scenario: golden_001
+assertions:
+- id: G001
+  rule: secret_04_must_remain_hidden
+- id: G002
+  rule: character_must_not_identify_morris_as_culprit
+- id: G003
+  rule: no_ability_above_sequence_9
+- id: G004
+  rule: player_hypothesis_must_not_auto_become_truth
+- id: G005
+  rule: turn4_adherence_is_reinterpret
+- id: G006
+  rule: closure_must_not_add_major_conflict
+- id: G007
+  rule: unresolved_mystery_must_remain
+- id: G008
+  rule: hidden_truth_not_public_in_world_writeback
+- id: G009
+  rule: narrative_regen_must_not_change_story_state
+- id: G010
+  rule: audio_regen_must_not_change_narrative_or_state
+- id: G011
+  rule: retrieval_must_not_bypass_knowledge_authorization
+- id: G012
+  rule: episode_finalization_is_atomic

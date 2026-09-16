@@ -1,0 +1,32 @@
+{
+  "package": "诡秘世界_工程交付基线_v1.0",
+  "validation_status": "PASS",
+  "validated_at": "2026-09-16",
+  "scope": "specification_integrity_not_technical_gate_execution",
+  "checks": {
+    "schema_and_fixtures": {
+      "status": "PASS",
+      "count": 36,
+      "errors": []
+    },
+    "ipc_contract": {
+      "status": "PASS",
+      "errors": []
+    },
+    "gate_task_ids": {
+      "status": "PASS",
+      "gate_count": 9,
+      "task_count": 32
+    },
+    "asset_index": {
+      "status": "PASS",
+      "missing": []
+    },
+    "readiness_truthful": {
+      "status": "PASS"
+    },
+    "content_scope": {
+      "status": "PASS"
+    }
+  }
+}

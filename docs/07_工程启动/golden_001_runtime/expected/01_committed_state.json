@@ -1,0 +1,15 @@
+{
+  "turn": 1,
+  "story_revision": 1,
+  "clues": [
+    "clue_doctor_pause"
+  ],
+  "secrets": {
+    "secret_01": "hidden",
+    "secret_02": "hidden",
+    "secret_03": "hidden",
+    "secret_04": "hidden"
+  },
+  "doctor_suspicion": 0,
+  "outbox_min": 0
+}

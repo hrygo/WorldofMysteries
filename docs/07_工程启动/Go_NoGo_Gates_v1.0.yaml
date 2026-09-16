@@ -1,0 +1,107 @@
+baseline_version: '1.0'
+gates:
+- id: GATE-PACKAGE
+  priority: P0
+  required_for: engineering_go
+  status: required
+  evidence:
+  - signed_test_app
+  - bundled_engine_manifest
+  - cold_start_metrics
+  - crash_restart_log
+  pass_conditions:
+  - release_app_launches_bundled_engine_on_arm64
+  - no_system_python_dependency
+  - engine_crash_does_not_crash_app
+  - engine_restart_and_rehandshake_succeed
+  - user_domain_data_outside_app_bundle
+- id: GATE-PROTOCOL
+  priority: P0
+  required_for: engineering_go
+  status: required
+  evidence:
+  - swift_python_roundtrip_results
+  - protocol_fixture_results
+  pass_conditions:
+  - version_negotiation_passes
+  - invalid_payload_rejected
+  - cancellation_semantics_pass
+  - reconnect_does_not_duplicate_commit
+  - schema_source_is_single
+- id: GATE-DATA
+  priority: P0
+  required_for: engineering_go
+  status: required
+  evidence:
+  - data_golden_results
+  - crash_injection_results
+  - rebuild_results
+  - backup_restore_results
+  pass_conditions:
+  - partial_finalization_zero
+  - idempotent_commit
+  - outbox_recovery
+  - retrieval_rebuild
+  - worldline_isolation
+  - knowledge_authorization_leak_zero
+- id: GATE-AI
+  priority: P0
+  required_for: engineering_go
+  status: required
+  evidence:
+  - agentscope_profile
+  - structured_output_tests
+  - bounded_agent_tests
+  - context_leak_tests
+  pass_conditions:
+  - agent_has_no_domain_write_capability
+  - structured_output_validated
+  - bounded_agent_terminates
+  - provider_is_replaceable
+  - ai_failure_does_not_corrupt_domain_state
+- id: GATE-GOLDEN-MOCK
+  priority: P0
+  required_for: engineering_go
+  status: required
+  evidence:
+  - golden_001_mock_report
+  - restart_report
+  - failure_checkpoint_report
+  pass_conditions:
+  - G001_to_G012_pass
+  - five_turn_expected_states_pass
+  - episode_finalization_pass
+  - restart_persistence_pass
+  - deterministic_replay_pass
+- id: GATE-SECURITY
+  priority: P1
+  required_for: public_release
+  status: required
+  evidence:
+  - security_test_report
+  - redaction_test_report
+  - export_delete_test_report
+- id: GATE-CONTENT
+  priority: P1
+  required_for: public_release
+  status: required
+  evidence:
+  - content_pack_manifest
+  - asset_provenance_manifest
+  - third_party_notices
+- id: GATE-VOICE
+  priority: P1
+  required_for: public_release
+  status: required
+  evidence:
+  - barge_in_tests
+  - raw_audio_retention_test
+  - tts_fallback_test
+- id: GATE-E2E-REAL-MODEL
+  priority: P1
+  required_for: architecture_freeze
+  status: required
+  evidence:
+  - golden_001_real_model_eval
+  - latency_report
+  - model_trace_report

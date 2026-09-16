@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "golden_001": {
+    "content_class": "test_fixture",
+    "canon_claims": [
+      {
+        "claim": "Fool Pathway Sequence 9 is Seer / 占卜家",
+        "status": "requires_verified_lore_pack_reference_at_implementation"
+      }
+    ],
+    "original_entities": [
+      "char_evelyn_gray",
+      "npc_doctor_morris",
+      "npc_jonathan_vale",
+      "loc_morris_clinic"
+    ],
+    "original_story": "不存在的预约"
+  }
+}

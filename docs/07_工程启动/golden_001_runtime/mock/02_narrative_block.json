@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "nb_g001_t02",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 2,
+  "scene_id": "archive_room",
+  "segments": [
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "预约簿的纸页并不连续。编号之间缺了一页，装订处留下了新鲜的撕痕。"
+    }
+  ],
+  "ambient_cues": [],
+  "sfx_cues": [],
+  "source_state_delta_id": "delta_g001_t02"
+}

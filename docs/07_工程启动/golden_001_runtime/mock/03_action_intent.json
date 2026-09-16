@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "intent_g001_t03",
+  "turn_id": "turn_g001_03",
+  "character_id": "char_evelyn_gray",
+  "intent": "inspect_environment",
+  "adherence": "full",
+  "actions": [
+    {
+      "type": "listen_near_basement",
+      "purpose": "test_player_hypothesis_without_accepting_it_as_fact"
+    }
+  ],
+  "reason_summary": "地下室存在异常尚未被证实，但低成本检查环境是合理调查行为。",
+  "speech_intent": null,
+  "evidence_ids": [
+    "advice_g001_t03"
+  ]
+}

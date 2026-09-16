@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/performance_plan.schema.json",
+  "title": "PerformancePlan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "narrative_block_id",
+    "segment_index",
+    "speaker_id",
+    "voice_persona_revision",
+    "speech_intent",
+    "performance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "narrative_block_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "segment_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "speaker_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "voice_persona_revision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "speech_intent": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "performance": {
+      "type": "object",
+      "required": [
+        "emotion",
+        "intensity",
+        "pace_modifier",
+        "energy_modifier",
+        "volume",
+        "pause_before_ms"
+      ],
+      "properties": {
+        "emotion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "pace_modifier": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "energy_modifier": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "volume": {
+          "enum": [
+            "very_low",
+            "low",
+            "normal",
+            "high"
+          ]
+        },
+        "pause_before_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "emphasis": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "text",
+              "strength"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "strength": {
+                "enum": [
+                  "light",
+                  "medium",
+                  "strong"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

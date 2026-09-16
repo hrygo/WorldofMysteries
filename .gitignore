@@ -1,0 +1,129 @@
+# ==============================================================================
+# World of Mysteries (.gitignore)
+# Tech Stack:
+#   - Python 3.14+ (Engine, uv, pytest, AgentScope)
+#   - Swift / SwiftUI (macOS App, Xcode, SwiftPM)
+#   - SQLite (Local DBs: world.db, retrieval.db, runtime.db, etc.)
+#   - macOS & IDE Artifacts
+# ==============================================================================
+
+# --- Operating System & Environments ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon\r
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+
+# --- Python & uv & Virtual Environments ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python Tools & Cache
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.pyo
+.hypothesis/
+
+# uv cache / environment
+.uv/
+
+# --- Swift & Xcode & Swift Package Manager ---
+.build/
+Packages/
+Package.pins
+Package.resolved
+# Xcode User Data & Derived Data
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/contents.xcworkspacedata
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.moved-builder
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# --- SQLite & Local Databases ---
+# Persistent runtime state and caches must not be committed.
+# Canonical baseline seeds or migrations belong in version control, but active DBs do not.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Exception if baseline schemas/seeds exist in contracts or migrations
+!contracts/**/*.sql
+!engine/**/migrations/*.sql
+
+# --- Local Engine Runtime & Logs ---
+*.log
+logs/
+run/
+outbox/
+assets/temp/
+assets/generated/
+tmp/
+scratch/
+
+# --- Local Agent & IDE Configs ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.agent/
+.agents/scratch/
+.gemini/
+
+# --- Environment & Secret Variables ---
+.env
+.env.*
+!.env.example

@@ -1,0 +1,13 @@
+{
+  "kind": "event",
+  "protocol_version": "1.0",
+  "trace_id": "trace_002",
+  "stream_id": "session_golden_001",
+  "sequence": 1,
+  "event": "turn.committed",
+  "story_revision": 1,
+  "turn_id": "turn_g001_01",
+  "payload": {
+    "state_delta_id": "delta_g001_t01"
+  }
+}

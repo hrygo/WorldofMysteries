@@ -1,0 +1,51 @@
+{
+  "product": "诡秘世界",
+  "engineering_readiness_version": "1.0",
+  "design_baseline": "1.0",
+  "status": "engineering_delivery_specification_ready_gates_not_yet_executed",
+  "engineering_go_requires": [
+    "GATE-PACKAGE",
+    "GATE-PROTOCOL",
+    "GATE-DATA",
+    "GATE-AI",
+    "GATE-GOLDEN-MOCK"
+  ],
+  "public_release_requires": [
+    "GATE-SECURITY",
+    "GATE-CONTENT",
+    "GATE-VOICE",
+    "GATE-E2E-REAL-MODEL"
+  ],
+  "implementation_order": [
+    "contract_protocol_freeze",
+    "local_engine_packaging_ipc",
+    "data_kernel",
+    "repositories",
+    "agentscope_runtime",
+    "context_memory_knowledge",
+    "golden_001_mock_e2e",
+    "engineering_go",
+    "real_model_e2e",
+    "voice_story_player",
+    "release_hardening"
+  ],
+  "gate_status": {
+    "GATE-PACKAGE": "not_executed",
+    "GATE-PROTOCOL": "not_executed",
+    "GATE-DATA": "not_executed",
+    "GATE-AI": "not_executed",
+    "GATE-GOLDEN-MOCK": "not_executed",
+    "GATE-SECURITY": "not_executed",
+    "GATE-CONTENT": "not_executed",
+    "GATE-VOICE": "not_executed",
+    "GATE-E2E-REAL-MODEL": "not_executed"
+  },
+  "package": "诡秘世界_工程交付基线_v1.0",
+  "runtime_profile": {
+    "macos": "26+ arm64",
+    "python": "3.14.7",
+    "agentscope": "2.0.8",
+    "sqlite": "3.53.4",
+    "python_build": "CPython standard GIL build"
+  }
+}

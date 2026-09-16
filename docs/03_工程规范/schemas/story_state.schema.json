@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/story_state.schema.json",
+  "title": "StoryState",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "story_session_id",
+    "revision",
+    "turn",
+    "phase",
+    "scene",
+    "commitments",
+    "secret_states",
+    "pressure"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "story_session_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "turn": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase": {
+      "enum": [
+        "opening",
+        "discovery",
+        "investigation",
+        "escalation",
+        "midpoint",
+        "crisis",
+        "truth",
+        "final_intervention",
+        "resolution",
+        "closure"
+      ]
+    },
+    "scene": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "active_character_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "protagonist_goal": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "active_conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "discovered_clue_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "secret_states": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "hidden",
+          "suspected",
+          "partial",
+          "revealed"
+        ]
+      }
+    },
+    "commitments": {
+      "type": "object",
+      "required": [
+        "hard_ids",
+        "soft_ids"
+      ],
+      "properties": {
+        "hard_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "soft_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "local_state": {
+      "type": "object"
+    },
+    "pressure": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "last_state_delta_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

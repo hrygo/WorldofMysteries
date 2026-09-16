@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/narrative_block.schema.json",
+  "title": "NarrativeBlock",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "story_session_id",
+    "source_story_revision",
+    "segments"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "story_session_id": {
+      "type": "string"
+    },
+    "source_story_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scene_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "narration",
+              "character",
+              "transition"
+            ]
+          },
+          "speaker_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "speech_intent": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "ambient_cues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "cue"
+        ],
+        "properties": {
+          "cue": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "enum": [
+              "start",
+              "continue",
+              "duck",
+              "stop"
+            ]
+          },
+          "level": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sfx_cues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "cue"
+        ],
+        "properties": {
+          "cue": {
+            "type": "string",
+            "minLength": 1
+          },
+          "at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "source_state_delta_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

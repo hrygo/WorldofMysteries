@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/audio_asset_ref.schema.json",
+  "title": "AudioAssetRef",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "narrative_block_id",
+    "relative_path",
+    "sha256",
+    "codec",
+    "duration_ms",
+    "render"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "narrative_block_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "segment_index": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "codec": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "render": {
+      "type": "object",
+      "required": [
+        "provider",
+        "model",
+        "model_revision"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "voice_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "performance_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

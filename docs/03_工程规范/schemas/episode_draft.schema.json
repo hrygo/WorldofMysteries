@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/episode_draft.schema.json",
+  "title": "EpisodeDraft",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "story_session_id",
+    "world_id",
+    "worldline_id",
+    "protagonist_ids",
+    "title",
+    "start_world_time",
+    "ending",
+    "secret_states",
+    "narrative_block_ids",
+    "unresolved_threads",
+    "story_evidence_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worldline_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_seed_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "protagonist_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "start_world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "end_world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ending": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "main_problem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "secret_states": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "hidden",
+          "suspected",
+          "partial",
+          "revealed"
+        ]
+      }
+    },
+    "narrative_block_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "discovered_clue_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "unresolved_threads": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "story_evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "worldline_divergence_candidate": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

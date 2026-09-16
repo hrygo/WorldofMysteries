@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "intent_g001_t02",
+  "turn_id": "turn_g001_02",
+  "character_id": "char_evelyn_gray",
+  "intent": "inspect_records_covertly",
+  "adherence": "full",
+  "actions": [
+    {
+      "type": "inspect_appointment_book",
+      "purpose": "identify_record_anomaly"
+    },
+    {
+      "type": "conceal_attention",
+      "purpose": "avoid_direct_detection"
+    }
+  ],
+  "reason_summary": "检查预约记录与谨慎调查风格一致，同时避免直接暴露调查目标。",
+  "speech_intent": null,
+  "evidence_ids": [
+    "advice_g001_t02",
+    "clue_doctor_pause"
+  ]
+}

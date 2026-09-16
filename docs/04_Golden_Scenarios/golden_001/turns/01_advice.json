@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "advice_g001_t01",
+  "turn_id": "turn_g001_01",
+  "raw_input": "先别问医生病人的事，我想看看他的反应。",
+  "input_mode": "voice",
+  "primary_intent": "observe",
+  "secondary_intents": [
+    "delay_confrontation"
+  ],
+  "proposed_actions": [
+    "observe_morris"
+  ],
+  "risk_preference": "cautious",
+  "confidence": 0.97
+}

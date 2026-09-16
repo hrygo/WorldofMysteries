@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "beat_g001_t01",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 1,
+  "beat_type": "discovery",
+  "dramatic_goal": "让主角确认 Morris 正在隐瞒与 Jonathan 有关的信息，但不揭示原因。",
+  "world_event_opportunities": [],
+  "reveal_ids": [
+    "clue_doctor_pause"
+  ],
+  "npc_intents": [
+    {
+      "intent": "maintain_composure",
+      "character_id": "npc_doctor_morris"
+    }
+  ],
+  "tension_delta": "slight_increase",
+  "constraints": [
+    "do_not_reveal_secret_02",
+    "do_not_identify_morris_as_culprit"
+  ],
+  "intervention_required": true
+}

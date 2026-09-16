@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "id": "intent_g001_t05",
+  "turn_id": "turn_g001_05",
+  "character_id": "char_evelyn_gray",
+  "intent": "close_and_leave",
+  "adherence": "full",
+  "actions": [
+    {
+      "type": "organize_known_facts",
+      "purpose": "preserve_current_findings"
+    },
+    {
+      "type": "leave_location",
+      "purpose": "end_current_investigation_safely"
+    }
+  ],
+  "reason_summary": "现有线索足以形成后续调查方向，继续冒险的边际收益不足。",
+  "speech_intent": null,
+  "evidence_ids": [
+    "advice_g001_t05"
+  ]
+}

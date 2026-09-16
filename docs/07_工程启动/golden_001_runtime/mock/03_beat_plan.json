@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "beat_g001_t03",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 3,
+  "beat_type": "investigation",
+  "dramatic_goal": "验证地下区域值得调查，但证明用户猜测不会自动成为事实。",
+  "world_event_opportunities": [],
+  "reveal_ids": [
+    "clue_basement_powder"
+  ],
+  "npc_intents": [],
+  "tension_delta": "increase",
+  "constraints": [
+    "pipe_sound_is_not_person",
+    "no_truth_from_player_hypothesis"
+  ],
+  "intervention_required": true
+}

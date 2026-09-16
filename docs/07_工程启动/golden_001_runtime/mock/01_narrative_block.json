@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "id": "nb_g001_t01",
+  "story_session_id": "session_golden_001",
+  "source_story_revision": 1,
+  "scene_id": "consultation_room",
+  "segments": [
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "伊芙琳没有立即提起 Jonathan。她让谈话沿着普通诊疗记录继续。"
+    },
+    {
+      "type": "narration",
+      "speaker_id": null,
+      "text": "当 Morris 无意间听见那个姓氏时，他的回答慢了半拍。"
+    }
+  ],
+  "ambient_cues": [],
+  "sfx_cues": [],
+  "source_state_delta_id": "delta_g001_t01"
+}
