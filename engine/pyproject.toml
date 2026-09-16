@@ -20,7 +20,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests", "../contracts/tests"]
 pythonpath = [".."]
 
 [tool.ruff]
@@ -32,4 +32,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["domain", "application", "infrastructure", "ai"]
+packages = ["domain", "application", "infrastructure", "ai", "contracts"]

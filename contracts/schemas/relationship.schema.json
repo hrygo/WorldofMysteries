@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/relationship.schema.json",
+  "title": "Relationship",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "worldline_id",
+    "from_character_id",
+    "to_character_id",
+    "dimensions",
+    "evidence_ids",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "from_character_id": {
+      "type": "string"
+    },
+    "to_character_id": {
+      "type": "string"
+    },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "trust",
+        "affection",
+        "respect",
+        "fear",
+        "hostility",
+        "dependency"
+      ],
+      "properties": {
+        "trust": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "affection": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "respect": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "fear": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "hostility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "dependency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "shared_secret_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "unresolved_conflict_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "debt_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "last_encounter_event_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

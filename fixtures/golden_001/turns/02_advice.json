@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "id": "advice_g001_t02",
+  "turn_id": "turn_g001_02",
+  "raw_input": "检查预约簿，但别让他发现。",
+  "input_mode": "voice",
+  "primary_intent": "investigate",
+  "secondary_intents": [
+    "conceal"
+  ],
+  "proposed_actions": [
+    "inspect_appointment_book",
+    "avoid_detection"
+  ],
+  "risk_preference": "cautious",
+  "confidence": 0.98
+}

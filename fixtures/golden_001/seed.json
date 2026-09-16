@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "id": "seed_golden_001",
+  "protagonist_id": "char_evelyn_gray",
+  "mode": "canon_gap",
+  "setting": {
+    "location_id": "loc_morris_clinic",
+    "start_world_time": "1349-06-12T21:40:00"
+  },
+  "premise": "一个已经失踪三天的人，今晚却再次出现在诊所的预约记录里。",
+  "surface_problem": "find_jonathan",
+  "hidden_truth": {
+    "root": "failed_occult_ritual",
+    "summary": "Jonathan 主动参加神秘仪式；仪式失败后再次拜访 Morris。Morris 删除记录以保护自身声誉，但不是幕后组织者。",
+    "apparent_suspect": "npc_doctor_morris",
+    "actual_antagonist": "unknown_external_group"
+  },
+  "conflict": {
+    "type": "occult_investigation"
+  },
+  "actor_ids": [
+    "char_evelyn_gray",
+    "npc_doctor_morris",
+    "npc_jonathan_vale"
+  ],
+  "secrets": [
+    {
+      "id": "secret_01",
+      "truth": "Jonathan 在失踪后再次来过诊所。",
+      "initial_state": "hidden"
+    },
+    {
+      "id": "secret_02",
+      "truth": "Morris 删除了 Jonathan 的第二次来访记录。",
+      "initial_state": "hidden"
+    },
+    {
+      "id": "secret_03",
+      "truth": "Jonathan 主动参与某种神秘仪式。",
+      "initial_state": "hidden"
+    },
+    {
+      "id": "secret_04",
+      "truth": "真正组织仪式的人并不是 Morris。",
+      "initial_state": "hidden"
+    }
+  ],
+  "clues": [
+    {
+      "id": "clue_doctor_pause"
+    },
+    {
+      "id": "clue_appointment_book"
+    },
+    {
+      "id": "clue_removed_page"
+    },
+    {
+      "id": "clue_basement_powder"
+    },
+    {
+      "id": "clue_jonathan_note"
+    }
+  ],
+  "pressures": [
+    {
+      "id": "clinic_closing",
+      "initial_value": 0
+    },
+    {
+      "id": "doctor_suspicion",
+      "initial_value": 0
+    }
+  ],
+  "possible_end_states": [
+    "partial_truth",
+    "escape",
+    "failure"
+  ],
+  "canon_constraints": [
+    "no_major_canon_divergence"
+  ],
+  "spoiler_constraints": [
+    "no_hidden_truth_disclosure_without_evidence"
+  ]
+}

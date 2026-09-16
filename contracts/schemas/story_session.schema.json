@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/story_session.schema.json",
+  "title": "StorySession",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "world_id",
+    "worldline_id",
+    "protagonist_id",
+    "story_seed_id",
+    "base_revisions",
+    "story_state",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "world_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "protagonist_id": {
+      "type": "string"
+    },
+    "story_seed_id": {
+      "type": "string"
+    },
+    "base_revisions": {
+      "type": "object",
+      "required": [
+        "world",
+        "character",
+        "story"
+      ],
+      "properties": {
+        "world": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "story": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "story_state": {
+      "$ref": "https://mysterious.world/schemas/v1/story_state.schema.json"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "suspended",
+        "closing",
+        "finalized",
+        "cancelled",
+        "recovery_required"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

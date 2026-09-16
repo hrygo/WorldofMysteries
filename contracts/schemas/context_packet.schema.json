@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/context_packet.schema.json",
+  "title": "ContextPacket",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "request_id",
+    "role",
+    "world_id",
+    "worldline_id",
+    "world_revision",
+    "sections",
+    "evidence_ids",
+    "token_budget"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "world_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "world_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "story_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sections": {
+      "type": "object"
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "excluded_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "token_budget": {
+      "type": "integer",
+      "minimum": 256
+    },
+    "compiler_version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

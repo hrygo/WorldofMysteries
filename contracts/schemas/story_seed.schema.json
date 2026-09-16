@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/story_seed.schema.json",
+  "title": "StorySeed",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "protagonist_id",
+    "mode",
+    "setting",
+    "premise",
+    "surface_problem",
+    "hidden_truth",
+    "secrets",
+    "pressures"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "protagonist_id": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "canon_gap",
+        "open_future",
+        "divergent_fate"
+      ]
+    },
+    "setting": {
+      "type": "object",
+      "required": [
+        "location_id",
+        "start_world_time"
+      ],
+      "properties": {
+        "location_id": {
+          "type": "string"
+        },
+        "start_world_time": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "premise": {
+      "type": "string"
+    },
+    "surface_problem": {
+      "type": "string"
+    },
+    "hidden_truth": {
+      "type": "object",
+      "required": [
+        "summary"
+      ],
+      "properties": {
+        "root": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "apparent_suspect": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actual_antagonist": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "causal_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "conflict": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "actor_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "truth",
+          "initial_state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "truth": {
+            "type": "string"
+          },
+          "initial_state": {
+            "enum": [
+              "hidden",
+              "suspected",
+              "partial",
+              "revealed"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "clues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "points_to_secret_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pressures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "initial_value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "initial_value": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "possible_end_states": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "canon_constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "spoiler_constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

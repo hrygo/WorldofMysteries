@@ -13,7 +13,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* WorldOfMysteries */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "WorldOfMysteries";
+			path = WorldOfMysteries;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */

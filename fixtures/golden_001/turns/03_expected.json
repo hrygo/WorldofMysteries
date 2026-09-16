@@ -1,0 +1,8 @@
+{
+  "outcome": "partial_success",
+  "clues_added": [
+    "clue_basement_powder"
+  ],
+  "required_rule": "player_hypothesis_not_auto_true",
+  "adherence": "full"
+}

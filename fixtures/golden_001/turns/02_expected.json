@@ -1,0 +1,10 @@
+{
+  "outcome": "success_with_cost",
+  "clues_added": [
+    "clue_appointment_book",
+    "clue_removed_page"
+  ],
+  "doctor_suspicion_delta": 1,
+  "time_delta_minutes": 15,
+  "adherence": "full"
+}

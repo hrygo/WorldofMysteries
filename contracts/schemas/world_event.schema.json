@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/world_event.schema.json",
+  "title": "WorldEvent",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "world_id",
+    "worldline_id",
+    "event_type",
+    "actors",
+    "targets",
+    "persistence",
+    "importance",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "world_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "cause": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "event_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "episode_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "story_turn_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action_intent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "payload": {
+      "type": "object"
+    },
+    "visibility": {
+      "type": "object",
+      "required": [
+        "public"
+      ],
+      "properties": {
+        "public": {
+          "type": "boolean"
+        },
+        "known_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "possibly_known_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "persistence": {
+      "enum": [
+        "episode",
+        "character",
+        "world"
+      ]
+    },
+    "importance": {
+      "enum": [
+        "personal",
+        "relationship",
+        "local",
+        "world"
+      ]
+    },
+    "canon_relation": {
+      "enum": [
+        "compatible",
+        "gap",
+        "divergent",
+        "unknown"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "source_type"
+      ],
+      "properties": {
+        "source_type": {
+          "enum": [
+            "generated",
+            "canon_projection",
+            "creative_lore",
+            "imported"
+          ]
+        },
+        "source_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "producer_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "know_evelyn_002",
+  "character_id": "char_evelyn_gray",
+  "worldline_id": "wl_main",
+  "proposition_id": "fact.morris_claims_voluntary_departure",
+  "certainty": 0.9,
+  "source": {
+    "type": "conversation",
+    "ref": "source.morris_initial_statement",
+    "reliability": 0.65
+  },
+  "acquired_world_time": "1349-06-12T21:20:00",
+  "status": "probable",
+  "revision": 2
+}

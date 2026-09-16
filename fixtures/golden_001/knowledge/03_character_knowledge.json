@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "know_evelyn_003",
+  "character_id": "char_evelyn_gray",
+  "worldline_id": "wl_main",
+  "proposition_id": "fact.patient_nightmares",
+  "certainty": 0.95,
+  "source": {
+    "type": "conversation",
+    "ref": "source.vale_family_statement",
+    "reliability": 0.85
+  },
+  "acquired_world_time": "1349-06-12T20:35:00",
+  "status": "confirmed",
+  "revision": 3
+}

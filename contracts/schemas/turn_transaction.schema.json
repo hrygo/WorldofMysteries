@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/turn_transaction.schema.json",
+  "title": "TurnTransaction",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "session_id",
+    "idempotency_key",
+    "status",
+    "base_revisions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "received",
+        "interpreted",
+        "decided",
+        "resolved",
+        "validated",
+        "committed",
+        "beat_ready",
+        "narrative_ready",
+        "audio_ready",
+        "delivered",
+        "failed_retryable",
+        "failed_fatal",
+        "cancelled",
+        "reconcile_required"
+      ]
+    },
+    "base_revisions": {
+      "type": "object",
+      "required": [
+        "world",
+        "character",
+        "story"
+      ],
+      "properties": {
+        "world": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "story": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "player_advice_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "action_intent_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_delta_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "committed_story_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "narrative_block_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

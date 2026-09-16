@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/player_advice.schema.json",
+  "title": "PlayerAdvice",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "turn_id",
+    "raw_input",
+    "input_mode",
+    "primary_intent",
+    "proposed_actions",
+    "confidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string"
+    },
+    "turn_id": {
+      "type": "string"
+    },
+    "raw_input": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input_mode": {
+      "enum": [
+        "voice",
+        "text",
+        "suggestion"
+      ]
+    },
+    "primary_intent": {
+      "type": "string"
+    },
+    "secondary_intents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "proposed_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "risk_preference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "additionalProperties": false
+}

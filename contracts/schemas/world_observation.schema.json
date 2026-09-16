@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/world_observation.schema.json",
+  "title": "WorldObservation",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "world_id",
+    "worldline_id",
+    "observer",
+    "source_event_ids",
+    "description",
+    "certainty",
+    "observed_world_time"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worldline_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observer": {
+      "type": "object",
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "user",
+            "character",
+            "system_view"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "certainty": {
+      "enum": [
+        "direct",
+        "confirmed",
+        "probable",
+        "rumor",
+        "ambiguous"
+      ]
+    },
+    "visibility_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "observed_world_time": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

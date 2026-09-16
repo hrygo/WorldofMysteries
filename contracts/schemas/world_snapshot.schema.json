@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/world_snapshot.schema.json",
+  "title": "WorldSnapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "world_id",
+    "worldline_id",
+    "world_time",
+    "revision",
+    "location"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "world_id": {
+      "type": "string"
+    },
+    "worldline_id": {
+      "type": "string"
+    },
+    "world_time": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "location": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "city": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "district": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "open": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "closes_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rooms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "discovered_rooms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "weather": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
