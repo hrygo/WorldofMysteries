@@ -1,86 +1,144 @@
 {
-  "$schema": "contracts/schemas/task_capsule.schema.json",
-  "capsule_id": "CAP-20260916-M2-DATA-KERNEL",
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M2-DATA-KERNEL",
+  "capsule_revision": 1,
   "task_id": "M2-DATA-KERNEL",
   "title": "四库 SQLite 数据内核迁移与连接池实现",
-  "assigned_role": "AGT-DOM",
-  "status": "VERIFIED",
-  "created_at": "2026-09-16T08:40:45.649873+00:00",
-  "git_context": {
-    "base_commit": "41c46d4",
-    "target_branch": "main",
-    "worktree_path": "/Users/hrygo/Documents/WorldofMysteries"
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-16T09:39:50.379862+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+    "target_sha": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+    "context_snapshot": "sha256:9cdb9fe95d1937b307816805ba67db590bd0f7a78144cb02474b217f6a053183"
   },
-  "authorized_scope": {
-    "directories": [
-      "engine/domain/",
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
       "engine/tests/"
     ],
-    "forbidden_patterns": [
-      "macos-app/*",
-      "contracts/schemas/*",
-      "*aiosqlite*",
-      "*sqlite3*"
-    ]
-  },
-  "graph_slice": {
-    "target_symbols": [
-      "ASRProviderProtocol (engine/domain/audio_voice.py:30)",
-      "ASRResult (engine/domain/audio_voice.py:11)",
-      "AudioVoiceEngineProtocol (engine/domain/audio_voice.py:59)",
-      "CharacterEngineProtocol (engine/domain/character_engine.py:5)",
-      "LoreEngineProtocol (engine/domain/lore_engine.py:5)",
-      "MemoryKnowledgeEngineProtocol (engine/domain/memory_engine.py:5)",
-      "OutcomeResolverProtocol (engine/domain/resolver.py:5)",
-      "SpeechResult (engine/domain/audio_voice.py:21)",
-      "StoryEngineProtocol (engine/domain/story_engine.py:5)",
-      "TTSProviderProtocol (engine/domain/audio_voice.py:44)",
-      "WorldEngineProtocol (engine/domain/world_engine.py:5)",
-      "load_schema (engine/tests/test_contracts_schema.py:29)",
-      "process_user_speech (engine/domain/audio_voice.py:62)",
-      "render_narrative_speech (engine/domain/audio_voice.py:66)",
-      "sample_trace_id (engine/tests/conftest.py:6)",
-      "synthesize (engine/domain/audio_voice.py:47)",
-      "test_all_schemas_are_valid_json_schema (engine/tests/test_contracts_schema.py:15)",
-      "test_character_knowledge_pydantic_parsing (engine/tests/test_contracts_pydantic.py:67)",
-      "test_character_pydantic_parsing (engine/tests/test_contracts_pydantic.py:23)",
-      "test_domain_boundary (engine/tests/test_scaffolding.py:8)",
-      "test_envelope_request_response_cycle (engine/tests/test_contracts_pydantic.py:79)",
-      "test_episode_pydantic_parsing (engine/tests/test_contracts_pydantic.py:45)",
-      "test_golden_001_character_matches_schema (engine/tests/test_contracts_schema.py:35)",
-      "test_golden_001_seed_matches_schema (engine/tests/test_contracts_schema.py:51)",
-      "test_golden_001_world_matches_schema (engine/tests/test_contracts_schema.py:43)",
-      "test_player_advice_pydantic_parsing (engine/tests/test_contracts_pydantic.py:55)",
-      "test_python_version (engine/tests/test_scaffolding.py:5)",
-      "test_strenum_contract_validation (engine/tests/test_contracts_pydantic.py:110)",
-      "test_world_snapshot_pydantic_parsing (engine/tests/test_contracts_pydantic.py:34)",
-      "transcribe (engine/domain/audio_voice.py:33)"
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
     ],
-    "related_schemas": [
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:DatabaseManagerProtocol@engine/infrastructure/database_manager.py:5",
+      "symbol:AudioProviderConfig@engine/infrastructure/audio/config.py:12",
+      "symbol:from_env@engine/infrastructure/audio/config.py:24",
+      "symbol:MockAudioAdapter@engine/infrastructure/audio/mock_adapter.py:7",
+      "symbol:__init__@engine/infrastructure/audio/mock_adapter.py:10",
+      "symbol:transcribe@engine/infrastructure/audio/mock_adapter.py:20",
+      "symbol:synthesize@engine/infrastructure/audio/mock_adapter.py:34",
+      "symbol:OpenAIAudioAdapter@engine/infrastructure/audio/openai_adapter.py:9",
+      "symbol:create_audio_adapter@engine/infrastructure/audio/openai_adapter.py:87",
+      "symbol:__init__@engine/infrastructure/audio/openai_adapter.py:17",
+      "symbol:provider_name@engine/infrastructure/audio/openai_adapter.py:26",
+      "symbol:base_url@engine/infrastructure/audio/openai_adapter.py:30",
+      "symbol:transcribe@engine/infrastructure/audio/openai_adapter.py:33",
+      "symbol:synthesize@engine/infrastructure/audio/openai_adapter.py:56",
+      "symbol:TransactionalOutboxProtocol@engine/infrastructure/outbox.py:5",
+      "symbol:IPCServerProtocol@engine/infrastructure/uds_server.py:5",
+      "symbol:sample_trace_id@engine/tests/conftest.py:6",
+      "symbol:test_audio_provider_config_default_speechrail@engine/tests/test_audio_adapter.py:15",
+      "symbol:test_audio_provider_config_hot_swap_to_third_party@engine/tests/test_audio_adapter.py:26",
+      "symbol:test_openai_audio_adapter_conforms_to_domain_protocols@engine/tests/test_audio_adapter.py:46",
+      "symbol:test_openai_audio_adapter_transcribe_mocked@engine/tests/test_audio_adapter.py:55",
+      "symbol:test_openai_audio_adapter_synthesize_mocked@engine/tests/test_audio_adapter.py:85",
+      "symbol:test_mock_audio_adapter_deterministic@engine/tests/test_audio_adapter.py:116",
+      "symbol:test_character_pydantic_parsing@engine/tests/test_contracts_pydantic.py:23",
+      "symbol:test_world_snapshot_pydantic_parsing@engine/tests/test_contracts_pydantic.py:34",
+      "symbol:test_episode_pydantic_parsing@engine/tests/test_contracts_pydantic.py:45",
+      "symbol:test_player_advice_pydantic_parsing@engine/tests/test_contracts_pydantic.py:55",
+      "symbol:test_character_knowledge_pydantic_parsing@engine/tests/test_contracts_pydantic.py:67",
+      "symbol:test_envelope_request_response_cycle@engine/tests/test_contracts_pydantic.py:79",
+      "symbol:test_strenum_contract_validation@engine/tests/test_contracts_pydantic.py:110"
+    ],
+    "related_contracts": [
       "world_snapshot.schema.json",
       "state_delta.schema.json",
-      "engine_ipc.schema.json"
-    ]
-  },
-  "constraints": {
-    "invariants": [
-      1,
-      2,
-      4,
-      5,
-      6,
-      8,
-      9
+      "domain_event.schema.json"
     ],
-    "instructions": "恪守纯领域零外部依赖原则。禁止直接引用数据库或 AI SDK。保持状态提交确定性。"
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 794,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
   },
-  "verification_commands": [
-    "rtk python3 scripts/check_architecture_fitness.py",
-    "rtk uv run --directory engine pytest tests/ -k 'domain or resolver or contract'"
-  ],
-  "attestation": {
-    "verified_at": "2026-09-16T08:40:48.392838+00:00",
-    "gate_checksum": "sha256:29180f5a56d43a4f",
-    "verified_by": "AgentCapsuleGateKeeper_v1.0"
+  "impact": {
+    "symbols": [
+      "DatabaseManagerProtocol",
+      "AudioProviderConfig",
+      "from_env",
+      "MockAudioAdapter",
+      "__init__",
+      "transcribe",
+      "synthesize",
+      "OpenAIAudioAdapter",
+      "create_audio_adapter",
+      "__init__",
+      "provider_name",
+      "base_url",
+      "transcribe",
+      "synthesize",
+      "TransactionalOutboxProtocol",
+      "IPCServerProtocol",
+      "sample_trace_id",
+      "test_audio_provider_config_default_speechrail",
+      "test_audio_provider_config_hot_swap_to_third_party",
+      "test_openai_audio_adapter_conforms_to_domain_protocols",
+      "test_openai_audio_adapter_transcribe_mocked",
+      "test_openai_audio_adapter_synthesize_mocked",
+      "test_mock_audio_adapter_deterministic",
+      "test_character_pydantic_parsing",
+      "test_world_snapshot_pydantic_parsing",
+      "test_episode_pydantic_parsing",
+      "test_player_advice_pydantic_parsing",
+      "test_character_knowledge_pydantic_parsing",
+      "test_envelope_request_response_cycle",
+      "test_strenum_contract_validation"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
   }
 }

@@ -4,6 +4,13 @@
 > **双层防御**：本地事务工作区 (`collab_pipeline.py`) + 云端 GitHub Actions 权威矩阵  
 > **核心目标**：零上下文稀释 · 零越界提交 · 100% 架构不变量机器守卫  
 
+> ⚠️ **HACF 2.1 修订（2026-09-16）**：本基线中「签发/校验 sha256 机器防伪签名」表述已修正为
+> **可复算内容摘要凭单**（`.agents/receipts/`），`capsule-audit.yml` 的职责升级为
+> 边界裁决 + 门禁档案主权校验（目标分支 registry 为权威）+ 凭单证据完整性；
+> 门禁命令改由受保护档案 `.hacf/gates/*.json` 定义，胶囊不再携带验收命令。
+> 详见 [`ADR-004`](../01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md) 与
+> [`实施方案 v1.1`](./高效人机协同研发体系实施方案_v1.1.md)。
+
 ---
 
 ## 1. CI/CD 双层防御架构体系 (Dual-Layer Defense)
@@ -21,7 +28,7 @@
 │      第一道防线: Local Pre-Merge Gate (< 3 秒)          │
 │  - scripts/agent_capsule.py verify (静态范围 + 单测)   │
 │  - scripts/collab_pipeline.py integrate (三阶段门禁)    │
-│  - 签发 sha256 机器防伪验收签名 (Machine Attestation)  │
+│  - 签发可复算内容摘要凭单 (Work / Integration Receipt) │
 └───────────────────────────┬────────────────────────────┘
                             │ 2. 推送分支并开启 PR
                             ▼
@@ -29,12 +36,13 @@
 │        第二道防线: GitHub Actions CI (云端权威验证)     │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ 1. capsule-audit.yml:                            │  │
-│  │    - 提取 PR 修改文件，核验是否超出角色授权目录   │  │
-│  │    - 校验 task_capsule 机器防伪签名有效性        │  │
+│  │    - 提取 PR 修改文件，核验是否超出 capsule.scope │  │
+│  │    - 校验门禁档案摘要主权（目标分支 registry）    │  │
+│  │    - 校验凭单证据完整性（无证据不放行）           │  │
 │  ├──────────────────────────────────────────────────┤  │
 │  │ 2. ci.yml (3-Stage Gates):                       │  │
-│  │    - Stage 1: 架构适应度 AST 检查 & 28 项 Schema  │  │
-│  │    - Stage 2: Python 3.14 + uv 25 项全量回归测试 │  │
+│  │    - Stage 1: 架构适应度 AST 检查 & Schema 校验   │  │
+│  │    - Stage 2: Python 3.14 (uv --locked) 回归测试  │  │
 │  │    - Stage 3: Swift 6 (macOS 26+) 8 项并发测试    │  │
 │  └──────────────────────────────────────────────────┘  │
 └───────────────────────────┬────────────────────────────┘
@@ -73,7 +81,8 @@
 ### 2.3 实时质量报告与 Sticky 评论工作流 (`.github/workflows/pr-gate-reporter.yml`)
 - **触发条件**：`pull_request` 打开、更新或重开。
 - **核心逻辑**：
-  1. 调用 `scripts/generate_pr_report.py` 结构化提取任务胶囊状态、执行角色、不变量与防伪机器签名；
+  1. 调用 `scripts/generate_pr_report.py` 提取任务契约事实、执行角色、门禁档案摘要与凭单证据
+     （**只复述记录，不宣称测试结论**）；
   2. 使用 `actions/github-script@v7` (Node 20 驱动) 自动发布或更新 PR 顶部的实时门禁报告卡片，避免重复刷屏。
 
 ### 2.4 夜间全景深度回放工作流 (`.github/workflows/nightly-golden-audit.yml`)

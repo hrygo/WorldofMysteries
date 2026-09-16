@@ -4,7 +4,7 @@
 > **工程形态**：SwiftUI macOS App (arm64, macOS 26+) + 同机独立 Local Engine Service (Python 3.14.7 CPython standard GIL build + AgentScope 2.0.8)  
 > **数据内核**：SQLite 本地多模型四库物理隔离架构（`canon.db`, `world.db`, `retrieval.db`, `runtime.db`）  
 > **语音交互**：OpenAI Audio API 规范适配器，默认对接本地 SpeechRail (WebSocket/REST)，支持任意兼容第三方热拔插  
-> **协同框架**：HACF 2.0 (人机与多专精 Agent 协同体系) + GitHub Actions 工业级双层防御流水线  
+> **协同框架**：HACF 2.1 (人机与多专精 Agent 协同体系，门禁主权 + 契约凭证分离) + GitHub Actions 工业级双层防御流水线  
 > **核心规范根目录**：[`docs/`](docs/)（主入口：[`docs/README.md`](docs/README.md)）
 
 ---
@@ -83,9 +83,13 @@
 
 ```text
 repo/
-├── contracts/               # 跨语言协议与 Schema 唯一事实源 (28 个 JSON Schemas)
-│   ├── schemas/            # *.schema.json (实体、信封与 TaskCapsule 规范)
-│   └── protocol/           # engine_ipc.schema.json 等 IPC 通信协议
+├── contracts/               # 跨语言协议与 Schema 唯一事实源
+│   ├── schemas/            # 27 个产品领域 Schema (*.schema.json：实体、信封、Proposal 等)
+│   ├── protocol/           # 1 个 IPC 通信协议 (engine_ipc.schema.json)
+│   └── engineering/        # 研发编排协议 (task_capsule / work_receipt / gate_profile)，与产品契约分开版本化
+├── .hacf/                   # HACF 受保护门禁档案 (gates/*.json + registry.json) 与工作区资源租约
+│   ├── gates/              # 受保护门禁档案：命令主权在此，胶囊与角色默认值均不得内嵌命令
+│   └── workspace.json     # 每个 Worktree 的运行时资源命名空间租约 (TMPDIR/SPM/DB/socket/端口段)
 ├── engine/                  # Local Engine Service (Python 3.14.7 + AgentScope 2.0.8)
 │   ├── domain/             # 领域核心：无外部 SDK/DB 依赖纯逻辑 (Fan-in: 6, Fan-out: 0)
 │   ├── application/        # 用例编排、事务管理 (Session Orchestrator, Context Compiler)
@@ -97,20 +101,24 @@ repo/
 │   └── WorldOfMysteriesTests/ # 客户端单元测试与并发测试 (Swift Testing)
 ├── fixtures/                # Golden Scenario 固件 (golden_001 5 轮状态断言资产)
 ├── scripts/                 # 治理、自动化流水线与门禁脚手架
-│   ├── agent_capsule.py    # 任务胶囊切片与机器验签 CLI
-│   ├── collab_pipeline.py  # 事务型并行 Git Worktree 流水线 CLI
+│   ├── agent_capsule.py    # 不可变任务契约切片 + 四类范围裁决 + Work Receipt 签发 CLI
+│   ├── collab_pipeline.py  # 事务型并行工作区流水线 (独立 env + 资源租约 + CAS 合入 + 集成凭单)
+│   ├── gate_profile.py     # 受保护门禁档案解析/执行与 registry 摘要校验
+│   ├── hacf_policy.py      # 边界裁决与凭单内核 (sha256 内容摘要，不冒充密码学签名)
+│   ├── capsule_audit.py    # PR 范围、门禁主权与凭单证据审计 (CI 权威入口)
 │   ├── check_architecture_fitness.py # 架构适应度 AST 检查
-│   ├── generate_pr_report.py # GitHub PR 质量门禁报告卡片生成
-│   └── gate_runner.sh      # 本地三阶段极速门禁启动器
+│   ├── generate_pr_report.py # PR 证据摘要卡片 (只复述凭单事实，不宣称测试结论)
+│   └── gate_runner.sh      # 受保护门禁启动器 (薄封装，无内嵌命令)
 ├── .agents/                 # 多 Agent 协同元数据与模板
 │   ├── prompts/            # 7 大专精 Agent 角色提示词模板 (01 到 07)
-│   └── capsules/           # 生成的强类型自包含任务胶囊 JSON
+│   ├── capsules/           # 不可变任务契约 JSON (verify 严禁回写)
+│   └── receipts/           # Work / Integration Receipt (唯一可授权合入的凭证)
 ├── .github/                 # GitHub 原生协同与自动化 CI/CD 体系
 │   ├── workflows/          # ci.yml, capsule-audit.yml, pr-gate-reporter.yml, nightly-golden-audit.yml
 │   ├── ISSUE_TEMPLATE/     # 01_agent_task.yml, 02_architecture_spike.yml, config.yml
 │   ├── CODEOWNERS          # 7 大专精角色目录所有权硬防线
 │   ├── dependabot.yml      # 自动化依赖与 Actions 版本追踪
-│   └── PULL_REQUEST_TEMPLATE.md # 门禁自检与胶囊签名核验清单
+│   └── PULL_REQUEST_TEMPLATE.md # 门禁自检与凭单证据核验清单
 └── docs/                    # 完整设计文档与工程基线规范
 ```
 
@@ -119,17 +127,24 @@ repo/
 - `engine/ai/`：作为适配层接入 AgentScope，但**严禁**直接操作 SQLite 写事务。
 - `macos-app/`：**严禁** 依赖 Python 运行时内部类型或直接读取 `world.db`，严格通过 UDS IPC NDJSON 通信。
 - `contracts/`：跨语言交互的唯一协议与 Schema 源头，Swift 与 Python 均由其严格生成与校验。
+- `.hacf/gates/`：**门禁命令主权的唯一所在**。任何脚本、胶囊、角色默认值**严禁**内嵌验收命令；
+  覆盖档案后必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
+- `.agents/capsules/`：不可变任务契约，`verify` **严禁**回写；验收结果一律写入 `.agents/receipts/`。
 
 ---
 
-## 4. 人机协同研发工作框架 (HACF 2.0)
+## 4. 人机协同研发工作框架 (HACF 2.1)
 
-本项目采用工业级的 **“任务胶囊切片 + 事务型并行工作区 + 机器签名防伪验收”** 协同模型：
+本项目采用工业级的 **“任务胶囊切片 + 门禁主权 + 事务型并行工作区 + 可复算凭单验收”** 协同模型：
+
+> 摘要为 sha256 **内容摘要**而非密码学签名；抗伪造由受保护分支、CODEOWNERS 评审与 CI 复算共同承担。
+> 完整规范见 [`docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)
+> 与 [`ADR-004`](docs/01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md)。
 
 ### 4.1 7 大专精 Agent 角色矩阵
 | 角色代号 | 角色名称 | 核心职责 | 授权管辖目录 |
 |:---|:---|:---|:---|
-| **`AGT-ARB`** | 架构仲裁者 | 系统拓扑治理、任务派发、冲突仲裁、ADR 决策 | `docs/`, `contracts/schemas/`, `scripts/` |
+| **`AGT-ARB`** | 架构仲裁者 | 系统拓扑治理、任务派发、扩权审批、冲突仲裁、ADR 决策 | `docs/`, `contracts/`, `scripts/`, `.hacf/`, `.github/`, `.agents/` |
 | **`AGT-DOM`** | 领域逻辑编织者 | World, Character, Story 状态机与确定性 Outcome Resolver | `engine/domain/`, `engine/tests/` |
 | **`AGT-DATA`** | 数据内核管家 | 四库物理隔离、Outbox 事件发布、迁移脚本与事务队列 | `engine/infrastructure/database*`, `outbox*` |
 | **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/` |
@@ -137,25 +152,30 @@ repo/
 | **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/` |
 | **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-appTests/` |
 
-### 4.2 协同作业三步走规范 (SOP)
+### 4.2 协同作业四步走规范 (SOP)
 1. **任务切片派发 (Pack)**：
    ```bash
-   rtk python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>"
+   rtk python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>" --focus "<关键词>"
    ```
-   *背后深度内聚：Git 差异提取、AST 符号局部切片（< 500 Token）、绑定专属门禁，彻底杜绝上下文稀释。*
+   *背后深度内聚：只引用受保护门禁档案（`gates.profile` + `profile_digest`），按任务焦点排序 AST 切片，
+   记录 `base_sha` / `target_sha` / `context_snapshot`。契约不携带任何验收命令。*
 2. **并行无锁编码 (Start Worktree)**：
    ```bash
    rtk python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
    ```
-   *背后深度内聚：秒级创建隔离目录、自动软链接共享 `engine/.venv`、无文件锁冲突。*
-3. **本地验证与签名 (Verify & Integrate)**：
+   *背后深度内聚：秒级创建隔离目录、**每工作区独立** `engine/.venv`（`uv sync --locked --extra dev`，共享 uv 缓存）、
+   资源命名空间租约（TMPDIR / SPM scratch / 测试库 / socket / 端口段）。*
+3. **本地验证与凭单 (Verify & Receipt)**：
    ```bash
-   # 1. 验证授权范围并生成 sha256 验收防伪签名
-   rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
-   
-   # 2. 跑批全量门禁并 Fast-Forward 原子合入主分支
+   # 1. 四类边界裁决（read/write/forbidden/privileged）+ 受保护门禁 + 签发 Work Receipt
+   rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
+   ```
+4. **集成合入 (Integrate)**：
+   ```bash
+   # 2. 门禁 → expected_main_sha CAS 复核 → ff 合入 → post-merge smoke → Integration Receipt → 自愈清理
    rtk python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
    ```
+   *越界或需扩权时退出码 1；高风险面（`contracts/`、`.hacf/`、`.github/`、`migrations/`）须由 `AGT-ARB` 显式 grant。*
 
 ---
 
@@ -167,8 +187,9 @@ repo/
 本地工作区 (Local)                      GitHub Actions (Cloud CI)
 ┌───────────────────────────┐         ┌─────────────────────────────────┐
 │ collab_pipeline.py        │         │ 1. capsule-audit.yml            │
-│ 跑批 3-Stage 本地门禁     │──Push──>│    核验 PR 未超出角色 authorized_scope│
-│ 签发 sha256 机器凭单       │         │    核验 task_capsule 签名有效性   │
+│ 跑批受保护门禁 + CAS 合入 │──Push──>│    核验 PR 未超出 capsule.scope  │
+│ 签发摘要凭单 (Receipt)     │         │    门禁档案主权 (目标分支 registry)│
+│                           │         │    凭单证据完整性 (无证据不放行)  │
 └───────────────────────────┘         ├─────────────────────────────────┤
                                       │ 2. ci.yml (3-Stage Gates)       │
                                       │    Stage 1: 架构 AST 检查 & Schema│
@@ -176,7 +197,7 @@ repo/
                                       │    Stage 3: Swift 6 (macOS 26+)   │
                                       ├─────────────────────────────────┤
                                       │ 3. pr-gate-reporter.yml         │
-                                      │    自动在 PR 发表实时质检报告卡片 │
+                                      │    只复述凭单事实的证据摘要卡片   │
                                       └─────────────────────────────────┘
                                                        │
                                                        ▼
@@ -199,10 +220,10 @@ repo/
 | 模块 / 需求 | 规范文档路径 | 核心要点 |
 |---|---|---|
 | **工程主线门禁** | [`docs/07_工程启动/`](docs/07_工程启动/) | `Go_NoGo_Gates_v1.0.yaml` 规定的 P0 门禁 |
-| **总体架构 & ADR** | [`docs/01_总体架构/`](docs/01_总体架构/) | `ADR-001` (本地拓扑), `ADR-002` (数据架构), `ADR-003` (AI Runtime), [`架构专家评估报告`](docs/01_总体架构/架构专家评估与系统优化报告_v1.0.md), [`系统核心深模块演进设计方案`](docs/01_总体架构/系统核心深模块演进设计方案_v1.0.md) |
+| **总体架构 & ADR** | [`docs/01_总体架构/`](docs/01_总体架构/) | `ADR-001` (本地拓扑), `ADR-002` (数据架构), `ADR-003` (AI Runtime), [`ADR-004`](docs/01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md) (协同层门禁主权与凭证分离), [`架构专家评估报告`](docs/01_总体架构/架构专家评估与系统优化报告_v1.0.md), [`系统核心深模块演进设计方案`](docs/01_总体架构/系统核心深模块演进设计方案_v1.0.md) |
 | **领域引擎实现** | [`docs/02_领域引擎/`](docs/02_领域引擎/) | `World`, `Character`, `Story`, `Lore`, `Memory_Knowledge`, `Audio_Voice` (OpenAI 适配与 SpeechRail) |
 | **工程与协议契约** | [`docs/03_工程规范/`](docs/03_工程规范/) | `Context_Compiler`, `Engine_API_Contracts`, `Data_Architecture`, `macOS_App_Platform_Baseline`, `Swift6_Xcode27_Best_Practices` |
-| **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.0.md), [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
+| **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案 v1.1`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)（HACF 2.1 权威基线）, [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
 | **回归测试基准** | [`docs/04_Golden_Scenarios/`](docs/04_Golden_Scenarios/) | `golden_001` 5 轮状态断言与端到端期望 |
 
 ---
@@ -218,11 +239,15 @@ repo/
 3. **代码与架构图谱分析**：
    - 涉及符号定义、调用链追踪（Call Graph）或重构影响分析时，优先调用 `codebase-memory-mcp` 工具（项目 ID：`Users-hrygo-Documents-WorldofMysteries`）。
 4. **修改协议与 Schema**：
-   - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/schemas/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
-5. **专精 Agent Skills 协同规范**：
+   - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/schemas/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性；
+   - 研发编排协议（`contracts/engineering/`：task_capsule / work_receipt / gate_profile）与产品领域契约分开版本化，禁止混入产品 namespace。
+5. **受保护门禁与凭单**：
+   - 验收命令只能定义在 `.hacf/gates/*.json`；新增/调整门禁需同步 `python3 scripts/gate_profile.py refresh-registry`；
+   - `verify` 只签发 `.agents/receipts/` 下的凭单，严禁回写胶囊；合入授权以 `Integration Receipt` 为准。
+6. **专精 Agent Skills 协同规范**：
    - **项目级专精业务 Skills ([`.agents/skills/`](.agents/skills/))**：
      - **`wom-navigator`**：工程态势罗盘与架构调度中枢，响应“当前项目状态和进展”、“下一步推进方向”与“任务指派”，联动 `scripts/project_status.py` 事实源；
-     - **`wom-collaborator`**：HACF 2.0 人机协同总枢纽，指导 Task Capsule 切片、Git Worktree 事务隔离、sha256 机器验签与 GitHub Actions 双层合流；
+     - **`wom-collaborator`**：HACF 2.1 人机协同总枢纽，指导不可变任务契约切片、受保护门禁档案、独立工作区与资源租约、四类范围裁决与仲裁扩权、Work/Integration Receipt 证据链与 GitHub Actions 双层合流；
      - **`wom-invariants-guard`**：15 项核心不变量守护者，提供逐项违例判定标准、反模式排查清单与 AST 架构适应度静态扫描；
      - **`wom-domain-weaver`**：纯领域核心业务编织，指导 World/Character/Story 状态机与确定性 Outcome Resolver（纯函数 Reducer 模式）；
      - **`wom-data-steward`**：四库物理隔离管家，指导 SQLite 多模型隔离架构、Transactional Outbox 异步事件与 100% 幂等重建；

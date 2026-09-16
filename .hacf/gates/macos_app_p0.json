@@ -1,0 +1,21 @@
+{
+  "gate_profile_id": "MACOS_APP_P0",
+  "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试",
+  "risk_class": "medium",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "cwd": ".",
+      "command": ["python3", "scripts/check_architecture_fitness.py"],
+      "expects": ["scripts/check_architecture_fitness.py"]
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "cwd": "macos-app",
+      "command": ["swift", "test", "--scratch-path", "${WOM_SPM_SCRATCH:-.build}"],
+      "expects": ["macos-app/Package.swift", "macos-app/WorldOfMysteriesTests"]
+    }
+  ]
+}

@@ -12,6 +12,12 @@
 /contracts/                             @hrygo
 /contracts/schemas/                     @hrygo
 /contracts/protocol/                    @hrygo
+/contracts/engineering/                 @hrygo
+
+# 1.1 受保护门禁档案与协同凭单 (HACF 2.1 门禁主权：命令与摘要只可由 Arbiter 变更)
+/.hacf/gates/                           @hrygo
+/.agents/capsules/                      @hrygo
+/.agents/receipts/                      @hrygo
 
 # 2. 领域核心层 (Domain Core: 纯领域逻辑，绝对零外部驱动，不变量 1, 2, 4, 5, 6, 8, 9)
 /engine/domain/                         @hrygo

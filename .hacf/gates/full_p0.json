@@ -1,0 +1,53 @@
+{
+  "gate_profile_id": "FULL_P0",
+  "description": "全量三阶段门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试",
+  "risk_class": "high",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "cwd": ".",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "expects": [
+        "scripts/check_architecture_fitness.py"
+      ]
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "cwd": "engine",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "expects": [
+        "engine/uv.lock",
+        "engine/tests",
+        "contracts/tests"
+      ]
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "cwd": "macos-app",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "${WOM_SPM_SCRATCH:-.build}"
+      ],
+      "expects": [
+        "macos-app/Package.swift",
+        "macos-app/WorldOfMysteriesTests"
+      ]
+    }
+  ]
+}

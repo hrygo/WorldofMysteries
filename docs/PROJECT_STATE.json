@@ -10,20 +10,20 @@
   },
   "gates_health": {
     "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
-    "schemas_integrity": "PASSED (28/28 valid schemas)",
-    "python_tests": "PASSED (25/25 passed in <0.5s)",
+    "schemas_integrity": "PASSED (28/28 product+protocol schemas + 3 engineering contracts)",
+    "python_tests": "PASSED (38/38 passed in <1s, incl. 13 HACF governance tests)",
     "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
     "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
   },
   "completed_phases": [
     {
       "phase_id": "Phase 0",
-      "phase_name": "基线契约与协同基础设施 (Baseline Contracts & HACF 2.0)",
+      "phase_name": "基线契约与协同基础设施 (Baseline Contracts & HACF 2.1)",
       "completed_at": "2026-09-16",
       "key_deliverables": [
         "28 个跨语言强类型 JSON Schemas 冻结",
         "本地三阶段极速门禁 (AST 检查 + Python 25 项测试 + Swift 8 项并发测试 100% 通过)",
-        "HACF 2.0 任务胶囊切片 (agent_capsule.py) 与 Git Worktree 事务隔离流水线 (collab_pipeline.py)",
+        "HACF 2.1 不可变任务契约 (agent_capsule.py) + 受保护门禁档案 (.hacf/gates) + 独立工作区事务流水线 (collab_pipeline.py) + Work/Integration Receipt 证据链 (ADR-004)",
         "GitHub Actions 工业级双层防御流与 CODEOWNERS 权限矩阵",
         "macOS 26+ 平台基线全面对齐与持久化术语加固"
       ]

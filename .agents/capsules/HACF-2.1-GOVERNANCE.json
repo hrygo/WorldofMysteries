@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-HACF-2.1-GOVERNANCE",
+  "capsule_revision": 1,
+  "task_id": "HACF-2.1-GOVERNANCE",
+  "title": "HACF 2.1 协同层门禁主权与凭证分离实施",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-16T09:43:18.076259+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+    "target_sha": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+    "context_snapshot": "sha256:ada223b6e1e1d252e04936d4d422d4e21115eb3f7d95df2dae82f8fee4b2f422"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:PolicyError@scripts/hacf_policy.py:74",
+      "symbol:now_iso@scripts/hacf_policy.py:78",
+      "symbol:sha256_bytes@scripts/hacf_policy.py:82",
+      "symbol:sha256_file@scripts/hacf_policy.py:86",
+      "symbol:canonical_json_digest@scripts/hacf_policy.py:90",
+      "symbol:matches_any@scripts/hacf_policy.py:96",
+      "symbol:run_git@scripts/hacf_policy.py:123",
+      "symbol:changed_files@scripts/hacf_policy.py:132",
+      "symbol:capsule_digest@scripts/hacf_policy.py:149",
+      "symbol:load_capsule@scripts/hacf_policy.py:153",
+      "symbol:audit_scope@scripts/hacf_policy.py:168",
+      "symbol:runner_identity@scripts/hacf_policy.py:220",
+      "symbol:build_receipt@scripts/hacf_policy.py:229",
+      "symbol:write_receipt@scripts/hacf_policy.py:288",
+      "symbol:log_dir_for@scripts/hacf_policy.py:300",
+      "symbol:load_workspace_lease@scripts/hacf_policy.py:305",
+      "symbol:env_overrides_from_lease@scripts/hacf_policy.py:316",
+      "symbol:print_receipt_summary@scripts/hacf_policy.py:329",
+      "symbol:test_gate_registry_digests_match_protected_profiles@engine/tests/test_hacf_governance.py:27",
+      "symbol:test_gate_profile_tampering_is_rejected@engine/tests/test_hacf_governance.py:37",
+      "symbol:test_capsule_carries_no_executable_gate_commands@engine/tests/test_hacf_governance.py:56",
+      "symbol:test_privileged_surface_requires_explicit_grant@engine/tests/test_hacf_governance.py:75",
+      "symbol:test_forbidden_scope_is_enforced@engine/tests/test_hacf_governance.py:99",
+      "symbol:test_path_pattern_semantics@engine/tests/test_hacf_governance.py:119",
+      "symbol:test_gate_runner_has_no_embedded_commands@engine/tests/test_hacf_governance.py:124",
+      "symbol:test_pack_produces_decoupled_capsule@engine/tests/test_hacf_governance.py:132",
+      "symbol:test_python_to_canonical_json_roundtrip@contracts/tests/test_roundtrip.py:16",
+      "symbol:test_strict_envelope_rejects_unknown_kind@contracts/tests/test_roundtrip.py:29",
+      "symbol:test_strict_envelope_requires_trace_id@contracts/tests/test_roundtrip.py:41",
+      "symbol:extract_symbols@scripts/agent_capsule.py:134"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 696,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "PolicyError",
+      "now_iso",
+      "sha256_bytes",
+      "sha256_file",
+      "canonical_json_digest",
+      "matches_any",
+      "run_git",
+      "changed_files",
+      "capsule_digest",
+      "load_capsule",
+      "audit_scope",
+      "runner_identity",
+      "build_receipt",
+      "write_receipt",
+      "log_dir_for",
+      "load_workspace_lease",
+      "env_overrides_from_lease",
+      "print_receipt_summary",
+      "test_gate_registry_digests_match_protected_profiles",
+      "test_gate_profile_tampering_is_rejected",
+      "test_capsule_carries_no_executable_gate_commands",
+      "test_privileged_surface_requires_explicit_grant",
+      "test_forbidden_scope_is_enforced",
+      "test_path_pattern_semantics",
+      "test_gate_runner_has_no_embedded_commands",
+      "test_pack_produces_decoupled_capsule",
+      "test_python_to_canonical_json_roundtrip",
+      "test_strict_envelope_rejects_unknown_kind",
+      "test_strict_envelope_requires_trace_id",
+      "extract_symbols"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

@@ -42,7 +42,7 @@ jobs:
           script: |
             const fs = require('fs');
             const reportBody = fs.readFileSync('pr_report.md', 'utf8');
-            const commentHeader = '## 🛡️ 《诡秘世界》自动化质量门禁报告';
+            const commentHeader = '## 🛡️ 《诡秘世界》协同证据摘要';
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,

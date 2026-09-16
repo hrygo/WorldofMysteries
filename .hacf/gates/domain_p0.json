@@ -1,0 +1,40 @@
+{
+  "gate_profile_id": "DOMAIN_P0",
+  "description": "AGT-DOM 领域层门禁：架构适应度 + 领域/契约单测（纯领域零外部依赖）",
+  "risk_class": "medium",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "cwd": ".",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "expects": [
+        "scripts/check_architecture_fitness.py"
+      ]
+    },
+    {
+      "stage": 2,
+      "name": "Domain & Contract Unit Tests",
+      "cwd": "engine",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "domain or resolver or contract or schema or pydantic"
+      ],
+      "expects": [
+        "engine/tests/test_scaffolding.py",
+        "engine/tests/test_contracts_schema.py",
+        "engine/tests/test_contracts_pydantic.py"
+      ]
+    }
+  ]
+}

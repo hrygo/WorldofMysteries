@@ -143,3 +143,14 @@ pr_report.md
 .agent/
 .agents/scratch/
 .gemini/
+
+# ------------------------------------------------------------------------------
+# 7. HACF 协同工作区资源命名空间 (Resource Namespace Lease)
+# ------------------------------------------------------------------------------
+# 每个 Worktree 的运行时隔离目录与租约（源码隔离由 git worktree 提供，运行隔离由本段提供）
+.hacf/workspace.json
+.hacf/tmp/
+.hacf/spm-scratch/
+.hacf/testdb/
+.hacf/run/
+.hacf/logs/
