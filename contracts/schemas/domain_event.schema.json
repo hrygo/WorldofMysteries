@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/domain_event.schema.json",
+  "title": "DomainEvent",
+  "description": "Immutable committed domain state change. Invariant 9: Commit is fate.",
+  "type": "object",
+  "required": ["event_id", "event_type", "world_time", "worldline_id", "payload"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "event_type": { "type": "string" },
+    "world_time": { "type": "integer" },
+    "worldline_id": { "type": "string" },
+    "payload": { "type": "object" }
+  }
+}

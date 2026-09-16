@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/engine_ipc.schema.json",
+  "title": "EngineIPCEnvelope",
+  "description": "Standard Envelope for Unix Domain Socket IPC between macOS App and Local Engine",
+  "type": "object",
+  "required": ["kind", "protocol_version", "trace_id"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["request", "response", "event"]
+    },
+    "protocol_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "error"]
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "error_message": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

@@ -135,3 +135,12 @@ repo/
    - 涉及符号定义、调用链追踪（Call Graph）或重构影响分析时，优先调用 `codebase-memory-mcp` 工具（项目 ID：`Users-hrygo-Documents-WorldofMysteries`）。
 4. **修改协议与 Schema**：
    - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
+5. **专精 Agent Skills 协同规范**：
+   - 本项目环境已安装并全局挂载了一套高标准领域技能，执行特定子领域任务时应严格遵循对应 Skill 的最佳实践：
+     - **Swift 6 并发安全**：使用 `swift-concurrency` 指南消除数据竞态与 actor 隔离问题。
+     - **SwiftUI 架构与设计**：使用 `swiftui-expert-skill` 遵循规范的状态与视图分层设计。
+     - **Xcode 构建与工程配置**：遇到构建与工程配置问题优先参考 `xcode-build-fixer` 与 `xcode-project-setup`。
+     - **Python 异步与测试**：Local Engine 核心开发严格遵守 `async-python-patterns` 与 `python-testing-patterns`。
+     - **架构治理与安全重构**：涉及跨模块解耦与架构调整时，调用 `improve-codebase-architecture` 评估依赖边界。
+     - **现代 Swift 测试**：macOS 客户端单元与集成测试采用 `swift-testing-pro` 规范（基于 Swift Testing 宏）。
+

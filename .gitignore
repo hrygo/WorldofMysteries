@@ -1,96 +1,97 @@
 # ==============================================================================
-# World of Mysteries (.gitignore)
-# Tech Stack:
-#   - Python 3.14+ (Engine, uv, pytest, AgentScope)
-#   - Swift / SwiftUI (macOS App, Xcode, SwiftPM)
-#   - SQLite (Local DBs: world.db, retrieval.db, runtime.db, etc.)
-#   - macOS & IDE Artifacts
+# 《诡秘世界》(World of Mysteries) - Git 忽略规则规范 (.gitignore)
+#
+# 技术栈架构:
+#   - macOS 宿主应用: SwiftUI (macOS 26+), Xcode 27+, Swift 6+ SPM
+#   - 本地引擎服务: Python 3.14.7 (standard GIL), uv, pytest, AgentScope 2.0.8
+#   - 数据内核: SQLite (canon.db, world.db, retrieval.db, runtime.db)
+#   - 运行时通信: UDS IPC, NDJSON, 32-bit length prefixed framing
 # ==============================================================================
 
-# --- Operating System & Environments ---
+# ------------------------------------------------------------------------------
+# 1. 操作系统与环境垃圾文件 (OS & Filesystem Metadata)
+# ------------------------------------------------------------------------------
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon\r
+.DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
+.AppleDouble
+.LSOverride
+Icon\r
 Thumbs.db
 ehthumbs.db
 
-# --- Python & uv & Virtual Environments ---
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-.venv/
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Python Tools & Cache
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.coverage
-.coverage.*
-htmlcov/
-nosetests.xml
-coverage.xml
-*.cover
-*.pyo
-.hypothesis/
-
-# uv cache / environment
-.uv/
-
-# --- Swift & Xcode & Swift Package Manager ---
+# ------------------------------------------------------------------------------
+# 2. Swift, Xcode 与 SPM (macOS 宿主应用构建产物与用户临时状态)
+# ------------------------------------------------------------------------------
+# SPM 构建与解析缓存
 .build/
 Packages/
 Package.pins
 Package.resolved
-# Xcode User Data & Derived Data
+
+# Xcode 用户特定数据与断点、视窗排版 (绝不入库)
+*.xcuserstate
+xcuserdata/
+**/xcuserdata/
+
+# Xcode 共享配置保护 (保留 project.pbxproj 与 sharedData)
 *.xcodeproj/*
 !*.xcodeproj/project.pbxproj
 !*.xcodeproj/xcshareddata/
-!*.xcworkspace/contents.xcworkspacedata
+!*.xcodeproj/project.xcworkspace/
+!*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+!*.xcodeproj/project.xcworkspace/xcshareddata/
+
 *.xcworkspace/*
 !*.xcworkspace/contents.xcworkspacedata
 !*.xcworkspace/xcshareddata/
-*.xcuserstate
-xcuserdata/
+
+# 编译中间产物与符号文件
 DerivedData/
 *.moved-builder
 *.hmap
 *.ipa
+*.app
 *.dSYM.zip
 *.dSYM
 
-# --- SQLite & Local Databases ---
-# Persistent runtime state and caches must not be committed.
-# Canonical baseline seeds or migrations belong in version control, but active DBs do not.
+# ------------------------------------------------------------------------------
+# 3. Python 运行时与虚拟环境 (Python 3.14+ / uv / AgentScope)
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# uv 与虚拟环境
+.venv/
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.uv/
+
+# Python 工具链缓存与测试覆盖率报告
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+nosetests.xml
+
+# ------------------------------------------------------------------------------
+# 4. SQLite 与本地数据库文件 (不变量 10 & 11: 动态数据绝不入库)
+# ------------------------------------------------------------------------------
+# 运行期持久化数据库及其 WAL/SHM 事务锁日志 (严禁提交)
 *.db
 *.db-wal
 *.db-shm
@@ -99,31 +100,42 @@ DerivedData/
 *.sqlite-wal
 *.sqlite-shm
 
-# Exception if baseline schemas/seeds exist in contracts or migrations
+# 保留契约定义与数据迁移 SQL 脚本
 !contracts/**/*.sql
 !engine/**/migrations/*.sql
+!fixtures/**/*.sql
 
-# --- Local Engine Runtime & Logs ---
+# ------------------------------------------------------------------------------
+# 5. Local Engine 运行时临时产物、套接字与日志 (Runtime & IPC)
+# ------------------------------------------------------------------------------
 *.log
 logs/
 run/
 outbox/
-assets/temp/
-assets/generated/
 tmp/
 scratch/
+assets/temp/
+assets/generated/
+# IPC Unix Domain Socket 套接字文件
+*.sock
+*.socket
 
-# --- Local Agent & IDE Configs ---
+# ------------------------------------------------------------------------------
+# 6. 本地 Agent、IDE 与安全凭据 (Security & Local Configs)
+# ------------------------------------------------------------------------------
+# 环境变量与 API Key 凭据 (Keychain 为主，严禁明文入库)
+.env
+.env.*
+!.env.example
+
+# IDE 配置
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+
+# Agent 本地运行时痕迹与临时目录
 .agent/
 .agents/scratch/
 .gemini/
-
-# --- Environment & Secret Variables ---
-.env
-.env.*
-!.env.example

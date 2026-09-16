@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/proposal.schema.json",
+  "title": "AITypedProposal",
+  "description": "Invariant 5: AI outputs typed proposals only. Domain Engine commits.",
+  "type": "object",
+  "required": ["proposal_id", "character_id", "intent", "suggested_actions"],
+  "properties": {
+    "proposal_id": { "type": "string" },
+    "character_id": { "type": "string" },
+    "intent": { "type": "string" },
+    "suggested_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action_type", "parameters"],
+        "properties": {
+          "action_type": { "type": "string" },
+          "parameters": { "type": "object" }
+        }
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
