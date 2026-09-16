@@ -19,7 +19,20 @@
 
 世界不会因一篇故事结束而重置；人物不会因一次模型调用重新生成；模型不能直接修改世界事实。
 
-## 2. 工程形态
+## 2. 关联仓库
+
+本仓库是《诡秘世界》的**应用本体**（macOS 宿主应用 + Local Engine + 数据内核）。它的 Canon 内容生产面——22 条成神途径 × 序列 9→0 的正典核验、单卡六维设计与分层卡面生产——在**独立仓库**维护：
+
+| 仓库 | 职责 | 地址 |
+|---|---|---|
+| `hrygo/WorldofMysteries` | 本仓库：《诡秘世界》应用本体（宿主应用 / Local Engine / 数据内核） | https://github.com/hrygo/WorldofMysteries |
+| `hrygo/lotm-card-art` | 卡牌制作工具：序列卡槽正典、六维语义契约与分层卡面生产线 | https://github.com/hrygo/lotm-card-art |
+
+边界：卡牌正典事实源（途径、序列、配方、扮演、晋升与限制）在卡牌仓库维护，本仓库只**单向消费**其结论，不重复维护第二份、不反向写入；两仓库之间不建立代码依赖。详见 [`AGENTS.md`](AGENTS.md) 第 3 节。
+
+---
+
+## 3. 工程形态
 
 | 层次 | 技术基线 |
 |---|---|
@@ -40,7 +53,7 @@ Canon ─▶ Domain Truth (World · Character · Memory · Story · Outcome Reso
                                           Resolver / Validators ──▶ COMMIT ──▶ Narrative / Audio / Voice ──▶ User
 ```
 
-## 3. 核心不变量
+## 4. 核心不变量
 
 系统无条件遵守 15 条不变量，其中最有约束力的三条：
 
@@ -50,7 +63,7 @@ Canon ─▶ Domain Truth (World · Character · Memory · Story · Outcome Reso
 
 完整 15 条清单与逐项判定标准见 [`AGENTS.md`](AGENTS.md) 第 2 节。
 
-## 4. 仓库结构
+## 5. 仓库结构
 
 ```text
 contracts/    跨语言协议与 Schema 唯一事实源（28 个 JSON Schema）
@@ -63,7 +76,7 @@ scripts/      治理与门禁脚手架（capsule / pipeline / fitness / 报告�
 docs/         完整设计文档与工程基线规范（主入口 docs/README.md）
 ```
 
-## 5. 快速开始
+## 6. 快速开始
 
 环境要求：macOS 26+（Apple Silicon arm64）、Xcode 27 / Swift 6.4、Python 3.14.7、`uv`。
 
@@ -77,7 +90,7 @@ cd engine && uv run pytest -q
 cd macos-app && swift test
 ```
 
-## 6. 质量保障
+## 7. 质量保障
 
 双层防御：本地极速拦截（`scripts/gate_runner.sh`，秒级）+ 云端权威守门（GitHub Actions）。
 
@@ -88,7 +101,7 @@ cd macos-app && swift test
 | `.github/workflows/pr-gate-reporter.yml` | 在 PR 自动发表质检报告卡片 |
 | `.github/workflows/nightly-golden-audit.yml` | Golden Scenario 夜间回归 |
 
-## 7. 人机协同开发 (HACF 2.0)
+## 8. 人机协同开发 (HACF 2.0)
 
 ```bash
 # 1. 任务切片派发
@@ -104,7 +117,7 @@ python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 
 7 大专精角色（`AGT-ARB` / `AGT-DOM` / `AGT-DATA` / `AGT-AI` / `AGT-VOICE` / `AGT-MAC` / `AGT-QA`）的职责与授权目录见 [`AGENTS.md`](AGENTS.md) 第 4 节。
 
-## 8. 文档索引
+## 9. 文档索引
 
 | 模块 | 路径 |
 |---|---|
