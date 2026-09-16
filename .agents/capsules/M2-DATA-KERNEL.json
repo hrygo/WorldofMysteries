@@ -1,0 +1,86 @@
+{
+  "$schema": "contracts/schemas/task_capsule.schema.json",
+  "capsule_id": "CAP-20260916-M2-DATA-KERNEL",
+  "task_id": "M2-DATA-KERNEL",
+  "title": "四库 SQLite 数据内核迁移与连接池实现",
+  "assigned_role": "AGT-DOM",
+  "status": "VERIFIED",
+  "created_at": "2026-09-16T08:40:45.649873+00:00",
+  "git_context": {
+    "base_commit": "41c46d4",
+    "target_branch": "main",
+    "worktree_path": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "authorized_scope": {
+    "directories": [
+      "engine/domain/",
+      "engine/tests/"
+    ],
+    "forbidden_patterns": [
+      "macos-app/*",
+      "contracts/schemas/*",
+      "*aiosqlite*",
+      "*sqlite3*"
+    ]
+  },
+  "graph_slice": {
+    "target_symbols": [
+      "ASRProviderProtocol (engine/domain/audio_voice.py:30)",
+      "ASRResult (engine/domain/audio_voice.py:11)",
+      "AudioVoiceEngineProtocol (engine/domain/audio_voice.py:59)",
+      "CharacterEngineProtocol (engine/domain/character_engine.py:5)",
+      "LoreEngineProtocol (engine/domain/lore_engine.py:5)",
+      "MemoryKnowledgeEngineProtocol (engine/domain/memory_engine.py:5)",
+      "OutcomeResolverProtocol (engine/domain/resolver.py:5)",
+      "SpeechResult (engine/domain/audio_voice.py:21)",
+      "StoryEngineProtocol (engine/domain/story_engine.py:5)",
+      "TTSProviderProtocol (engine/domain/audio_voice.py:44)",
+      "WorldEngineProtocol (engine/domain/world_engine.py:5)",
+      "load_schema (engine/tests/test_contracts_schema.py:29)",
+      "process_user_speech (engine/domain/audio_voice.py:62)",
+      "render_narrative_speech (engine/domain/audio_voice.py:66)",
+      "sample_trace_id (engine/tests/conftest.py:6)",
+      "synthesize (engine/domain/audio_voice.py:47)",
+      "test_all_schemas_are_valid_json_schema (engine/tests/test_contracts_schema.py:15)",
+      "test_character_knowledge_pydantic_parsing (engine/tests/test_contracts_pydantic.py:67)",
+      "test_character_pydantic_parsing (engine/tests/test_contracts_pydantic.py:23)",
+      "test_domain_boundary (engine/tests/test_scaffolding.py:8)",
+      "test_envelope_request_response_cycle (engine/tests/test_contracts_pydantic.py:79)",
+      "test_episode_pydantic_parsing (engine/tests/test_contracts_pydantic.py:45)",
+      "test_golden_001_character_matches_schema (engine/tests/test_contracts_schema.py:35)",
+      "test_golden_001_seed_matches_schema (engine/tests/test_contracts_schema.py:51)",
+      "test_golden_001_world_matches_schema (engine/tests/test_contracts_schema.py:43)",
+      "test_player_advice_pydantic_parsing (engine/tests/test_contracts_pydantic.py:55)",
+      "test_python_version (engine/tests/test_scaffolding.py:5)",
+      "test_strenum_contract_validation (engine/tests/test_contracts_pydantic.py:110)",
+      "test_world_snapshot_pydantic_parsing (engine/tests/test_contracts_pydantic.py:34)",
+      "transcribe (engine/domain/audio_voice.py:33)"
+    ],
+    "related_schemas": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "engine_ipc.schema.json"
+    ]
+  },
+  "constraints": {
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      8,
+      9
+    ],
+    "instructions": "恪守纯领域零外部依赖原则。禁止直接引用数据库或 AI SDK。保持状态提交确定性。"
+  },
+  "verification_commands": [
+    "rtk python3 scripts/check_architecture_fitness.py",
+    "rtk uv run --directory engine pytest tests/ -k 'domain or resolver or contract'"
+  ],
+  "attestation": {
+    "verified_at": "2026-09-16T08:40:48.392838+00:00",
+    "gate_checksum": "sha256:29180f5a56d43a4f",
+    "verified_by": "AgentCapsuleGateKeeper_v1.0"
+  }
+}

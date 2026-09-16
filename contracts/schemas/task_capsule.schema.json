@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://world-of-mysteries.internal/schemas/task_capsule.schema.json",
+  "title": "TaskCapsule",
+  "description": "Machine-verifiable task capsule for human-agent collaborative development.",
+  "type": "object",
+  "required": [
+    "capsule_id",
+    "task_id",
+    "title",
+    "assigned_role",
+    "created_at",
+    "git_context",
+    "authorized_scope",
+    "constraints",
+    "verification_commands"
+  ],
+  "properties": {
+    "capsule_id": {
+      "type": "string",
+      "pattern": "^CAP-[0-9]{8}-[A-Z0-9_-]+$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "assigned_role": {
+      "type": "string",
+      "enum": [
+        "AGT-ARB",
+        "AGT-DOM",
+        "AGT-DATA",
+        "AGT-AI",
+        "AGT-VOICE",
+        "AGT-MAC",
+        "AGT-QA"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["CREATED", "IN_PROGRESS", "VERIFIED", "INTEGRATED", "ABORTED"],
+      "default": "CREATED"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "git_context": {
+      "type": "object",
+      "required": ["base_commit", "target_branch"],
+      "properties": {
+        "base_commit": {
+          "type": "string"
+        },
+        "target_branch": {
+          "type": "string"
+        },
+        "worktree_path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "authorized_scope": {
+      "type": "object",
+      "required": ["directories"],
+      "properties": {
+        "directories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "forbidden_patterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "graph_slice": {
+      "type": "object",
+      "properties": {
+        "target_symbols": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "related_schemas": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "constraints": {
+      "type": "object",
+      "required": ["invariants"],
+      "properties": {
+        "invariants": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 15 }
+        },
+        "instructions": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification_commands": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "attestation": {
+      "type": "object",
+      "properties": {
+        "verified_at": { "type": "string", "format": "date-time" },
+        "gate_checksum": { "type": "string" },
+        "verified_by": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
