@@ -93,7 +93,7 @@ rtk python3 scripts/collab_pipeline.py start \
 ### 第三步：专注开发与无死锁编码 (Coding)
 切入独立工作区进行开发：
 ```bash
-cd /Users/hrygo/Documents/wom-worktrees/feat-m2-data-kernel
+cd ../wom-worktrees/feat-m2-data-kernel
 ```
 - **核心准则**：严格在 `capsule.scope.write` 内编码；`forbidden` 为硬拦截；触碰高风险面须先经 AGT-ARB 扩权（`--grant-privileged`）；
 - 所有的修改完全发生在独立工作区，不影响主仓库或其他并发工作区。

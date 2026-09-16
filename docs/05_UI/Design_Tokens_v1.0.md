@@ -1,7 +1,7 @@
 # 《诡秘世界》macOS 设计 Token 语言规范 v1.0
 
 > **版本**：v1.0.0  
-> **单一事实源**：[`docs/05_UI/design_tokens.json`](file:///Users/hrygo/Documents/WorldofMysteries/docs/05_UI/design_tokens.json)  
+> **单一事实源**：[`docs/05_UI/design_tokens.json`](design_tokens.json)  
 > **适用范围**：macOS App SwiftUI 6 组件库、Figma 生成器插件与跨语言样式映射  
 > **设计美学**：维多利亚蒸汽暗金 × 克苏鲁超凡神秘主义 (Victorian Esoteric Steampunk & Cthulhu Mysticism)
 

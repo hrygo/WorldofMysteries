@@ -143,6 +143,7 @@ repo/
 - `.hacf/gates/`：**门禁命令主权的唯一所在**。任何脚本、胶囊、角色默认值**严禁**内嵌验收命令；
   覆盖档案后必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
 - `.agents/capsules/`：不可变任务契约，`verify` **严禁**回写；验收结果一律写入 `.agents/receipts/`。
+- `docs/` 及所有 Markdown：**严禁**泄露开发机绝对路径（如 `file:///Users/...` 或 `/Users/...`），文档与文件链接一律只允许使用相对于项目根目录或当前文档的相对路径。
 
 ---
 
@@ -284,3 +285,7 @@ repo/
      - **架构治理与安全重构**：跨模块解耦与深模块设计遵循 `improve-codebase-architecture`；
      - **代码知识图谱智能**：利用 `code-intelligence` 进行高阶 Cypher 查询与调用链路追踪；
      - **现代 Swift 测试**：macOS 客户端测试严格基于 `swift-testing-pro` 宏体系。
+7. **文档与 Markdown 链接规范（零绝对路径泄露）**：
+   - **相对路径唯一原则**：仓库内所有 Markdown 文档（包括 `docs/`、`README.md`、`AGENTS.md`、`.agents/` 等）中引用内部文件或目录时，**一律只允许使用相对于项目根目录或当前文档的相对路径**（例如：[`docs/README.md`](docs/README.md)、[`docs/05_UI/design_tokens.json`](docs/05_UI/design_tokens.json) 或 [`../01_总体架构/`](../01_总体架构/)）；
+   - **严禁绝对路径泄露**：严禁在任何仓库 Markdown 文档中出现或生成开发机本地文件系统的绝对路径或绝对 URI（例如：`file:///Users/...`、`/Users/...`、`/home/...`、`C:\...` 等包含本地用户名或本机盘符的路径），杜绝开发机个人环境隐私泄露，确保文档在不同开发者机器、CI 与 GitHub Web 渲染下的强可移植性；
+   - **跨仓库规范引用**：关联外部仓库（如卡牌制作工具 [`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art)）一律使用公开规范的 GitHub 远程 URL，严禁依赖本地跨目录绝对或相对文件路径。
