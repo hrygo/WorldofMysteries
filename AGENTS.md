@@ -4,7 +4,7 @@
 > **工程形态**：SwiftUI macOS App (arm64, macOS 26+) + 同机独立 Local Engine Service (Python 3.14.7 CPython standard GIL build + AgentScope 2.0.8)  
 > **数据内核**：SQLite 本地多模型四库物理隔离架构（`canon.db`, `world.db`, `retrieval.db`, `runtime.db`）  
 > **语音交互**：OpenAI Audio API 规范适配器，默认对接本地 SpeechRail (WebSocket/REST)，支持任意兼容第三方热拔插  
-> **协同框架**：HACF 2.0 (人机与多专精 Agent 协同体系) + GitHub Actions 2026 双层防御流水线  
+> **协同框架**：HACF 2.0 (人机与多专精 Agent 协同体系) + GitHub Actions 工业级双层防御流水线  
 > **核心规范根目录**：[`docs/`](docs/)（主入口：[`docs/README.md`](docs/README.md)）
 
 ---
@@ -105,11 +105,11 @@ repo/
 ├── .agents/                 # 多 Agent 协同元数据与模板
 │   ├── prompts/            # 7 大专精 Agent 角色提示词模板 (01 到 07)
 │   └── capsules/           # 生成的强类型自包含任务胶囊 JSON
-├── .github/                 # GitHub 原生协同与 2026 CI/CD 体系
+├── .github/                 # GitHub 原生协同与自动化 CI/CD 体系
 │   ├── workflows/          # ci.yml, capsule-audit.yml, pr-gate-reporter.yml, nightly-golden-audit.yml
 │   ├── ISSUE_TEMPLATE/     # 01_agent_task.yml, 02_architecture_spike.yml, config.yml
 │   ├── CODEOWNERS          # 7 大专精角色目录所有权硬防线
-│   ├── dependabot.yml      # 2026 依赖与 Actions 自动更新追踪
+│   ├── dependabot.yml      # 自动化依赖与 Actions 版本追踪
 │   └── PULL_REQUEST_TEMPLATE.md # 门禁自检与胶囊签名核验清单
 └── docs/                    # 完整设计文档与工程基线规范
 ```
@@ -159,7 +159,7 @@ repo/
 
 ---
 
-## 5. GitHub 原生协同与 2026 CI/CD 双层防御体系
+## 5. GitHub 原生协同与工业级 CI/CD 双层防御体系
 
 工程构建了**本地轻快极速拦截（< 3 秒）**与**云端 GitHub Actions 权威守门（< 1.5 分钟）**的双层防御体系：
 
@@ -173,7 +173,7 @@ repo/
                                       │ 2. ci.yml (3-Stage Gates)       │
                                       │    Stage 1: 架构 AST 检查 & Schema│
                                       │    Stage 2: Python 3.14 (uv 缓存) │
-                                      │    Stage 3: Swift 6 (macos-14 M1) │
+                                      │    Stage 3: Swift 6 (macOS 26+)   │
                                       ├─────────────────────────────────┤
                                       │ 3. pr-gate-reporter.yml         │
                                       │    自动在 PR 发表实时质检报告卡片 │
@@ -183,11 +183,11 @@ repo/
                                       保护分支主线 (main) Fast-Forward 演进
 ```
 
-### 2026 GitHub Actions 规范准则
+### GitHub Actions 现代工程基线准则
 - **官方 Actions 运行时**：必须基于 Node 20 / Node 22 运行时（全面采用 `v4` / `v5` / `v7` 版本）；
 - **最小权限原则**：工作流顶层默认强制配置 `permissions: contents: read`；
 - **强制超时熔断**：所有 Job 显式声明 `timeout-minutes: 5 ~ 25`，杜绝 Runner 卡顿消耗；
-- **原生 Runner 对齐**：编译与测试强制采用 **`macos-14` (Apple Silicon arm64)**；
+- **平台基线对齐**：目标平台与构建环境严格对齐 **macOS 26+ (Apple Silicon arm64)**，采用最新的 Apple Silicon macOS Runner 环境（`macos-latest` / `macos-15+`）；
 - **依赖自愈追踪**：通过 `.github/dependabot.yml` 每周一自动审查 Actions 与项目依赖。
 
 ---

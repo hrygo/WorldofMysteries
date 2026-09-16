@@ -106,7 +106,7 @@ git push origin feat/m2-data-kernel
 - **PR 模板自动填充**：填写 PR 模板，勾选不变量自检项，贴入胶囊签名；
 - **GitHub Actions 自动审查卡片**：
   - 云端 `capsule-audit` 验证签名有效性并检查 diff；
-  - 云端 `ci.yml` 在 `macos-14` (Apple Silicon) 与 `ubuntu-latest` 运行跨语言全量矩阵测试；
+  - 云端 `ci.yml` 在 `macos-latest` (Apple Silicon arm64, macOS 26+ baseline) 与 `ubuntu-latest` 运行跨语言全量矩阵测试；
   - `pr-gate-reporter` 自动在 PR 发表/更新实时质检报告卡片。
 
 ### 第六步：Fast-Forward 原子合流与自愈清理 (Integration & Teardown)

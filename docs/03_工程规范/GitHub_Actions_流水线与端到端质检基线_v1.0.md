@@ -35,7 +35,7 @@
 │  │ 2. ci.yml (3-Stage Gates):                       │  │
 │  │    - Stage 1: 架构适应度 AST 检查 & 28 项 Schema  │  │
 │  │    - Stage 2: Python 3.14 + uv 25 项全量回归测试 │  │
-│  │    - Stage 3: Swift 6 (macos-14) 8 项并发测试    │  │
+│  │    - Stage 3: Swift 6 (macOS 26+) 8 项并发测试    │  │
 │  └──────────────────────────────────────────────────┘  │
 └───────────────────────────┬────────────────────────────┘
                             │ 3. 保护分支规则阻断
@@ -59,11 +59,11 @@
   1. **`architecture-and-contracts` (ubuntu-latest)**：
      - 运行 `python3 scripts/check_architecture_fitness.py`（静态扫描 Domain 零依赖、App 零直接数据库访问、AI 零直接 SQL）；
      - 循环校验全部 28 个 JSON Schema 语法与格式。
-  2. **`python-engine` (macos-14)**：
+  2. **`python-engine` (macOS 26+ baseline / macos-latest)**：
      - 依赖 `architecture-and-contracts` 通过；
      - 使用 `astral-sh/setup-uv@v5` 开启依赖缓存，基于 `engine/uv.lock` 进行秒级环境复现；
      - 执行 `uv run pytest -v`，覆盖 25 项契约与适配层单测。
-  3. **`swift-macos-app` (macos-14 / Apple Silicon)**：
+  3. **`swift-macos-app` (macOS 26+ baseline / Apple Silicon arm64)**：
      - 依赖 `architecture-and-contracts` 通过；
      - 使用 `actions/cache@v4` 缓存 `macos-app/.build` SPM 编译产物；
      - 激活 Swift 6 严格并发检查，执行 `swift test`，覆盖 8 项跨语言与 Actor 测试。
@@ -79,23 +79,23 @@
 ### 2.4 夜间全景深度回放工作流 (`.github/workflows/nightly-golden-audit.yml`)
 - **触发条件**：每日 UTC 02:00 (北京时间 10:00) 定时触发，或支持 `workflow_dispatch` 手动一键触发。
 - **核心逻辑**：
-  1. 在 `macos-14` runner 运行全量契约双向往返验证；
+  1. 在 `macos-latest` (macOS 26+ baseline) 运行全量契约双向往返验证；
   2. 执行 Golden 001 场景 5 轮状态机深度回放；
   3. 执行 Swift 6 全量测试与架构适应度 AST 扫描；
   4. 使用 `actions/upload-artifact@v4` 归档为期 14 天的审计工件。
 
 ---
 
-## 3. 2026 年 GitHub Actions 现代工程基线与安全准则
+## 3. GitHub Actions 现代工程基线与安全准则
 
-为严格符合 2026 年现代 CI/CD 工业级安全与效能规范，全流水线强制贯彻以下准则：
+为严格符合现代 CI/CD 工业级安全与效能规范，全流水线强制贯彻以下准则：
 
-| 规范项 | 2026 标准要求 | 《诡秘世界》实施落地 |
+| 规范项 | 工业级标准要求 | 《诡秘世界》实施落地 |
 |:---|:---|:---|
 | **官方 Actions 生命周期** | 必须全面迁移至 Node 20 / Node 22 运行时，严禁使用已弃用的 v3 | 全面采用 `actions/checkout@v4`, `actions/setup-python@v5`, `astral-sh/setup-uv@v5`, `actions/cache@v4`, `actions/upload-artifact@v4`, `actions/github-script@v7`。 |
 | **最小权限原则 (Least Privilege)** | 顶层禁用通配写权限，显式限制只读 | 所有工作流顶层严格配置 `permissions: contents: read`；仅在 PR Reporter 中局部按需开放 `pull-requests: write, issues: write`。 |
 | **超时保护 (Timeout Guard)** | 严禁无超时任务，防止 runner 死锁耗费配额 | 所有 Job 均显式声明 `timeout-minutes: 5 ~ 25`，异常卡顿自动自愈熔断。 |
-| **Runner 架构匹配** | 淘汰 Intel x86 runner，对齐 Apple Silicon 硬件 | 编译与测试统一采用 `macos-14` (M1/M2 arm64) 与 `ubuntu-latest` 组合。 |
+| **Runner 架构匹配** | 淘汰 Intel x86 runner，对齐 Apple Silicon 硬件与 macOS 26+ 平台基线 | 编译与测试统一采用 `macos-latest` (Apple Silicon arm64, macOS 26+) 与 `ubuntu-latest` 组合。 |
 | **自动化依赖升级** | 必须具备自动化依赖与 Actions 追踪机制 | 引入 `.github/dependabot.yml`，每周一全自动审查 Actions、Python 及 SPM 依赖更新。 |
 
 ---

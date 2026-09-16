@@ -2,7 +2,7 @@
 name: wom-collaborator
 description: >-
   《诡秘世界》HACF 2.0 人机协同研发核心驱动技能。指导多专精 Agent 与人类架构师执行任务切片（AgentCapsule）、
-  事务型并行隔离工作区（CollabPipeline）、本地三阶段门禁验证、sha256 机器验签与 GitHub Actions 2026 双层防御合流。
+  事务型并行隔离工作区（CollabPipeline）、本地三阶段门禁验证、sha256 机器验签与 GitHub Actions 双层防御合流。
 ---
 
 # 《诡秘世界》HACF 2.0 人机协同研发核心技能 (wom-collaborator)

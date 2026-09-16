@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-# 2026 Best Practice: Restrict top-level default permissions to read-only
+# Security Best Practice: Restrict top-level default permissions to read-only
 permissions:
   contents: read
 
@@ -51,10 +51,10 @@ jobs:
           print(f'All {len(schemas)} schemas successfully validated.')
           "
 
-  # Stage 2: Python Engine & Contracts Test Suite (Apple Silicon runner)
+  # Stage 2: Python Engine & Contracts Test Suite (Apple Silicon runner, macOS 26+ baseline)
   python-engine:
     name: "Stage 2: Python Engine & Contracts"
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 10
     needs: [architecture-and-contracts]
     steps:
@@ -72,10 +72,10 @@ jobs:
           cd engine
           uv run pytest -v
 
-  # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip
+  # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip (macOS 26+ baseline)
   swift-macos-app:
     name: "Stage 3: Swift 6 App & Protocol Roundtrip"
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 10
     needs: [architecture-and-contracts]
     steps:
