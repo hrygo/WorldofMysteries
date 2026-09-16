@@ -34,9 +34,25 @@
       "id": "M0-UI-SPEC",
       "name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
       "phase": "Design Baseline",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "lead_role": "AGT-MAC",
-      "description": "具象化锚定桌面端心智模型：三栏卷宗流、灵感波形微动效与灰雾长桌全景，反向锁定 DTO 与流式事件契约"
+      "description": "具象化锚定桌面端心智模型：8 个一级视图 + 2 个超凡高光场景（灰雾长桌、仪式魔法）共 12 幅高保真原型闭环，反向锁定 DTO 与流式事件契约",
+      "deliverables": [
+        "docs/05_UI/assets/01_世界首页_概念参考.png",
+        "docs/05_UI/assets/02_人物档案_概念参考.png",
+        "docs/05_UI/assets/03_命运干预_概念参考.png",
+        "docs/05_UI/assets/04_故事沉浸_概念参考.png",
+        "docs/05_UI/assets/05_卡牌详情_概念参考.png",
+        "docs/05_UI/assets/06_卡牌馆_概念参考.png",
+        "docs/05_UI/assets/07_故事书_概念参考.png",
+        "docs/05_UI/assets/08_世界线_概念参考.png",
+        "docs/05_UI/assets/09_调查笔记_概念参考.png",
+        "docs/05_UI/assets/10_系统设置_概念参考.png",
+        "docs/05_UI/assets/11_灰雾之上_概念参考.png",
+        "docs/05_UI/assets/12_仪式魔法_概念参考.png",
+        "docs/05_UI/UI_交互基线_v1.0.md",
+        "docs/03_工程规范/macOS_App_高保真视觉与交互设计规范_v1.0.md"
+      ]
     },
     {
       "id": "M1",
