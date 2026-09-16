@@ -2,14 +2,16 @@
 
 > **项目名称**：《诡秘世界》（World of Mysteries）  
 > **工程形态**：SwiftUI macOS App (arm64, macOS 26+) + 同机独立 Local Engine Service (Python 3.14.7 CPython standard GIL build + AgentScope 2.0.8)  
-> **数据内核**：SQLite 本地多模型架构（`canon.db`, `world.db`, `retrieval.db`, `runtime.db`）  
+> **数据内核**：SQLite 本地多模型四库物理隔离架构（`canon.db`, `world.db`, `retrieval.db`, `runtime.db`）  
+> **语音交互**：OpenAI Audio API 规范适配器，默认对接本地 SpeechRail (WebSocket/REST)，支持任意兼容第三方热拔插  
+> **协同框架**：HACF 2.0 (人机与多专精 Agent 协同体系) + GitHub Actions 2026 双层防御流水线  
 > **核心规范根目录**：[`docs/`](docs/)（主入口：[`docs/README.md`](docs/README.md)）
 
 ---
 
 ## 1. 核心架构与系统总览
 
-《诡秘世界》是一套以 Canon 为历史底座、持续世界状态为现实、人物长期身份与记忆为主体、语音驱动互动叙事为主要体验的单人持久世界应用。
+《诡秘世界》是一套以 Canon（原著历史）为不可变底座、持续世界状态为现实、人物长期身份与记忆为主体、语音驱动互动叙事为主要体验的单人持久世界应用。
 
 ```text
                          Lore / Canon
@@ -47,7 +49,7 @@
          Narrative / Performance
                   │
                   ▼
-           Audio / Voice Engine
+           Audio / Voice Engine (SpeechRail / OpenAI API)
                   │
                   ▼
                 User
@@ -81,66 +83,145 @@
 
 ```text
 repo/
-├── contracts/               # 跨语言协议与 Schema 唯一事实源
-│   ├── schemas/            # *.schema.json (JSON Schema 规范)
+├── contracts/               # 跨语言协议与 Schema 唯一事实源 (28 个 JSON Schemas)
+│   ├── schemas/            # *.schema.json (实体、信封与 TaskCapsule 规范)
 │   └── protocol/           # engine_ipc.schema.json 等 IPC 通信协议
 ├── engine/                  # Local Engine Service (Python 3.14.7 + AgentScope 2.0.8)
-│   ├── domain/             # 领域核心：无外部 SDK/DB 依赖纯逻辑 (World, Character, Lore, Story...)
+│   ├── domain/             # 领域核心：无外部 SDK/DB 依赖纯逻辑 (Fan-in: 6, Fan-out: 0)
 │   ├── application/        # 用例编排、事务管理 (Session Orchestrator, Context Compiler)
-│   ├── infrastructure/     # SQLite 持久化、Outbox、IPC 服务端、Asset 存储
+│   ├── infrastructure/     # SQLite 持久化 (四库隔离)、Outbox、UDS IPC 服务端、Audio 适配层
 │   ├── ai/                 # AgentScope Adapter, Model Router, Prompt Registry
-│   └── tests/              # 单元测试与领域测试
+│   └── tests/              # 单元测试与领域测试 (pytest)
 ├── macos-app/               # macOS 宿主应用 (SwiftUI, macOS 26+, arm64)
-│   ├── App/                # 视图与状态管理
-│   ├── IPC/                # Engine 进程生命周期、Typed IPC 客户端
-│   └── Tests/              # UI 与客户端测试
-├── content-pack-tools/      # 设定集校验、打包与验证工具
-├── fixtures/                # Golden Scenario 固件 (golden_001 等)
-├── scripts/                 # 构建、环境探测与打包脚本
-└── docs/                    # 完整设计文档与基线规范
+│   ├── WorldOfMysteries/   # 视图与状态管理、IPC 客户端、DomainContracts DTO
+│   └── WorldOfMysteriesTests/ # 客户端单元测试与并发测试 (Swift Testing)
+├── fixtures/                # Golden Scenario 固件 (golden_001 5 轮状态断言资产)
+├── scripts/                 # 治理、自动化流水线与门禁脚手架
+│   ├── agent_capsule.py    # 任务胶囊切片与机器验签 CLI
+│   ├── collab_pipeline.py  # 事务型并行 Git Worktree 流水线 CLI
+│   ├── check_architecture_fitness.py # 架构适应度 AST 检查
+│   ├── generate_pr_report.py # GitHub PR 质量门禁报告卡片生成
+│   └── gate_runner.sh      # 本地三阶段极速门禁启动器
+├── .agents/                 # 多 Agent 协同元数据与模板
+│   ├── prompts/            # 7 大专精 Agent 角色提示词模板 (01 到 07)
+│   └── capsules/           # 生成的强类型自包含任务胶囊 JSON
+├── .github/                 # GitHub 原生协同与 2026 CI/CD 体系
+│   ├── workflows/          # ci.yml, capsule-audit.yml, pr-gate-reporter.yml, nightly-golden-audit.yml
+│   ├── ISSUE_TEMPLATE/     # 01_agent_task.yml, 02_architecture_spike.yml, config.yml
+│   ├── CODEOWNERS          # 7 大专精角色目录所有权硬防线
+│   ├── dependabot.yml      # 2026 依赖与 Actions 自动更新追踪
+│   └── PULL_REQUEST_TEMPLATE.md # 门禁自检与胶囊签名核验清单
+└── docs/                    # 完整设计文档与工程基线规范
 ```
 
 ### 模块依赖边界约束 (Ownership Boundaries)
 - `engine/domain/`：**严禁** import AgentScope、SQLite 驱动（如 sqlite3 / aiosqlite）或任何云厂商 SDK。
-- `engine/ai/`：作为适配层接入 AgentScope，但不得直接操作 SQLite 写事务。
-- `macos-app/`：**严禁** 依赖 Python 运行时内部类型或直接读取 `world.db`。
-- `contracts/`：跨语言交互的唯一协议与 Schema 源头，Swift 与 Python 均由其代码生成或严格校验。
+- `engine/ai/`：作为适配层接入 AgentScope，但**严禁**直接操作 SQLite 写事务。
+- `macos-app/`：**严禁** 依赖 Python 运行时内部类型或直接读取 `world.db`，严格通过 UDS IPC NDJSON 通信。
+- `contracts/`：跨语言交互的唯一协议与 Schema 源头，Swift 与 Python 均由其严格生成与校验。
 
 ---
 
-## 4. 关键规范参考索引
+## 4. 人机协同研发工作框架 (HACF 2.0)
+
+本项目采用工业级的 **“任务胶囊切片 + 事务型并行工作区 + 机器签名防伪验收”** 协同模型：
+
+### 4.1 7 大专精 Agent 角色矩阵
+| 角色代号 | 角色名称 | 核心职责 | 授权管辖目录 |
+|:---|:---|:---|:---|
+| **`AGT-ARB`** | 架构仲裁者 | 系统拓扑治理、任务派发、冲突仲裁、ADR 决策 | `docs/`, `contracts/schemas/`, `scripts/` |
+| **`AGT-DOM`** | 领域逻辑编织者 | World, Character, Story 状态机与确定性 Outcome Resolver | `engine/domain/`, `engine/tests/` |
+| **`AGT-DATA`** | 数据内核管家 | 四库物理隔离、Outbox 事件发布、迁移脚本与事务队列 | `engine/infrastructure/database*`, `outbox*` |
+| **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/` |
+| **`AGT-VOICE`** | 语音引擎大师 | OpenAI Audio API 规范适配、SpeechRail 热拔插、指纹缓存 | `engine/domain/audio*`, `infrastructure/audio/` |
+| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/` |
+| **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-appTests/` |
+
+### 4.2 协同作业三步走规范 (SOP)
+1. **任务切片派发 (Pack)**：
+   ```bash
+   rtk python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>"
+   ```
+   *背后深度内聚：Git 差异提取、AST 符号局部切片（< 500 Token）、绑定专属门禁，彻底杜绝上下文稀释。*
+2. **并行无锁编码 (Start Worktree)**：
+   ```bash
+   rtk python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
+   ```
+   *背后深度内聚：秒级创建隔离目录、自动软链接共享 `engine/.venv`、无文件锁冲突。*
+3. **本地验证与签名 (Verify & Integrate)**：
+   ```bash
+   # 1. 验证授权范围并生成 sha256 验收防伪签名
+   rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
+   
+   # 2. 跑批全量门禁并 Fast-Forward 原子合入主分支
+   rtk python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
+   ```
+
+---
+
+## 5. GitHub 原生协同与 2026 CI/CD 双层防御体系
+
+工程构建了**本地轻快极速拦截（< 3 秒）**与**云端 GitHub Actions 权威守门（< 1.5 分钟）**的双层防御体系：
+
+```text
+本地工作区 (Local)                      GitHub Actions (Cloud CI)
+┌───────────────────────────┐         ┌─────────────────────────────────┐
+│ collab_pipeline.py        │         │ 1. capsule-audit.yml            │
+│ 跑批 3-Stage 本地门禁     │──Push──>│    核验 PR 未超出角色 authorized_scope│
+│ 签发 sha256 机器凭单       │         │    核验 task_capsule 签名有效性   │
+└───────────────────────────┘         ├─────────────────────────────────┤
+                                      │ 2. ci.yml (3-Stage Gates)       │
+                                      │    Stage 1: 架构 AST 检查 & Schema│
+                                      │    Stage 2: Python 3.14 (uv 缓存) │
+                                      │    Stage 3: Swift 6 (macos-14 M1) │
+                                      ├─────────────────────────────────┤
+                                      │ 3. pr-gate-reporter.yml         │
+                                      │    自动在 PR 发表实时质检报告卡片 │
+                                      └─────────────────────────────────┘
+                                                       │
+                                                       ▼
+                                      保护分支主线 (main) Fast-Forward 演进
+```
+
+### 2026 GitHub Actions 规范准则
+- **官方 Actions 运行时**：必须基于 Node 20 / Node 22 运行时（全面采用 `v4` / `v5` / `v7` 版本）；
+- **最小权限原则**：工作流顶层默认强制配置 `permissions: contents: read`；
+- **强制超时熔断**：所有 Job 显式声明 `timeout-minutes: 5 ~ 25`，杜绝 Runner 卡顿消耗；
+- **原生 Runner 对齐**：编译与测试强制采用 **`macos-14` (Apple Silicon arm64)**；
+- **依赖自愈追踪**：通过 `.github/dependabot.yml` 每周一自动审查 Actions 与项目依赖。
+
+---
+
+## 6. 关键规范参考索引
 
 在进行具体任务前，请优先阅读并严格参照以下设计基线：
 
 | 模块 / 需求 | 规范文档路径 | 核心要点 |
 |---|---|---|
-| **工程主线门禁** | [`docs/07_工程启动/`](docs/07_工程启动/) | `Go_NoGo_Gates_v1.0.yaml` 规定的 P0 门禁（`GATE-PACKAGE`, `GATE-PROTOCOL`, `GATE-DATA`, `GATE-AI`, `GATE-GOLDEN-MOCK`） |
-| **总体架构 & ADR** | [`docs/01_总体架构/`](docs/01_总体架构/) | `ADR-001` (本地引擎拓扑), `ADR-002` (SQLite数据架构), `ADR-003` (AgentScope边界) |
-| **领域引擎实现** | [`docs/02_领域引擎/`](docs/02_领域引擎/) | `World`, `Character`, `Story`, `Lore`, `Memory_Knowledge`, `Audio_Voice` 各 Engine 规范 |
-| **工程与协议契约** | [`docs/03_工程规范/`](docs/03_工程规范/) | `Context_Compiler`, `Engine_API_Contracts`, `Data_Architecture`, `macOS_App_Platform_Baseline`, `Swift6_Xcode27_Best_Practices`, `Runtime_Orchestration` |
+| **工程主线门禁** | [`docs/07_工程启动/`](docs/07_工程启动/) | `Go_NoGo_Gates_v1.0.yaml` 规定的 P0 门禁 |
+| **总体架构 & ADR** | [`docs/01_总体架构/`](docs/01_总体架构/) | `ADR-001` (本地拓扑), `ADR-002` (数据架构), `ADR-003` (AI Runtime), [`架构专家评估报告`](docs/01_总体架构/架构专家评估与系统优化报告_v1.0.md), [`系统核心深模块演进设计方案`](docs/01_总体架构/系统核心深模块演进设计方案_v1.0.md) |
+| **领域引擎实现** | [`docs/02_领域引擎/`](docs/02_领域引擎/) | `World`, `Character`, `Story`, `Lore`, `Memory_Knowledge`, `Audio_Voice` (OpenAI 适配与 SpeechRail) |
+| **工程与协议契约** | [`docs/03_工程规范/`](docs/03_工程规范/) | `Context_Compiler`, `Engine_API_Contracts`, `Data_Architecture`, `macOS_App_Platform_Baseline`, `Swift6_Xcode27_Best_Practices` |
+| **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.0.md), [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
 | **回归测试基准** | [`docs/04_Golden_Scenarios/`](docs/04_Golden_Scenarios/) | `golden_001` 5 轮状态断言与端到端期望 |
-| **IPC 协议规范** | [`docs/07_工程启动/IPC_Protocol_v1.0.md`](docs/07_工程启动/IPC_Protocol_v1.0.md) | 基于 NDJSON / Typed IPC 的错误恢复与请求应答模型 |
 
 ---
 
-## 5. 开发与编码操作准则
+## 7. 开发与编码操作准则
 
 1. **环境与运行约束**：
-   - 目标架构为 Apple Silicon (macOS 26+ / arm64)。
-   - Python 版本锁定为 **3.14.7**（标准 GIL CPython 构建），AgentScope 版本精确锁定为 **2.0.8**。
-   - 使用 `uv` 作为 Python 依赖与包管理工具。
+   - 目标架构为 Apple Silicon (macOS 26+ / arm64)；
+   - Python 版本锁定为 **3.14.7**（标准 GIL CPython 构建），AgentScope 版本锁定为 **2.0.8**；
+   - 使用 `uv` 作为依赖与包管理工具。
 2. **终端与测试执行优化**：
    - 终端命令执行遵循 RTK 规则，涉及 git、pytest、cargo 等命令时显式使用 `rtk` 前缀（如 `rtk git status`, `rtk uv run pytest`）。
 3. **代码与架构图谱分析**：
    - 涉及符号定义、调用链追踪（Call Graph）或重构影响分析时，优先调用 `codebase-memory-mcp` 工具（项目 ID：`Users-hrygo-Documents-WorldofMysteries`）。
 4. **修改协议与 Schema**：
-   - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
+   - 任何对数据结构、IPC 协议的修改必须同步更新 `contracts/schemas/` 下的 JSON Schema 与 Pydantic/Swift 对应模型，禁止私自篡改破坏向下兼容性。
 5. **专精 Agent Skills 协同规范**：
-   - 本项目环境已安装并全局挂载了一套高标准领域技能，执行特定子领域任务时应严格遵循对应 Skill 的最佳实践：
-     - **Swift 6 并发安全**：使用 `swift-concurrency` 指南消除数据竞态与 actor 隔离问题。
-     - **SwiftUI 架构与设计**：使用 `swiftui-expert-skill` 遵循规范的状态与视图分层设计。
-     - **Xcode 构建与工程配置**：遇到构建与工程配置问题优先参考 `xcode-build-fixer` 与 `xcode-project-setup`。
-     - **Python 异步与测试**：Local Engine 核心开发严格遵守 `async-python-patterns` 与 `python-testing-patterns`。
-     - **架构治理与安全重构**：涉及跨模块解耦与架构调整时，调用 `improve-codebase-architecture` 评估依赖边界。
-     - **现代 Swift 测试**：macOS 客户端单元与集成测试采用 `swift-testing-pro` 规范（基于 Swift Testing 宏）。
-
+   - **Swift 6 并发安全**：使用 `swift-concurrency` 指南消除数据竞态与 actor 隔离问题；
+   - **SwiftUI 架构与设计**：使用 `swiftui-expert-skill` 遵循规范的状态与视图分层设计；
+   - **Python 异步与测试**：Local Engine 核心开发严格遵守 `async-python-patterns` 与 `python-testing-patterns`；
+   - **架构治理与安全重构**：跨模块解耦与深模块设计遵循 `improve-codebase-architecture`；
+   - **现代 Swift 测试**：macOS 客户端测试严格基于 `swift-testing-pro` 宏体系。
