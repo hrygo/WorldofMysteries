@@ -11,6 +11,7 @@ public struct CharacterCodexCard: View {
     public let sanityScore: Double
     public let traits: [String]
     public let isOnline: Bool
+    public let avatarImageName: String?
     public var onVoiceAdviceTapped: (@MainActor () -> Void)?
     
     @State private var isHovered: Bool = false
@@ -24,6 +25,7 @@ public struct CharacterCodexCard: View {
         sanityScore: Double = 0.92,
         traits: [String] = ["谨慎周密", "守护家人", "值夜者誓言"],
         isOnline: Bool = true,
+        avatarImageName: String? = "PortraitKlein",
         onVoiceAdviceTapped: (@MainActor () -> Void)? = nil
     ) {
         self.characterName = characterName
@@ -34,6 +36,7 @@ public struct CharacterCodexCard: View {
         self.sanityScore = sanityScore
         self.traits = traits
         self.isOnline = isOnline
+        self.avatarImageName = avatarImageName
         self.onVoiceAdviceTapped = onVoiceAdviceTapped
     }
     
@@ -41,27 +44,44 @@ public struct CharacterCodexCard: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             // 顶部角色姓名、途径与状态行
             HStack(alignment: .top) {
-                // 角色剪影与怀表立体徽章
+                // 角色肖像与怀表立体徽章
                 ZStack {
                     Circle()
                         .fill(Color.Mystic.obsidianElevated)
-                        .frame(width: 48, height: 48)
-                        .overlay(
-                            Image(systemName: "person.crop.circle.fill")
-                                .font(.system(size: 32))
-                                .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                        .frame(width: 52, height: 52)
+                    
+                    // 优先加载真实古典油画肖像，优雅降级为矢量符号
+                    if let imageName = avatarImageName, NSImage(named: imageName) != nil {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 52, height: 52)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                    }
+                    
+                    // 维多利亚黄铜相框边缘描边与微光
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.Mystic.brassGoldPrimary, Color.Mystic.brassGoldHover, Color.Mystic.brassGoldBorder],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: DesignTokens.Borders.standard
                         )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.Mystic.brassGoldBorder, lineWidth: DesignTokens.Borders.standard)
-                        )
+                        .frame(width: 52, height: 52)
+                        .shadow(color: Color.Mystic.brassGoldPrimary.opacity(0.35), radius: 4)
                     
                     // 在线状态小绿点
                     Circle()
                         .fill(isOnline ? Color.Mystic.statusOnline : Color.Mystic.textTertiary)
                         .frame(width: 10, height: 10)
                         .overlay(Circle().stroke(Color.black, lineWidth: 2))
-                        .offset(x: 16, y: 16)
+                        .offset(x: 18, y: 18)
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {

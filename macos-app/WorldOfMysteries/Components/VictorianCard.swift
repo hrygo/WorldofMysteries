@@ -40,7 +40,17 @@ public struct VictorianCard<Content: View>: View {
         case .obsidianGlass:
             Color.Mystic.obsidianGlass
         case .parchment:
-            Color.Mystic.parchmentBase
+            ZStack {
+                Color.Mystic.parchmentBase
+                
+                if NSImage(named: "TextureParchment") != nil {
+                    Image("TextureParchment")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .blendMode(.multiply)
+                        .opacity(0.88)
+                }
+            }
         case .brassFramed:
             Color.Mystic.obsidianCard
         }

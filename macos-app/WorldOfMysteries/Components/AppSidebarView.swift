@@ -328,16 +328,43 @@ public struct AppSidebarView: View {
             
             if !isCollapsed {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Circle()
-                            .fill(Color.Mystic.statusOnline)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: Color.Mystic.statusOnline.opacity(0.8), radius: 3)
+                    HStack(spacing: DesignTokens.Spacing.sm) {
+                        // 克莱恩真实古典油画微型头像
+                        ZStack {
+                            Circle()
+                                .fill(Color.Mystic.obsidianCard)
+                                .frame(width: 26, height: 26)
+                            
+                            if NSImage(named: "PortraitKlein") != nil {
+                                Image("PortraitKlein")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 26, height: 26)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "person.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                            }
+                            
+                            Circle()
+                                .stroke(Color.Mystic.brassGoldBorder, lineWidth: 1)
+                                .frame(width: 26, height: 26)
+                        }
                         
-                        Text("克莱恩 · 占卜家")
-                            .font(Font.Mystic.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.Mystic.statusOnline)
+                                    .frame(width: 5, height: 5)
+                                    .shadow(color: Color.Mystic.statusOnline.opacity(0.8), radius: 2)
+                                
+                                Text("克莱恩 · 占卜家")
+                                    .font(Font.Mystic.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                            }
+                        }
                         
                         Spacer()
                         
@@ -395,8 +422,16 @@ public struct AppSidebarView: View {
                 .padding(.horizontal, DesignTokens.Spacing.sm)
                 .padding(.bottom, DesignTokens.Spacing.md)
             } else {
-                // 折叠模式下的微型灵性圆点指示
+                // 折叠模式下的微型灵性圆点指示（内嵌克莱恩头像）
                 ZStack {
+                    if NSImage(named: "PortraitKlein") != nil {
+                        Image("PortraitKlein")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 22, height: 22)
+                            .clipShape(Circle())
+                    }
+                    
                     Circle()
                         .stroke(Color.Mystic.brassGoldBorder.opacity(0.3), lineWidth: 2)
                         .frame(width: 28, height: 28)
@@ -410,9 +445,10 @@ public struct AppSidebarView: View {
                     Circle()
                         .fill(Color.Mystic.statusOnline)
                         .frame(width: 6, height: 6)
+                        .offset(x: 10, y: -10)
                 }
                 .padding(.vertical, DesignTokens.Spacing.sm)
-                .help("克莱恩·莫雷蒂 (灵性 85% · 引擎就绪)")
+                .help("克莱恩·莫雷蒂 (占卜家 Seq 9 · 灵性 85%)")
             }
         }
     }
