@@ -91,7 +91,7 @@ jobs:
           swift --version
 
       - name: Cache SPM Dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: macos-app/.build
           key: ${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved', 'macos-app/Package.swift') }}
