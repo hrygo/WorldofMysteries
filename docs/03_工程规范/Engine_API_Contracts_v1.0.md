@@ -106,10 +106,15 @@ compile(ContextRequest) -> ContextPacket
 ```text
 compile_narrative(NarrativeRequest) -> NarrativeBlock
 plan_performance(NarrativeBlock, CharacterState) -> PerformancePlan
-render_audio(PerformancePlan) -> AudioAssetRef
+resolve_voice(VoicePersonaId, ProviderConfig) -> TargetPhysicalVoice
+render_audio(PerformancePlan, TargetPhysicalVoice) -> AudioAssetRef
 ```
 
-NarrativeBlock 必须绑定 committed story revision。
+### 契约规则
+1. **提交绑定**：`NarrativeBlock` 必须严格绑定已持久化的 `committed story revision`，严禁在 `COMMIT` 前生成。
+2. **底层标准化**：语音渲染器统一基于 **OpenAI Audio API Specification**（`audio.speech`）标准协议对接，默认由 `SpeechRail` 本地服务支撑，且支持通过 `AudioProviderConfig` 热拔插至任何兼容第三方。
+3. **内容寻址缓存**：`render_audio` 优先计算 $\text{AudioHash} = \text{SHA256}(\text{provider} + \text{":"} + \text{model} + \text{":"} + \text{voice} + \text{":"} + \text{speed} + \text{":"} + \text{UTF8}(\text{text}))$。若缓存已命中则跳过外部 API 请求直接返回已缓存的 `AudioAssetRef`。
+4. **无感降级保障**：若语音提供商发生超时、限流或不可用，`render_audio` 优雅降级返回静音占位符，由 UI 自动退避至字幕纯文本呈现，绝对不中断剧情推进与状态持久化。
 
 ## 10. Repositories
 
