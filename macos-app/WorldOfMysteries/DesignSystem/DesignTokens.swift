@@ -103,6 +103,15 @@ public enum DesignTokens: Sendable {
             .easeInOut(duration: listeningPulseDuration).repeatForever(autoreverses: true)
         }
     }
+    
+    // MARK: - Typography Metrics
+    public enum TypographyMetrics: Sendable {
+        public static let narrativeLineSpacing: CGFloat = 6.0
+        public static let parchmentLineSpacing: CGFloat = 5.0
+        public static let displayTracking: CGFloat = 0.6
+        public static let titleTracking: CGFloat = 0.2
+        public static let monoTracking: CGFloat = 0.4
+    }
 }
 
 // MARK: - Color Tokens Extension
@@ -117,11 +126,11 @@ public extension Color {
         public static let abyssVoid = Color(red: 8/255, green: 9/255, blue: 11/255)            // #08090B
         
         // Victorian Brass & Gold
-        public static let brassGoldPrimary = Color(red: 197/255, green: 160/255, blue: 89/255) // #C5A059
-        public static let brassGoldHover = Color(red: 212/255, green: 178/255, blue: 111/255) // #D4B26F
-        public static let brassGoldMuted = Color(red: 140/255, green: 115/255, blue: 62/255)  // #8C733E
+        public static let brassGoldPrimary = Color(red: 201/255, green: 165/255, blue: 94/255) // #C9A55E (7.8:1 AAA vs #0D0F12)
+        public static let brassGoldHover = Color(red: 218/255, green: 185/255, blue: 118/255) // #DAB976
+        public static let brassGoldMuted = Color(red: 158/255, green: 131/255, blue: 75/255)  // #9E834B (4.7:1 AA vs #0D0F12)
         public static let brassGoldBorder = Color(red: 74/255, green: 62/255, blue: 37/255)   // #4A3E25
-        public static let brassGoldGlow = Color(red: 197/255, green: 160/255, blue: 89/255).opacity(0.3)
+        public static let brassGoldGlow = Color(red: 201/255, green: 165/255, blue: 94/255).opacity(0.3)
         
         // Spirituality & Void
         public static let spiritualBlue = Color(red: 74/255, green: 144/255, blue: 226/255)   // #4A90E2
@@ -134,18 +143,20 @@ public extension Color {
         public static let crimsonThread = Color(red: 183/255, green: 28/255, blue: 28/255)    // #B71C1C
         public static let crimsonGlow = Color(red: 230/255, green: 57/255, blue: 70/255).opacity(0.4)
         
-        // Parchment & Ink
+        // Parchment & Ink (WCAG Compliant)
         public static let parchmentBase = Color(red: 234/255, green: 219/255, blue: 182/255)   // #EADBB6
         public static let parchmentCard = Color(red: 244/255, green: 235/255, blue: 208/255)   // #F4EBD0
         public static let parchmentBorder = Color(red: 200/255, green: 178/255, blue: 130/255) // #C8B282
-        public static let parchmentInk = Color(red: 43/255, green: 33/255, blue: 24/255)       // #2B2118
+        public static let parchmentInk = Color(red: 43/255, green: 33/255, blue: 24/255)       // #2B2118 (12.5:1 AAA vs #F4EBD0)
+        public static let parchmentInkSecondary = Color(red: 90/255, green: 72/255, blue: 56/255)   // #5A4838 (6.7:1 AA vs #F4EBD0)
+        public static let parchmentInkTertiary = Color(red: 122/255, green: 102/255, blue: 82/255) // #7A6652 (4.5:1 AA vs #F4EBD0)
         public static let parchmentWaxSeal = Color(red: 158/255, green: 42/255, blue: 43/255)  // #9E2A2B
         
-        // Text
-        public static let textPrimary = Color(red: 243/255, green: 244/255, blue: 246/255)     // #F3F4F6
-        public static let textSecondary = Color(red: 156/255, green: 163/255, blue: 175/255)  // #9CA3AF
-        public static let textTertiary = Color(red: 107/255, green: 114/255, blue: 128/255)   // #6B7280
-        public static let textGoldAccent = Color(red: 226/255, green: 196/255, blue: 133/255) // #E2C485
+        // Text (WCAG Compliant Hierarchy)
+        public static let textPrimary = Color(red: 245/255, green: 246/255, blue: 248/255)     // #F5F6F8 (17.2:1 AAA vs #0D0F12)
+        public static let textSecondary = Color(red: 162/255, green: 171/255, blue: 185/255)  // #A2ABB9 (8.1:1 AAA vs #0D0F12)
+        public static let textTertiary = Color(red: 126/255, green: 139/255, blue: 155/255)   // #7E8B9B (4.9:1 AA vs #0D0F12)
+        public static let textGoldAccent = Color(red: 230/255, green: 202/255, blue: 141/255) // #E6CA8D (11.4:1 AAA vs #0D0F12)
         
         // Status Indicators
         public static let statusOnline = Color(red: 46/255, green: 196/255, blue: 182/255)     // #2EC4B6
@@ -169,14 +180,37 @@ public extension Color {
 
 public extension Font {
     enum Mystic: Sendable {
-        public static let displayLarge = Font.system(size: 28, weight: .bold, design: .default)
-        public static let titleMedium = Font.system(size: 18, weight: .semibold, design: .default)
+        /// 维多利亚古典巨幕大标题（32pt 衬线黑体，西文 New York + 中文 Songti SC，灰雾之上神座）
+        public static let gothicDisplay = Font.system(size: 32, weight: .heavy, design: .serif)
+
+        /// 典籍展示大标题（28pt 衬线粗体，西文 New York + 中文 Songti SC，对应篇章标题与世界主标题）
+        public static let displayLarge = Font.system(size: 28, weight: .bold, design: .serif)
+
+        /// 一级重要标题（22pt 衬线粗体，对应人物正名与成神途径高光）
+        public static let titleLarge = Font.system(size: 22, weight: .bold, design: .serif)
+
+        /// 卡片与模块标题（18pt 衬线半粗，对应维多利亚卡片、局势面板）
+        public static let titleMedium = Font.system(size: 18, weight: .semibold, design: .serif)
+
+        /// 界面操控与条目标题（15pt 现代非衬线，SF Pro + 苹方，用于高清晰度交互）
         public static let titleSmall = Font.system(size: 15, weight: .semibold, design: .default)
+
+        /// 沉浸叙事台词与对白（16pt 衬线中粗，用于剧情编年史字幕与非凡言灵）
+        public static let narrativeSubtitle = Font.system(size: 16, weight: .medium, design: .serif)
+
+        /// 叙事正文长阅读（14pt 现代非衬线，舒适易读）
         public static let bodyLarge = Font.system(size: 14, weight: .regular, design: .default)
+
+        /// macOS HIG 标准控件与正文（13pt 现代非衬线）
         public static let bodyMedium = Font.system(size: 13, weight: .regular, design: .default)
+
+        /// 辅助修饰与时间说明（11pt 现代非衬线）
         public static let caption = Font.system(size: 11, weight: .medium, design: .default)
+
+        /// 机械等宽（11pt SF Mono，用于纪元年代、灵数、哈希追踪）
         public static let monoBadge = Font.system(size: 11, weight: .medium, design: .monospaced)
-        public static let parchmentCursive = Font.system(size: 13, weight: .regular, design: .serif)
-        public static let narrativeSubtitle = Font.system(size: 16, weight: .medium, design: .default)
+
+        /// 19世纪侦探钢笔草写体（优先 macOS 系统 楷体-简 Kaiti SC，回退衬线）
+        public static let parchmentCursive = Font.custom("Kaiti SC", size: 14, relativeTo: .body)
     }
 }

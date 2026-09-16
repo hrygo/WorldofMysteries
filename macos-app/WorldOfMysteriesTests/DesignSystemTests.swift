@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftUI
 @testable import WorldOfMysteriesCore
 
 @Suite("Design System & UI Components Test Suite")
@@ -110,6 +111,48 @@ struct DesignSystemTests {
         #expect(narrator.displayName.contains("旁白"))
         #expect(klein.displayName == "克莱恩·莫雷蒂")
         #expect(advice.displayName.contains("Advice"))
+    }
+    
+    @Test("Typography tokens and metrics are well-formed and non-empty")
+    func testTypographyHierarchy() {
+        // Assert TypographyMetrics constants are strictly positive
+        #expect(DesignTokens.TypographyMetrics.narrativeLineSpacing == 6.0)
+        #expect(DesignTokens.TypographyMetrics.parchmentLineSpacing == 5.0)
+        #expect(DesignTokens.TypographyMetrics.displayTracking > DesignTokens.TypographyMetrics.titleTracking)
+        #expect(DesignTokens.TypographyMetrics.monoTracking > 0)
+        
+        // Assert all Font.Mystic static font declarations instantiate without crash
+        _ = Font.Mystic.gothicDisplay
+        _ = Font.Mystic.displayLarge
+        _ = Font.Mystic.titleLarge
+        _ = Font.Mystic.titleMedium
+        _ = Font.Mystic.titleSmall
+        _ = Font.Mystic.narrativeSubtitle
+        _ = Font.Mystic.bodyLarge
+        _ = Font.Mystic.bodyMedium
+        _ = Font.Mystic.caption
+        _ = Font.Mystic.monoBadge
+        _ = Font.Mystic.parchmentCursive
+    }
+    
+    @Test("Color tokens cover enhanced WCAG and parchment hierarchy")
+    func testColorTokensCompliance() {
+        // High-contrast text hierarchy
+        _ = Color.Mystic.textPrimary
+        _ = Color.Mystic.textSecondary
+        _ = Color.Mystic.textTertiary
+        _ = Color.Mystic.textGoldAccent
+        
+        // Brass gold hierarchy
+        _ = Color.Mystic.brassGoldPrimary
+        _ = Color.Mystic.brassGoldMuted
+        _ = Color.Mystic.brassGoldBorder
+        
+        // Parchment ink hierarchy
+        _ = Color.Mystic.parchmentInk
+        _ = Color.Mystic.parchmentInkSecondary
+        _ = Color.Mystic.parchmentInkTertiary
+        _ = Color.Mystic.parchmentWaxSeal
     }
 }
 

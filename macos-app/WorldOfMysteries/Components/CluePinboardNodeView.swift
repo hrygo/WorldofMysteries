@@ -59,13 +59,13 @@ public struct CluePinboardNodeView: View {
                     .font(Font.Mystic.parchmentCursive)
                     .foregroundStyle(Color.Mystic.parchmentInk)
                     .lineLimit(3)
-                    .lineSpacing(3)
+                    .lineSpacing(DesignTokens.TypographyMetrics.parchmentLineSpacing)
                 
                 HStack {
                     Spacer()
                     Text(dateText)
                         .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.parchmentInk.opacity(0.6))
+                        .foregroundStyle(Color.Mystic.parchmentInkTertiary)
                 }
             }
             .padding(DesignTokens.Spacing.md)
