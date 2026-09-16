@@ -2,21 +2,32 @@ import SwiftUI
 
 public struct ContentView: View {
     @Environment(AppState.self) private var appState
-    @State private var currentNavigation: NavigationItem = .fate
+    @Binding public var currentNavigation: NavigationItem
+    @Binding public var isSidebarCollapsed: Bool
+    
     @State private var ringState: ListeningRingState = .idle
     @State private var adviceDraft: String = ""
 
-    public init() {}
+    public init(
+        currentNavigation: Binding<NavigationItem> = .constant(.fate),
+        isSidebarCollapsed: Binding<Bool> = .constant(false)
+    ) {
+        self._currentNavigation = currentNavigation
+        self._isSidebarCollapsed = isSidebarCollapsed
+    }
 
     public var body: some View {
         HStack(spacing: 0) {
-            // 8 栏沉浸式侧边栏
-            AppSidebarView(selection: $currentNavigation)
+            // 8+1 栏沉浸式侧边栏菜单（支持折叠/展开、徽标与状态微卡片）
+            AppSidebarView(
+                selection: $currentNavigation,
+                isCollapsed: $isSidebarCollapsed
+            )
 
             // 主内容视图区
             VStack(spacing: 0) {
                 // 顶部状态栏
-                HStack {
+                HStack(spacing: DesignTokens.Spacing.md) {
                     HStack(spacing: DesignTokens.Spacing.sm) {
                         Circle()
                             .fill(appState.isEngineReady ? Color.Mystic.statusOnline : Color.Mystic.statusWarning)
@@ -56,7 +67,7 @@ public struct ContentView: View {
                                 ringState = ringState == .idle ? .listening : .idle
                             }
                         },
-                        onSubmitAdvice: { advice in
+                        onSubmitAdvice: { _ in
                             withAnimation(DesignTokens.Motion.smoothSpring) {
                                 ringState = .deciding
                             }
@@ -91,6 +102,8 @@ public struct ContentView: View {
             fateInterventionContent
         case .world:
             worldHomeContent
+        case .gallery:
+            ComponentGalleryView()
         case .settings:
             settingsContent
         default:
@@ -214,4 +227,3 @@ public struct ContentView: View {
     ContentView()
         .environment(AppState())
 }
-

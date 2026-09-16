@@ -50,19 +50,27 @@ struct DesignSystemTests {
         #expect(ListeningRingState.listening.promptText.contains("Advice"))
     }
     
-    @Test("NavigationItem covers 8 primary experiences defined in baseline")
+    @Test("NavigationItem covers 8 primary experiences defined in baseline plus component gallery")
     func testNavigationItems() {
         let items = NavigationItem.allCases
-        #expect(items.count == 8)
+        #expect(items.count == 9)
         
-        let expectedTitles = ["世界", "人物", "命运", "故事书", "卡牌收藏", "世界线", "调查笔记", "系统设置"]
+        let expectedTitles = ["世界", "人物", "命运", "故事书", "卡牌收藏", "世界线", "调查笔记", "组件画廊", "系统设置"]
         let actualTitles = items.map(\.localizedTitle)
         #expect(actualTitles == expectedTitles)
         
         for item in items {
             #expect(!item.systemIcon.isEmpty)
             #expect(item.id == item.rawValue)
+            #expect(!item.shortcutNumber.isEmpty)
         }
+        
+        // 验证 NavigationSection 3 大语义分组
+        let sections = NavigationSection.allCases
+        #expect(sections.count == 3)
+        #expect(NavigationSection.destiny.items.count == 3)
+        #expect(NavigationSection.archives.items.count == 4)
+        #expect(NavigationSection.system.items.count == 2)
     }
     
     @Test("DatabaseRole maps all 4 isolated databases")
