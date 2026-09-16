@@ -19,11 +19,26 @@
 - [ ] 是否已同步生成/更新 Python Pydantic 与 Swift Codable DTO？
 - [ ] 是否通过了 `contracts/tests/test_roundtrip.py` 双向一致性测试？
 
-## 4. 本机极速门禁自测证据
-请在提交前执行并在 PR 中附带以下命令的成功输出：
+## 4. 任务胶囊与机器签名凭单 (Task Capsule & Attestation)
+- **任务胶囊路径**: `.agents/capsules/<TASK_ID>.json`
+- **机器签名校验和**: `sha256:xxxxxxxx` (由 `agent_capsule.py verify` 自动签发)
+- [ ] 已确认修改文件 100% 局限在角色授权目录内（未触发 Scope Breach）
+- [ ] 胶囊状态已跃迁为 `VERIFIED`
+
+## 5. 本地极速门禁自测证据
+在发起 PR 或执行 `collab_pipeline.py integrate` 前，必须通过三阶段门禁：
 ```bash
-./scripts/gate_runner.sh
+# 运行全量三阶段本地门禁
+bash scripts/gate_runner.sh
+
+# 或通过胶囊统一验证与签发
+rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
 ```
-- [ ] `check_architecture_fitness.py` PASS
-- [ ] Python `pytest` PASS (0 errors)
-- [ ] Swift `swift test` PASS (0 errors, 0 warnings)
+- [ ] `check_architecture_fitness.py` PASS (架构适应度零违规)
+- [ ] Python `uv run pytest` PASS (25 项测试全绿)
+- [ ] Swift `swift test` PASS (8 项并发测试全绿，0 warnings, 0 data races)
+
+## 6. GitHub Actions CI 门禁声明
+- [ ] 确保云端 CI (`.github/workflows/ci.yml`) 3 个 Stages 全绿
+- [ ] 确保 PR 作用域审计 (`.github/workflows/capsule-audit.yml`) 验证通过
+- [ ] 仅允许 Fast-Forward (`--ff-only`) 洁净合流至 `main`

@@ -1,0 +1,103 @@
+name: CI & Engineering Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Stage 1: Architecture Fitness & Contracts
+  architecture-and-contracts:
+    name: "Stage 1: Architecture Fitness & Contracts"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # Architecture AST check only needs standard library
+
+      - name: Check Architecture Fitness & Invariants
+        run: |
+          python3 scripts/check_architecture_fitness.py
+
+      - name: Validate JSON Schemas
+        run: |
+          python3 -c "
+          import json, glob
+          for p in glob.glob('contracts/schemas/*.schema.json'):
+              with open(p) as f:
+                  json.load(f)
+          print('All schemas successfully validated.')
+          "
+
+  # Stage 2: Python Engine & Contracts Test Suite
+  python-engine:
+    name: "Stage 2: Python Engine & Contracts"
+    runs-on: macos-14 # Align with Apple Silicon macOS execution
+    needs: [architecture-and-contracts]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "engine/uv.lock"
+
+      - name: Run Python Pytest Suite
+        run: |
+          cd engine
+          uv run pytest -v
+
+  # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip
+  swift-macos-app:
+    name: "Stage 3: Swift 6 App & Protocol Roundtrip"
+    runs-on: macos-14
+    needs: [architecture-and-contracts]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.0.app || sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+
+      - name: Cache SPM Dependencies
+        uses: actions/cache@v4
+        with:
+          path: macos-app/.build
+          key: ${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved', 'macos-app/Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Run Swift 6 Test Suite
+        run: |
+          cd macos-app
+          swift test
+
+  # Gate Summary: Single branch protection requirement
+  all-gates-passed:
+    name: "All Quality Gates Passed"
+    runs-on: ubuntu-latest
+    needs: [architecture-and-contracts, python-engine, swift-macos-app]
+    if: always()
+    steps:
+      - name: Evaluate Pipeline Status
+        run: |
+          if [ "${{ needs.architecture-and-contracts.result }}" != "success" ] || \
+             [ "${{ needs.python-engine.result }}" != "success" ] || \
+             [ "${{ needs.swift-macos-app.result }}" != "success" ]; then
+            echo "❌ One or more required quality gates failed!"
+            exit 1
+          fi
+          echo "🎉 All local and CI gates PASSED successfully!"

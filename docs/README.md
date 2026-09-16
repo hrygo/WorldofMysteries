@@ -192,6 +192,7 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - `03_工程规范/Technical_Vertical_Slice_v1.0.md`
 - `03_工程规范/人机协同研发工作框架_v1.0.md`
 - `03_工程规范/高效人机协同研发体系实施方案_v1.0.md`
+- `03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md`
 
 ### Executable Contracts
 

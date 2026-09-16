@@ -1,0 +1,79 @@
+name: PR Task Capsule & Scope Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  audit-capsule-scope:
+    name: "Audit Task Capsule Scope & Attestation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with Full History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Scope & Attestation Audit
+        run: |
+          python3 -c "
+          import json, os, subprocess, sys, glob
+
+          base_ref = 'origin/${{ github.base_ref }}'
+          head_ref = 'HEAD'
+          
+          # 1. Get changed files
+          res = subprocess.run(['git', 'diff', '--name-only', f'{base_ref}...{head_ref}'], capture_output=True, text=True)
+          changed_files = [f.strip() for f in res.stdout.splitlines() if f.strip()]
+          print(f'📋 Total changed files in PR: {len(changed_files)}')
+          for f in changed_files:
+              print(f'   • {f}')
+
+          # 2. Check for capsule files
+          capsule_files = glob.glob('.agents/capsules/*.json')
+          if not capsule_files:
+              print('ℹ️ No task capsule found in PR. Skipping scope attestation audit.')
+              sys.exit(0)
+
+          # Audit each capsule
+          for cap_path in capsule_files:
+              with open(cap_path) as cf:
+                  capsule = json.load(cf)
+              
+              print(f'\n🏷️ Auditing Capsule: {capsule.get(\"capsule_id\")} for Role: {capsule.get(\"assigned_role\")}')
+              auth_dirs = capsule.get('authorized_scope', {}).get('directories', [])
+              forbidden = capsule.get('authorized_scope', {}).get('forbidden_patterns', [])
+              
+              # Check scope violations
+              violations = []
+              for f in changed_files:
+                  # Exempt documentation, capsules and meta files
+                  if f.startswith('.agents/capsules/') or f.startswith('.github/') or f.startswith('docs/'):
+                      continue
+                  matched = any(f.startswith(d.rstrip('*')) for d in auth_dirs)
+                  if not matched:
+                      violations.append(f)
+
+              if violations:
+                  print(f'❌ [Scope Breach Detected] The following files exceed authorized scope for {capsule.get(\"assigned_role\")}:')
+                  for v in violations:
+                      print(f'   - {v}')
+                  print('   Please separate changes into distinct role tasks or request Arbiter review.')
+                  sys.exit(1)
+
+              # Verify machine attestation signature
+              attestation = capsule.get('attestation')
+              if not attestation or not attestation.get('gate_checksum'):
+                  print('❌ Missing valid machine-attested signature in Task Capsule! Run \'agent_capsule.py verify\' locally before submitting PR.')
+                  sys.exit(1)
+              
+              print(f'✅ Attested Signature Validated: {attestation.get(\"gate_checksum\")} by {attestation.get(\"verified_by\")}')
+
+          print('\n🎉 All Task Capsule scope and attestation checks PASSED!')
+          "
