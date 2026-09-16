@@ -3,7 +3,16 @@
 
 > **状态**：工程协作 SOP 基线 · 生产就绪  
 > **适用对象**：人类架构师、专精 AI Agent（7 大角色）、QA 质检工程师  
-> **协作中心**：GitHub Issues (需求派发) + Git Worktree (本地并发) + GitHub Actions (权威守门) + PR Review Card (防伪验签)  
+> **协作中心**：GitHub Issues (需求派发) + Git Worktree (本地并发) + GitHub Actions (权威守门) + PR Review Card (凭单证据摘要)  
+
+> ⚠️ **HACF 2.1 修订（2026-09-16）**：本规程中以下 2.0 机制已被
+> [`高效人机协同研发体系实施方案_v1.1.md`](./高效人机协同研发体系实施方案_v1.1.md) 与
+> [`ADR-004`](../01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md) 取代，请以新版为准：
+> ① 工作区**不再软链共享** `engine/.venv`（改为独立环境 + uv 共享缓存 + 资源租约）；
+> ② 验收命令**不再由胶囊携带**（改为受保护 `.hacf/gates/*.json` + 摘要 registry）；
+> ③ **不再向胶囊回写签名**（改为独立 `.agents/receipts/` 凭单，胶囊保持不可变）；
+> ④ 「sha256 防伪签名」表述改为「可复算内容摘要凭单」；
+> ⑤ `forbidden` 与高风险面（`contracts/`、`.hacf/`、`.github/`、`migrations/`）为真实拦截点，需仲裁扩权。
 
 ---
 
@@ -25,8 +34,8 @@
 │   rtk python3 scripts/agent_capsule.py pack ...         │
 ├────────────────────────────────────────────────────────┤
 │   - 独立 Git Worktree 无锁并发                         │
-│   - 自动符号链接 engine/.venv (零秒就绪)                │
-│   - AST 图谱切片提取最小必要符号 (< 500 Token)          │
+│   - 每工作区独立 .venv (uv sync --locked --extra dev)   │
+│   - 资源命名空间租约 (.hacf/workspace.json)             │
 └───────────────────────────┬────────────────────────────┘
                             │ 3. 编码完毕，本地验收签名
                             ▼
@@ -35,14 +44,14 @@
 │   rtk python3 scripts/agent_capsule.py verify           │
 │   - 静态扫描 git diff 防越界修改                       │
 │   - 自动执行三阶段本地全量测试                         │
-│   - 自动签发 sha256 机器防伪凭单 (Status: VERIFIED)    │
+│   - 签发 Work Receipt (摘要凭单，胶囊保持不可变)        │
 └───────────────────────────┬────────────────────────────┘
                             │ 4. 推送分支并开启 Pull Request
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │             GitHub Actions 云端双层防线                │
 ├────────────────────────────────────────────────────────┤
-│ 1. capsule-audit.yml: 权限边界硬核阻断与防伪验签       │
+│ 1. capsule-audit.yml: 边界裁决 + 门禁主权 + 凭单证据    │
 │ 2. ci.yml: 3-Stage 全量自动化流水线 (Ubuntu & macOS M1) │
 │ 3. pr-gate-reporter.yml: 自动生成 PR 审查报告卡片      │
 └───────────────────────────┬────────────────────────────┘
@@ -76,7 +85,8 @@ rtk python3 scripts/collab_pipeline.py start \
 ```
 **系统将在后台自动完成**：
 - 在 `../wom-worktrees/feat-m2-data-kernel` 建立隔离目录；
-- 建立软链接共享主项目的 `engine/.venv`；
+- 在**本工作区**创建独立 `engine/.venv`（`uv sync --locked --extra dev`，仅共享 uv 全局缓存）；
+- 生成本工作区资源命名空间租约 `.hacf/workspace.json`（TMPDIR / SPM scratch / 测试库 / socket / 端口段）；
 - 调用 AST 静态分析，提取当前角色授权目录中的核心类与函数符号；
 - 生成标准化胶囊文件 `.agents/capsules/M2-DATA-KERNEL.json`。
 
@@ -85,18 +95,19 @@ rtk python3 scripts/collab_pipeline.py start \
 ```bash
 cd /Users/hrygo/Documents/wom-worktrees/feat-m2-data-kernel
 ```
-- **核心准则**：严格在角色的授权目录内编码；严禁触碰 `forbidden_patterns` 定义的文件；
+- **核心准则**：严格在 `capsule.scope.write` 内编码；`forbidden` 为硬拦截；触碰高风险面须先经 AGT-ARB 扩权（`--grant-privileged`）；
 - 所有的修改完全发生在独立工作区，不影响主仓库或其他并发工作区。
 
-### 第四步：本地验证与机器签名验收 (Verification & Signing)
+### 第四步：本地验证与凭单签发 (Verification & Receipt)
 编码完成后，执行本地验收：
 ```bash
-# 验证修改范围，跑批角色专精门禁，并签发防伪签名
-rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/M2-DATA-KERNEL.json
+# 四类边界裁决 + 受保护门禁执行 + 签发 Work Receipt（不回写胶囊）
+rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/M2-DATA-KERNEL.json --cwd "$(pwd)"
 ```
-- **静态范围审计**：若有任何文件超出角色的 `authorized_scope`，立即警告或阻断；
-- **全量门禁跑批**：自动执行架构 AST 检查与专精单测；
-- **签发机器凭单**：全部通过后，胶囊状态跃迁为 `VERIFIED`，并追加时间戳与 `sha256:xxxx` 机器防伪签名。
+- **四类边界裁决**：`write` 之外即阻断；`forbidden` 命中即阻断；高风险面未扩权即 `SCOPE_ESCALATION_REQUIRED`；
+- **受保护门禁**：按 `gates.profile`（受保护档案 + 摘要校验）执行，命令不由胶囊携带；
+- **签发凭单**：通过后写入 `.agents/receipts/<TASK_ID>/<head_sha>.json`（含退出码、原始日志摘要、
+  工具链摘要、runner 身份）；胶囊保持不可变。**摘要为内容摘要，不是密码学签名。**
 
 ### 第五步：发起 PR 与 GitHub Actions 自动化审查 (PR Review)
 将特性分支推送到 GitHub 并创建 Pull Request：
@@ -137,6 +148,6 @@ rtk python3 scripts/collab_pipeline.py integrate --branch feat/m2-data-kernel --
 ## 4. 总结
 
 通过 GitHub 原生生态（Issue Forms、CODEOWNERS、PR Sticky Reports、Branch Protection）与本地深工具（`AgentCapsule` + `CollabPipeline`）的无缝接合，我们实现了：
-1. **任务声明即代码 (Task as Code)**：所有任务均有类型化胶囊与机器签名；
-2. **上下文零稀释 (Zero Dilution)**：AST 局部精准切片，彻底消除长上下文遗忘；
+1. **任务声明即代码 (Task as Code)**：所有任务均有不可变类型化契约与可复算凭单；
+2. **上下文零稀释 (Zero Dilution)**：按任务焦点排序的 AST 局部切片（最小**充分**上下文，非最小集）；
 3. **架构防线坚不可摧 (Dual-Layer Defense)**：本地拦截 + 云端权威，保障 15 项核心不变量永不退化。

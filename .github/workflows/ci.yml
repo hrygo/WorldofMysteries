@@ -32,7 +32,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Check Architecture Fitness & Invariants
         run: |
@@ -42,13 +42,25 @@ jobs:
         run: |
           python3 -c "
           import json, glob
-          schemas = glob.glob('contracts/schemas/*.schema.json')
-          assert len(schemas) >= 28, f'Expected >= 28 schemas, found {len(schemas)}'
-          for p in schemas:
+          product = glob.glob('contracts/schemas/*.schema.json')
+          protocol = glob.glob('contracts/protocol/*.schema.json')
+          engineering = glob.glob('contracts/engineering/*.schema.json')
+          assert len(product) + len(protocol) >= 28, f'Expected >= 28 product/protocol schemas, found {len(product) + len(protocol)}'
+          assert len(engineering) >= 3, f'Expected >= 3 engineering contracts, found {len(engineering)}'
+          assert not glob.glob('contracts/schemas/task_capsule.schema.json'), 'engineering contract must not live in the product namespace'
+          for p in product + protocol + engineering:
               with open(p) as f:
                   json.load(f)
-          print(f'All {len(schemas)} schemas successfully validated.')
+          print(f'Validated {len(product)} product + {len(protocol)} protocol + {len(engineering)} engineering schemas.')
           "
+
+      - name: Verify Protected Gate Profile Registry
+        run: |
+          python3 scripts/gate_profile.py check
+
+      - name: Verify Required-Check Contract
+        run: |
+          python3 scripts/check_required_checks.py
 
   # Stage 2: Python Engine & Contracts Test Suite (Apple Silicon runner, macOS 26+ baseline)
   python-engine:
@@ -69,7 +81,8 @@ jobs:
       - name: Run Python Pytest Suite
         run: |
           cd engine
-          uv run --extra dev pytest -v
+          uv lock --check
+          uv run --locked --extra dev pytest -v
 
   # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip (macOS 26+ baseline)
   swift-macos-app:
@@ -83,10 +96,11 @@ jobs:
 
       - name: Select Xcode Toolchain
         run: |
-          if [ -d "/Applications/Xcode_16.0.app" ]; then
-            sudo xcode-select -s /Applications/Xcode_16.0.app
-          elif [ -d "/Applications/Xcode.app" ]; then
+          if [ -d "/Applications/Xcode.app" ]; then
             sudo xcode-select -s /Applications/Xcode.app
+          else
+            echo "❌ 未找到 /Applications/Xcode.app：macOS 26+ / Xcode 27 基线要求显式工具链，拒绝静默降级。"
+            exit 1
           fi
           swift --version
 
@@ -101,7 +115,7 @@ jobs:
       - name: Run Swift 6 Test Suite
         run: |
           cd macos-app
-          swift test
+          swift test --scratch-path "${RUNNER_TEMP}/wom-spm-scratch"
 
   # Aggregated Gate Summary for Branch Protection
   all-gates-passed:

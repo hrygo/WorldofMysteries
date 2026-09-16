@@ -1,55 +1,147 @@
 #!/usr/bin/env python3
 """
-Generate GitHub PR Quality Gate Report in Markdown format.
-Parses Task Capsule, architecture status, and gate attestations.
+PR 质量卡片生成器 (HACF 2.1)
+
+诚实性约束：本卡片只复述**本地凭单中真实记录的事实**，不宣称任何测试通过状态。
+门禁权威结论只能来自 CI required checks（ci.yml / capsule-audit.yml）。
+HACF 2.0 曾在此处硬编码「✅ PASSED」，本版本移除该行为。
 """
 
-import glob
+from __future__ import annotations
+
 import json
-import os
 import sys
 from pathlib import Path
+from typing import Any, Dict, List
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import hacf_policy as policy  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def generate_report() -> str:
-    capsules = sorted(list((REPO_ROOT / ".agents" / "capsules").glob("*.json")))
+def load_capsules() -> List[Dict[str, Any]]:
+    # 优先检测当前分支相对于 base 分支的 diff 中是否存在胶囊变更
+    import os
+    import subprocess
+    base_ref = os.getenv("GITHUB_BASE_REF", "main")
+    res = subprocess.run(
+        ["git", "-c", "core.quotepath=false", "diff", "--name-only", f"origin/{base_ref}...HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    changed = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+    changed_capsules = [
+        REPO_ROOT / f for f in changed if f.startswith(".agents/capsules/") and f.endswith(".json")
+    ]
+    candidate_paths = changed_capsules if changed_capsules else []
 
-    cap_info = "⚠️ 未检测到附带的 Task Capsule"
-    role = "未知 / 人类开发者"
-    status = "未验证"
-    checksum = "无签名"
-    invariants = "N/A"
+    capsules: List[Dict[str, Any]] = []
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        payload["_path"] = str(path.relative_to(REPO_ROOT))
+        try:
+            payload["_digest"] = policy.capsule_digest(path)
+        except OSError:
+            payload["_digest"] = ""
+        capsules.append(payload)
+    return capsules
+
+
+def load_receipts(task_id: str) -> List[Dict[str, Any]]:
+    receipts: List[Dict[str, Any]] = []
+    directory = REPO_ROOT / policy.RECEIPTS_DIR / task_id
+    if not directory.exists():
+        return receipts
+    for path in sorted(directory.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        payload["_path"] = str(path.relative_to(REPO_ROOT))
+        receipts.append(payload)
+    return receipts
+
+
+def _verdict_badge(verdict: str) -> str:
+    return {"passed": "✅ passed", "failed": "❌ failed"}.get(verdict, f"⚠️ {verdict}")
+
+
+def generate_report() -> str:
+    import os
+    actor = os.getenv("GITHUB_ACTOR", "")
+    head_ref = os.getenv("GITHUB_HEAD_REF", "")
+    is_maintenance = "dependabot" in actor.lower() or head_ref.startswith("dependabot/")
+
+    capsules = load_capsules()
 
     if capsules:
-        try:
-            data = json.loads(capsules[0].read_text(encoding="utf-8"))
-            cap_info = f"[{data.get('task_id')}] {data.get('title')}"
-            role = data.get("assigned_role", "未知")
-            status = data.get("status", "CREATED")
-            invariants = ", ".join(str(i) for i in data.get("constraints", {}).get("invariants", []))
-            if "attestation" in data:
-                checksum = data["attestation"].get("gate_checksum", "无签名")
-        except Exception as e:
-            cap_info = f"❌ 读取胶囊失败: {e}"
+        capsule = capsules[0]
+        receipts = load_receipts(str(capsule.get("task_id")))
+        capsule_rows = [
+            f"| **任务胶囊 (Capsule)** | `{capsule.get('capsule_id')}` rev{capsule.get('capsule_revision', 1)} | {capsule.get('title')} |",
+            f"| **契约位置 (Path)** | `{capsule.get('_path')}` | 不可变契约，verify 不回写 |",
+            f"| **执行角色 (Role)** | `{capsule.get('assigned_role')}` | risk_class=`{capsule.get('risk_class')}` |",
+            f"| **胶囊摘要 (Digest)** | `sha256:{str(capsule.get('_digest'))[:16]}…` | 变更后需重新验收 |",
+            f"| **基线 (Base)** | `{str(capsule.get('base', {}).get('target_sha'))[:12]}` | target=`{capsule.get('base', {}).get('target_ref')}` |",
+            f"| **门禁档案 (Gate Profile)** | `{capsule.get('gates', {}).get('profile')}` | `{str(capsule.get('gates', {}).get('profile_digest'))[:20]}…` |",
+        ]
+        capsule_block = "\n".join(capsule_rows)
+    elif is_maintenance:
+        capsule_block = "| **PR 类型** | 🤖 自动化维护 / 依赖升级 PR (Dependabot / Maintenance) | 本 PR 免除业务任务胶囊，由 CI 3-Stage 门禁独立质检 |"
+        receipts = []
+    else:
+        capsule_block = "| **任务胶囊 (Capsule)** | ℹ️ 未附带业务胶囊 | 本 PR 未引入 `.agents/capsules/*.json` 变更 |"
+        receipts = []
 
-    status_badge = "✅ VERIFIED" if status == "VERIFIED" else f"⚠️ {status}"
+    if receipts:
+        receipt_rows = [
+            "| 类型 | head_commit | verdict | 门禁档案摘要 | 覆盖缺口 |",
+            "|:---|:---|:---:|:---|:---:|",
+        ]
+        for receipt in receipts:
+            receipt_rows.append(
+                f"| `{receipt.get('receipt_type')}` | `{str(receipt.get('head_commit'))[:12]}` "
+                f"| {_verdict_badge(str(receipt.get('verdict')))} "
+                f"| `{str(receipt.get('gate_profile_digest'))[:20]}…` "
+                f"| {len(receipt.get('coverage_gaps', []))} |"
+            )
+        receipt_block = "\n".join(receipt_rows)
+        gap_lines: List[str] = []
+        for receipt in receipts:
+            for gap in receipt.get("coverage_gaps", []):
+                gap_lines.append(f"- `{receipt.get('head_commit', '')[:12]}` {gap}")
+        gap_block = "\n".join(gap_lines) if gap_lines else "无覆盖缺口记录。"
+    else:
+        receipt_block = "| ⚠️ 未找到凭单 | — | — | — | — |"
+        gap_block = "尚未生成 `Work Receipt`：请在工作区执行 `python3 scripts/agent_capsule.py verify --capsule <capsule>`。"
 
-    report = f"""## 🛡️ 《诡秘世界》自动化质量门禁报告 (Gate Attestation)
+    return f"""## 🛡️ 《诡秘世界》协同证据摘要 (Evidence Summary)
 
-| 检查项 | 状态 | 说明 |
-|:---|:---:|:---|
-| **任务胶囊 (Capsule)** | `{status_badge}` | **{cap_info}** |
-| **执行角色 (Role)** | 👤 `{role}` | 权限目录严格隔离受控 |
-| **约束不变量 (Invariants)** | 🔒 `[{invariants}]` | 架构不变量零突破 |
-| **机器防伪签名 (Attestation)** | 🔏 `{checksum}` | 由 local `agent_capsule verify` 签发 |
-| **架构适应度 (Architecture)** | ✅ PASSED | Domain 零外部驱动 · App 零直连 DB |
-| **全量自动化测试套件** | ✅ PASSED | Python 25 项契约单测 · Swift 8 项并发测试 |
+| 项目 | 值 | 说明 |
+|:---|:---|:---|
+{capsule_block}
 
-> 💡 **提示**：本 PR 必须在 GitHub Actions 全量门禁全绿后，方可通过 Fast-Forward (`--ff-only`) 模式合流至 `main`。
+### 本 PR 携带的凭单 (Receipts)
+
+{receipt_block}
+
+### 覆盖缺口 (Coverage Gaps)
+
+{gap_block}
+
+> 本卡片只复述仓库内凭单的真实记录，**不代表测试通过**。
+> 门禁权威结论以 CI required checks（`ci.yml` 三阶段 + `capsule-audit.yml` 证据审计）为准；
+> 摘要为 sha256 内容摘要，不是密码学签名，抗伪造由受保护分支与 CODEOWNERS 评审承担。
 """
-    return report
 
 
 if __name__ == "__main__":

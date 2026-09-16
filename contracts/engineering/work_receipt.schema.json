@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://world-of-mysteries.internal/engineering/work_receipt.schema.json",
+  "title": "WorkReceipt",
+  "description": "HACF 2.1 执行凭单（work / integration 两类）。记录可复算摘要链与原始证据，不冒充密码学签名。",
+  "type": "object",
+  "required": [
+    "receipt_id",
+    "receipt_type",
+    "task_id",
+    "capsule_digest",
+    "base_commit",
+    "head_commit",
+    "gate_profile_id",
+    "gate_profile_digest",
+    "gate_result",
+    "verdict",
+    "merge_authorizing"
+  ],
+  "properties": {
+    "receipt_id": { "type": "string" },
+    "receipt_type": {
+      "type": "string",
+      "enum": ["work", "integration"],
+      "description": "只有基于最终目标基线的 integration 凭单才可授权合入。"
+    },
+    "task_id": { "type": "string" },
+    "capsule_id": { "type": "string" },
+    "capsule_revision": { "type": "integer", "minimum": 1 },
+    "capsule_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "assigned_role": { "type": "string" },
+    "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] },
+    "base_commit": { "type": "string" },
+    "head_commit": { "type": "string" },
+    "target_ref": { "type": "string" },
+    "target_sha": { "type": "string" },
+    "stale_context": { "type": "boolean" },
+    "gate_profile_id": { "type": "string" },
+    "gate_profile_digest": { "type": ["string", "null"] },
+    "gate_result": { "type": "string", "enum": ["passed", "failed", "not_run"] },
+    "gate_stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": { "type": "integer" },
+          "name": { "type": "string" },
+          "command": { "type": "array", "items": { "type": "string" } },
+          "cwd": { "type": "string" },
+          "exit_code": { "type": ["integer", "null"] },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "passed_with_gap", "failed", "skipped"]
+          },
+          "started_at": { "type": "string" },
+          "finished_at": { "type": "string" },
+          "raw_log_digest": { "type": ["string", "null"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "coverage_gaps": { "type": "array", "items": { "type": "string" } },
+    "scope_audit": {
+      "type": "object",
+      "properties": {
+        "changed_files": { "type": "array", "items": { "type": "string" } },
+        "violations": { "type": "array", "items": { "type": "object" } },
+        "escalations": { "type": "array", "items": { "type": "object" } },
+        "privileged_uses": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "toolchain": { "type": "object" },
+    "runner": { "type": "object" },
+    "started_at": { "type": "string" },
+    "finished_at": { "type": "string" },
+    "verdict": { "type": "string", "enum": ["passed", "failed"] },
+    "merge_authorizing": { "type": "boolean" },
+    "merge": { "type": "object" },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "integrity": { "type": "object" }
+  },
+  "additionalProperties": false
+}

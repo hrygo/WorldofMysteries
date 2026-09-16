@@ -1,0 +1,40 @@
+{
+  "gate_profile_id": "DATA_KERNEL_P0",
+  "description": "AGT-DATA 数据内核门禁：架构适应度 + 四库隔离/Outbox 单测（M2 落地前测试缺口将被显式记录）",
+  "risk_class": "high",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "cwd": ".",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "expects": [
+        "scripts/check_architecture_fitness.py"
+      ]
+    },
+    {
+      "stage": 2,
+      "name": "Data Kernel Unit Tests",
+      "cwd": "engine",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "database or outbox or migration"
+      ],
+      "expects": [
+        "engine/tests/test_database_manager.py",
+        "engine/tests/test_outbox.py"
+      ],
+      "empty_selection_policy": "warn"
+    }
+  ]
+}

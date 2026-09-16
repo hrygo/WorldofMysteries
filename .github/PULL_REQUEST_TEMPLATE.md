@@ -19,24 +19,34 @@
 - [ ] 是否已同步生成/更新 Python Pydantic 与 Swift Codable DTO？
 - [ ] 是否通过了 `contracts/tests/test_roundtrip.py` 双向一致性测试？
 
-## 4. 任务胶囊与机器签名凭单 (Task Capsule & Attestation)
-- **任务胶囊路径**: `.agents/capsules/<TASK_ID>.json`
-- **机器签名校验和**: `sha256:xxxxxxxx` (由 `agent_capsule.py verify` 自动签发)
-- [ ] 已确认修改文件 100% 局限在角色授权目录内（未触发 Scope Breach）
-- [ ] 胶囊状态已跃迁为 `VERIFIED`
+## 4. 任务契约与凭单证据 (Task Capsule & Receipt Evidence)
+- **任务契约路径**: `.agents/capsules/<TASK_ID>.json`（不可变，verify 不回写）
+- **胶囊摘要**: `sha256:xxxxxxxx`（凭单绑定值）
+- **门禁档案**: `gates.profile` = `____`，`gates.profile_digest` = `sha256:xxxxxxxx`
+- **Work Receipt**: `.agents/receipts/<TASK_ID>/<head_sha>.json`
+- [ ] 已确认修改文件 100% 局限在 `capsule.scope.write` 内（未触发 `SCOPE BREACH`）
+- [ ] 若有高风险面改动（`contracts/`、`.hacf/`、`.github/`、`migrations/`、lock/构建文件），已由 AGT-ARB 授予 `privileged_grants` 且 `risk_class >= high`
+- [ ] 凭单 `head_commit` 与本 PR 最终提交一致（rebase 后已重新出单）
+- [ ] 凭单 `coverage_gaps` 已知悉（如有）并在评审中说明
 
 ## 5. 本地极速门禁自测证据
-在发起 PR 或执行 `collab_pipeline.py integrate` 前，必须通过三阶段门禁：
+在发起 PR 或执行 `collab_pipeline.py integrate` 前，必须通过受保护门禁档案：
 ```bash
-# 运行全量三阶段本地门禁
+# 运行全量三阶段本地门禁（受保护档案 FULL_P0）
 bash scripts/gate_runner.sh
 
-# 或通过胶囊统一验证与签发
+# 角色专精档案（可选）：DOMAIN_P0 / DATA_KERNEL_P0 / AI_GATEWAY_P0 / VOICE_P0 / MACOS_APP_P0
+bash scripts/gate_runner.sh DOMAIN_P0
+
+# 范围裁决 + 签发 Work Receipt（绝不回写胶囊）
 rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
 ```
 - [ ] `check_architecture_fitness.py` PASS (架构适应度零违规)
-- [ ] Python `uv run pytest` PASS (25 项测试全绿)
+- [ ] Python `uv run --locked --extra dev pytest` PASS (38 项测试全绿，含 HACF 治理测试)
 - [ ] Swift `swift test` PASS (8 项并发测试全绿，0 warnings, 0 data races)
+
+> 说明：本地凭单只提供**可复算摘要证据**（非密码学签名）。门禁权威结论以 CI required checks
+> （`ci.yml` 三阶段 + `capsule-audit.yml` 证据审计）为准；PR 卡片不宣称测试结论。
 
 ## 6. GitHub Actions CI 门禁声明
 - [ ] 确保云端 CI (`.github/workflows/ci.yml`) 3 个 Stages 全绿

@@ -1,0 +1,187 @@
+{
+  "receipt_id": "RCP-WORK-M2-DATA-KERNEL-ed5d9aa32675",
+  "receipt_type": "work",
+  "task_id": "M2-DATA-KERNEL",
+  "capsule_id": "CAP-M2-DATA-KERNEL",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:acb4799af6ae64d04f3c8840d16a72b4397f8a9abc34a1fa8a63dc360ff894f8",
+  "assigned_role": "AGT-DATA",
+  "risk_class": "high",
+  "base_commit": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+  "head_commit": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+  "target_ref": "main",
+  "target_sha": "ed5d9aa32675fefae5c8f38c7ddcf5aed0ca9fa3",
+  "stale_context": false,
+  "gate_profile_id": "DATA_KERNEL_P0",
+  "gate_profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+  "gate_result": "not_run",
+  "gate_stages": [],
+  "coverage_gaps": [
+    "范围裁决未通过"
+  ],
+  "scope_audit": {
+    "changed_files": [
+      "\"docs/01_\\346\\200\\273\\344\\275\\223\\346\\236\\266\\346\\236\\204/ADR-004_\\345\\215\\217\\345\\220\\214\\345\\261\\202\\351\\227\\250\\347\\246\\201\\344\\270\\273\\346\\235\\203\\344\\270\\216\\345\\207\\255\\350\\257\\201\\345\\210\\206\\347\\246\\273_v1.0.md\"",
+      "\"docs/03_\\345\\267\\245\\347\\250\\213\\350\\247\\204\\350\\214\\203/\\351\\253\\230\\346\\225\\210\\344\\272\\272\\346\\234\\272\\345\\215\\217\\345\\220\\214\\347\\240\\224\\345\\217\\221\\344\\275\\223\\347\\263\\273\\345\\256\\236\\346\\226\\275\\346\\226\\271\\346\\241\\210_v1.0.md\"",
+      "\"docs/03_\\345\\267\\245\\347\\250\\213\\350\\247\\204\\350\\214\\203/\\351\\253\\230\\346\\225\\210\\344\\272\\272\\346\\234\\272\\345\\215\\217\\345\\220\\214\\347\\240\\224\\345\\217\\221\\344\\275\\223\\347\\263\\273\\345\\256\\236\\346\\226\\275\\346\\226\\271\\346\\241\\210_v1.1.md\"",
+      ".agents/skills/wom-collaborator/SKILL.md",
+      ".github/workflows/capsule-audit.yml",
+      ".github/workflows/ci.yml",
+      ".github/workflows/pr-gate-reporter.yml",
+      ".gitignore",
+      ".hacf/gates/ai_gateway_p0.json",
+      ".hacf/gates/data_kernel_p0.json",
+      ".hacf/gates/domain_p0.json",
+      ".hacf/gates/full_p0.json",
+      ".hacf/gates/macos_app_p0.json",
+      ".hacf/gates/registry.json",
+      ".hacf/gates/voice_p0.json",
+      "AGENTS.md",
+      "contracts/engineering/gate_profile.schema.json",
+      "contracts/engineering/task_capsule.schema.json",
+      "contracts/engineering/work_receipt.schema.json",
+      "contracts/schemas/task_capsule.schema.json",
+      "engine/tests/test_contracts_schema.py",
+      "engine/tests/test_hacf_governance.py",
+      "scripts/agent_capsule.py",
+      "scripts/capsule_audit.py",
+      "scripts/collab_pipeline.py",
+      "scripts/gate_profile.py",
+      "scripts/gate_runner.sh",
+      "scripts/generate_pr_report.py",
+      "scripts/hacf_policy.py"
+    ],
+    "violations": [
+      {
+        "path": "\"docs/01_\\346\\200\\273\\344\\275\\223\\346\\236\\266\\346\\236\\204/ADR-004_\\345\\215\\217\\345\\220\\214\\345\\261\\202\\351\\227\\250\\347\\246\\201\\344\\270\\273\\346\\235\\203\\344\\270\\216\\345\\207\\255\\350\\257\\201\\345\\210\\206\\347\\246\\273_v1.0.md\"",
+        "reason": "超出 write scope"
+      },
+      {
+        "path": "\"docs/03_\\345\\267\\245\\347\\250\\213\\350\\247\\204\\350\\214\\203/\\351\\253\\230\\346\\225\\210\\344\\272\\272\\346\\234\\272\\345\\215\\217\\345\\220\\214\\347\\240\\224\\345\\217\\221\\344\\275\\223\\347\\263\\273\\345\\256\\236\\346\\226\\275\\346\\226\\271\\346\\241\\210_v1.0.md\"",
+        "reason": "超出 write scope"
+      },
+      {
+        "path": "\"docs/03_\\345\\267\\245\\347\\250\\213\\350\\247\\204\\350\\214\\203/\\351\\253\\230\\346\\225\\210\\344\\272\\272\\346\\234\\272\\345\\215\\217\\345\\220\\214\\347\\240\\224\\345\\217\\221\\344\\275\\223\\347\\263\\273\\345\\256\\236\\346\\226\\275\\346\\226\\271\\346\\241\\210_v1.1.md\"",
+        "reason": "超出 write scope"
+      },
+      {
+        "path": ".github/workflows/capsule-audit.yml",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".github/workflows/pr-gate-reporter.yml",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".gitignore",
+        "reason": "超出 write scope"
+      },
+      {
+        "path": ".hacf/gates/ai_gateway_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/data_kernel_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/domain_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/full_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/macos_app_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/registry.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": ".hacf/gates/voice_p0.json",
+        "reason": "命中 forbidden 禁区"
+      },
+      {
+        "path": "AGENTS.md",
+        "reason": "超出 write scope"
+      }
+    ],
+    "escalations": [
+      {
+        "path": ".agents/skills/wom-collaborator/SKILL.md",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "contracts/engineering/gate_profile.schema.json",
+        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）"
+      },
+      {
+        "path": "contracts/engineering/task_capsule.schema.json",
+        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）"
+      },
+      {
+        "path": "contracts/engineering/work_receipt.schema.json",
+        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）"
+      },
+      {
+        "path": "contracts/schemas/task_capsule.schema.json",
+        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）"
+      },
+      {
+        "path": "scripts/agent_capsule.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/capsule_audit.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/collab_pipeline.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/gate_profile.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/gate_runner.sh",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/generate_pr_report.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      },
+      {
+        "path": "scripts/hacf_policy.py",
+        "reason": "命中高风险面但未授予 privileged grant"
+      }
+    ],
+    "privileged_uses": []
+  },
+  "toolchain": {},
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DATA",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-16T09:39:59.849792+00:00",
+  "finished_at": "2026-09-16T09:39:59.881182+00:00",
+  "verdict": "failed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [
+    "范围裁决未通过"
+  ],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

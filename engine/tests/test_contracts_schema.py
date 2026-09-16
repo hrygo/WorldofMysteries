@@ -9,6 +9,7 @@ from jsonschema.exceptions import ValidationError
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMAS_DIR = REPO_ROOT / "contracts" / "schemas"
 PROTOCOL_DIR = REPO_ROOT / "contracts" / "protocol"
+ENGINEERING_DIR = REPO_ROOT / "contracts" / "engineering"
 FIXTURES_DIR = REPO_ROOT / "fixtures" / "golden_001"
 
 
@@ -24,6 +25,28 @@ def test_all_schemas_are_valid_json_schema():
             schema_data = json.load(f)
         # Check syntax with Draft202012Validator
         Draft202012Validator.check_schema(schema_data)
+
+
+def test_engineering_contracts_are_separated_from_product_contracts():
+    """产品领域契约与研发编排契约必须分属不同 namespace（HACF 2.1 / ADR-004）。"""
+    product_schemas = list(SCHEMAS_DIR.glob("*.schema.json"))
+    engineering_schemas = list(ENGINEERING_DIR.glob("*.schema.json"))
+
+    assert len(product_schemas) >= 27, f"产品领域 Schema 少于预期: {len(product_schemas)}"
+    engineering_names = {p.name for p in engineering_schemas}
+    assert {
+        "task_capsule.schema.json",
+        "work_receipt.schema.json",
+        "gate_profile.schema.json",
+    } <= engineering_names, f"研发编排 Schema 缺失: {engineering_names}"
+
+    # 研发编排 Schema 不得混入产品领域 namespace
+    assert not (SCHEMAS_DIR / "task_capsule.schema.json").exists()
+    assert not (SCHEMAS_DIR / "work_receipt.schema.json").exists()
+
+    for schema_file in engineering_schemas:
+        with open(schema_file, "r", encoding="utf-8") as f:
+            Draft202012Validator.check_schema(json.load(f))
 
 
 def load_schema(schema_name: str) -> dict:

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://world-of-mysteries.internal/engineering/task_capsule.schema.json",
+  "title": "TaskCapsule",
+  "description": "HACF 2.1 不可变任务契约（研发编排协议，非产品领域契约）。只声明边界与门禁引用，不携带验收命令，不承载凭证。",
+  "type": "object",
+  "required": [
+    "capsule_id",
+    "capsule_revision",
+    "task_id",
+    "title",
+    "assigned_role",
+    "created_at",
+    "risk_class",
+    "base",
+    "scope",
+    "context",
+    "gates",
+    "acceptance"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "capsule_id": { "type": "string", "pattern": "^CAP-[A-Z0-9_-]+$" },
+    "capsule_revision": { "type": "integer", "minimum": 1 },
+    "supersedes": { "type": "string" },
+    "superseded_by": { "type": "string" },
+    "task_id": { "type": "string", "pattern": "^[A-Z0-9_-]+$" },
+    "title": { "type": "string", "minLength": 3 },
+    "assigned_role": {
+      "type": "string",
+      "enum": ["AGT-ARB", "AGT-DOM", "AGT-DATA", "AGT-AI", "AGT-VOICE", "AGT-MAC", "AGT-QA"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["CREATED", "IN_PROGRESS", "ABORTED"],
+      "default": "CREATED",
+      "description": "契约状态；VERIFIED/INTEGRATED 属凭单职责，不再写回胶囊。"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] },
+    "base": {
+      "type": "object",
+      "required": ["target_ref", "base_sha", "target_sha", "context_snapshot"],
+      "properties": {
+        "target_ref": { "type": "string" },
+        "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "target_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "context_snapshot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["read", "write", "forbidden"],
+      "properties": {
+        "read": { "type": "array", "items": { "type": "string" } },
+        "write": { "type": "array", "items": { "type": "string" } },
+        "forbidden": { "type": "array", "items": { "type": "string" } },
+        "privileged_grants": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "由 AGT-ARB 显式授予的高风险面；无 grant 的触碰将被判定为 SCOPE_ESCALATION_REQUIRED。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "required": ["core_manifest", "max_core_tokens", "expansion_policy"],
+      "properties": {
+        "core_manifest": { "type": "array", "items": { "type": "string" } },
+        "related_contracts": { "type": "array", "items": { "type": "string" } },
+        "slice_strategy": { "type": "string" },
+        "token_estimate": { "type": "integer", "minimum": 0 },
+        "max_core_tokens": { "type": "integer", "minimum": 1 },
+        "expansion_policy": { "type": "string", "enum": ["arbiter_approved", "forbidden"] },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "impact": {
+      "type": "object",
+      "properties": {
+        "symbols": { "type": "array", "items": { "type": "string" } },
+        "contracts": { "type": "array", "items": { "type": "string" } },
+        "tests": { "type": "array", "items": { "type": "string" } },
+        "migrations": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "conflicts_with": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "gates": {
+      "type": "object",
+      "required": ["profile", "profile_digest"],
+      "properties": {
+        "profile": { "type": "string" },
+        "profile_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "profile_file": { "type": "string" },
+        "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] }
+      },
+      "additionalProperties": false
+    },
+    "acceptance": {
+      "type": "object",
+      "required": ["invariants"],
+      "properties": {
+        "invariants": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 15 } },
+        "assertions": { "type": "array", "items": { "type": "string" } },
+        "instructions": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

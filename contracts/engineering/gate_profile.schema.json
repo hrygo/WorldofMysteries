@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://world-of-mysteries.internal/engineering/gate_profile.schema.json",
+  "title": "GateProfile",
+  "description": "受保护门禁档案结构（.hacf/gates/*.json）。覆盖其中任一字节都必须由 AGT-ARB 重算 registry 摘要。",
+  "type": "object",
+  "required": ["gate_profile_id", "description", "risk_class", "stages"],
+  "properties": {
+    "gate_profile_id": { "type": "string", "pattern": "^[A-Z0-9_]+$" },
+    "description": { "type": "string" },
+    "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["stage", "name", "cwd", "command"],
+        "properties": {
+          "stage": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string" },
+          "cwd": { "type": "string" },
+          "command": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "expects": { "type": "array", "items": { "type": "string" } },
+          "empty_selection_policy": { "type": "string", "enum": ["fail", "warn"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

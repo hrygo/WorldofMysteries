@@ -1,0 +1,43 @@
+{
+  "$comment": "受保护门禁档案摘要表。本文件定义于受保护 main 分支；CI 以目标分支版本为权威校验 PR 内的 profile 文件。",
+  "registry_version": 1,
+  "generated_at": "2026-09-16T09:34:19.542755+00:00",
+  "profiles": {
+    "AI_GATEWAY_P0": {
+      "file": ".hacf/gates/ai_gateway_p0.json",
+      "sha256": "afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+      "risk_class": "high",
+      "description": "AGT-AI 网关门禁：架构适应度 + Proposal/上下文授权单测（网关测试落地前缺口将被显式记录）"
+    },
+    "DATA_KERNEL_P0": {
+      "file": ".hacf/gates/data_kernel_p0.json",
+      "sha256": "e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+      "risk_class": "high",
+      "description": "AGT-DATA 数据内核门禁：架构适应度 + 四库隔离/Outbox 单测（M2 落地前测试缺口将被显式记录）"
+    },
+    "DOMAIN_P0": {
+      "file": ".hacf/gates/domain_p0.json",
+      "sha256": "773c50b2f8205aa483c9f7c9573755fa3603e180e0cd2a8f8ecde1ad0ad22dd0",
+      "risk_class": "medium",
+      "description": "AGT-DOM 领域层门禁：架构适应度 + 领域/契约单测（纯领域零外部依赖）"
+    },
+    "FULL_P0": {
+      "file": ".hacf/gates/full_p0.json",
+      "sha256": "16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+      "risk_class": "high",
+      "description": "全量三阶段门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试"
+    },
+    "MACOS_APP_P0": {
+      "file": ".hacf/gates/macos_app_p0.json",
+      "sha256": "a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+      "risk_class": "medium",
+      "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试"
+    },
+    "VOICE_P0": {
+      "file": ".hacf/gates/voice_p0.json",
+      "sha256": "f8bc1e2bd98aad63fc6204e5e647a92f7916437bcde74318ef4766537f3db832",
+      "risk_class": "medium",
+      "description": "AGT-VOICE 语音门禁：架构适应度 + OpenAI Audio 适配器与热拔插测试"
+    }
+  }
+}

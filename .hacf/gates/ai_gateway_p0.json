@@ -1,0 +1,40 @@
+{
+  "gate_profile_id": "AI_GATEWAY_P0",
+  "description": "AGT-AI 网关门禁：架构适应度 + Proposal/上下文授权单测（网关测试落地前缺口将被显式记录）",
+  "risk_class": "high",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "cwd": ".",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "expects": [
+        "scripts/check_architecture_fitness.py"
+      ]
+    },
+    {
+      "stage": 2,
+      "name": "AI Gateway & Context Compiler Unit Tests",
+      "cwd": "engine",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "ai or gateway or context or proposal"
+      ],
+      "expects": [
+        "engine/tests/test_ai_gateway.py",
+        "engine/tests/test_context_compiler.py"
+      ],
+      "empty_selection_policy": "warn"
+    }
+  ]
+}
