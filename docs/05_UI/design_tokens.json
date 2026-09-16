@@ -156,6 +156,32 @@
       "tarotCard": {
         "aspectRatio": 1.618,
         "cornerNotchSize": 6
+      },
+      "worldlineNode": {
+        "timelineWidth": 2,
+        "indicatorDiameter": 32,
+        "cardPadding": 12
+      },
+      "spiritPendulum": {
+        "citrineWidth": 24,
+        "citrineHeight": 42,
+        "chainLength": 90,
+        "rippleDiameter": 140
+      },
+      "bronzeAltar": {
+        "candleCount": 3,
+        "candleDiameter": 6,
+        "honorificTracking": 0.2
+      },
+      "crimsonStar": {
+        "starCoreDiameter": 20,
+        "glowMaxDiameter": 38,
+        "pulseScale": 1.35
+      },
+      "characterCodex": {
+        "portraitDiameter": 48,
+        "metricBarHeight": 5,
+        "statusDotDiameter": 10
       }
     },
     "motion": {

@@ -154,5 +154,68 @@ struct DesignSystemTests {
         _ = Color.Mystic.parchmentInkTertiary
         _ = Color.Mystic.parchmentWaxSeal
     }
+    
+    @Test("WorldlineBranchStatus covers canonical, diverged, active, and pruned")
+    func testWorldlineBranchStatuses() {
+        let allStatuses = WorldlineBranchStatus.allCases
+        #expect(allStatuses.count == 4)
+        for status in allStatuses {
+            #expect(!status.rawValue.isEmpty)
+            #expect(!status.iconName.isEmpty)
+        }
+        #expect(WorldlineBranchStatus.canonical.rawValue == "正典主轴")
+        #expect(WorldlineBranchStatus.diverged.rawValue == "因果分叉")
+    }
+    
+    @Test("PendulumState covers still, scrying, affirmative, and negative")
+    func testPendulumStates() {
+        let allStates = PendulumState.allCases
+        #expect(allStates.count == 4)
+        for state in allStates {
+            #expect(!state.rawValue.isEmpty)
+            #expect(!state.guidanceText.isEmpty)
+        }
+        #expect(PendulumState.affirmative.guidanceText.contains("肯定"))
+        #expect(PendulumState.negative.guidanceText.contains("否定"))
+    }
+    
+    @Test("Expanded UI components instantiate cleanly")
+    @MainActor
+    func testNewComponentInstantiations() {
+        let worldlineNode = WorldlineNodeView(
+            title: "测试分支",
+            worldTime: "第五纪 1349年",
+            status: .active,
+            causeSummary: "因果测试说明"
+        )
+        _ = worldlineNode.body
+        
+        let pendulum = SpiritPendulumView(
+            statement: "测试占卜语句",
+            state: .affirmative
+        )
+        _ = pendulum.body
+        
+        let prayerCard = BronzeAltarPrayerCard(
+            deityTitle: "不属于这个时代的愚者",
+            domainName: "灰雾之上的神秘主宰",
+            blessingTitle: "执掌好运的黄黑之王"
+        )
+        _ = prayerCard.body
+        
+        let starBeacon = CrimsonStarBeaconView(
+            starName: "正义小姐",
+            prayerPreview: "汇报情报"
+        )
+        _ = starBeacon.body
+        
+        let codexCard = CharacterCodexCard(
+            characterName: "克莱恩",
+            pathwayTitle: "占卜家",
+            occupation: "文职",
+            location: "廷根"
+        )
+        _ = codexCard.body
+    }
 }
 

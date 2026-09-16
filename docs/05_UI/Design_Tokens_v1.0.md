@@ -119,11 +119,22 @@ $$R_{child} = \max(R_{parent} - \text{padding}, 0)$$
 
 ## 5. 组件级专有 Token (Component Tokens)
 
-| 组件 | 专有 Token | 取值 | 约束说明 |
+| 组件名 | 专有 Token / 核心约束 | 典型取值 | 规范与不变量约束说明 |
 |:---|:---|:---|:---|
-| **`ListeningRing`** | `diameterDefault`<br>`pulseScaleMax` | 58 pt<br>1.25 | 呼吸脉冲最大扩散半径不超过外环 125% |
+| **`ListeningRing`** | `diameterDefault`<br>`pulseScaleMax` | 58 pt<br>1.25 | 呼吸脉冲最大扩散半径不超过外环 125%，表达世界聆听语义 |
 | **`SpiritualityGauge`** | `criticalThreshold`<br>`warningThreshold` | 0.25<br>0.50 | 灵性值低于 25% 强制触发红色危险失控警报 |
-| **`TarotCard`** | `aspectRatio`<br>`cornerNotchSize` | 1.618 (黄金比例)<br>6 pt | 卡牌必须符合塔罗标准长宽黄金比例 |
+| **`TarotCard`** | `aspectRatio`<br>`cornerNotchSize` | 1.618 (黄金比例)<br>6 pt | 卡牌必须符合塔罗标准长宽黄金比例与五级世界认知发现状态 |
+| **`AppSidebar`** | `width`<br>`itemHeight` | 200 pt<br>36 pt | 8 大一级导航体验，带暗金克苏鲁高光选中态 |
+| **`VictorianCard`** | `cornerRadius`<br>`materialStyle` | 12 pt<br>3 Styles | `.obsidianGlass`, `.parchment`, `.brassFramed` 材质分层 |
+| **`AdviceInputField`** | `maxLines`<br>`voiceButtonSize` | 4 Lines<br>32 pt | 严格践行 **Advice ≠ Command** 核心不变量 |
+| **`NarrativeChronicle`** | `speakerRole`<br>`lineSpacing` | 3 Roles<br>6.0 pt | 区分旁白正叙、角色原声对白（可回放）与玩家 Advice |
+| **`DatabaseStatusHUD`** | `databaseRoles`<br>`rebuildable` | 4 DBs<br>100% 幂等 | 四库物理隔离，retrieval.db 支持无损幂等重建 |
+| **`CluePinboardNode`** | `threadColor`<br>`pinSize` | `#B71C1C`<br>10 pt | 侦探案卷便签板、黄铜立体图钉与暗红因果丝线 |
+| **`WorldlineNode`** *(新增)* | `branchStatus`<br>`timelineWidth` | 4 Statuses<br>2.0 pt | 践行 Invariant #3、#10、#15，显式世界线分叉与正典只读锁定 |
+| **`SpiritPendulum`** *(新增)* | `citrineSize`<br>`swingPeriod` | 24×42 pt<br>3.2 s | 纯银细链吊坠六棱天然黄水晶，顺时针肯定/逆时针否定物理摆动 |
+| **`BronzeAltarPrayer`** *(新增)* | `honorificLines`<br>`flameCount` | 3 Lines<br>3 Flames | 维多利亚黄铜与灵性之墙，三段式神圣尊名与仪式魔法祭台 |
+| **`CrimsonStarBeacon`** *(新增)* | `pulseScale`<br>`starDiameter` | 1.35<br>20 pt | 灰雾之上虚空脉动深红星辰、未读祈祷回响角标与气泡 |
+| **`CharacterCodex`** *(新增)* | `portraitSize`<br>`metricHeight` | 48 pt<br>5.0 pt | 角色先于剧情，三维灵性/理智状态与一键 Advice 快捷入口 |
 
 ---
 
