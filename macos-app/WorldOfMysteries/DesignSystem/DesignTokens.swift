@@ -1,9 +1,9 @@
 import SwiftUI
 
-// MARK: - DesignTokens Namespace
+// MARK: - DesignTokens Namespace v1.1
 
 /// 《诡秘世界》跨端同源设计 Token 语言体系 (Single Source of Truth)
-/// 严格对齐 `docs/05_UI/design_tokens.json`
+/// 严格对齐 `docs/05_UI/design_tokens.json` (v1.1.0)
 public enum DesignTokens: Sendable {
     
     // MARK: - Spacing Grid (4pt / 8pt 阶梯)
@@ -41,12 +41,59 @@ public enum DesignTokens: Sendable {
         public static let heavy: CGFloat = 2.0
     }
     
+    // MARK: - Elevation & Z-Index
+    public enum Elevation: Sendable {
+        public static let base: Double = 0
+        public static let elevated: Double = 1
+        public static let card: Double = 2
+        public static let floating: Double = 3
+        public static let modal: Double = 4
+        public static let hud: Double = 5
+    }
+    
+    // MARK: - Accessibility & Focus
+    public enum Accessibility: Sendable {
+        public static let focusRingWidth: CGFloat = 2.0
+        public static let focusRingOffset: CGFloat = 2.0
+    }
+    
+    // MARK: - Component Specific Metrics
+    public enum ComponentMetrics: Sendable {
+        public enum ListeningRing: Sendable {
+            public static let diameterDefault: CGFloat = 58
+            public static let diameterCompact: CGFloat = 42
+            public static let innerCircleDiameter: CGFloat = 38
+            public static let pulseScaleMax: CGFloat = 1.25
+        }
+        
+        public enum Sidebar: Sendable {
+            public static let width: CGFloat = 200
+            public static let itemHeight: CGFloat = 36
+            public static let iconSize: CGFloat = 14
+        }
+        
+        public enum Gauge: Sendable {
+            public static let diameter: CGFloat = 88
+            public static let innerDiameter: CGFloat = 74
+            public static let needleWidth: CGFloat = 2
+            public static let needleLength: CGFloat = 26
+            public static let criticalThreshold: Double = 0.25
+            public static let warningThreshold: Double = 0.50
+        }
+        
+        public enum TarotCard: Sendable {
+            public static let aspectRatio: CGFloat = 1.618 // 黄金比例
+            public static let cornerNotchSize: CGFloat = 6
+        }
+    }
+    
     // MARK: - Motion
     public enum Motion: Sendable {
         public static let listeningPulseDuration: Double = 2.4
         public static let voiceWaveformResponse: Double = 0.12
         public static let stateTransitionDuration: Double = 0.35
         public static let pendulumSwingPeriod: Double = 3.2
+        public static let typewriterInterval: Double = 0.04
         
         public static var smoothSpring: Animation {
             .spring(response: 0.35, dampingFraction: 0.82)
@@ -67,6 +114,7 @@ public extension Color {
         public static let obsidianElevated = Color(red: 20/255, green: 24/255, blue: 29/255)   // #14181D
         public static let obsidianCard = Color(red: 27/255, green: 32/255, blue: 38/255)       // #1B2026
         public static let obsidianGlass = Color(red: 20/255, green: 24/255, blue: 29/255).opacity(0.8)
+        public static let abyssVoid = Color(red: 8/255, green: 9/255, blue: 11/255)            // #08090B
         
         // Victorian Brass & Gold
         public static let brassGoldPrimary = Color(red: 197/255, green: 160/255, blue: 89/255) // #C5A059
@@ -79,6 +127,7 @@ public extension Color {
         public static let spiritualBlue = Color(red: 74/255, green: 144/255, blue: 226/255)   // #4A90E2
         public static let spiritualGlow = Color(red: 100/255, green: 181/255, blue: 246/255).opacity(0.4)
         public static let deepVoid = Color(red: 29/255, green: 53/255, blue: 87/255)          // #1D3557
+        public static let spiritWall = Color(red: 128/255, green: 216/255, blue: 255/255).opacity(0.25) // #80D8FF
         
         // Crimson Astral & Threads
         public static let crimsonStar = Color(red: 230/255, green: 57/255, blue: 70/255)       // #E63946
@@ -90,6 +139,7 @@ public extension Color {
         public static let parchmentCard = Color(red: 244/255, green: 235/255, blue: 208/255)   // #F4EBD0
         public static let parchmentBorder = Color(red: 200/255, green: 178/255, blue: 130/255) // #C8B282
         public static let parchmentInk = Color(red: 43/255, green: 33/255, blue: 24/255)       // #2B2118
+        public static let parchmentWaxSeal = Color(red: 158/255, green: 42/255, blue: 43/255)  // #9E2A2B
         
         // Text
         public static let textPrimary = Color(red: 243/255, green: 244/255, blue: 246/255)     // #F3F4F6
@@ -102,6 +152,16 @@ public extension Color {
         public static let statusWarning = Color(red: 255/255, green: 159/255, blue: 28/255)    // #FF9F1C
         public static let statusDanger = Color(red: 231/255, green: 29/255, blue: 54/255)      // #E71D36
         public static let statusImmutable = Color(red: 72/255, green: 149/255, blue: 239/255)  // #4895EF
+        
+        // 22 条成神途径专属色彩体系 (Pathway Semantics)
+        public enum Pathways: Sendable {
+            public static let fool = Color(red: 123/255, green: 44/255, blue: 191/255)       // #7B2CBF (占卜家/愚者)
+            public static let door = Color(red: 0/255, green: 119/255, blue: 182/255)        // #0077B6 (学徒/门)
+            public static let error = Color(red: 212/255, green: 163/255, blue: 115/255)     // #D4A373 (偷盗者/错误)
+            public static let darkness = Color(red: 58/255, green: 12/255, blue: 163/255)    // #3A0CA3 (不眠者/黑夜)
+            public static let sun = Color(red: 251/255, green: 133/255, blue: 0/255)         // #FB8500 (歌颂者/太阳)
+            public static let visionary = Color(red: 233/255, green: 216/255, blue: 166/255) // #E9D8A6 (观众/空想家)
+        }
     }
 }
 
@@ -117,5 +177,6 @@ public extension Font {
         public static let caption = Font.system(size: 11, weight: .medium, design: .default)
         public static let monoBadge = Font.system(size: 11, weight: .medium, design: .monospaced)
         public static let parchmentCursive = Font.system(size: 13, weight: .regular, design: .serif)
+        public static let narrativeSubtitle = Font.system(size: 16, weight: .medium, design: .default)
     }
 }

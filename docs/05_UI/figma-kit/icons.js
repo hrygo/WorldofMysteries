@@ -28,5 +28,13 @@ const ICONS = {
   clock: [
     { type: 'ellipse', cx: 12, cy: 12, rx: 9, ry: 9 },
     { type: 'path', d: 'M12 7 L12 12 L15 15' }
+  ],
+  quote: [
+    { type: 'path', d: 'M3 21 C3 14 7 10 11 10 L11 4 C5 4 1 9 1 17 Z' },
+    { type: 'path', d: 'M15 21 C15 14 19 10 23 10 L23 4 C17 4 13 9 13 17 Z' }
+  ],
+  pin: [
+    { type: 'ellipse', cx: 12, cy: 7, rx: 4, ry: 4 },
+    { type: 'path', d: 'M12 11 L12 21' }
   ]
 };

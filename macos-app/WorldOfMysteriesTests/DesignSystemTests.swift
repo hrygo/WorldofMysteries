@@ -81,4 +81,35 @@ struct DesignSystemTests {
         #expect(retrieval.isRebuildable)
         #expect(!runtime.isRebuildable)
     }
+    
+    @Test("ComponentMetrics thresholds and proportions are valid")
+    func testComponentMetricsAndThresholds() {
+        #expect(DesignTokens.ComponentMetrics.ListeningRing.diameterDefault == 58)
+        #expect(DesignTokens.ComponentMetrics.ListeningRing.pulseScaleMax > 1.0)
+        
+        #expect(DesignTokens.ComponentMetrics.Gauge.criticalThreshold == 0.25)
+        #expect(DesignTokens.ComponentMetrics.Gauge.warningThreshold == 0.50)
+        #expect(DesignTokens.ComponentMetrics.Gauge.criticalThreshold < DesignTokens.ComponentMetrics.Gauge.warningThreshold)
+        
+        #expect(DesignTokens.ComponentMetrics.TarotCard.aspectRatio > 1.6) // Golden ratio ~1.618
+    }
+    
+    @Test("CardDiscoveryStage covers 5 stages of world cognition")
+    func testCardDiscoveryStages() {
+        let stages: [CardDiscoveryStage] = [.unknown, .silhouette, .identified, .partiallyRevealed, .established]
+        #expect(stages.count == 5)
+        #expect(stages.map(\.rawValue).allSatisfy { !$0.isEmpty })
+    }
+    
+    @Test("NarrativeSpeakerRole provides consistent labels")
+    func testNarrativeSpeakerRoles() {
+        let narrator = NarrativeSpeakerRole.narrator
+        let klein = NarrativeSpeakerRole.character("克莱恩·莫雷蒂")
+        let advice = NarrativeSpeakerRole.playerAdvice
+        
+        #expect(narrator.displayName.contains("旁白"))
+        #expect(klein.displayName == "克莱恩·莫雷蒂")
+        #expect(advice.displayName.contains("Advice"))
+    }
 }
+

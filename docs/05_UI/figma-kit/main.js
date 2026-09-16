@@ -1,4 +1,4 @@
-// 《诡秘世界》（World of Mysteries）设计稿生成器插件
+// 《诡秘世界》（World of Mysteries）设计稿生成器插件 v1.1
 // 运行环境：Figma 桌面版 → Plugins → Development → World of Mysteries Design Kit
 // 架构遵循：figma-to-macos 技能规范与离线门禁
 
@@ -18,6 +18,7 @@ const COLORS = {
   obsidianBase: { r: 0.051, g: 0.059, b: 0.071 },
   obsidianElevated: { r: 0.078, g: 0.094, b: 0.114 },
   obsidianCard: { r: 0.106, g: 0.125, b: 0.149 },
+  abyssVoid: { r: 0.031, g: 0.035, b: 0.043 },
   brassGoldPrimary: { r: 0.773, g: 0.627, b: 0.349 },
   brassGoldHover: { r: 0.831, g: 0.698, b: 0.435 },
   brassGoldMuted: { r: 0.549, g: 0.451, b: 0.243 },
@@ -37,12 +38,19 @@ const COLORS = {
   statusWarning: { r: 1.000, g: 0.624, b: 0.110 },
   statusDanger: { r: 0.906, g: 0.114, b: 0.212 },
   statusImmutable: { r: 0.282, g: 0.584, b: 0.937 },
+  pathwayFool: { r: 0.482, g: 0.173, b: 0.749 },
+  pathwayDoor: { r: 0.000, g: 0.467, b: 0.714 },
+  pathwayError: { r: 0.831, g: 0.639, b: 0.451 },
+  pathwayDarkness: { r: 0.227, g: 0.047, b: 0.639 },
+  pathwaySun: { r: 0.984, g: 0.522, b: 0.000 },
+  pathwayVisionary: { r: 0.914, g: 0.847, b: 0.651 },
 };
 
 const DARK_COLORS = {
   obsidianBase: { r: 0.035, g: 0.040, b: 0.050 },
   obsidianElevated: { r: 0.060, g: 0.075, b: 0.090 },
   obsidianCard: { r: 0.085, g: 0.100, b: 0.125 },
+  abyssVoid: { r: 0.020, g: 0.025, b: 0.030 },
   brassGoldPrimary: { r: 0.773, g: 0.627, b: 0.349 },
   brassGoldHover: { r: 0.831, g: 0.698, b: 0.435 },
   brassGoldMuted: { r: 0.549, g: 0.451, b: 0.243 },
@@ -62,6 +70,12 @@ const DARK_COLORS = {
   statusWarning: { r: 1.000, g: 0.624, b: 0.110 },
   statusDanger: { r: 0.906, g: 0.114, b: 0.212 },
   statusImmutable: { r: 0.282, g: 0.584, b: 0.937 },
+  pathwayFool: { r: 0.482, g: 0.173, b: 0.749 },
+  pathwayDoor: { r: 0.000, g: 0.467, b: 0.714 },
+  pathwayError: { r: 0.831, g: 0.639, b: 0.451 },
+  pathwayDarkness: { r: 0.227, g: 0.047, b: 0.639 },
+  pathwaySun: { r: 0.984, g: 0.522, b: 0.000 },
+  pathwayVisionary: { r: 0.914, g: 0.847, b: 0.651 },
 };
 
 const RADII = {
@@ -82,6 +96,7 @@ const TEXT_STYLES = {
   'Label/Caption': { family: 'Inter', style: 'Medium', size: 11, lineHeight: 14 },
   'Label/MonoBadge': { family: 'Inter', style: 'Medium', size: 11, lineHeight: 14 },
   'Parchment/Cursive': { family: 'Inter', style: 'Regular', size: 13, lineHeight: 19 },
+  'Narrative/Subtitle': { family: 'Inter', style: 'Medium', size: 16, lineHeight: 26 },
 };
 
 const PLACEHOLDER_GRAY = { r: 0.5, g: 0.5, b: 0.5 };
@@ -205,16 +220,6 @@ function spacer(parent) {
 function size(node, w, h) {
   node.resize(w, h);
   return node;
-}
-
-function rect(parent, name, opts = {}) {
-  const r = figma.createRectangle();
-  r.name = name;
-  r.resize(opts.w == null ? 100 : opts.w, opts.h == null ? 100 : opts.h);
-  r.cornerRadius = opts.radius == null ? 0 : opts.radius;
-  r.fills = opts.fill ? [variablePaint(opts.fill)] : [];
-  add(parent, r);
-  return r;
 }
 
 function isCjk(code) {
@@ -533,11 +538,11 @@ function componentSet(board, setName, defs, x, y) {
 
 function buildFoundations() {
   const board = frame('Design Tokens', { gap: 28, padX: 48, padY: 48, fill: 'obsidianBase', w: 1280 });
-  add(board, text('World of Mysteries · Design Tokens', 'Title/Display', 'textGoldAccent'));
-  add(board, text('维多利亚蒸汽暗金 × 克苏鲁超凡神秘主义跨端单一事实源（颜色、排版阶梯、网格与同心圆角）。', 'Body/Large', 'textSecondary'));
+  add(board, text('World of Mysteries · Design Tokens v1.1', 'Title/Display', 'textGoldAccent'));
+  add(board, text('维多利亚蒸汽暗金 × 克苏鲁超凡神秘主义跨端单一事实源（色彩、途径专属色、排版、网格与同心圆角）。', 'Body/Large', 'textSecondary'));
 
   // 色彩调色板
-  add(board, text('Color Palette (语义色卡)', 'Title/Medium', 'textPrimary'));
+  add(board, text('Color Palette (语义色与途径专属色)', 'Title/Medium', 'textPrimary'));
   const swatches = frame('swatches', { direction: 'row', gap: 14, wrap: true, w: 1184 });
   for (const name of Object.keys(COLORS)) {
     const cell = frame(`Swatch/${name}`, { gap: 8, padX: 12, padY: 12, radius: RADII.sm, fill: 'obsidianCard', w: 180 });
@@ -554,6 +559,7 @@ function buildFoundations() {
   add(typoBox, text('Title/Display · 28pt Bold · 页面核心大标题', 'Title/Display', 'textGoldAccent'));
   add(typoBox, text('Title/Medium · 18pt SemiBold · 模块标题与卷宗大类', 'Title/Medium', 'textPrimary'));
   add(typoBox, text('Title/Small · 15pt SemiBold · 卡片标题与关键实体', 'Title/Small', 'brassGoldPrimary'));
+  add(typoBox, text('Narrative/Subtitle · 16pt Medium · 沉浸剧情与旁白字幕', 'Narrative/Subtitle', 'textGoldAccent'));
   add(typoBox, text('Body/Large · 14pt Regular · 沉浸剧情对白与世界脉搏正文', 'Body/Large', 'textSecondary'));
   add(typoBox, text('Body/Medium · 13pt Regular · 标准卷宗内容与线索描述', 'Body/Medium', 'textSecondary'));
   add(typoBox, text('Label/Caption · 11pt Medium · 状态说明与操作提示', 'Label/Caption', 'textTertiary'));
@@ -742,10 +748,75 @@ const ADVICE_DEFS = [
   },
 ];
 
+const TAROT_DEFS = [
+  {
+    prop: 'Discovery=Identified',
+    opts: { gap: 8, padX: 14, padY: 14, radius: RADII.md, fill: 'obsidianCard', w: 200, h: 280 },
+    build: (c) => {
+      const topRow = frame('topRow', { direction: 'row', gap: 4, align: 'CENTER' });
+      add(c, stretch(topRow));
+      add(topRow, text('Seq.9', 'Label/MonoBadge', 'textGoldAccent'));
+      spacer(topRow);
+      add(topRow, text('占卜家', 'Label/Caption', 'pathwayFool'));
+      spacer(c);
+      const iconWrap = frame('iconWrap', { direction: 'row', align: 'CENTER', justify: 'CENTER' });
+      add(c, stretch(iconWrap));
+      add(iconWrap, drawIcon('sparkle', 'pathwayFool'));
+      spacer(c);
+      add(c, text('正典已揭示', 'Label/Caption', 'statusOnline'));
+    },
+  },
+  {
+    prop: 'Discovery=Unknown',
+    opts: { gap: 8, padX: 14, padY: 14, radius: RADII.md, fill: 'obsidianCard', w: 200, h: 280 },
+    build: (c) => {
+      const topRow = frame('topRow', { direction: 'row', gap: 4, align: 'CENTER' });
+      add(c, stretch(topRow));
+      add(topRow, text('Seq.？', 'Label/MonoBadge', 'textTertiary'));
+      spacer(c);
+      const iconWrap = frame('iconWrap', { direction: 'row', align: 'CENTER', justify: 'CENTER' });
+      add(c, stretch(iconWrap));
+      add(iconWrap, drawIcon('dot', 'textTertiary'));
+      spacer(c);
+      add(c, text('未知迷雾', 'Label/Caption', 'textTertiary'));
+    },
+  },
+];
+
+const NARRATIVE_DEFS = [
+  {
+    prop: 'Speaker=Character',
+    opts: { gap: 8, padX: 18, padY: 16, radius: RADII.md, fill: 'obsidianCard', w: 420 },
+    build: (c) => {
+      const h = frame('h', { direction: 'row', gap: 8, align: 'CENTER' });
+      add(c, stretch(h));
+      add(h, drawIcon('quote', 'brassGoldPrimary'));
+      add(h, text('克莱恩·莫雷蒂', 'Label/Caption', 'brassGoldPrimary'));
+      spacer(h);
+      add(h, text('1349-06-28', 'Label/MonoBadge', 'textTertiary'));
+      add(c, text('“这不是梦境...那颗子弹确实穿过了我的太阳穴。”', 'Narrative/Subtitle', 'textPrimary'));
+    },
+  },
+];
+
+const CLUE_DEFS = [
+  {
+    prop: 'Type=ParchmentNote',
+    opts: { gap: 6, padX: 14, padY: 12, radius: RADII.xs, fill: 'parchmentBase', w: 240 },
+    build: (c) => {
+      const h = frame('h', { direction: 'row', gap: 6, align: 'CENTER' });
+      add(c, stretch(h));
+      add(h, drawIcon('pin', 'crimsonThread'));
+      add(h, text('自杀手枪弹壳', 'Title/Small', 'parchmentInk'));
+      add(c, text('书桌右侧发现一枚缺少弹头的黄铜弹壳。', 'Parchment/Cursive', 'parchmentInk'));
+    },
+  },
+];
+
 function buildComponents() {
   const board = frame('Core Components', { gap: 28, padX: 48, padY: 48, fill: 'obsidianBase', w: 1640 });
-  add(board, text('World of Mysteries · Core Components Kit', 'Title/Display', 'textGoldAccent'));
-  add(board, text('严格绑定 15 种交互状态与 6 大基础组件变体矩阵，全部挂载于本画板。', 'Body/Large', 'textSecondary'));
+  add(board, text('World of Mysteries · Core Components Kit v1.1', 'Title/Display', 'textGoldAccent'));
+  add(board, text('全量绑定 15 种交互状态与 9 大核心组件变体矩阵（包含卡牌、编年史对白与线索节点）。', 'Body/Large', 'textSecondary'));
 
   componentSet(board, 'Listening Ring', RING_DEFS, 0, SET_TOP);
   componentSet(board, 'Sidebar Row', SIDEBAR_DEFS, 780, SET_TOP);
@@ -757,6 +828,13 @@ function buildComponents() {
   const y3 = Math.max(setCursor[0] || y2, setCursor[780] || y2);
   componentSet(board, 'Database HUD Card', DB_DEFS, 0, y3);
   componentSet(board, 'Advice Input', ADVICE_DEFS, 780, y3);
+
+  const y4 = Math.max(setCursor[0] || y3, setCursor[780] || y3);
+  componentSet(board, 'Tarot Card', TAROT_DEFS, 0, y4);
+  componentSet(board, 'Narrative Chronicle', NARRATIVE_DEFS, 780, y4);
+
+  const y5 = Math.max(setCursor[0] || y4, setCursor[780] || y4);
+  componentSet(board, 'Clue Pinboard Node', CLUE_DEFS, 0, y5);
 
   fitBoard(board, 1640, Math.max(setCursor[0] || 0, setCursor[780] || 0));
   placeBoard('components', 'Core Components', board);
@@ -855,4 +933,3 @@ main()
   .catch((err) => {
     figma.closePlugin(`BUILD FAILED: ${err && err.message ? err.message : err}`);
   });
-

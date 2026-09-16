@@ -24,6 +24,7 @@ public enum ListeningRingState: String, Sendable, CaseIterable {
 /// 全局常驻声纹交互环（双同心圆金属光圈）
 public struct ListeningRingView: View {
     public let state: ListeningRingState
+    public let audioLevel: Double
     public var onRingTapped: (@MainActor () -> Void)?
     
     @State private var isBreathing: Bool = false
@@ -32,23 +33,32 @@ public struct ListeningRingView: View {
     
     public init(
         state: ListeningRingState = .idle,
+        audioLevel: Double = 0.0,
         onRingTapped: (@MainActor () -> Void)? = nil
     ) {
         self.state = state
+        self.audioLevel = min(max(audioLevel, 0.0), 1.0)
         self.onRingTapped = onRingTapped
     }
     
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.xs) {
             ZStack {
-                // 外层发光与涟漪
+                // 外层发光与涟漪 (支持真实音频振幅动态反馈)
                 Circle()
                     .stroke(
                         state == .listening ? Color.Mystic.spiritualGlow : Color.Mystic.brassGoldGlow,
                         lineWidth: DesignTokens.Borders.heavy
                     )
-                    .frame(width: 58, height: 58)
-                    .scaleEffect(state == .listening ? rippleScale : (isBreathing ? 1.08 : 0.96))
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault,
+                        height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
+                    )
+                    .scaleEffect(
+                        (state == .listening || state == .speaking) && audioLevel > 0
+                        ? (1.0 + CGFloat(audioLevel) * 0.3)
+                        : (state == .listening ? rippleScale : (isBreathing ? 1.08 : 0.96))
+                    )
                     .opacity(isBreathing ? 0.9 : 0.4)
                 
                 // 次级同心金属环

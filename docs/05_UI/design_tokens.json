@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "World of Mysteries Design Tokens",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "platform": "macOS 26+ / SwiftUI 6",
   "theme": "Victorian Esoteric Steampunk & Cthulhu Mysticism",
   "tokens": {
@@ -10,7 +10,8 @@
         "obsidianBase": { "value": "#0D0F12", "description": "Deep obsidian abyss background for main window canvas" },
         "obsidianElevated": { "value": "#14181D", "description": "Elevated sidebar and floating panel canvas" },
         "obsidianCard": { "value": "#1B2026", "description": "Frosted glass container and surface card background" },
-        "obsidianGlass": { "value": "#14181DCC", "description": "Translucent acrylic frosted glass layer" }
+        "obsidianGlass": { "value": "#14181DCC", "description": "Translucent acrylic frosted glass layer" },
+        "abyssVoid": { "value": "#08090B", "description": "Pure cosmic void darkness behind the gray fog" }
       },
       "brassGold": {
         "primary": { "value": "#C5A059", "description": "Signature antique brass gold for active accents and borders" },
@@ -22,7 +23,8 @@
       "spirituality": {
         "bluePrimary": { "value": "#4A90E2", "description": "Ethereal spirit vision and divination aura" },
         "blueGlow": { "value": "#64B5F666", "description": "Translucent spiritual ripple for pendulum and scrying" },
-        "deepVoid": { "value": "#1D3557", "description": "Abyssal astral void backdrop for divination" }
+        "deepVoid": { "value": "#1D3557", "description": "Abyssal astral void backdrop for divination" },
+        "spiritWall": { "value": "#80D8FF40", "description": "Luminescent translucent barrier of Wall of Spirituality" }
       },
       "crimson": {
         "star": { "value": "#E63946", "description": "Pulsing red celestial stars above the gray fog" },
@@ -33,7 +35,8 @@
         "base": { "value": "#EADBB6", "description": "Aged yellowed Victorian parchment background for clues and chronicles" },
         "card": { "value": "#F4EBD0", "description": "Pinned detective photo backing and case notes" },
         "border": { "value": "#C8B282", "description": "Weathered vintage paper outline" },
-        "ink": { "value": "#2B2118", "description": "Sepia fountain pen ink for case notes" }
+        "ink": { "value": "#2B2118", "description": "Sepia fountain pen ink for case notes" },
+        "waxSeal": { "value": "#9E2A2B", "description": "Burgundy wax stamp on classified documents" }
       },
       "text": {
         "primary": { "value": "#F3F4F6", "description": "Primary high-contrast UI title and narrative dialogue" },
@@ -46,6 +49,14 @@
         "warning": { "value": "#FF9F1C", "description": "Approaching high spirituality / mental pressure alert" },
         "danger": { "value": "#E71D36", "description": "Loss of control risk / corruption alert" },
         "immutable": { "value": "#4895EF", "description": "Canon read-only immutable lock badge" }
+      },
+      "pathways": {
+        "fool": { "value": "#7B2CBF", "description": "Seer / The Fool pathway mysterious violet" },
+        "door": { "value": "#0077B6", "description": "Apprentice / Door pathway astral azure" },
+        "error": { "value": "#D4A373", "description": "Marauder / Error pathway antique timepiece brass" },
+        "darkness": { "value": "#3A0CA3", "description": "Sleepless / Darkness pathway crimson midnight" },
+        "sun": { "value": "#FB8500", "description": "Bard / Sun pathway divine radiant amber" },
+        "visionary": { "value": "#E9D8A6", "description": "Spectator / Visionary pathway pale dragon gold" }
       }
     },
     "typography": {
@@ -56,7 +67,8 @@
       "bodyMedium": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 18, "letterSpacing": 0.0 },
       "caption": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.1 },
       "monoBadge": { "fontSize": 11, "fontWeight": "medium", "lineHeight": 14, "letterSpacing": 0.4, "fontFamily": "Monospaced" },
-      "parchmentCursive": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 19, "letterSpacing": 0.2, "fontDesign": "serif" }
+      "parchmentCursive": { "fontSize": 13, "fontWeight": "regular", "lineHeight": 19, "letterSpacing": 0.2, "fontDesign": "serif" },
+      "narrativeSubtitle": { "fontSize": 16, "fontWeight": "medium", "lineHeight": 26, "letterSpacing": 0.3 }
     },
     "spacing": {
       "xxs": 2,
@@ -82,11 +94,50 @@
       "chamfer": 1.5,
       "heavy": 2.0
     },
+    "elevation": {
+      "base": 0,
+      "elevated": 1,
+      "card": 2,
+      "floating": 3,
+      "modal": 4,
+      "hud": 5
+    },
+    "accessibility": {
+      "focusRingColor": "#C5A059",
+      "focusRingWidth": 2.0,
+      "focusRingOffset": 2.0
+    },
+    "componentTokens": {
+      "listeningRing": {
+        "diameterDefault": 58,
+        "diameterCompact": 42,
+        "innerCircleDiameter": 38,
+        "pulseScaleMax": 1.25
+      },
+      "sidebar": {
+        "width": 200,
+        "itemHeight": 36,
+        "iconSize": 14
+      },
+      "gauge": {
+        "diameter": 88,
+        "innerDiameter": 74,
+        "needleWidth": 2,
+        "needleLength": 26,
+        "criticalThreshold": 0.25,
+        "warningThreshold": 0.50
+      },
+      "tarotCard": {
+        "aspectRatio": 1.618,
+        "cornerNotchSize": 6
+      }
+    },
     "motion": {
       "listeningPulseDuration": 2.4,
       "voiceWaveformResponse": 0.12,
       "stateTransitionDuration": 0.35,
-      "pendulumSwingPeriod": 3.2
+      "pendulumSwingPeriod": 3.2,
+      "typewriterInterval": 0.04
     }
   }
 }

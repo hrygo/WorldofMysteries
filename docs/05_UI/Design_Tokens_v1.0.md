@@ -1,6 +1,6 @@
-# 《诡秘世界》macOS 设计 Token 语言规范 v1.0
+# 《诡秘世界》macOS 设计 Token 语言规范 v1.1
 
-> **版本**：v1.0.0  
+> **版本**：v1.1.0  
 > **单一事实源**：[`docs/05_UI/design_tokens.json`](design_tokens.json)  
 > **适用范围**：macOS App SwiftUI 6 组件库、Figma 生成器插件与跨语言样式映射  
 > **设计美学**：维多利亚蒸汽暗金 × 克苏鲁超凡神秘主义 (Victorian Esoteric Steampunk & Cthulhu Mysticism)
@@ -9,7 +9,10 @@
 
 ## 1. 设计 Token 架构总览
 
-设计 Token 严禁散落在各个 View 中硬编码（Zero Magic Numbers）。所有样式均从 `DesignTokens` 派生，遵循同心圆角推导与语义化分层：
+设计 Token 严禁散落在各个 View 中硬编码（Zero Magic Numbers）。Token 体系划分为三层分层模型：
+1. **全局原始基元 (Global Primitives)**：物理色盘、原始网格比例；
+2. **语义别名 (Semantic Aliases)**：Z 轴层级 Elevation、非凡途径专属色、材质表面与状态色；
+3. **组件专用 Token (Component Tokens)**：严格收敛各组件的几何尺寸与阈值。
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -36,6 +39,7 @@
 | `obsidianElevated` | `#14181D` | 左侧边栏、浮层与弹出式面板背景 |
 | `obsidianCard` | `#1B2026` | 容器卡片、态势卷宗背景 |
 | `obsidianGlass` | `#14181DCC` | 带 80% 不透明度的深色磨砂亚克力玻璃材质 |
+| `abyssVoid` | `#08090B` | 灰雾之上的纯黑虚空底色 |
 
 ### 2.2 维多利亚暗金材质体系 (Brass & Gold)
 | Token 名称 | 十六进制色值 | 语义用途 |
@@ -46,13 +50,15 @@
 | `brassGoldBorder` | `#4A3E25` | 维多利亚卡片深雕倒角边框 |
 | `brassGoldGlow` | `#C5A0594D` | Listening Ring 呼吸微光与神圣光晕 (30% Alpha) |
 
-### 2.3 超凡灵性与绯红星辰体系 (Spirituality & Crimson)
-| Token 名称 | 十六进制色值 | 语义用途 |
+### 2.3 22 条成神途径专属语义色谱 (Pathway Accents)
+| 途径标识 | 十六进制色值 | 代表序列与神明符号 |
 |:---|:---|:---|
-| `spiritualBlue` | `#4A90E2` | 灵视状态（Spirit Vision）、灵摆回旋涟漪 |
-| `spiritualGlow` | `#64B5F666` | 灵性之墙半透明屏障、超凡占卜水波 |
-| `crimsonStar` | `#E63946` | 灰雾之上的深红星辰、祈祷共鸣指示 |
-| `crimsonThread` | `#B71C1C` | 侦探案卷推演板上的证据红线 |
+| `pathwayFool` | `#7B2CBF` | 占卜家 / 愚者（神秘暗紫金，深邃雾海） |
+| `pathwayDoor` | `#0077B6` | 学徒 / 门（星空幽蓝，时空穿梭之钥） |
+| `pathwayError` | `#D4A373` | 偷盗者 / 错误（时钟齿轮古铜黄，命运缝隙） |
+| `pathwayDarkness` | `#3A0CA3` | 不眠者 / 黑夜（暗夜深沉静谧暗紫） |
+| `pathwaySun` | `#FB8500` | 歌颂者 / 太阳（神圣炽烈日光琥珀） |
+| `pathwayVisionary`| `#E9D8A6` | 观众 / 空想家（梦境苍白金，心灵烛火） |
 
 ### 2.4 羊皮纸案卷与复古纸张体系 (Parchment & Ink)
 | Token 名称 | 十六进制色值 | 语义用途 |
@@ -60,29 +66,33 @@
 | `parchmentBase` | `#EADBB6` | 故事书历史章节、案卷线索卡背景 |
 | `parchmentBorder` | `#C8B282` | 做旧复古羊皮纸磨损毛边 |
 | `parchmentInk` | `#2B2118` | 棕褐色钢笔草写墨迹文字 |
+| `parchmentWaxSeal` | `#9E2A2B` | 绝密文件上的勃艮第深红火漆印章 |
 
 ---
 
-## 3. 间距与网格系统 (Spacing Grid)
+## 3. Z 轴层级与无障碍焦点环 (Elevation & Accessibility)
 
-严格遵循 **4pt / 8pt 网格**体系，杜绝奇数间距：
+### 3.1 Z 轴层级深度 (Elevation)
+| 层级 Token | 深度值 | 适用结构 |
+|:---|:---:|:---|
+| `layerBase` | 0 | 主背景画布、星空背景 |
+| `layerElevated` | 1 | 侧边栏、主工作台底板 |
+| `layerCard` | 2 | 维多利亚卷宗卡片、仪表盘底座 |
+| `layerFloating` | 3 | 悬浮浮层、线索便签、Listening Ring |
+| `layerModal` | 4 | 模态对话框、仪式魔法祭台全屏覆盖层 |
+| `layerHUD` | 5 | 灵视 HUD 滤镜、严重失控全屏警示框 |
 
-| Token | 数值 (pt) | 适用场景 |
-|:---|:---|:---|
-| `xxs` | 2 | 极细微偏移、指示灯与文字间隙 |
-| `xs` | 4 | 紧凑图标与徽章间隙、标签内边距 |
-| `sm` | 8 | 列表项内部元素间距、卡片紧凑内边距 |
-| `md` | 12 | 默认栅格步长、侧边栏项目垂直间隙 |
-| `lg` | 16 | 标准卡片内边距 (Padding)、段落间距 |
-| `xl` | 24 | 大模块间距、三栏工作区主内边距 |
-| `xxl` | 32 | 页面区块隔离、模态弹窗外边距 |
-| `xxxl` | 48 | 全局窗口边距、沉浸场景留白 |
+### 3.2 键盘无障碍焦点环 (Focus Ring)
+macOS 原生键盘导航标准：
+* `focusRingColor`: `#C5A059`（暗金光晕）
+* `focusRingWidth`: `2.0 pt`
+* `focusRingOffset`: `2.0 pt`
 
 ---
 
-## 4. 同心圆角体系 (Concentric Radii)
+## 4. 间距与同心圆角几何法则 (Spacing & Concentric Radii)
 
-圆角必须遵循**同心推导几何法则**：
+严格遵循 **4pt / 8pt 网格**与同心推导几何法则：
 $$R_{child} = \max(R_{parent} - \text{padding}, 0)$$
 
 | Token | 数值 (pt) | 适用组件 |
@@ -92,14 +102,14 @@ $$R_{child} = \max(R_{parent} - \text{padding}, 0)$$
 | `md` | 12 | 小型卡片、弹出菜单、侧边栏选中高光块 |
 | `lg` | 16 | 标准维多利亚卡片、卷宗容器 |
 | `xl` | 24 | 大模态面板、浮层面板 |
-| `full`| 9999 | 胶囊胶囊药丸 (Capsule) 与正圆 (Circle) |
+| `full`| 9999 | 胶囊药丸 (Capsule) 与正圆 (Circle) |
 
 ---
 
-## 5. 交互运行态与动效时间规范 (Motion)
+## 5. 组件级专有 Token (Component Tokens)
 
-组件状态与 `docs/05_UI/Interaction_Runtime_State_v1.0.md` 完全映射：
-* **`listeningPulseDuration`**: `2.4s`（Listening Ring 在待命与聆听态下的呼吸循环周期，采用 `easeInOut`）；
-* **`voiceWaveformResponse`**: `0.12s`（声纹波动实时响应平滑窗口）；
-* **`stateTransitionDuration`**: `0.35s`（视图与交互态切换缓动时间）；
-* **`pendulumSwingPeriod`**: `3.2s`（黄水晶灵摆占卜的物理摆动与回旋周期）。
+| 组件 | 专有 Token | 取值 | 约束说明 |
+|:---|:---|:---|:---|
+| **`ListeningRing`** | `diameterDefault`<br>`pulseScaleMax` | 58 pt<br>1.25 | 呼吸脉冲最大扩散半径不超过外环 125% |
+| **`SpiritualityGauge`** | `criticalThreshold`<br>`warningThreshold` | 0.25<br>0.50 | 灵性值低于 25% 强制触发红色危险失控警报 |
+| **`TarotCard`** | `aspectRatio`<br>`cornerNotchSize` | 1.618 (黄金比例)<br>6 pt | 卡牌必须符合塔罗标准长宽黄金比例 |
