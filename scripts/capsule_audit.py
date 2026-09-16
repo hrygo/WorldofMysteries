@@ -30,9 +30,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # 元数据路径：不参与「代码变更必须带胶囊」的判定，但仍受 forbidden / 门禁档案主权约束。
 META_PREFIXES = (".agents/capsules/", ".agents/receipts/", "docs/", "README.md", "AGENTS.md")
 
+# 仓库根部的治理元文件：属协同元数据，不适用「代码变更必须带胶囊」判定。
+# （`.hacf/gates/**` 等受保护门禁档案不在其中，仍按代码严格裁决。）
+ROOT_META_FILES = (".gitignore", ".gitattributes", ".editorconfig", ".gitmessage")
+
 
 def _is_meta(path: str) -> bool:
-    return path.startswith(META_PREFIXES) or path.endswith(".md")
+    return (
+        path.startswith(META_PREFIXES)
+        or path in ROOT_META_FILES
+        or path.endswith(".md")
+    )
 
 
 def _is_code(path: str) -> bool:
