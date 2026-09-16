@@ -185,7 +185,7 @@ public struct AppSidebarView: View {
                             .fill(Color.Mystic.obsidianCard.opacity(0.6))
                     )
             }
-            .buttonStyle(.plain)
+            .mysticPressable()
             .help(isCollapsed ? "展开侧边栏 (⌥⌘S)" : "折叠侧边栏 (⌥⌘S)")
         }
         .padding(.horizontal, isCollapsed ? DesignTokens.Spacing.sm : DesignTokens.Spacing.md)
@@ -312,7 +312,7 @@ public struct AppSidebarView: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .mysticPressable(scale: 0.99, pressedOpacity: 0.92)
         .onHover { hovering in
             hoveredItem = hovering ? item : nil
         }

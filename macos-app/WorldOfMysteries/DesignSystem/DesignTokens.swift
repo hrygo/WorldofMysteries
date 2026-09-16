@@ -1,9 +1,9 @@
 import SwiftUI
 
-// MARK: - DesignTokens Namespace v1.1
+// MARK: - DesignTokens Namespace v1.2
 
 /// 《诡秘世界》跨端同源设计 Token 语言体系 (Single Source of Truth)
-/// 严格对齐 `docs/05_UI/design_tokens.json` (v1.1.0)
+/// 严格对齐 `docs/05_UI/design_tokens.json` (v1.2.0)
 public enum DesignTokens: Sendable {
     
     // MARK: - Spacing Grid (4pt / 8pt 阶梯)
@@ -85,6 +85,31 @@ public enum DesignTokens: Sendable {
             public static let aspectRatio: CGFloat = 1.618 // 黄金比例
             public static let cornerNotchSize: CGFloat = 6
         }
+        
+        /// 黄水晶吊坠原画几何（正典「克莱恩执链占卜」原画重构图）
+        /// 视窗锚定黄水晶几何中心，摆动枢轴取手指捏链点，保证摇晃时不漂移出画
+        public enum CitrineArtwork: Sendable {
+            public static let imageWidth: CGFloat = 340
+            public static let imageHeight: CGFloat = 676
+            
+            /// 黄水晶几何中心（原画像素坐标）
+            public static let subjectCenterX: CGFloat = 170
+            public static let subjectCenterY: CGFloat = 338
+            
+            /// 手指捏链点（链条垂下之处，即灵摆摆动枢轴）
+            public static let chainGripX: CGFloat = 184
+            public static let chainGripY: CGFloat = 87
+            
+            /// 标准视窗宽度（高度按原画比例推导，确保整幅原画无裁切）
+            public static let panelWidth: CGFloat = 156
+            
+            /// 覆盖安全系数：抵消像素取整造成的边缘缝隙
+            public static let coverageGuard: CGFloat = 1.01
+            
+            /// 摆动条带：仅「银链 + 黄水晶」参与摇晃，静态场景保持不动
+            public static let swingStripWidth: CGFloat = 100
+            public static let swingStripBottomOffset: CGFloat = 120
+        }
     }
     
     // MARK: - Motion
@@ -94,6 +119,8 @@ public enum DesignTokens: Sendable {
         public static let stateTransitionDuration: Double = 0.35
         public static let pendulumSwingPeriod: Double = 3.2
         public static let typewriterInterval: Double = 0.04
+        public static let pendulumSwingMaxDegrees: Double = 6.0
+        public static let pendulumSwingInterval: Double = 0.85
         
         public static var smoothSpring: Animation {
             .spring(response: 0.35, dampingFraction: 0.82)
@@ -104,13 +131,67 @@ public enum DesignTokens: Sendable {
         }
     }
     
-    // MARK: - Typography Metrics
+    // MARK: - Typography Metrics (Line Spacing & Tracking)
     public enum TypographyMetrics: Sendable {
+        // Line Spacing (行间距)
         public static let narrativeLineSpacing: CGFloat = 6.0
         public static let parchmentLineSpacing: CGFloat = 5.0
-        public static let displayTracking: CGFloat = 0.6
-        public static let titleTracking: CGFloat = 0.2
+        public static let bodyLineSpacing: CGFloat = 4.0
+        public static let titleLineSpacing: CGFloat = 3.0
+        public static let compactLineSpacing: CGFloat = 2.0
+        
+        // Tracking / Letter Spacing (字间距)
+        public static let gothicDisplayTracking: CGFloat = 0.6
+        public static let displayTracking: CGFloat = 0.5
+        public static let titleTracking: CGFloat = 0.25
         public static let monoTracking: CGFloat = 0.4
+        public static let captionTracking: CGFloat = 0.2
+        public static let bodyTracking: CGFloat = 0.0
+    }
+    
+    // MARK: - Layout Insets & Padding Standard (边距与填充)
+    public enum LayoutInsets: Sendable {
+        public static let cardPadding: CGFloat = Spacing.lg             // 16pt 标准卡片内边距
+        public static let compactCardPadding: CGFloat = Spacing.md      // 12pt 紧凑卡片内边距
+        public static let panelPadding: CGFloat = Spacing.xl            // 24pt 模态与大面板内边距
+        
+        public static let rowPaddingHorizontal: CGFloat = Spacing.md    // 12pt 列表/菜单行横向内边距
+        public static let rowPaddingVertical: CGFloat = Spacing.sm      // 8pt 列表/菜单行纵向内边距
+        
+        public static let badgePaddingHorizontal: CGFloat = 6.0        // 6pt 紧凑状态徽章横向边距
+        public static let badgePaddingVertical: CGFloat = 2.0          // 2pt 紧凑状态徽章纵向边距
+        
+        public static let stackSpacingSm: CGFloat = Spacing.sm          // 8pt 紧凑元素间距
+        public static let stackSpacingMd: CGFloat = Spacing.md          // 12pt 中等模块间距
+        public static let stackSpacingLg: CGFloat = Spacing.lg          // 16pt 卡片级纵向间距
+    }
+    
+    // MARK: - Interaction & UX Feedback (交互反馈与状态规范)
+    public enum Interaction: Sendable {
+        // 按下与点击微物理反馈
+        public static let pressedScale: CGFloat = 0.98
+        public static let pressedOpacity: Double = 0.88
+        
+        // 悬停态视觉反馈
+        public static let hoverBrightness: Double = 0.06
+        public static let hoverBackgroundOpacity: Double = 0.08
+        public static let hoverBorderOpacity: Double = 0.35
+        
+        // 选中态高光与阴影
+        public static let selectedBorderWidth: CGFloat = 1.5
+        public static let selectedShadowRadius: CGFloat = 6.0
+        public static let selectedGlowOpacity: Double = 0.30
+        
+        // 动画过渡曲线
+        public static var clickSpring: Animation {
+            .spring(response: 0.22, dampingFraction: 0.75)
+        }
+        public static var hoverAnimation: Animation {
+            .easeInOut(duration: 0.18)
+        }
+        public static var selectionSpring: Animation {
+            .spring(response: 0.32, dampingFraction: 0.82)
+        }
     }
 }
 

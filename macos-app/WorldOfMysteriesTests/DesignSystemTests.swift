@@ -236,6 +236,34 @@ struct DesignSystemTests {
         let backlundCard = BacklundMetropolisCard()
         _ = backlundCard.body
         #expect(BacklundDistrict.allCases.count == 4)
+        
+        let gallery = ComponentGalleryView()
+        _ = gallery.body
+    }
+    
+    @Test("Unified UX Interaction tokens, Layout Insets, and Typography rhythm are positive and well-formed")
+    func testInteractionAndLayoutTokens() {
+        // Interaction tokens
+        #expect(DesignTokens.Interaction.pressedScale < 1.0 && DesignTokens.Interaction.pressedScale > 0.9)
+        #expect(DesignTokens.Interaction.pressedOpacity < 1.0 && DesignTokens.Interaction.pressedOpacity > 0.5)
+        #expect(DesignTokens.Interaction.selectedBorderWidth >= 1.0)
+        #expect(DesignTokens.Interaction.selectedShadowRadius > 0)
+        #expect(DesignTokens.Interaction.hoverBorderOpacity > 0)
+        
+        // Layout insets tokens
+        #expect(DesignTokens.LayoutInsets.cardPadding == 16.0)
+        #expect(DesignTokens.LayoutInsets.compactCardPadding == 12.0)
+        #expect(DesignTokens.LayoutInsets.rowPaddingHorizontal == 12.0)
+        #expect(DesignTokens.LayoutInsets.rowPaddingVertical == 8.0)
+        #expect(DesignTokens.LayoutInsets.badgePaddingHorizontal == 6.0)
+        #expect(DesignTokens.LayoutInsets.badgePaddingVertical == 2.0)
+        #expect(DesignTokens.LayoutInsets.panelPadding == 24.0)
+        
+        // Typography metrics (line spacing & tracking)
+        #expect(DesignTokens.TypographyMetrics.narrativeLineSpacing > DesignTokens.TypographyMetrics.bodyLineSpacing)
+        #expect(DesignTokens.TypographyMetrics.bodyLineSpacing > DesignTokens.TypographyMetrics.compactLineSpacing)
+        #expect(DesignTokens.TypographyMetrics.gothicDisplayTracking >= DesignTokens.TypographyMetrics.displayTracking)
+        #expect(DesignTokens.TypographyMetrics.displayTracking > DesignTokens.TypographyMetrics.titleTracking)
     }
 }
 

@@ -33,13 +33,14 @@ public struct TingenCityDossierCard: View {
     public var onLocationSelected: (@MainActor (TingenLocation) -> Void)?
     
     @State private var selectedLocation: TingenLocation = .zotlandStreet
+    @State private var hoveredLocation: TingenLocation? = nil
     
     public init(onLocationSelected: (@MainActor (TingenLocation) -> Void)? = nil) {
         self.onLocationSelected = onLocationSelected
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
             // 顶部卷宗标头：深邃红夜拱窗氛围底板（纯净无文字背景）
             ZStack(alignment: .bottomLeading) {
                 // 纯净材质背景
@@ -82,11 +83,10 @@ public struct TingenCityDossierCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
                 
                 // 城市标牌与气象微态势（全原生动态渲染）
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
                     HStack(spacing: 6) {
                         Text("鲁恩王国 · 阿霍瓦郡")
-                            .font(Font.Mystic.caption)
-                            .foregroundStyle(Color.Mystic.brassGoldMuted)
+                            .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
                         
                         Circle()
                             .fill(Color.Mystic.crimsonStar)
@@ -98,15 +98,12 @@ public struct TingenCityDossierCard: View {
                     }
                     
                     Text("廷根市 · 调查据点卷宗")
-                        .font(Font.Mystic.titleMedium)
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color.Mystic.textPrimary)
+                        .mysticTitleStyle(font: Font.Mystic.titleMedium)
                     
                     Text("阿霍瓦细雨 · 煤气路灯长明 · 能见度 65%")
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textSecondary)
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
                 }
-                .padding(DesignTokens.Spacing.md)
+                .padding(DesignTokens.LayoutInsets.compactCardPadding)
             }
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
@@ -114,7 +111,7 @@ public struct TingenCityDossierCard: View {
             )
             
             // 查尼斯门与值夜者警戒态势条
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
                 statusPill(
                     title: "查尼斯门状态",
                     value: "安宁 (圣赛缪尔骨灰封印)",
@@ -133,8 +130,7 @@ public struct TingenCityDossierCard: View {
             // 四大关键地标列表选择
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("重要地标与驻点 (Key Locations)：")
-                    .font(Font.Mystic.caption)
-                    .foregroundStyle(Color.Mystic.textTertiary)
+                    .mysticCaptionStyle(color: Color.Mystic.textTertiary)
                 
                 VStack(spacing: DesignTokens.Spacing.xs) {
                     ForEach(TingenLocation.allCases) { loc in
@@ -143,7 +139,7 @@ public struct TingenCityDossierCard: View {
                 }
             }
         }
-        .padding(DesignTokens.Spacing.lg)
+        .padding(DesignTokens.LayoutInsets.cardPadding)
         .background(
             Color.Mystic.obsidianElevated
                 .overlay(
@@ -179,7 +175,7 @@ public struct TingenCityDossierCard: View {
             
             Spacer()
         }
-        .padding(.horizontal, DesignTokens.Spacing.sm)
+        .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal + 2)
         .padding(.vertical, 6)
         .background(Color.Mystic.obsidianCard)
         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
@@ -192,9 +188,10 @@ public struct TingenCityDossierCard: View {
     @ViewBuilder
     private func locationRow(_ loc: TingenLocation) -> some View {
         let isSelected = selectedLocation == loc
+        let isHovered = hoveredLocation == loc
         
         Button {
-            withAnimation(DesignTokens.Motion.smoothSpring) {
+            withAnimation(DesignTokens.Interaction.selectionSpring) {
                 selectedLocation = loc
             }
             onLocationSelected?(loc)
@@ -202,18 +199,18 @@ public struct TingenCityDossierCard: View {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Image(systemName: loc.systemIcon)
                     .font(.system(size: 12))
-                    .foregroundStyle(isSelected ? Color.Mystic.brassGoldPrimary : Color.Mystic.textTertiary)
+                    .foregroundStyle(isSelected ? Color.Mystic.brassGoldPrimary : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textTertiary))
                     .frame(width: 18)
                 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
                     Text(loc.rawValue)
                         .font(Font.Mystic.bodyMedium)
                         .fontWeight(isSelected ? .semibold : .regular)
-                        .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+                        .foregroundStyle(isSelected ? Color.Mystic.textPrimary : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary))
+                        .tracking(DesignTokens.TypographyMetrics.bodyTracking)
                     
                     Text(loc.note)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textTertiary)
+                        .mysticCaptionStyle(color: isSelected ? Color.Mystic.brassGoldMuted : Color.Mystic.textTertiary)
                 }
                 
                 Spacer()
@@ -225,18 +222,17 @@ public struct TingenCityDossierCard: View {
                         .shadow(color: Color.Mystic.brassGoldPrimary, radius: 4)
                 }
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.vertical, DesignTokens.Spacing.xs)
-            .background(
-                RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                    .fill(isSelected ? Color.Mystic.obsidianCard : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                            .stroke(isSelected ? Color.Mystic.brassGoldBorder : Color.clear, lineWidth: 1)
-                    )
+            .mysticRowItem(
+                isSelected: isSelected,
+                isHovered: isHovered,
+                cornerRadius: DesignTokens.Radii.sm,
+                showsLeadingIndicator: true
             )
         }
-        .buttonStyle(.plain)
+        .mysticPressable()
+        .onHover { hovering in
+            hoveredLocation = hovering ? loc : nil
+        }
     }
 }
 

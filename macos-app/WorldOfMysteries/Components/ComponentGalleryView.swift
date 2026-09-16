@@ -7,6 +7,8 @@ public struct ComponentGalleryView: View {
     @State private var ringState: ListeningRingState = .listening
     @State private var pendulumState: PendulumState = .affirmative
     @State private var isPraying: Bool = false
+    @State private var testSelectedCard: Bool = true
+    @State private var testClickCount: Int = 0
     
     public init() {}
     
@@ -210,6 +212,130 @@ public struct ComponentGalleryView: View {
                             
                             BacklundMetropolisCard()
                                 .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                
+                // 9. 统一交互规范与排版标尺
+                gallerySection(title: "09 · 统一交互规范与排版标尺 (UX & Typography Specimen)") {
+                    VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+                        // 1. 交互状态展示栏
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                            Text("交互状态展示 (Interaction States)：")
+                                .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                            
+                            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
+                                // 常态卡片
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("常态 (Default)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(Color.Mystic.textTertiary)
+                                    Text("黑曜石底板 · 细发丝边框")
+                                        .font(Font.Mystic.caption)
+                                        .foregroundStyle(Color.Mystic.textSecondary)
+                                }
+                                .padding(DesignTokens.LayoutInsets.compactCardPadding)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.Mystic.obsidianCard)
+                                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+                                .mysticCardSelection(isSelected: false, isHovered: false)
+                                
+                                // 选中态卡片（带高亮轮廓与微发光）
+                                Button {
+                                    withAnimation(DesignTokens.Interaction.selectionSpring) {
+                                        testSelectedCard.toggle()
+                                    }
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text(testSelectedCard ? "已选中 (Selected)" : "未选中 (Unselected)")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundStyle(testSelectedCard ? Color.Mystic.brassGoldPrimary : Color.Mystic.textTertiary)
+                                            Spacer()
+                                            Image(systemName: testSelectedCard ? "checkmark.circle.fill" : "circle")
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(testSelectedCard ? Color.Mystic.brassGoldPrimary : Color.Mystic.textTertiary)
+                                        }
+                                        Text("1.5pt 暗金边框 · 6pt 呼吸微光 (点击切换)")
+                                            .font(Font.Mystic.caption)
+                                            .foregroundStyle(Color.Mystic.textPrimary)
+                                    }
+                                    .padding(DesignTokens.LayoutInsets.compactCardPadding)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.Mystic.obsidianCard)
+                                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+                                    .mysticCardSelection(isSelected: testSelectedCard, isHovered: false)
+                                }
+                                .mysticPressable()
+                                
+                                // 按压微物理反馈测试按钮
+                                Button {
+                                    testClickCount += 1
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            Text("点击微物理反馈")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundStyle(Color.Mystic.statusOnline)
+                                            Spacer()
+                                            Text("x\(testClickCount)")
+                                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                                .foregroundStyle(Color.Mystic.statusOnline)
+                                        }
+                                        Text("Scale 0.98 阻尼回弹 · 点击体验")
+                                            .font(Font.Mystic.caption)
+                                            .foregroundStyle(Color.Mystic.textPrimary)
+                                    }
+                                    .padding(DesignTokens.LayoutInsets.compactCardPadding)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.Mystic.obsidianCard)
+                                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+                                            .stroke(Color.Mystic.statusOnline.opacity(0.4), lineWidth: 1)
+                                    )
+                                }
+                                .mysticPressable()
+                            }
+                        }
+                        
+                        // 2. 排版度量衡标尺
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                            Text("排版度量衡标尺 (Typography Rhythm & Kerning)：")
+                                .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                            
+                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                                Text("古典巨幕 (32pt 衬线 / Tracking +0.6pt / 严谨行距)")
+                                    .font(Font.Mystic.gothicDisplay)
+                                    .tracking(DesignTokens.TypographyMetrics.gothicDisplayTracking)
+                                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                                
+                                Text("沉浸叙事对白 (16pt 衬线 / 行间距 6.0pt / Tracking +0.25pt)：\n“我们在黑暗中守护光明，却也必须时刻警惕来自虚空的凝视。不属于这个时代的愚者，正在灰雾之上默默注视着命运轮转。”")
+                                    .mysticNarrativeStyle()
+                                
+                                Text("侦探草写便签 (14pt 楷体 / 行间距 5.0pt)：\n明斯克街15号夏洛克·莫里亚蒂侦探亲笔 —— 追查绝密赫密斯语手稿。")
+                                    .font(Font.Mystic.parchmentCursive)
+                                    .lineSpacing(DesignTokens.TypographyMetrics.parchmentLineSpacing)
+                                    .foregroundStyle(Color.Mystic.brassGoldMuted)
+                                
+                                HStack(spacing: DesignTokens.Spacing.lg) {
+                                    Text("机械等宽徽标 (Tracking +0.4pt): [SEQ-9-SEER-001]")
+                                        .font(Font.Mystic.monoBadge)
+                                        .tracking(DesignTokens.TypographyMetrics.monoTracking)
+                                        .foregroundStyle(Color.Mystic.statusOnline)
+                                    
+                                    Text("紧凑元数据 (行间距 2.0pt / Tracking +0.2pt)")
+                                        .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+                                }
+                            }
+                            .padding(DesignTokens.LayoutInsets.cardPadding)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.Mystic.obsidianElevated)
+                            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+                                    .stroke(Color.Mystic.brassGoldBorder.opacity(0.6), lineWidth: 1)
+                            )
                         }
                     }
                 }

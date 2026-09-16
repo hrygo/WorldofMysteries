@@ -42,6 +42,7 @@ public struct BacklundMetropolisCard: View {
     public var onDistrictSelected: (@MainActor (BacklundDistrict) -> Void)?
     
     @State private var selectedDistrict: BacklundDistrict = .cherwood
+    @State private var hoveredDistrict: BacklundDistrict? = nil
     @State private var smogLevel: Double = 0.78
     
     public init(onDistrictSelected: (@MainActor (BacklundDistrict) -> Void)? = nil) {
@@ -49,7 +50,7 @@ public struct BacklundMetropolisCard: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
             // 顶部横幅：哥特主教座与万都之都夜色氛围（纯净无文字背景）
             ZStack(alignment: .bottomLeading) {
                 ZStack {
@@ -90,11 +91,10 @@ public struct BacklundMetropolisCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
                 
                 // 城市名与核心概览（全原生动态渲染）
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
                     HStack(spacing: 6) {
                         Text("鲁恩王国首都 · 万都之都")
-                            .font(Font.Mystic.caption)
-                            .foregroundStyle(Color.Mystic.brassGoldMuted)
+                            .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
                         
                         Text("Hope & Fall")
                             .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -102,15 +102,12 @@ public struct BacklundMetropolisCard: View {
                     }
                     
                     Text("贝克兰德 · 全景态势视窗")
-                        .font(Font.Mystic.titleMedium)
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color.Mystic.textPrimary)
+                        .mysticTitleStyle(font: Font.Mystic.titleMedium)
                     
                     Text("塔索克河水雾 · 蒸汽烟囱轰鸣 · 500 万人口之城")
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textSecondary)
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
                 }
-                .padding(DesignTokens.Spacing.md)
+                .padding(DesignTokens.LayoutInsets.compactCardPadding)
             }
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
@@ -118,7 +115,7 @@ public struct BacklundMetropolisCard: View {
             )
             
             // 大雾霾浓度与势力警戒条
-            HStack(spacing: DesignTokens.Spacing.md) {
+            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
                 // 大雾霾指数
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
@@ -148,7 +145,7 @@ public struct BacklundMetropolisCard: View {
                                 .frame(width: proxy.size.width * smogLevel)
                         }
                     }
-                    .frame(height: 4)
+                    .frame(height: 5)
                 }
                 .padding(DesignTokens.Spacing.sm)
                 .background(Color.Mystic.obsidianCard)
@@ -157,14 +154,14 @@ public struct BacklundMetropolisCard: View {
                 // 塔索克河航运与官方警戒
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
-                        Image(systemName: "ferry.fill")
+                        Image(systemName: "water.waves")
                             .font(.system(size: 11))
                             .foregroundStyle(Color.Mystic.spiritualBlue)
                         Text("塔索克河航运")
                             .font(.system(size: 10))
                             .foregroundStyle(Color.Mystic.textSecondary)
                         Spacer()
-                        Text("通航中")
+                        Text("通畅")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(Color.Mystic.statusOnline)
                     }
@@ -181,8 +178,7 @@ public struct BacklundMetropolisCard: View {
             // 四大核心城区与侦探据点列表
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("重点城区与暗线据点 (Boroughs & Safehouses)：")
-                    .font(Font.Mystic.caption)
-                    .foregroundStyle(Color.Mystic.textTertiary)
+                    .mysticCaptionStyle(color: Color.Mystic.textTertiary)
                 
                 VStack(spacing: DesignTokens.Spacing.xs) {
                     ForEach(BacklundDistrict.allCases) { district in
@@ -191,7 +187,7 @@ public struct BacklundMetropolisCard: View {
                 }
             }
         }
-        .padding(DesignTokens.Spacing.lg)
+        .padding(DesignTokens.LayoutInsets.cardPadding)
         .background(
             Color.Mystic.obsidianElevated
                 .overlay(
@@ -212,33 +208,34 @@ public struct BacklundMetropolisCard: View {
     @ViewBuilder
     private func districtRow(_ district: BacklundDistrict) -> some View {
         let isSelected = selectedDistrict == district
+        let isHovered = hoveredDistrict == district
         
         Button {
-            withAnimation(DesignTokens.Motion.smoothSpring) {
+            withAnimation(DesignTokens.Interaction.selectionSpring) {
                 selectedDistrict = district
             }
             onDistrictSelected?(district)
         } label: {
             HStack(spacing: DesignTokens.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
                     HStack(spacing: 6) {
                         Text(district.rawValue)
                             .font(Font.Mystic.bodyMedium)
                             .fontWeight(isSelected ? .semibold : .regular)
-                            .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+                            .foregroundStyle(isSelected ? Color.Mystic.textPrimary : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary))
+                            .tracking(DesignTokens.TypographyMetrics.bodyTracking)
                         
                         Text(district.dangerLevel)
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundStyle(district.dangerColor)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
+                            .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal - 2)
+                            .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical - 1)
                             .background(district.dangerColor.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 2))
                     }
                     
                     Text(district.description)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textTertiary)
+                        .mysticCaptionStyle(color: isSelected ? Color.Mystic.brassGoldMuted : Color.Mystic.textTertiary)
                 }
                 
                 Spacer()
@@ -250,18 +247,17 @@ public struct BacklundMetropolisCard: View {
                         .shadow(color: Color.Mystic.brassGoldPrimary, radius: 4)
                 }
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.vertical, DesignTokens.Spacing.xs)
-            .background(
-                RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                    .fill(isSelected ? Color.Mystic.obsidianCard : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                            .stroke(isSelected ? Color.Mystic.brassGoldBorder : Color.clear, lineWidth: 1)
-                    )
+            .mysticRowItem(
+                isSelected: isSelected,
+                isHovered: isHovered,
+                cornerRadius: DesignTokens.Radii.sm,
+                showsLeadingIndicator: true
             )
         }
-        .buttonStyle(.plain)
+        .mysticPressable()
+        .onHover { hovering in
+            hoveredDistrict = hovering ? district : nil
+        }
     }
 }
 
