@@ -13,9 +13,13 @@ struct VisualSystemGallerySection: View {
         ComponentGallerySection(title: "11 · 视觉资产系统 (Visual Asset System)") {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
                 customIconGrid
+                WOMDividerOrnament()
                 platformIconRows
+                WOMDividerOrnament()
                 buttonVariants
+                WOMDividerOrnament()
                 surfaceSamples
+                WOMDividerOrnament()
                 accessibilitySamples
             }
         }
@@ -27,7 +31,10 @@ struct VisualSystemGallerySection: View {
                 .womSectionHeaderStyle()
 
             LazyVGrid(
-                columns: Array(repeating: GridItem(.fixed(74), spacing: DesignTokens.Spacing.sm), count: 6),
+                columns: Array(
+                    repeating: GridItem(.fixed(74), spacing: DesignTokens.Spacing.sm),
+                    count: 6
+                ),
                 alignment: .leading,
                 spacing: DesignTokens.Spacing.sm
             ) {
@@ -54,33 +61,29 @@ struct VisualSystemGallerySection: View {
     }
 
     private var platformIconRows: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            WOMDividerOrnament()
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                Text("平台行为")
+                    .womSectionHeaderStyle()
 
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    Text("平台行为")
-                        .womSectionHeaderStyle()
-
-                    HStack(spacing: DesignTokens.Spacing.md) {
-                        ForEach(WOMSystemIcon.allCases, id: \.rawValue) { icon in
-                            WOMIcon(system: icon, size: .standard, accessibilityLabel: icon.rawValue)
-                                .foregroundStyle(Color.Mystic.textPrimary)
-                                .frame(width: 28, height: 28)
-                        }
+                HStack(spacing: DesignTokens.Spacing.md) {
+                    ForEach(WOMSystemIcon.allCases, id: \.rawValue) { icon in
+                        WOMIcon(system: icon, size: .standard, accessibilityLabel: icon.rawValue)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                            .frame(width: 28, height: 28)
                     }
                 }
+            }
 
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    Text("状态语义")
-                        .womSectionHeaderStyle()
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                Text("状态语义")
+                    .womSectionHeaderStyle()
 
-                    HStack(spacing: DesignTokens.Spacing.md) {
-                        ForEach(WOMStatusIcon.allCases, id: \.rawValue) { icon in
-                            WOMIcon(status: icon, size: .standard, accessibilityLabel: icon.rawValue)
-                                .foregroundStyle(statusColor(icon))
-                                .frame(width: 28, height: 28)
-                        }
+                HStack(spacing: DesignTokens.Spacing.md) {
+                    ForEach(WOMStatusIcon.allCases, id: \.rawValue) { icon in
+                        WOMIcon(status: icon, size: .standard, accessibilityLabel: icon.rawValue)
+                            .foregroundStyle(statusColor(icon))
+                            .frame(width: 28, height: 28)
                     }
                 }
             }
@@ -89,8 +92,6 @@ struct VisualSystemGallerySection: View {
 
     private var buttonVariants: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            WOMDividerOrnament()
-
             Text("按钮语义与密度")
                 .womSectionHeaderStyle()
 
@@ -121,8 +122,6 @@ struct VisualSystemGallerySection: View {
 
     private var surfaceSamples: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            WOMDividerOrnament()
-
             Text("Surface + Texture")
                 .womSectionHeaderStyle()
 
@@ -153,12 +152,10 @@ struct VisualSystemGallerySection: View {
 
     private var accessibilitySamples: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            WOMDividerOrnament()
-
             Text("辅助功能状态 · Accessibility States")
                 .womSectionHeaderStyle()
 
-            Text("使用 Tab/Shift-Tab 检查键盘焦点；在系统辅助功能中切换“增强对比度”“不使用颜色进行区分”“减少动态效果”“降低透明度”，本区域会直接反映当前系统设置。")
+            Text("使用 Tab/Shift-Tab 检查键盘焦点；并可在系统辅助功能中切换增强对比度、不使用颜色进行区分、减少动态效果和降低透明度，观察本区域的实时退化与增强效果。")
                 .mysticCaptionStyle(color: Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -189,7 +186,6 @@ struct VisualSystemGallerySection: View {
                     detail: "开启“不使用颜色进行区分”后，选中态增加第二层几何描边。",
                     selected: true
                 )
-
                 accessibilityCard(
                     title: "Unselected",
                     detail: "作为同组基准，验证 selected 不只依赖颜色差异。",
@@ -199,7 +195,11 @@ struct VisualSystemGallerySection: View {
         }
     }
 
-    private func accessibilityCard(title: String, detail: String, selected: Bool) -> some View {
+    private func accessibilityCard(
+        title: String,
+        detail: String,
+        selected: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text(title)
                 .font(Font.Mystic.titleSmall)
@@ -209,7 +209,12 @@ struct VisualSystemGallerySection: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(DesignTokens.LayoutInsets.compactCardPadding)
-        .frame(width: 260, minHeight: 86, alignment: .leading)
+        .frame(
+            minWidth: 260,
+            maxWidth: 260,
+            minHeight: 86,
+            alignment: .leading
+        )
         .womCardChrome(
             tone: .card,
             texture: .sacredSlate,
@@ -228,7 +233,11 @@ struct VisualSystemGallerySection: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text(title)
                 .font(Font.Mystic.caption)
-                .foregroundStyle(tone == .parchment ? Color.Mystic.parchmentInk : Color.Mystic.textPrimary)
+                .foregroundStyle(
+                    tone == .parchment
+                        ? Color.Mystic.parchmentInk
+                        : Color.Mystic.textPrimary
+                )
             Text(texture.rawValue)
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(
