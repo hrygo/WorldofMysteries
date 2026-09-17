@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import Testing
 @testable import WorldOfMysteriesCore
 
@@ -49,6 +50,25 @@ struct PremiumArtworkContractTests {
         #expect(catalog.isSubset(of: declared))
     }
 
+    @Test("present premium artwork derivatives match approved runtime pixel contracts")
+    func presentArtworkDerivativesMatchRuntimePixelContracts() throws {
+        for directory in try catalogArtworkDirectories() {
+            let assetName = String(directory.lastPathComponent.dropLast(".imageset".count))
+            let expected = try #require(expectedPixelSize(for: assetName))
+            let payloads = try imagesetPayloadURLs(in: directory)
+
+            #expect(!payloads.isEmpty, "\(assetName) must reference a runtime image payload")
+
+            for payload in payloads {
+                let actual = try pixelSize(of: payload)
+                #expect(
+                    actual.width == expected.width && actual.height == expected.height,
+                    "\(assetName) expected \(expected.width)×\(expected.height), got \(actual.width)×\(actual.height)"
+                )
+            }
+        }
+    }
+
     private var assetsCatalogURL: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -68,18 +88,58 @@ struct PremiumArtworkContractTests {
     }
 
     private func catalogArtworkNames() throws -> Set<String> {
-        let entries = try FileManager.default.contentsOfDirectory(
+        Set(try catalogArtworkDirectories().map {
+            String($0.lastPathComponent.dropLast(".imageset".count))
+        })
+    }
+
+    private func catalogArtworkDirectories() throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(
             at: assetsCatalogURL,
-            includingPropertiesForKeys: nil,
+            includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         )
-
-        return Set(entries.compactMap { url in
+        .filter { url in
             let name = url.lastPathComponent
-            guard name.hasPrefix("wom.art."), name.hasSuffix(".imageset") else {
-                return nil
+            return name.hasPrefix("wom.art.") && name.hasSuffix(".imageset")
+        }
+    }
+
+    private func imagesetPayloadURLs(in directory: URL) throws -> [URL] {
+        struct Contents: Decodable {
+            struct ImageEntry: Decodable {
+                let filename: String?
             }
-            return String(name.dropLast(".imageset".count))
-        })
+            let images: [ImageEntry]
+        }
+
+        let manifestURL = directory.appendingPathComponent("Contents.json")
+        let contents = try JSONDecoder().decode(Contents.self, from: Data(contentsOf: manifestURL))
+        return contents.images.compactMap(\.filename).map(directory.appendingPathComponent)
+    }
+
+    private func pixelSize(of url: URL) throws -> (width: Int, height: Int) {
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let properties = try #require(
+            CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        )
+        let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int)
+        let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int)
+        return (width, height)
+    }
+
+    private func expectedPixelSize(for assetName: String) -> (width: Int, height: Int)? {
+        if assetName.hasPrefix("wom.art.artifact.") {
+            if assetName.hasSuffix(".thumbnail") { return (512, 512) }
+            if assetName.hasSuffix(".detail") { return (1024, 1024) }
+            return nil
+        }
+
+        if assetName.hasPrefix("wom.art.world.") || assetName.hasPrefix("wom.art.scene.") {
+            if assetName.hasSuffix(".wide") { return (2400, 900) }
+            return (2560, 1600)
+        }
+
+        return nil
     }
 }
