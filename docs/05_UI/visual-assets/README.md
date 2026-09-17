@@ -59,7 +59,7 @@ wom.texture.*
 
 1. **Batch 04**：补齐 Close / Back / Favorite / More 系统行为语义。**已实现于 PR #26。**
 2. **Batch 05**：状态与世界交互语义：通用状态使用 `WOMStatusIcon` / SF Symbols；Divination / Spirituality / Gray Fog / Seal / Card 使用原创 SVG。**已实现于 PR #26。**
-3. **Batch 06**：盘点已有 Parchment / Gold / Veil / Slate / Velvet，并建立 `WOMTextureAsset` 类型化注册。
+3. **Batch 06**：盘点已有 Parchment / Gold / Veil / Slate / Velvet，并建立 `WOMTextureAsset` 类型化注册。**已实现于 PR #26。**
 4. **Batch 07**：实现 `WOMIcon`，统一 custom asset 与 SF Symbols source、尺寸、rendering 与 accessibility。
 5. **Batch 08**：建立 `WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle` 的完整状态模型。
 6. **Batch 09**：建立 `WOMPanelBackground`、`WOMCardChrome`、`WOMTextureLayer`、Section Chrome。
