@@ -3,10 +3,17 @@ import SwiftUI
 /// Visual regression and design-system showcase for the World of Mysteries visual asset stack.
 struct VisualSystemGallerySection: View {
     @State private var isCardHovered = false
+    @State private var advancedMode: AdvancedMode = .overview
     @FocusState private var accessibilityFocus: AccessibilityFocusTarget?
 
     private enum AccessibilityFocusTarget: Hashable {
         case primaryButton
+    }
+
+    private enum AdvancedMode: Hashable {
+        case overview
+        case evidence
+        case ritual
     }
 
     var body: some View {
@@ -23,6 +30,8 @@ struct VisualSystemGallerySection: View {
                 overlayFeedbackSamples
                 WOMDividerOrnament()
                 accessibilitySamples
+                WOMDividerOrnament()
+                advancedInteractionSamples
                 WOMDividerOrnament()
                 visualQAStressSamples
             }
@@ -287,6 +296,121 @@ struct VisualSystemGallerySection: View {
                 )
             }
         }
+    }
+
+    private var advancedInteractionSamples: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            Text("Advanced Interaction / World-State Chrome")
+                .womSectionHeaderStyle()
+
+            Text("Segmented 使用原生 Picker 语义；关系、成就与冷却仅呈现外部世界状态，不在视觉组件内部制造领域事实、计时器或关系分数。")
+                .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                Text("Adaptive Segmented Picker")
+                    .font(Font.Mystic.titleSmall)
+                    .foregroundStyle(Color.Mystic.textPrimary)
+
+                WOMAdaptiveSegmentedPicker(
+                    "观察模式",
+                    selection: $advancedMode,
+                    options: advancedModeOptions
+                )
+
+                WOMAdaptiveSegmentedPicker(
+                    "窄 Inspector 模式",
+                    selection: $advancedMode,
+                    options: advancedModeOptions
+                )
+                .frame(maxWidth: 220, alignment: .leading)
+
+                Text("第二个样例限制宽度，用于确认 segmented 在空间不足时由系统 Picker 自动降级为 menu，而不是缩小文字或互相覆盖。")
+                    .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(DesignTokens.LayoutInsets.compactCardPadding)
+            .womCardChrome(
+                tone: .card,
+                texture: .sacredSlate,
+                cornerRadius: DesignTokens.Radii.md
+            )
+
+            Text("Relationship")
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 190, maximum: 300), spacing: DesignTokens.Spacing.sm)],
+                alignment: .leading,
+                spacing: DesignTokens.Spacing.sm
+            ) {
+                WOMRelationBadge("阿兹克·艾格斯", role: .trusted, detail: "长期可靠联系")
+                WOMRelationBadge("值夜者小队", role: .aligned, detail: "当前目标一致")
+                WOMRelationBadge("陌生调查对象", role: .neutral)
+                WOMRelationBadge("身份不明的目击者", role: .wary, detail: "需要进一步验证")
+                WOMRelationBadge(
+                    "极光会高危目标 / Extremely long hostile entity label",
+                    role: .hostile,
+                    detail: "长标题压力：仍需保持清晰、换行和几何边界。"
+                )
+            }
+
+            Text("Achievement / Discovery")
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 230, maximum: 340), spacing: DesignTokens.Spacing.md)],
+                alignment: .leading,
+                spacing: DesignTokens.Spacing.md
+            ) {
+                WOMAchievementSeal(
+                    title: "尚未触及的隐秘",
+                    detail: "锁定状态也必须保持标题与说明可读。",
+                    state: .locked
+                )
+                WOMAchievementSeal(
+                    title: "发现：廷根地下查尼斯门",
+                    detail: "发现态使用图标、边界与文字共同表达。",
+                    state: .discovered,
+                    systemImage: "eye.fill"
+                )
+                WOMAchievementSeal(
+                    title: "完成：在极端长本地化标题下仍保持文字可读且布局不重叠的世界调查成就",
+                    detail: "Completed state does not rely on gold alone.",
+                    state: .completed
+                )
+            }
+
+            Text("Cooldown / Availability")
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 220, maximum: 320), spacing: DesignTokens.Spacing.md)],
+                alignment: .leading,
+                spacing: DesignTokens.Spacing.md
+            ) {
+                WOMCooldownIndicator("灵性占卜", state: .ready)
+                WOMCooldownIndicator(
+                    "灰雾仪式",
+                    state: .cooling(progress: 0.38, remainingLabel: "剩余时间由 Runtime 提供 · 12s")
+                )
+                WOMCooldownIndicator(
+                    "高位权柄调用",
+                    state: .locked(reason: "当前世界状态未满足使用条件；视觉层不会自行解除锁定。")
+                )
+            }
+        }
+    }
+
+    private var advancedModeOptions: [WOMSegmentedOption<AdvancedMode>] {
+        [
+            .init(value: .overview, title: "世界概览", systemImage: "rectangle.grid.1x2"),
+            .init(value: .evidence, title: "调查证据与关系网络", systemImage: "doc.text.magnifyingglass"),
+            .init(value: .ritual, title: "仪式与灵性状态", systemImage: "sparkles")
+        ]
     }
 
     private var visualQAStressSamples: some View {
