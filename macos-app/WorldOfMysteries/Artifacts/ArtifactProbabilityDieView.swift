@@ -147,18 +147,17 @@ public struct ProbabilityDieArtifactView: View {
   public var body: some View {
     ArtifactComponentShell(artifactID: .probabilityDie) {
       VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-        HStack {
-          VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            Text("命运偏转")
-              .font(Font.Mystic.titleMedium)
-              .foregroundStyle(Color.Mystic.textGoldAccent)
-            Text("拖拽骰面后释放，或点击按钮。视觉轨迹不决定 Domain face。")
-              .mysticCaptionStyle()
+        ViewThatFits(in: .horizontal) {
+          HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+            dieHeaderText
+            Spacer(minLength: DesignTokens.Spacing.md)
+            riskPill
           }
-          Spacer()
-          ArtifactStatusPill(
-            stakes.localizedTitle + "风险", systemImage: "exclamationmark.triangle",
-            tone: stakes == .extreme ? .crimson : .amber)
+
+          VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            dieHeaderText
+            riskPill
+          }
         }
 
         ZStack {
@@ -212,7 +211,11 @@ public struct ProbabilityDieArtifactView: View {
           )
         }
 
-        HStack(spacing: DesignTokens.Spacing.md) {
+        LazyVGrid(
+          columns: [GridItem(.adaptive(minimum: 180), spacing: DesignTokens.Spacing.md)],
+          alignment: .leading,
+          spacing: DesignTokens.Spacing.md
+        ) {
           ArtifactMeterCard(
             "苏醒", value: model.artifactState.awakening, detail: "高苏醒状态可由 World Pulse 触发自主投掷。",
             systemIcon: "eye", tone: .azure)
@@ -222,50 +225,37 @@ public struct ProbabilityDieArtifactView: View {
         }
 
         ArtifactSection("投掷结果", caption: "Commit first · Presentation second", tone: .azure) {
-          HStack {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-              switch model.phase {
-              case .dormant: Text("等待一次命运偏转").mysticCaptionStyle()
-              case .requesting: Text("Engine 正在枚举合法结果…").mysticCaptionStyle()
-              case .rolling: Text("概率正在重排…").mysticCaptionStyle()
-              case .revealed(let face):
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                  Text("\(face.rawValue)").font(Font.Mystic.displayLarge).foregroundStyle(
-                    face.bias.tone.accent)
-                  MysticBadge(
-                    face.bias.localizedTitle, tone: face.bias.tone,
-                    systemIcon: "die.face.\(face.rawValue)")
-                }
-              case .sealed: Text("封印中").mysticCaptionStyle()
-              case .error(let message):
-                Text(message).mysticCaptionStyle(color: Color.Mystic.statusDanger)
-              }
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+              resolutionSummary
+              Spacer(minLength: DesignTokens.Spacing.md)
+              rollButton
             }
-            Spacer()
-            Button {
-              Task { await model.roll(context: context, stakes: stakes) }
-            } label: {
-              Label("投掷", systemImage: "die.face.5")
-                .font(Font.Mystic.titleSmall)
-                .foregroundStyle(Color.Mystic.textPrimary)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+              resolutionSummary
+              rollButton
             }
-            .mysticPressable()
-            .disabled(!model.canRoll)
-            .keyboardShortcut(.space, modifiers: [])
           }
 
           if !model.history.isEmpty {
             MysticDivider(tone: .azure, label: "最近命运")
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            LazyVGrid(
+              columns: [GridItem(.adaptive(minimum: 72, maximum: 104), spacing: DesignTokens.Spacing.sm)],
+              alignment: .leading,
+              spacing: DesignTokens.Spacing.sm
+            ) {
               ForEach(model.history.suffix(6)) { record in
                 VStack(spacing: DesignTokens.Spacing.xxs) {
                   Text("\(record.face.rawValue)")
                     .font(Font.Mystic.titleSmall)
-                    .foregroundStyle(record.face.bias.tone.accent)
+                    .foregroundStyle(record.face.bias.tone.readableForeground)
                   Text(record.face.bias.localizedTitle)
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, minHeight: 56)
                 .padding(DesignTokens.Spacing.sm)
                 .background(Color.Mystic.obsidianElevated)
                 .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
@@ -275,5 +265,67 @@ public struct ProbabilityDieArtifactView: View {
         }
       }
     }
+  }
+
+  private var dieHeaderText: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+      Text("命运偏转")
+        .font(Font.Mystic.titleMedium)
+        .foregroundStyle(Color.Mystic.textGoldAccent)
+      Text("拖拽骰面后释放，或点击按钮。视觉轨迹不决定 Domain face。")
+        .mysticCaptionStyle()
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private var riskPill: some View {
+    ArtifactStatusPill(
+      stakes.localizedTitle + "风险",
+      systemImage: "exclamationmark.triangle",
+      tone: stakes == .extreme ? .crimson : .amber
+    )
+  }
+
+  @ViewBuilder
+  private var resolutionSummary: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+      switch model.phase {
+      case .dormant:
+        Text("等待一次命运偏转").mysticCaptionStyle()
+      case .requesting:
+        Text("Engine 正在枚举合法结果…").mysticCaptionStyle()
+      case .rolling:
+        Text("概率正在重排…").mysticCaptionStyle()
+      case .revealed(let face):
+        HStack(spacing: DesignTokens.Spacing.sm) {
+          Text("\(face.rawValue)")
+            .font(Font.Mystic.displayLarge)
+            .foregroundStyle(face.bias.tone.readableForeground)
+          MysticBadge(
+            face.bias.localizedTitle,
+            tone: face.bias.tone,
+            systemIcon: "die.face.\(face.rawValue)"
+          )
+        }
+      case .sealed:
+        Text("封印中").mysticCaptionStyle()
+      case .error(let message):
+        Text(message)
+          .mysticCaptionStyle(color: Color.Mystic.textPrimary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+  }
+
+  private var rollButton: some View {
+    Button {
+      Task { await model.roll(context: context, stakes: stakes) }
+    } label: {
+      Label("投掷", systemImage: "die.face.5")
+        .font(Font.Mystic.titleSmall)
+    }
+    .buttonStyle(WOMButtonStyle(.secondary))
+    .disabled(!model.canRoll)
+    .keyboardShortcut(.space, modifiers: [])
   }
 }
