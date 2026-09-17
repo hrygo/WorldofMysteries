@@ -1,0 +1,74 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M0-ARTIFACT-KIT-V3-R2",
+  "capsule_revision": 2,
+  "task_id": "M0-ARTIFACT-KIT-V3-R2",
+  "title": "融合 MysteriousArtifactKit v3.0 并统一设计 Token（修订）",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T02:38:23.406483+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "1e3f80cc3907c2ed9c1a09f3a3a7930db1102186",
+    "target_sha": "1e3f80cc3907c2ed9c1a09f3a3a7930db1102186",
+    "context_snapshot": "sha256:9cbbc875f919bfef70a04c2b6f6181089d821155e6206e87bb10be6fda6c68a9"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "instructions": "遵循 Swift 6 严格并发与 SwiftUI @Observable 规范，严格通过 UDS IPC 驱动，零直接数据库访问。",
+    "assertions": [
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-M0-ARTIFACT-KIT-V3"
+}

@@ -113,40 +113,40 @@ public struct ContentView: View {
 
     @ViewBuilder
     private var fateInterventionContent: some View {
-        HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
-            // 左栏：六维态势卷宗
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                Text("命运干预 · 局势卷宗 (Current Situation)")
-                    .font(Font.Mystic.titleMedium)
-                    .foregroundStyle(Color.Mystic.textGoldAccent)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+                // 左栏：六维态势卷宗
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                    Text("命运干预 · 局势卷宗 (Current Situation)")
+                        .font(Font.Mystic.titleMedium)
+                        .foregroundStyle(Color.Mystic.textGoldAccent)
 
-                VictorianCard(style: .obsidianGlass) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                        Text("当前危局：韦尔奇卧室内的红月案发")
-                            .font(Font.Mystic.titleSmall)
-                            .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                    VictorianCard(style: .obsidianGlass) {
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                            Text("当前危局：韦尔奇卧室内的红月案发")
+                                .font(Font.Mystic.titleSmall)
+                                .foregroundStyle(Color.Mystic.brassGoldPrimary)
 
-                        Text("克莱恩在枪声与血迹中苏醒，桌上散落着转轮手枪、黄铜怀表与未燃尽的信件。红月光晕正穿透窗帘，灵性直觉提示危险正在临近。")
-                            .font(Font.Mystic.bodyMedium)
-                            .foregroundStyle(Color.Mystic.textSecondary)
+                            Text("克莱恩在枪声与血迹中苏醒，桌上散落着转轮手枪、黄铜怀表与未燃尽的信件。红月光晕正穿透窗帘，灵性直觉提示危险正在临近。")
+                                .font(Font.Mystic.bodyMedium)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                        }
+                    }
+
+                    VictorianCard(style: .parchment) {
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                            Text("【已知事实与线索】")
+                                .font(Font.Mystic.caption)
+                                .foregroundStyle(Color.Mystic.parchmentInk)
+                            Text("• 《安提哥努斯家族笔记》已被某人带走。\n• 韦尔奇与娜娅已确认身亡，死因与自杀手枪一致。\n• 窗外街道有黑夜教会值夜者的马车驻留声。")
+                                .font(Font.Mystic.parchmentCursive)
+                                .foregroundStyle(Color.Mystic.parchmentInk)
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity)
 
-                VictorianCard(style: .parchment) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                        Text("【已知事实与线索】")
-                            .font(Font.Mystic.caption)
-                            .foregroundStyle(Color.Mystic.parchmentInk)
-                        Text("• 《安提哥努斯家族笔记》已被某人带走。\n• 韦尔奇与娜娅已确认身亡，死因与自杀手枪一致。\n• 窗外街道有黑夜教会值夜者的马车驻留声。")
-                            .font(Font.Mystic.parchmentCursive)
-                            .foregroundStyle(Color.Mystic.parchmentInk)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
-
-            // 右栏：非凡状态仪表与人物锚点
-            VStack(spacing: DesignTokens.Spacing.lg) {
+                // 右栏：非凡状态仪表与人物锚点
                 VictorianCard(style: .brassFramed) {
                     VStack(spacing: DesignTokens.Spacing.md) {
                         Text("人物灵视与状态锚点")
@@ -168,8 +168,11 @@ public struct ContentView: View {
                         }
                     }
                 }
+                .frame(width: 280)
             }
-            .frame(width: 280)
+
+            // 特殊物品作为命运干预工具有机嵌入 Fate，而不是新增一级“道具背包”导航。
+            FateArtifactInterventionView()
         }
     }
 

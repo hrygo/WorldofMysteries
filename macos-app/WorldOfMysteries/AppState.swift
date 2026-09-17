@@ -7,6 +7,7 @@ import Observation
 public final class AppState {
     public var isEngineReady: Bool = false
     public var connectionError: String?
+    public private(set) var activeArtifactContext: ArtifactContext?
     public let ipcClient: EngineIPCClient
     public let processManager: EngineProcessManager
 
@@ -33,10 +34,17 @@ public final class AppState {
         }
     }
 
+    /// Bind the active World / Story snapshot used by world-affecting Artifact actions.
+    /// This value is presentation context only; the Local Engine remains authoritative.
+    public func updateActiveArtifactContext(_ context: ArtifactContext?) {
+        activeArtifactContext = context
+    }
+
     /// Coordinate graceful teardown of IPC connection and engine process.
     public func shutdown() async {
         await ipcClient.disconnect()
         await processManager.terminateEngine()
         self.isEngineReady = false
+        self.activeArtifactContext = nil
     }
 }
