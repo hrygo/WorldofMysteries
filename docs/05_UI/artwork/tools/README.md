@@ -36,3 +36,31 @@ The JSON emitted to stdout is intended to populate the provenance record.
 Use this tool only after G0–G3 have passed.
 
 It must not be used to turn a rejected candidate into a shipping asset by simple resize.
+
+
+## measure_world_composition.swift
+
+Deterministic composition metrics for World / Scene candidates.
+
+Measures:
+
+- mean luminance in the left 35% quiet zone;
+- mean luminance-gradient density in the left 35% quiet zone;
+- the same metrics in the locked focus region x=55–78%, y=28–72%;
+- quiet/focus luminance and gradient ratios;
+- normalized centroid of the brightest 0.5% pixels.
+
+Usage:
+
+```bash
+xcrun swift docs/05_UI/artwork/tools/measure_world_composition.swift \
+  --input /path/candidate.png
+```
+
+Self-test:
+
+```bash
+xcrun swift docs/05_UI/artwork/tools/measure_world_composition.swift --self-test
+```
+
+These metrics are **supporting evidence for G2**, not a replacement for blind semantic or human visual QA.
