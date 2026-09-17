@@ -63,7 +63,7 @@ wom.texture.*
 4. **Batch 07**：实现 `WOMIcon`，统一 custom asset 与 SF Symbols source、尺寸、rendering 与 accessibility。**已实现于 PR #26。**
 5. **Batch 08**：建立 `WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle`，覆盖 normal / hover / pressed / disabled / reduced-motion。**已实现于 PR #26。**
 6. **Batch 09**：建立 `WOMPanelBackground`、`WOMCardChrome`、`WOMTextureLayer`、Section Chrome。**已实现于 PR #26。**
-7. **Batch 10**：将 Component Gallery 作为设计系统展示与回归入口。
+7. **Batch 10**：将 Component Gallery 作为设计系统展示与回归入口。**已实现于 PR #26。**
 8. **Batch 11+**：逐步迁移 Sidebar、Ritual、Codex、Artifact，并补齐 accessibility / keyboard / reduced motion / reduced transparency / high contrast。
 
 ## 6. 原子 commit 规则
@@ -78,11 +78,22 @@ feat(macos): register texture assets
 feat(macos): add unified WOMIcon component
 feat(macos): add button style primitives
 feat(macos): add panel and card surface primitives
+feat(macos): expose visual system in component gallery
 ```
 
 不得为了减少 commit 数把不相关资产、组件和页面迁移揉成一个提交。
 
-## 7. 恢复入口
+## 7. 下一阶段
+
+真实页面迁移不扩大底层 Capsule，而是逐页面新增 Task Capsule。当前优先级：
+
+1. Sidebar；
+2. Ritual；
+3. Codex；
+4. Artifact；
+5. accessibility / keyboard / reduced motion / transparency / high contrast 收口。
+
+## 8. 恢复入口
 
 新执行环境恢复时依次读取：
 
