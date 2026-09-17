@@ -12,6 +12,7 @@ struct VisualAdvancedInteractionContractTests {
         #expect(source.contains(".pickerStyle(.segmented)"))
         #expect(source.contains(".pickerStyle(.menu)"))
         #expect(source.contains("ViewThatFits(in: .horizontal)"))
+        #expect(source.contains(".fixedSize(horizontal: true, vertical: false)"))
         #expect(!source.contains("Button {"))
         #expect(!source.contains("NSViewRepresentable"))
         #expect(!source.contains("NSSegmentedControl("))
