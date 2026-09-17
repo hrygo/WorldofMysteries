@@ -6,9 +6,9 @@ public enum BacklundDistrict: String, CaseIterable, Identifiable, Sendable {
     case bridge = "贝克兰德桥区 (Bridge Area)"
     case eastEnd = "东区 (East End)"
     case empress = "皇后区与北区 (Empress & North)"
-    
+
     public var id: String { rawValue }
-    
+
     public var description: String {
         switch self {
         case .cherwood: return "明斯克街 15 号 · 夏洛克·莫里亚蒂侦探事务所"
@@ -17,7 +17,7 @@ public enum BacklundDistrict: String, CaseIterable, Identifiable, Sendable {
         case .empress: return "伯爵府邸贵族沙龙 · 圣赛缪尔大教堂主教座"
         }
     }
-    
+
     public var dangerLevel: String {
         switch self {
         case .cherwood: return "中度警戒"
@@ -26,12 +26,11 @@ public enum BacklundDistrict: String, CaseIterable, Identifiable, Sendable {
         case .empress: return "官方重兵"
         }
     }
-    
+
     public var dangerColor: Color {
         tone.accent
     }
-    
-    /// 统一语义色调（与 `MysticTone` 单一事实源对齐）
+
     public var tone: MysticTone {
         switch self {
         case .cherwood: return .gold
@@ -42,128 +41,28 @@ public enum BacklundDistrict: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// 贝克兰德 · 万都之都全景态势卡（纯净材质底质 + 纯原生 SwiftUI 动态排版，零硬编码死文字）
+/// 贝克兰德 · 万都之都全景态势卡
 public struct BacklundMetropolisCard: View {
     public var onDistrictSelected: (@MainActor (BacklundDistrict) -> Void)?
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDistrict: BacklundDistrict = .cherwood
     @State private var hoveredDistrict: BacklundDistrict? = nil
     @State private var smogLevel: Double = 0.78
-    
+
     public init(onDistrictSelected: (@MainActor (BacklundDistrict) -> Void)? = nil) {
         self.onDistrictSelected = onDistrictSelected
     }
-    
+
     public var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
-            // 顶部横幅：哥特主教座与万都之都夜色氛围（纯净无文字背景）
-            ZStack(alignment: .bottomLeading) {
-                ZStack {
-                    LinearGradient(
-                        colors: [
-                            Color(red: 16/255, green: 28/255, blue: 44/255), // 塔索克河深冷蓝
-                            Color.Mystic.obsidianElevated
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    
-                    // 灰雾流光与石质底纹有机融合
-                    if NSImage(named: "TextureFoolVeil") != nil {
-                        Image("TextureFoolVeil")
-                            .resizable(resizingMode: .tile)
-                            .blendMode(.screen)
-                            .opacity(0.12)
-                    }
-                    
-                    // 哥特主教尖顶与钟楼纯净剪影
-                    HStack {
-                        Spacer()
-                        ZStack(alignment: .bottomTrailing) {
-                            Circle()
-                                .fill(Color.Mystic.spiritualBlue.opacity(0.2))
-                                .frame(width: 140, height: 140)
-                                .blur(radius: 24)
-                            
-                            Image(systemName: "building.columns.circle")
-                                .font(.system(size: 64, weight: .ultraLight))
-                                .foregroundStyle(Color.Mystic.brassGoldPrimary.opacity(0.35))
-                        }
-                        .padding(.trailing, DesignTokens.Spacing.lg)
-                    }
-                }
-                .frame(height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
-                
-                // 城市名与核心概览（全原生动态渲染）
-                VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
-                    HStack(spacing: 6) {
-                        Text("鲁恩王国首都 · 万都之都")
-                            .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
-                        
-                        Text("Hope & Fall")
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Color.Mystic.textTertiary)
-                    }
-                    
-                    Text("贝克兰德 · 全景态势视窗")
-                        .mysticTitleStyle(font: Font.Mystic.titleMedium)
-                    
-                    Text("塔索克河水雾 · 蒸汽烟囱轰鸣 · 500 万人口之城")
-                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
-                }
-                .padding(DesignTokens.LayoutInsets.compactCardPadding)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
-                    .stroke(Color.Mystic.brassGoldBorder.opacity(0.6), lineWidth: 1)
-            )
-            
-            // 大雾霾浓度与势力警戒条
-            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
-                // 大雾霾指数
-                VStack(alignment: .leading, spacing: 3) {
-                    MysticKeyValueRow(
-                        key: "贝克兰德大雾霾",
-                        value: "\(Int(smogLevel * 100))%",
-                        tone: .amber,
-                        isMonospaced: true,
-                        systemIcon: "smoke.fill"
-                    )
-                    
-                    MysticMetricBar(
-                        value: smogLevel,
-                        tone: .amber,
-                        gradientTones: [.amber, .crimson]
-                    )
-                }
-                .padding(DesignTokens.Spacing.sm)
-                .background(Color.Mystic.obsidianCard)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
-                
-                // 塔索克河航运与官方警戒
-                VStack(alignment: .leading, spacing: 3) {
-                    MysticKeyValueRow(
-                        key: "塔索克河航运",
-                        value: "通畅",
-                        tone: .teal,
-                        systemIcon: "water.waves"
-                    )
-                    
-                    Text("代罚者与军情九处巡航中")
-                        .font(.system(size: 9))
-                        .foregroundStyle(Color.Mystic.textTertiary)
-                }
-                .padding(DesignTokens.Spacing.sm)
-                .background(Color.Mystic.obsidianCard)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
-            }
-            
-            // 四大核心城区与侦探据点列表
+            cityHeader
+            operationalStatus
+
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("重点城区与暗线据点 (Boroughs & Safehouses)：")
                     .mysticCaptionStyle(color: Color.Mystic.textTertiary)
-                
+
                 VStack(spacing: DesignTokens.Spacing.xs) {
                     ForEach(BacklundDistrict.allCases) { district in
                         districtRow(district)
@@ -188,41 +87,178 @@ public struct BacklundMetropolisCard: View {
                 .stroke(Color.Mystic.brassGoldBorder, lineWidth: DesignTokens.Borders.standard)
         )
     }
-    
+
+    private var cityHeader: some View {
+        ZStack(alignment: .bottomLeading) {
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color(red: 16/255, green: 28/255, blue: 44/255),
+                        Color.Mystic.obsidianElevated
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                if NSImage(named: "TextureFoolVeil") != nil {
+                    Image("TextureFoolVeil")
+                        .resizable(resizingMode: .tile)
+                        .blendMode(.screen)
+                        .opacity(0.12)
+                }
+
+                HStack {
+                    Spacer()
+                    ZStack(alignment: .bottomTrailing) {
+                        Circle()
+                            .fill(Color.Mystic.spiritualBlue.opacity(0.2))
+                            .frame(width: 140, height: 140)
+                            .blur(radius: 24)
+
+                        Image(systemName: "building.columns.circle")
+                            .font(.system(size: 64, weight: .ultraLight))
+                            .foregroundStyle(Color.Mystic.brassGoldPrimary.opacity(0.35))
+                    }
+                    .padding(.trailing, DesignTokens.Spacing.lg)
+                    .accessibilityHidden(true)
+                }
+            }
+            .frame(height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+
+            VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
+                        Text("鲁恩王国首都 · 万都之都")
+                            .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
+                        Text("Hope & Fall")
+                            .font(Font.Mystic.monoBadge)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text("鲁恩王国首都 · 万都之都")
+                            .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
+                        Text("Hope & Fall")
+                            .font(Font.Mystic.monoBadge)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                    }
+                }
+
+                Text("贝克兰德 · 全景态势视窗")
+                    .mysticTitleStyle(font: Font.Mystic.titleMedium)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("塔索克河水雾 · 蒸汽烟囱轰鸣 · 500 万人口之城")
+                    .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(DesignTokens.LayoutInsets.compactCardPadding)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+                .stroke(Color.Mystic.brassGoldBorder.opacity(0.6), lineWidth: DesignTokens.Borders.standard)
+        )
+    }
+
+    private var operationalStatus: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
+                smogStatus
+                    .frame(maxWidth: .infinity)
+                riverStatus
+                    .frame(maxWidth: .infinity)
+            }
+
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                smogStatus
+                riverStatus
+            }
+        }
+    }
+
+    private var smogStatus: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            MysticKeyValueRow(
+                key: "贝克兰德大雾霾",
+                value: "\(Int(smogLevel * 100))%",
+                tone: .amber,
+                isMonospaced: true,
+                systemIcon: "smoke.fill"
+            )
+
+            MysticMetricBar(
+                value: smogLevel,
+                tone: .amber,
+                gradientTones: [.amber, .crimson]
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignTokens.Spacing.sm)
+        .background(Color.Mystic.obsidianCard)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
+    }
+
+    private var riverStatus: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            MysticKeyValueRow(
+                key: "塔索克河航运",
+                value: "通畅",
+                tone: .teal,
+                systemIcon: "water.waves"
+            )
+
+            Text("代罚者与军情九处巡航中")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignTokens.Spacing.sm)
+        .background(Color.Mystic.obsidianCard)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
+    }
+
     @ViewBuilder
     private func districtRow(_ district: BacklundDistrict) -> some View {
         let isSelected = selectedDistrict == district
         let isHovered = hoveredDistrict == district
-        
+
         Button {
-            withAnimation(DesignTokens.Interaction.selectionSpring) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
                 selectedDistrict = district
             }
             onDistrictSelected?(district)
         } label: {
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
                 VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
-                    HStack(spacing: 6) {
-                        Text(district.rawValue)
-                            .font(Font.Mystic.bodyMedium)
-                            .fontWeight(isSelected ? .semibold : .regular)
-                            .foregroundStyle(isSelected ? Color.Mystic.textPrimary : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary))
-                            .tracking(DesignTokens.TypographyMetrics.bodyTracking)
-                        
-                        MysticBadge(district.dangerLevel, tone: district.tone, isEmphasized: true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: DesignTokens.Spacing.sm) {
+                            districtTitle(district, isSelected: isSelected, isHovered: isHovered)
+                            MysticBadge(district.dangerLevel, tone: district.tone, isEmphasized: true)
+                        }
+
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                            districtTitle(district, isSelected: isSelected, isHovered: isHovered)
+                            MysticBadge(district.dangerLevel, tone: district.tone, isEmphasized: true)
+                        }
                     }
-                    
+
                     Text(district.description)
-                        .mysticCaptionStyle(color: isSelected ? Color.Mystic.brassGoldMuted : Color.Mystic.textTertiary)
+                        .mysticCaptionStyle(
+                            color: isSelected ? Color.Mystic.brassGoldMuted : Color.Mystic.textTertiary
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                
-                Spacer()
-                
+
+                Spacer(minLength: DesignTokens.Spacing.xs)
+
                 if isSelected {
                     Circle()
                         .fill(Color.Mystic.brassGoldPrimary)
                         .frame(width: 6, height: 6)
                         .shadow(color: Color.Mystic.brassGoldPrimary, radius: 4)
+                        .accessibilityHidden(true)
                 }
             }
             .mysticRowItem(
@@ -236,6 +272,25 @@ public struct BacklundMetropolisCard: View {
         .onHover { hovering in
             hoveredDistrict = hovering ? district : nil
         }
+        .accessibilityLabel(district.rawValue)
+        .accessibilityValue("\(district.dangerLevel)，\(district.description)")
+    }
+
+    private func districtTitle(
+        _ district: BacklundDistrict,
+        isSelected: Bool,
+        isHovered: Bool
+    ) -> some View {
+        Text(district.rawValue)
+            .font(Font.Mystic.bodyMedium)
+            .fontWeight(isSelected ? .semibold : .regular)
+            .foregroundStyle(
+                isSelected
+                    ? Color.Mystic.textPrimary
+                    : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+            )
+            .tracking(DesignTokens.TypographyMetrics.bodyTracking)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
