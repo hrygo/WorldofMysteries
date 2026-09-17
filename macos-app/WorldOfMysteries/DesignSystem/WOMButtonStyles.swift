@@ -107,32 +107,45 @@ private struct WOMButtonChrome<Label: View>: View {
     let isPressed: Bool
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.appearsActive) private var appearsActive
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @State private var isHovered = false
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous)
+
         label
             .padding(.horizontal, density.horizontalPadding)
             .padding(.vertical, density.verticalPadding)
             .frame(minHeight: density.minHeight)
             .foregroundStyle(foregroundColor)
-            .background(
-                RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous)
-                    .fill(backgroundColor)
+            .background(shape.fill(backgroundColor))
+            .overlay(
+                shape.stroke(borderColor, style: borderStrokeStyle)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous)
-                    .stroke(borderColor, lineWidth: borderWidth)
+                shape
+                    .stroke(focusRingColor, lineWidth: DesignTokens.Accessibility.focusRingWidth)
+                    .padding(-DesignTokens.Accessibility.focusRingOffset)
+                    .opacity(isFocused && isEnabled ? 1 : 0)
             )
             .shadow(color: shadowColor, radius: shadowRadius)
             .scaleEffect(pressedScale)
             .opacity(isEnabled ? pressedOpacity : 0.48)
-            .contentShape(RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous))
+            .contentShape(shape)
             .animation(reduceMotion ? nil : DesignTokens.Interaction.clickSpring, value: isPressed)
             .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isHovered)
+            .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isFocused)
             .onHover { hovering in
                 isHovered = hovering
             }
+    }
+
+    private var isIncreasedContrast: Bool {
+        colorSchemeContrast == .increased
     }
 
     private var foregroundColor: Color {
@@ -149,24 +162,37 @@ private struct WOMButtonChrome<Label: View>: View {
             return Color.Mystic.obsidianCard.opacity(0.55)
         }
 
+        let activityOpacity = appearsActive ? 1.0 : 0.72
+
         switch variant {
         case .primary:
             return (isHovered ? Color.Mystic.brassGoldHover : Color.Mystic.brassGoldPrimary)
-                .opacity(isPressed ? 0.86 : 1)
+                .opacity((isPressed ? 0.86 : 1) * activityOpacity)
         case .secondary:
-            return Color.Mystic.obsidianCard.opacity(isHovered ? 1 : 0.82)
+            return Color.Mystic.obsidianCard.opacity((isHovered ? 1 : 0.82) * activityOpacity)
         case .tertiary:
-            return Color.Mystic.obsidianElevated.opacity(isHovered ? 0.72 : 0)
+            return Color.Mystic.obsidianElevated.opacity((isHovered ? 0.72 : 0) * activityOpacity)
         case .danger:
-            return Color.Mystic.crimsonStar.opacity(isHovered ? 0.95 : 0.78)
+            return Color.Mystic.crimsonStar.opacity((isHovered ? 0.95 : 0.78) * activityOpacity)
         case .ritual:
-            return Color.Mystic.deepVoid.opacity(isHovered ? 0.96 : 0.82)
+            return Color.Mystic.deepVoid.opacity((isHovered ? 0.96 : 0.82) * activityOpacity)
         }
     }
 
     private var borderColor: Color {
         guard isEnabled else {
             return Color.Mystic.brassGoldBorder.opacity(0.25)
+        }
+
+        if isIncreasedContrast {
+            switch variant {
+            case .danger:
+                return Color.Mystic.statusDanger
+            case .ritual:
+                return Color.Mystic.spiritualBlue
+            case .primary, .secondary, .tertiary:
+                return Color.Mystic.textGoldAccent
+            }
         }
 
         switch variant {
@@ -183,12 +209,40 @@ private struct WOMButtonChrome<Label: View>: View {
         }
     }
 
+    private var borderStrokeStyle: StrokeStyle {
+        StrokeStyle(
+            lineWidth: borderWidth,
+            lineCap: .round,
+            lineJoin: .round,
+            dash: borderDash
+        )
+    }
+
     private var borderWidth: CGFloat {
-        isHovered ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
+        if isIncreasedContrast || isFocused {
+            return DesignTokens.Borders.heavy
+        }
+        return isHovered ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
+    }
+
+    private var borderDash: [CGFloat] {
+        guard differentiateWithoutColor else { return [] }
+        switch variant {
+        case .danger:
+            return [4, 2]
+        case .ritual:
+            return [1, 2]
+        case .primary, .secondary, .tertiary:
+            return []
+        }
+    }
+
+    private var focusRingColor: Color {
+        isIncreasedContrast ? Color.Mystic.textPrimary : Color.Mystic.textGoldAccent
     }
 
     private var shadowColor: Color {
-        guard isEnabled && isHovered else { return .clear }
+        guard isEnabled, isHovered, appearsActive, !isIncreasedContrast else { return .clear }
         switch variant {
         case .primary:
             return Color.Mystic.brassGoldGlow
@@ -202,7 +256,13 @@ private struct WOMButtonChrome<Label: View>: View {
     }
 
     private var shadowRadius: CGFloat {
-        isHovered ? 5 : 0
+        guard isEnabled, isHovered, appearsActive, !isIncreasedContrast else { return 0 }
+        switch variant {
+        case .primary, .ritual, .danger:
+            return 5
+        case .secondary, .tertiary:
+            return 0
+        }
     }
 
     private var pressedScale: CGFloat {

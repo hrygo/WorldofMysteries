@@ -2,75 +2,54 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：PLAN PERSISTED / IMPLEMENTATION STARTED
+> 状态：BUTTON CHROME IMPLEMENTED / SURFACE & TESTS IN PROGRESS
 
 ## 1. 目标
 
-Wave B 已完成资产、图标、按钮、Surface 与关键生产组件迁移。Wave C 不再以增加资产数量为主，而是收紧真正的 macOS 控件行为与无障碍视觉状态：
+Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、inactive appearance 与设计系统回归保障，不扩展领域功能。
 
-1. 键盘 Focus 必须有明确但克制的视觉反馈；
-2. Increase Contrast 时边框/Surface 区分度增强；
-3. Differentiate Without Color 开启时，selected / danger / ritual 等状态不能只靠颜色；
-4. inactive window 应适度降低强调，不让自定义 chrome 与 macOS active appearance 冲突；
-5. reduced motion / reduced transparency 继续保持 Wave B 的退化策略；
-6. 为 typed registry、尺寸 scale 与语义映射补 Swift Testing 回归断言。
+## 2. Button Chrome 已实现
 
-## 2. macOS 技术依据
+`WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle` 继续共享同一个 `WOMButtonChrome`，新增读取：
 
-SwiftUI 环境提供：
+- `isFocused`
+- `appearsActive`
+- `colorSchemeContrast`
+- `accessibilityDifferentiateWithoutColor`
+- 原有 `accessibilityReduceMotion`
 
-- `isFocused`：最近 focusable ancestor 是否获得焦点；
-- `colorSchemeContrast`：当前颜色方案的对比度偏好；
-- `accessibilityDifferentiateWithoutColor`：是否要求不用颜色作为唯一信息载体；
-- `appearsActive`：macOS 当前窗口/上下文是否应呈 active appearance。
+### Focus
 
-`ButtonStyle` 保留平台标准 Button 交互，仅自定义外观，不另造键盘触发机制。
+获得键盘焦点时，在既有 border 外增加由 `DesignTokens.Accessibility.focusRingWidth / focusRingOffset` 驱动的外环；不替换 Button 的平台触发机制。
 
-## 3. 第一阶段实现
+### Increase Contrast
 
-### Button chrome
+- border 提升到 heavy；
+- Primary / Secondary / Tertiary 使用更清晰的 `textGoldAccent` 边界；
+- Danger / Ritual 使用各自高辨识语义色；
+- 关闭模糊 glow，改靠清晰描边建立层级。
 
-计划增加：
+### Differentiate Without Color
 
-- focus ring；
-- increased contrast 下更明确的 border；
-- differentiate-without-color 下 hover/selected 之外的几何/描边反馈；
-- inactive appearance 下降低 glow/accent；
-- icon-only / toolbar 保持同一 shared chrome。
+当用户要求“不仅靠颜色区分”时：
 
-### Surface chrome
+- Danger 使用 `[4, 2]` dash pattern；
+- Ritual 使用 `[1, 2]` dot-like pattern；
+- 其他通用按钮保持连续线。
 
-计划增加：
+因此危险/仪式语义即使在无法依赖颜色时仍有几何差异。
 
-- high-contrast stroke；
-- selected card 在 differentiate-without-color 下使用双层/更宽描边，而非只有金色；
-- inactive window 降低不必要 glow。
+### Inactive Window
 
-### Gallery
+`appearsActive == false` 时降低自定义 accent/background 强度，并关闭 hover glow，避免后台窗口保持过强视觉权重。
 
-增加 Accessibility State specimen，集中预览 Focus / Disabled / High Contrast 设计约定。
+## 3. 技术依据
 
-## 4. 测试
+采用 SwiftUI 环境状态，不创建第二套 focus/contrast 状态机。自定义 `ButtonStyle` 继续保留平台标准 Button interaction。
 
-`DesignSystemTests` 增加纯语义回归测试：
+## 4. 下一步
 
-- `WOMIconSize` 16 / 20 / 24 / 32；
-- `WOMSystemIcon` 关键 SF Symbol 映射；
-- `WOMStatusIcon` 映射；
-- `WOMTextureAsset` 兼容 aliases 与 `semanticKey`；
-- `WOMIconAsset` 新增世界观资产 registry 完整性；
-- `NavigationItem.iconSource` 覆盖 9 个入口。
-
-## 5. 提交策略
-
-继续使用长期 PR + 原子 commit：
-
-```text
-docs(macos): persist visual system wave C plan
-feat(macos): add focus and contrast aware button chrome
-feat(macos): harden accessible surface states
-feat(macos): add accessibility specimens to gallery
-test(macos): cover visual system semantic registries
-```
-
-准备合并时只对最终 head 运行一次完整 `MACOS_APP_P0`。
+1. Surface / Card chrome 同步支持 Increased Contrast、Differentiate Without Color、inactive appearance；
+2. Component Gallery 增加 accessibility specimen；
+3. DesignSystemTests 补 typed registry / size / compatibility 回归；
+4. 最终 head 统一运行 `MACOS_APP_P0`。

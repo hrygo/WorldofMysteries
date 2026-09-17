@@ -20,14 +20,14 @@
 - Surface：程序化 fill/stroke/shadow + 少量纹理；Reduced Transparency 有稳定退化。
 - macOS Focus / contrast / active appearance 优先读取 SwiftUI 系统 environment，不自建第二套平台状态机。
 
-## 3. 已合入 main 的阶段
+## 3. 已合入 main
 
 | 阶段 | PR | 内容 | 状态 |
 |---|---|---|---|
 | Foundation | #21–#25 | 视觉资产基础、核心/导航图标、Living Plan、系统行为语义 | 已合入 |
 | Wave B | #26 | Icon / Button / Surface primitives、Gallery、Sidebar、Ritual、Codex/Archive、Artifact/Fate、Content Shell | 已合入 `main@d0de662e` |
 
-Wave B 最终只对最终 head 跑一次权威门禁，Capsule Audit、Architecture/Contracts、Python、Swift 6、Xcode App Target、PR Gate Reporter 全部通过。
+Wave B 最终权威门禁全部通过：Capsule Audit、Architecture/Contracts、Python、Swift 6、Xcode App Target、PR Gate Reporter。
 
 ## 4. 生产入口事实
 
@@ -37,20 +37,18 @@ Wave B 最终只对最终 head 跑一次权威门禁，Capsule Audit、Architect
 - **Artifact**：继续作为 Fate 中的命运干预工具；Preview / Live / Unavailable 与 IPC 边界保持不变。
 - **ContentView Shell**：视觉壳已迁移；placeholder 明确标注功能仍待正式接入。
 
-## 5. 当前持久化工作流：Wave C
+## 5. 当前持久化工作流：Wave C / PR #27
 
-分支：`feat/wom-visual-system-wave-c`。
-
-目标：从“视觉系统能用”进一步收口到“macOS 原生交互与辅助功能状态完整”。
+目标：从“视觉系统能用”收口到“macOS 原生交互与辅助功能状态完整”。
 
 ### Batch 17 — Focus / Contrast / Accessibility State
 
-1. Button chrome 读取 `isFocused`，增加 token 驱动 focus ring；
-2. `colorSchemeContrast == .increased` 时增强边框与 Surface 层级；
-3. `accessibilityDifferentiateWithoutColor` 时 selected / danger / ritual 不仅靠颜色区分；
-4. `appearsActive == false` 时降低 glow/accent，符合非活跃窗口视觉；
-5. Component Gallery 增加 Accessibility State specimen；
-6. `DesignSystemTests` 补 typed registry / size scale / compatibility assertions。
+| 子阶段 | 内容 | 状态 |
+|---|---|---|
+| C17.1 | Button chrome：Focus / Increased Contrast / Differentiate Without Color / inactive appearance | 已实现于 #27 |
+| C17.2 | Surface / Card chrome accessibility states | 进行中 |
+| C17.3 | Component Gallery accessibility specimen | 待实现 |
+| C17.4 | DesignSystem typed registry / size / compatibility tests | 待实现 |
 
 ### 后续候选
 
@@ -59,7 +57,7 @@ Wave B 最终只对最终 head 跑一次权威门禁，Capsule Audit、Architect
 - 图标与 raw `Image(systemName:)` 使用审计；
 - high contrast / reduced transparency / reduced motion 视觉回归矩阵。
 
-## 6. Wave C 原子 commit 计划
+## 6. Wave C 原子 commit
 
 ```text
 docs(macos): persist visual system wave C plan
@@ -71,14 +69,4 @@ test(macos): cover visual system semantic registries
 
 ## 7. 恢复入口
 
-依次读取：
-
-1. `docs/05_UI/Visual_Asset_System_v1.0.md`
-2. 本文件
-3. 最新 `Batch_xx_*.md`
-4. 当前 Wave Task Capsule
-5. `DesignSystem/WOM*`
-6. `Assets.xcassets/wom.*`
-7. 当前长期 PR 的原子 commit 历史
-
-目标：执行环境完全丢失后，仅依赖仓库和开放 PR 即可继续推进。
+稳定设计基线 → 本文件 → 最新 Batch 文档 → 当前 Wave Task Capsule → `DesignSystem/WOM*` → `Assets.xcassets/wom.*` → PR #27 原子 commit 历史。
