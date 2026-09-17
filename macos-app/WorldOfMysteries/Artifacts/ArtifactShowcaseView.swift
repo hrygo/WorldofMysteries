@@ -34,38 +34,7 @@ public struct ArtifactShowcaseView: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-      HStack(spacing: DesignTokens.Spacing.md) {
-        WOMIcon(.artifact, size: .prominent)
-          .foregroundStyle(Color.Mystic.brassGoldPrimary)
-
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-          Text("Canon Artifact Component Library")
-            .font(Font.Mystic.titleMedium)
-            .foregroundStyle(Color.Mystic.textGoldAccent)
-          Text("15 件原著高辨识度特殊物品 · 共用 DesignTokens 与 WOM Visual System")
-            .mysticCaptionStyle()
-        }
-
-        Spacer()
-
-        HStack(spacing: DesignTokens.Spacing.xs) {
-          WOMIcon(system: .search, size: .compact)
-            .foregroundStyle(Color.Mystic.textTertiary)
-          TextField("搜索特殊物品", text: $searchText)
-            .textFieldStyle(.plain)
-            .frame(width: 170)
-        }
-        .padding(.horizontal, DesignTokens.Spacing.sm)
-        .padding(.vertical, 6)
-        .background(
-          WOMPanelBackground(
-            tone: .card,
-            cornerRadius: DesignTokens.Radii.sm,
-            texture: .sacredSlate,
-            textureOpacity: 0.018
-          )
-        )
-      }
+      header
 
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: DesignTokens.Spacing.sm) {
@@ -80,11 +49,12 @@ public struct ArtifactShowcaseView: View {
             } label: {
               HStack(spacing: DesignTokens.Spacing.xs) {
                 Image(systemName: descriptor.systemIcon)
+                  .foregroundStyle(descriptor.tone.accent)
                   .accessibilityHidden(true)
                 Text(descriptor.displayName)
+                  .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
               }
               .font(Font.Mystic.caption)
-              .foregroundStyle(isSelected ? descriptor.tone.accent : Color.Mystic.textSecondary)
               .padding(.horizontal, DesignTokens.Spacing.md)
               .padding(.vertical, DesignTokens.Spacing.sm)
               .womCardChrome(
@@ -110,6 +80,58 @@ public struct ArtifactShowcaseView: View {
         cornerRadius: DesignTokens.Radii.lg,
         texture: .sacredSlate,
         textureOpacity: 0.025
+      )
+    )
+  }
+
+  private var header: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: DesignTokens.Spacing.md) {
+        libraryIdentity
+        Spacer(minLength: DesignTokens.Spacing.md)
+        searchField
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        libraryIdentity
+        searchField
+      }
+    }
+  }
+
+  private var libraryIdentity: some View {
+    HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+      WOMIcon(.artifact, size: .prominent)
+        .foregroundStyle(Color.Mystic.brassGoldPrimary)
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+        Text("Canon Artifact Component Library")
+          .font(Font.Mystic.titleMedium)
+          .foregroundStyle(Color.Mystic.textGoldAccent)
+          .fixedSize(horizontal: false, vertical: true)
+        Text("15 件原著高辨识度特殊物品 · 共用 DesignTokens 与 WOM Visual System")
+          .mysticCaptionStyle()
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+  }
+
+  private var searchField: some View {
+    HStack(spacing: DesignTokens.Spacing.xs) {
+      WOMIcon(system: .search, size: .compact)
+        .foregroundStyle(Color.Mystic.textTertiary)
+      TextField("搜索特殊物品", text: $searchText)
+        .textFieldStyle(.plain)
+        .frame(minWidth: 160, idealWidth: 190, maxWidth: 240)
+    }
+    .padding(.horizontal, DesignTokens.Spacing.sm)
+    .padding(.vertical, 6)
+    .background(
+      WOMPanelBackground(
+        tone: .card,
+        cornerRadius: DesignTokens.Radii.sm,
+        texture: .sacredSlate,
+        textureOpacity: 0.018
       )
     )
   }
