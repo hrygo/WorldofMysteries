@@ -70,44 +70,45 @@ Head: `a4ae319d48f25b9eadffdf6f8e64845ecc55cada`
 
 Wave F 不伪造关系分数、成就持久化、冷却计时器或业务真相。
 
-## 7. 当前持久化工作流：Wave G — Window / Inspector / Responsive Workspace Layout
+## 7. 当前持久化工作流：Wave G — Window / Inspector / Responsive Workspace Layout / PR #33
 
 Branch: `feat/wom-visual-system-wave-g`  
 Stacked base: `feat/wom-visual-system-wave-f@a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
 Batch: [`Batch_24_Wave_G_Window_Inspector_Layout.md`](Batch_24_Wave_G_Window_Inspector_Layout.md)  
 Task: `MAC-VISUAL-SYSTEM-WAVE-G`  
-状态：**IN PROGRESS**。
+状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
-### G24.1 — Window metrics
+### G24.1 — Window metrics — DONE
 
 - minimum usable size：960×640；
 - default initial size：1180×760；
-- 默认尺寸仅用于首次窗口，不锁定用户 resize。
+- 默认尺寸只影响首次窗口，不锁定用户 resize。
 
-### G24.2 — Inspector metrics
+### G24.2 — Inspector metrics — DONE
 
 - min 280 / ideal 320 / max 420；
-- 使用系统 `.inspectorColumnWidth(min:ideal:max:)`；
+- 系统 `.inspectorColumnWidth(min:ideal:max:)`；
 - 不创建 NSPanel / NSWindow coordinator。
 
-### G24.3 — Responsive workspace primitive
+### G24.3 — Responsive workspace primitive — DONE
 
 - `WOMAdaptivePair` 统一宽屏双栏 → 窄屏纵向；
 - 保留 13pt body / 11pt metadata；
 - 不用负 offset / magic width 解决挤压。
 
-### G24.4 — Production integration
+### G24.4 — Production integration — DONE
 
-- `ContentView` min size 改为 metrics 单一事实源；
-- Fate 局势双栏复用 responsive primitive；
-- `WorldOfMysteriesApp` 使用舒适 default size；
+- `ContentView` min size 改为 `WOMWindowMetrics` 单一事实源；
+- Fate 局势双栏复用 `WOMAdaptivePair`；
+- `WorldOfMysteriesApp` 使用 1180×760 舒适 default size；
 - 不改变 IPC / Domain / navigation state。
 
-### G24.5 — Gallery / Contract
+### G24.5 — Native Inspector QA Preview / Contract — DONE
 
-- 使用真实 `.inspector` 展示长文本与状态；
-- Inspector 280pt 压力场景；
-- `VisualWindowLayoutContractTests.swift` 锁定 metrics、native Inspector、no custom window coordinator。
+- 独立 `#Preview("Native Inspector · Visual QA")` 使用真实 `.inspector`；
+- 280pt minimum stress 中包含长中英文、Relation、Cooldown；
+- 不继续膨胀 Component Gallery 大文件；
+- `VisualWindowLayoutContractTests.swift` 锁定 metrics、native Inspector、defaultSize、adaptive pair 与 no custom window coordinator。
 
 ## 8. 生产入口事实
 
@@ -121,10 +122,19 @@ Task: `MAC-VISUAL-SYSTEM-WAVE-G`
 ## 9. Stacked 合并策略
 
 1. #31 先合并后，#32 retarget `main`、重签 Capsule、最终 CI；
-2. #32 合并后，Wave G retarget `main`、重签 Capsule、回读纯增量；
-3. Wave G 最终 head 只跑一次 `MACOS_APP_P0`；
+2. #32 合并后，#33 retarget `main`、重签 Capsule、回读纯 Wave G diff；
+3. #33 Mark Ready，并只对最终 Wave G head 执行完整 `MACOS_APP_P0`；
 4. 未经明确授权不执行 merge。
 
-## 10. 恢复入口
+## 10. 后续候选
 
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 24 → `MAC-VISUAL-SYSTEM-WAVE-G` Capsule → Wave G PR → `WOMWorkspaceLayout` → `MyApp` / `ContentView` → Gallery native Inspector specimen → `VisualWindowLayoutContractTests`。
+Wave G 最终验证后再推进：
+
+- 真实领域数据就绪后的 production Inspector binding；
+- placeholder workspace 升级时的 NavigationSplitView / inspector 数据契约；
+- 独立 Codex/Story Book window 仅在具备真实独立工作流与 state restoration 语义后评估；
+- window zoom / ideal size 与 multi-window restore 策略。
+
+## 11. 恢复入口
+
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 24 → `MAC-VISUAL-SYSTEM-WAVE-G` Capsule → PR #33 → `WOMWorkspaceLayout.swift` → `MyApp` / `ContentView` → Native Inspector QA Preview → `VisualWindowLayoutContractTests` → retarget → final CI/readback。
