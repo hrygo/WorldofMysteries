@@ -1,0 +1,89 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-E",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-SYSTEM-WAVE-E",
+  "title": "视觉系统 Overlay 与 Feedback Chrome Wave E",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T13:35:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "51a9b2679420edbf1fb9b12189033a2a6cdc8567",
+    "target_sha": "51a9b2679420edbf1fb9b12189033a2a6cdc8567",
+    "context_snapshot": "sha256:1d2bfe2c84a735035e6fd7e97866396aa51f9d4fa876cdb231d2ec5ce9a57fdc"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/MysticPrimitives.swift",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_21_Overlay_Feedback_Chrome.md",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIcon.swift",
+      "macos-app/WorldOfMysteries/Components/MysticPrimitives.swift",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "persistent_pr_overlay_feedback_chrome",
+    "token_estimate": 7200,
+    "max_core_tokens": 10000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Wave E 只补应用级 Overlay/Loading/Status/Empty visual chrome。Sheet/Popover/Inspector 生命周期继续由 SwiftUI 系统 API 负责；不修改 Engine/DB/IPC/schema。"
+  },
+  "impact": {
+    "symbols": [
+      "WOMOverlayRole",
+      "WOMOverlayPanel",
+      "WOMLoadingState",
+      "WOMStatusBanner",
+      "MysticEmptyState",
+      "VisualSystemGallerySection"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualOverlayContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-WAVE-D"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Overlay chrome 不得接管系统 Sheet/Popover/Inspector 生命周期；Loading/Status/Empty 必须尊重 macOS accessibility 环境；保留 MysticEmptyState 旧 initializer 兼容；不得修改 Engine/DB/IPC/schema。"
+  }
+}
