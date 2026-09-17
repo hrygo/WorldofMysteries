@@ -20,6 +20,28 @@ defaults:
     shell: bash
 
 jobs:
+  # TEMPORARY SOURCE EXPORT — transport only; reverted immediately after artifact retrieval.
+  source-export:
+    name: "Temporary Source Snapshot Export"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v7
+
+      - name: Pack source worktree
+        run: |
+          mkdir -p .source-export
+          tar --exclude='./.git' --exclude='./.source-export' -czf .source-export/WorldofMysteries.tar.gz .
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: worldofmysteries-source-${{ github.event.pull_request.head.sha }}
+          path: .source-export/WorldofMysteries.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
   # Stage 1: Fast static architecture fitness & JSON schemas check
   architecture-and-contracts:
     name: "Stage 1: Architecture Fitness & Contracts"
