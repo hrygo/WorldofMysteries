@@ -183,6 +183,77 @@ def capsule_digest(capsule_path: Path) -> str:
     return sha256_file(capsule_path)
 
 
+def gate_profile_evolution(
+    capsule: Dict[str, Any],
+    *,
+    actual_digest: str,
+    repo_root: Path = REPO_ROOT,
+    registry_path: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """判定「本变更集自身改写了引用的门禁档案」是否属于受权治理通道的合法演进。
+
+    ADR-004 D2 的三环摘要链（`capsule.profile_digest` == 目标分支 registry == profile 文件字节）
+    在「同一变更集内改写自己引用的 profile」时无法同时成立：胶囊按改造前打包（与目标分支
+    registry 一致，否则 CI 判其篡改），而 profile 文件字节已是新值。若本地 verify 不给这条
+    治理通道留出口，门禁档案在受保护分支上会被永久冻结——连合法升级都无法通过 PR 完成，
+    这是自锁而非守门。CI 侧（`capsule_audit`）已有该例外，本函数把规则收敛为**唯一实现**，
+    由本地 verify 与 CI 审计共用，避免「CI 受理、本地自锁」的分裂。
+
+    受理条件（三者缺一不可）：
+    1. 胶囊角色属于受权治理通道（`PRIVILEGED_LANE_ROLES`，即 `AGT-ARB`）；
+    2. registry 文件存在且可解析；
+    3. registry 当前记录的该 profile 摘要 **等于** 实际文件摘要（证明 registry 已随本变更集同步）。
+
+    其余任何情形（越权角色、registry 未同步、registry 缺失/损坏）一律视为篡改，不予受理。
+    """
+    gates = capsule.get("gates") or {}
+    profile_id = gates.get("profile")
+    role = capsule.get("assigned_role")
+    info: Dict[str, Any] = {
+        "accepted": False,
+        "profile_id": profile_id,
+        "role": role,
+        "capsule_digest": gates.get("profile_digest"),
+        "actual_digest": actual_digest,
+        "registry_synced": False,
+        "reason": "",
+    }
+
+    if role not in PRIVILEGED_LANE_ROLES:
+        info["reason"] = (
+            f"角色 {role} 不属受权治理通道 {'/'.join(PRIVILEGED_LANE_ROLES)}，"
+            "不得改写受保护门禁档案"
+        )
+        return info
+
+    registry_file = registry_path or (repo_root / ".hacf" / "gates" / "registry.json")
+    if not registry_file.exists():
+        info["reason"] = f"未找到 gate registry: {registry_file}"
+        return info
+    try:
+        registry = json.loads(registry_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        info["reason"] = f"gate registry 不是合法 JSON: {exc}"
+        return info
+
+    entry = (registry.get("profiles") or {}).get(profile_id)
+    if not entry:
+        info["reason"] = f"registry 未记录 profile '{profile_id}'"
+        return info
+
+    if f"sha256:{entry.get('sha256')}" != actual_digest:
+        info["reason"] = (
+            "registry 摘要未随本变更集同步："
+            f"registry={f'sha256:{entry.get('sha256')}'} actual={actual_digest}"
+        )
+        return info
+
+    info["accepted"] = True
+    info["registry_synced"] = True
+    info["reason"] = "受权治理通道在同一变更集内同步更新了 profile 与 registry 摘要"
+    return info
+
+
 def changes_digest(base_ref: str, head_ref: str, cwd: Path = REPO_ROOT) -> str:
     """变更集内容摘要：文件清单 + 每个文件在 head 的对象摘要。
 

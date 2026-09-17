@@ -26,6 +26,7 @@ ENGINEERING_DIR = REPO_ROOT / "contracts" / "engineering"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import generate_pr_report as reporter  # noqa: E402
+import agent_capsule  # noqa: E402
 import gate_profile  # noqa: E402
 import hacf_policy  # noqa: E402
 
@@ -330,3 +331,236 @@ def test_receipts_are_reported_without_capsule(tmp_path: Path, monkeypatch):
     receipts = reporter.load_changed_receipts(changed)
     assert len(receipts) == 1
     assert receipts[0]["verdict"] == "passed"
+
+
+# ==============================================================================
+# T-GOV-003：门禁档案演进的受理规则（本地 verify 与 CI 审计共用一份实现）
+#
+# 背景：ADR-004 D2 要求三环摘要完全相等
+# （`capsule.profile_digest` == 目标分支 registry == profile 文件字节）。
+# 但「本变更集自身就在改写引用的 profile」时三环无法同时成立：胶囊必须按改造前打包
+# （否则 CI 判其篡改），而文件字节已是新值。`capsule_audit` 早已为受权治理通道留出口，
+# 本地 `verify` 却没有，于是 AGT-ARB 无法为合法门禁升级签出绿色凭单 ——
+# 门禁档案在受保护分支上被永久冻结（HACF-2.5 实际撞上该自锁）。
+# 本组测试锁定共用规则：只有「受权通道 + registry 同变更集同步」才受理演进。
+# ==============================================================================
+
+BASE_PROFILE_DIGEST = "sha256:" + "a" * 64
+EVOLVED_PROFILE_DIGEST = "sha256:" + "b" * 64
+
+
+def _gate_evolution_capsule(role: str = "AGT-ARB") -> dict:
+    return {
+        "capsule_id": "CAP-T-GOV-EVOLUTION",
+        "capsule_revision": 1,
+        "task_id": "T-GOV-EVOLUTION",
+        "title": "门禁档案演进受理",
+        "assigned_role": role,
+        "risk_class": "privileged",
+        "scope": {
+            "read": ["."],
+            "write": [".hacf/", "app.txt"],
+            "forbidden": [],
+            "privileged_grants": [],
+        },
+        "gates": {
+            "profile": "FULL_P0",
+            "profile_digest": BASE_PROFILE_DIGEST,
+            "profile_file": ".hacf/gates/full_p0.json",
+            "risk_class": "high",
+        },
+    }
+
+
+def _write_evolution_registry(path: Path, digest: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "profiles": {
+                    "FULL_P0": {
+                        "file": ".hacf/gates/full_p0.json",
+                        "sha256": digest.removeprefix("sha256:"),
+                        "risk_class": "high",
+                    }
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_gate_evolution_accepted_for_privileged_lane_with_synced_registry(tmp_path):
+    """AGT-ARB + registry 已同步 → 演进受理（这是门禁档案唯一合法的改写通道）。"""
+    registry = tmp_path / "registry.json"
+    _write_evolution_registry(registry, EVOLVED_PROFILE_DIGEST)
+
+    info = hacf_policy.gate_profile_evolution(
+        _gate_evolution_capsule("AGT-ARB"),
+        actual_digest=EVOLVED_PROFILE_DIGEST,
+        registry_path=registry,
+    )
+
+    assert info["accepted"] is True
+    assert info["registry_synced"] is True
+    assert info["profile_id"] == "FULL_P0"
+
+
+def test_gate_evolution_rejected_for_non_privileged_role(tmp_path):
+    """非受权通道角色：即使 registry 已同步，也一律判篡改。"""
+    registry = tmp_path / "registry.json"
+    _write_evolution_registry(registry, EVOLVED_PROFILE_DIGEST)
+
+    info = hacf_policy.gate_profile_evolution(
+        _gate_evolution_capsule("AGT-MAC"),
+        actual_digest=EVOLVED_PROFILE_DIGEST,
+        registry_path=registry,
+    )
+
+    assert info["accepted"] is False
+    assert "AGT-MAC" in info["reason"]
+
+
+def test_gate_evolution_rejected_when_registry_not_synced(tmp_path):
+    """registry 仍记录旧摘要 → 未同步，判篡改（自证式改写必须被拒）。"""
+    registry = tmp_path / "registry.json"
+    _write_evolution_registry(registry, BASE_PROFILE_DIGEST)
+
+    info = hacf_policy.gate_profile_evolution(
+        _gate_evolution_capsule("AGT-ARB"),
+        actual_digest=EVOLVED_PROFILE_DIGEST,
+        registry_path=registry,
+    )
+
+    assert info["accepted"] is False
+    assert "未随本变更集同步" in info["reason"]
+
+
+def test_gate_evolution_rejected_when_registry_missing(tmp_path):
+    """缺 registry → 无从证明同步，判篡改。"""
+    info = hacf_policy.gate_profile_evolution(
+        _gate_evolution_capsule("AGT-ARB"),
+        actual_digest=EVOLVED_PROFILE_DIGEST,
+        registry_path=tmp_path / "absent.json",
+    )
+
+    assert info["accepted"] is False
+    assert "未找到 gate registry" in info["reason"]
+
+
+def _gate_evolution_workspace(tmp_path: Path, *, registry_digest: str) -> tuple[Path, Path, str]:
+    """构造一个「自身改写了所引用 profile」的最小工作区，返回 (工作区, 胶囊路径, HEAD)。"""
+    workspace = tmp_path / "ws"
+    workspace.mkdir(parents=True, exist_ok=True)
+    _git(workspace, "init", "-q", "-b", "main")
+    _git(workspace, "config", "user.email", "t@example.com")
+    _git(workspace, "config", "user.name", "tester")
+
+    gates = workspace / ".hacf" / "gates"
+    gates.mkdir(parents=True)
+    (gates / "full_p0.json").write_text(
+        json.dumps(
+            {
+                "gate_profile_id": "FULL_P0",
+                "description": "fixture",
+                "risk_class": "high",
+                "stages": [{"stage": 1, "name": "noop", "cwd": ".", "command": ["true"]}],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _write_evolution_registry(gates / "registry.json", registry_digest)
+    (workspace / "app.txt").write_text("gate evolution\n", encoding="utf-8")
+    _git(workspace, "add", ".")
+    _git(workspace, "commit", "-q", "-m", "base with gates")
+    base_sha = _git(workspace, "rev-parse", "HEAD").stdout.strip()
+
+    # 第二个提交提供非空变更集：凭单的 diff_digest 契约要求 sha256:<64hex>，
+    # 空变更集会写出空摘要而无法通过 schema 校验。
+    (workspace / "app.txt").write_text("gate evolution v2\n", encoding="utf-8")
+    _git(workspace, "add", ".")
+    _git(workspace, "commit", "-q", "-m", "evolve gates")
+    head = _git(workspace, "rev-parse", "HEAD").stdout.strip()
+
+    capsule = _gate_evolution_capsule("AGT-ARB")
+    capsule["base"] = {
+        "target_ref": "main",
+        "base_sha": base_sha,
+        "target_sha": head,
+        "context_snapshot": "sha256:" + "c" * 64,
+    }
+    capsule_path = workspace / ".agents" / "capsules" / "T-GOV-EVOLUTION.json"
+    capsule_path.parent.mkdir(parents=True)
+    capsule_path.write_text(json.dumps(capsule, indent=2), encoding="utf-8")
+    return workspace, capsule_path, head
+
+
+def _fake_gate_run(actual_digest: str):
+    def _run(profile_id, cwd=None, log_dir=None, **kwargs):  # noqa: ANN001, ANN003
+        return {
+            "gate_profile_id": profile_id,
+            "gate_profile_digest": actual_digest,
+            "result": "passed",
+            "stages": [],
+            "coverage_gaps": [],
+        }
+
+    return _run
+
+
+def _isolate_in_process_git_env(monkeypatch) -> None:
+    """清掉钩子注入的 GIT_* 变量。
+
+    `verify_capsule` 在以进程内方式调用 git（`hacf_policy.run_git`），其子进程继承 `os.environ`。
+    pre-commit 钩子会向测试进程注入 `GIT_DIR` / `GIT_INDEX_FILE` / `GIT_WORK_TREE`，此时夹具内的
+    裁决与 `changed_files` 会落到**真实仓库**上（曾实际损坏隔离工作区索引）。夹具里的
+    `_git()` 已自带 `_clean_git_env`，这里补齐进程内调用的同一道防线。
+    """
+    for key in _GIT_ENV_POLLUTANTS:
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_verify_signs_green_receipt_for_accepted_gate_evolution(tmp_path, monkeypatch):
+    """回归：受权通道合法升级门禁档案时，本地 verify 必须能签出绿色凭单。"""
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, capsule_path, head = _gate_evolution_workspace(
+        tmp_path, registry_digest=EVOLVED_PROFILE_DIGEST
+    )
+    monkeypatch.setattr(gate_profile, "run_profile", _fake_gate_run(EVOLVED_PROFILE_DIGEST))
+
+    assert agent_capsule.verify_capsule(capsule_path, cwd=workspace) is True
+
+    receipt = json.loads(
+        (workspace / ".agents" / "receipts" / "T-GOV-EVOLUTION" / f"{head[:12]}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt["verdict"] == "passed"
+    assert receipt["gate_profile_digest"] == EVOLVED_PROFILE_DIGEST
+    assert any("演进被受理" in note for note in receipt["notes"])
+    assert "gate profile digest mismatch" not in receipt["coverage_gaps"]
+    Draft202012Validator(
+        json.loads((ENGINEERING_DIR / "work_receipt.schema.json").read_text(encoding="utf-8"))
+    ).validate(receipt)
+
+
+def test_verify_rejects_gate_evolution_without_registry_sync(tmp_path, monkeypatch):
+    """反向回归：registry 未同步的档案改写仍必须被判失败。"""
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, capsule_path, head = _gate_evolution_workspace(
+        tmp_path, registry_digest=BASE_PROFILE_DIGEST
+    )
+    monkeypatch.setattr(gate_profile, "run_profile", _fake_gate_run(EVOLVED_PROFILE_DIGEST))
+
+    assert agent_capsule.verify_capsule(capsule_path, cwd=workspace) is False
+
+    receipt = json.loads(
+        (workspace / ".agents" / "receipts" / "T-GOV-EVOLUTION" / f"{head[:12]}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt["verdict"] == "failed"
+    assert "gate profile digest mismatch" in receipt["coverage_gaps"]
