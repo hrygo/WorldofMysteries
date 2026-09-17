@@ -102,7 +102,7 @@ public struct BronzeAltarPrayerCard: View {
 
                 Text("灵性之墙 · 幽蓝圣焰")
                     .font(Font.Mystic.caption)
-                    .foregroundStyle(Color.Mystic.spiritualBlue)
+                    .foregroundStyle(Color.Mystic.textSecondary)
             }
 
             Spacer()
@@ -127,7 +127,7 @@ public struct BronzeAltarPrayerCard: View {
 
             Text("\(domainName)，")
                 .font(Font.Mystic.titleMedium)
-                .foregroundStyle(pathwayColor)
+                .foregroundStyle(Color.Mystic.textPrimary)
                 .tracking(DesignTokens.TypographyMetrics.titleTracking)
                 .shadow(color: pathwayColor.opacity(0.4), radius: 8)
 
