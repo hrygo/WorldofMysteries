@@ -1,0 +1,72 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-CLOSURE-R2",
+  "capsule_revision": 2,
+  "task_id": "MAC-VISUAL-SYSTEM-CLOSURE",
+  "title": "Close the macOS visual system delivery and persist final merge policy",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-18T00:05:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "5661a15a3d4e25fe3287dae9e5b483f6f4a6abd9",
+    "target_sha": "5661a15a3d4e25fe3287dae9e5b483f6f4a6abd9",
+    "context_snapshot": "sha256:45109432663505406032708286445ac132928534107213287129dcf63b6c0e7d"
+  },
+  "scope": {
+    "read": [
+      "docs/05_UI/visual-assets/",
+      ".agents/capsules/",
+      "macos-app/WorldOfMysteriesTests/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/**/*.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/Visual_QA_Source_Guards_v1.0.md",
+      "docs/05_UI/visual-assets/Batch_26_Visual_System_Closure.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "docs_only_visual_system_terminal_closure_main_reconciled",
+    "token_estimate": 4000,
+    "max_core_tokens": 7000,
+    "expansion_policy": "arbiter_approved",
+    "note": "R2 normalizes the closure capsule to the authoritative MACOS_APP_P0 registry risk class after the initial metadata-only closure audit rejected R1. This remains a docs-only terminal closure; no product code or gate definition is modified."
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-QA-SOURCE-GUARDS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Update only persistent visual-system documentation and closure evidence. Mark completed waves as merged, preserve all Visual QA thresholds, distinguish future domain-dependent work from current leftovers, and record the authorized merge rule: only a verified final head with all required gates successful may be merged automatically; never bypass a failed gate."
+  }
+}

@@ -11,20 +11,24 @@
 - 涉及方案时同步提交：Living Plan + Batch + Capsule + 实际代码/测试。
 - 稳定增量尽早推远端；最终 head 统一执行 `MACOS_APP_P0`。
 - 不绕过主分支保护；写入成功不等于交付完成。
+- **最终 head 的完整 required gates 全部通过后，允许按当前项目授权自行合并；合并时必须使用 expected head SHA，并在合并后回读 `main` 与 open PR 状态。**
 - Visual QA Contract 对历史和未来视觉代码都生效，已合并不是豁免理由。
 
-## 2. 技术与 QA 边界
+## 2. 技术与 Visual QA 硬性边界
 
 - 世界观图形：原创 vector asset + typed registry。
 - 平台行为/状态：SF Symbols + typed semantic registry。
 - Sheet / Popover / Inspector / segmented selection / WindowGroup 优先系统 SwiftUI/macOS 语义；WOM 不伪造系统控件/窗口。
-- readable text contrast >= **4.5:1**；关键 non-text affordance >= **3:1**；长正文优先 >= **7:1**。
+- readable text contrast >= **4.5:1**；关键 non-text affordance >= **3:1**；长正文/重点说明批准组合优先 >= **7:1**。
 - body 默认 >= **13pt**；metadata 默认 >= **11pt**；10pt 仅短数字/快捷键/极短标签；9pt 以下不承载关键语义。
-- 最小窗口 **960×640** 无结构性重叠；长中英文必须自然增长或 responsive fallback。
+- 最小窗口 **960×640** 无结构性重叠；舒适默认窗口 **1180×760**，但不锁定用户 resize。
+- Inspector width contract：**280 / 320 / 420pt**（min / ideal / max）。
+- 长中英文、Badge、Loading、Error、Empty 必须自然增长或 responsive fallback。
 - 优先 adaptive Grid / `ViewThatFits`；不得通过缩小字体、负 padding、魔法宽度或抬高最小窗口掩盖空间问题。
+- 同组卡片、按钮、标题基线、padding、视觉重量保持工整一致。
 - Reduce Motion / Increased Contrast / Differentiate Without Color / Reduce Transparency / Keyboard Focus 必须稳定退化。
 
-## 3. 已合入 main
+## 3. 当前视觉系统交付状态：COMPLETE
 
 | 阶段 | PR | 内容 | 状态 |
 |---|---|---|---|
@@ -33,103 +37,101 @@
 | Wave C | #27 | Focus / Contrast / Accessibility states | DONE |
 | Wave D | #28 | Asset contracts、typed icon、navigation/commands/focus | DONE |
 | Wave E | #29 | Overlay / Feedback / Loading / Status / typed Empty State | DONE |
+| Visual QA Backfill | #31 | Wave A–E retroactive contrast / typography / collision / alignment / 15-of-15 Artifact QA | DONE |
+| Wave F | #32 | Native segmented fallback、Relation、Achievement、Cooldown、advanced interaction contracts | DONE |
+| Wave G | #33 | Window metrics、native Inspector、responsive workspace layout | DONE |
+| Wave H | #34 | Source Guard、WCAG Contrast Guard、Typography Token Guard | DONE |
+| Closure | current | Living Plan / merge policy / terminal delivery record | IN FINAL GATE |
 
-## 4. 已验证待合并：Visual QA Backfill / PR #31
+> PR #30 是在 `main` 前进后主动关闭的过渡 Backfill PR；其有效工作已从最新主线重新建立并进入 #31，不属于遗留交付。
 
-Branch: `feat/wom-visual-qa-backfill-v2`  
-Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`  
-状态：**READY TO MERGE / ALL QUALITY GATES PASSED**。
+当前视觉系统不存在待实现的已承诺 Wave。Closure 合并后，本轮视觉系统工程交付视为结束。
 
-已完成 Wave A–E 的 retroactive contrast / typography / collision / alignment audit、960×640 responsive hardening、shared primitives、15/15 Artifact individual QA、Reduce Motion 和 `VisualQAContractTests.swift`。
+## 4. 已形成的系统能力
 
-## 5. 已实现待 retarget：Wave F / PR #32
+### Assets / semantic registry
 
-Branch: `feat/wom-visual-system-wave-f`  
-Stacked base: `#31@8b9ab58428d05762184884c9e60b03f6e8075d71`  
-Head: `a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
-状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
+- World / Ritual / Codex / Artifact / Character / Clue / Inventory / Settings 等自有语义图标；
+- 平台行为与状态通过 typed SF Symbols registry；
+- Texture registry 复用现有高质量纹理，不复制大型资源；
+- Asset Catalog、registry、SVG metadata 具备自动契约。
 
-已实现：native segmented → menu fallback、Relation Badge、Achievement Seal、Cooldown Indicator、Gallery stress、`VisualAdvancedInteractionContractTests.swift`。
+### Component primitives
 
-## 6. 已实现待 retarget：Wave G / PR #33
+- `WOMIcon`
+- `WOMButtonStyle` / icon / toolbar variants
+- `WOMPanelBackground` / `WOMCardSurface` / `WOMFloatingSurface`
+- `WOMTextureLayer`
+- Overlay / Loading / Status / Empty State
+- `WOMAdaptiveSegmentedPicker`
+- `WOMRelationBadge`
+- `WOMAchievementSeal`
+- `WOMCooldownIndicator`
+- `WOMAdaptivePair`
+- `WOMInspectorContent`
 
-Branch: `feat/wom-visual-system-wave-g`  
-Stacked base: `#32@a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
-Head: `12b3f9a100193b4ad3dba8de3bd43263ba4e6baf`  
-状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
+### Production integration
 
-已实现：
+- App Sidebar
+- Content Shell
+- Fate / Artifact intervention
+- Ritual components
+- Codex / Archive components
+- Component Gallery / Visual QA Stress
+- App commands / Advice focus chain
+- Window default/minimum metrics
 
-- `WOMWindowMetrics`：minimum 960×640 / default 1180×760；
-- `WOMInspectorMetrics`：280 / 320 / 420；
-- `WOMAdaptivePair`；
-- `WOMInspectorContent`；
-- MyApp `.defaultSize` / ContentView shared metrics；
-- Native `.inspector` Visual QA Preview；
-- `VisualWindowLayoutContractTests.swift`。
+### Visual QA governance
 
-## 7. 已实现待 retarget：Wave H / PR #34 — Visual QA Source Guards
+- historical Wave A–E backfill completed；
+- 15/15 Artifact individual QA completed；
+- Source Guard scans production visual Swift and reports file + line；
+- approved contrast combinations are calculated with WCAG relative luminance；
+- shared typography token floors prevent global readability regression；
+- Swift 6 / Xcode App Target continue to be required final gates。
 
-Branch: `feat/wom-visual-system-wave-h`  
-Stacked base: `#33@12b3f9a100193b4ad3dba8de3bd43263ba4e6baf`  
-Batch: [`Batch_25_Wave_H_Visual_QA_Source_Guards.md`](Batch_25_Wave_H_Visual_QA_Source_Guards.md)  
-Task: `MAC-VISUAL-QA-SOURCE-GUARDS`  
-状态：**IMPLEMENTATION COMPLETE / UPSTREAM RECONCILE + FINAL CI PENDING**。
+## 5. Merge / verification policy
 
-### Source Guards
+For visual-system work in this project:
 
-- 生产视觉直接 system font `<10pt` 自动失败；
-- `.minimumScaleFactor` 自动失败；
-- Components / Artifacts / ContentView 负 padding 自动失败；
-- 视觉层 `NSPanel / NSWindow / NSViewRepresentable` 自动失败；
-- 违规日志包含相对路径、行号和源码片段；
-- 不 blanket-ban offset / lineLimit / opacity / 10pt short metadata。
+1. pin current `main` SHA；
+2. persist Capsule + plan/batch + implementation/tests early；
+3. preserve atomic commits；
+4. stacked work must reconcile to actual `main` before final validation；
+5. final Files changed must contain only the intended wave increment；
+6. required final checks:
+   - PR Task Capsule & Evidence Audit；
+   - PR Gate Reporter & Sticky Comment；
+   - Architecture Fitness & Contracts；
+   - Python Engine & Contracts；
+   - Swift 6 Test Suite；
+   - Xcode App Target build；
+   - `All Quality Gates Passed`；
+7. **all final gates success → may merge automatically using the verified expected head SHA**；
+8. after merge, read back `main`, merged PR state and remaining open PRs。
 
-### Contrast Guards
+A failed guard is repaired by changing the implementation or approved contract deliberately; it must not be weakened merely to obtain green CI.
 
-`VisualContrastContractTests.swift` 直接解析 `DesignTokens.swift` RGB Token 并计算 WCAG ratio：
-
-- AAA/长文本批准组合 >= 7:1；
-- 常规 readable text 批准组合 >= 4.5:1；
-- Danger 锁定 `textPrimary / crimsonThread`；
-- Parchment primary/secondary/tertiary hierarchy 数学验证；
-- 动态 Pathway/accent/status 色如要承担正文，必须先进入 Approved Contrast Matrix。
-
-### Typography Guards
-
-`VisualTypographyContractTests.swift` 锁住 Token 级可读性下限：
-
-- `bodyMedium >= 13pt`、`bodyLarge >= 14pt`；
-- `caption / monoBadge >= 11pt`；
-- `titleSmall >= 15pt`，title/display/narrative roles 不得整体缩小；
-- `parchmentCursive >= 14pt`；
-- narrative / parchment / body / title / compact line spacing 具备最低阈值。
-
-## 8. 生产入口事实
+## 6. 生产入口事实 / 当前产品边界
 
 - Sidebar / Fate / Content Shell：真实生产入口。
 - Ritual：已有真实组件，无独立一级路由。
-- Character / Story Book / Cards / Worldline / Notes：真实领域数据链未就绪时继续保持 placeholder。
 - Artifact：作为 Fate 命运干预工具，不额外制造背包一级导航。
+- Character / Story Book / Cards / Worldline / Notes：若真实领域数据链尚未就绪，继续保持 placeholder；**这属于产品/领域数据工作，不是本轮视觉系统遗留。**
 - Component Gallery / Native Inspector Preview：Showcase / Visual Regression / QA surface，不代表业务页面完成。
+- 不为“看起来更像专业 App”提前制造没有领域语义的独立窗口。
 
-## 9. Stacked 合并策略
+## 7. 后续仅在新前置条件成立时启动的新工作
 
-1. #31 合并 → #32 retarget `main`、重签 Capsule、最终 CI；
-2. #32 合并 → #33 retarget `main`、重签 Capsule、最终 CI；
-3. #33 合并 → #34 retarget `main`、重签 Capsule、回读 Source/Contrast/Typography Guard 纯增量；
-4. #34 最终 head 运行完整 `MACOS_APP_P0`，首次执行若发现历史残留则修实现，不放宽规则掩盖问题；
-5. 未经明确授权不执行 merge。
+以下项目不属于当前未完成工作；只有相应领域能力成熟后才开启新 Task Capsule / PR：
 
-## 10. 后续候选
+- production Inspector binding（真实领域 selection/state source 就绪后）；
+- placeholder workspace 接入真实数据后的 NavigationSplitView / Inspector contract；
+- Character / Codex / Story Book standalone window（具备独立工作流与 state restoration 后）；
+- window restore / zoom / multi-window policy（确有产品需求后）。
 
-在 Source Guard 经最终 CI 验证后，再推进新的业务视觉能力；优先顺序：
+## 8. 恢复入口
 
-- production Inspector binding（仅真实领域数据就绪后）；
-- placeholder workspace 数据接入后的 NavigationSplitView / Inspector contract；
-- 独立 Codex/Story Book window 仅在具备独立工作流与 state restoration 语义后评估；
-- window restore / zoom / multi-window policy。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 22–26 → Wave B–H Capsules → Component Gallery / Native Inspector Preview → Visual QA / Contrast / Typography contract tests。
 
-## 11. 恢复入口
-
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 25 → `MAC-VISUAL-QA-SOURCE-GUARDS` Capsule → PR #34 → `VisualQASourceGuardTests.swift` + `VisualContrastContractTests.swift` + `VisualTypographyContractTests.swift` → retarget → final CI/readback。
+本文件为当前执行事实源；历史 Batch 保留决策过程与每阶段证据。
