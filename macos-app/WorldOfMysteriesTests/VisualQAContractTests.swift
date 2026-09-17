@@ -82,6 +82,28 @@ struct VisualQAContractTests {
         #expect(overlay.contains(".fixedSize(horizontal: false, vertical: true)"))
     }
 
+    @Test("legacy animated and dense components respect visual QA constraints")
+    func remainingLegacyComponents() throws {
+        let listening = try file("macos-app/WorldOfMysteries/Components/ListeningRingView.swift")
+        let backlund = try file("macos-app/WorldOfMysteries/Components/BacklundMetropolisCard.swift")
+        let beacon = try file("macos-app/WorldOfMysteries/Components/CrimsonStarBeaconView.swift")
+        let spirit = try file("macos-app/WorldOfMysteries/Components/SpiritPendulumView.swift")
+        let gauge = try file("macos-app/WorldOfMysteries/Components/SpiritualityGaugeView.swift")
+
+        #expect(listening.contains("@Environment(\\.accessibilityReduceMotion)"))
+        #expect(listening.contains("guard !reduceMotion else"))
+        #expect(backlund.contains("@Environment(\\.accessibilityReduceMotion)"))
+        #expect(backlund.contains("ViewThatFits(in: .horizontal)"))
+        #expect(!backlund.contains(".font(.system(size: 9"))
+        #expect(beacon.contains("@Environment(\\.accessibilityReduceMotion)"))
+        #expect(beacon.contains("ViewThatFits(in: .horizontal)"))
+        #expect(beacon.contains("Text(\"灰雾共鸣\")"))
+        #expect(beacon.contains(".foregroundStyle(Color.Mystic.textSecondary)"))
+        #expect(spirit.contains("@Environment(\\.accessibilityReduceMotion)"))
+        #expect(spirit.contains("ViewThatFits(in: .horizontal)"))
+        #expect(gauge.contains("return Color.Mystic.textPrimary"))
+    }
+
     @Test("artifact semantic accent stays decoration rather than small readable text")
     func artifactTextUsesStableTokens() throws {
         let fate = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactFateInterventionView.swift")
