@@ -231,6 +231,77 @@ runtime:
 
 ---
 
+## 4A. G-CTX — Generation Context Gate
+
+Before any production candidate batch, the image-generation context itself must be validated.
+
+This gate exists because a long-lived project conversation can accumulate strong visual priors from:
+
+- earlier rejected candidates;
+- other World / Scene concepts;
+- Artifact / card imagery;
+- cosmic entities;
+- project naming and UI discussions.
+
+When the generator infers from the entire conversation, those priors can override an otherwise correct immediate prompt.
+
+### Clean-context requirements
+
+A production generation context must contain only:
+
+1. the single artwork Image Contract;
+2. the isolated generation pack for that artwork;
+3. the selected candidate direction;
+4. no prior rejected candidate images;
+5. no other World / Scene / Artifact generation work;
+6. no GitHub / SwiftUI / Asset Catalog engineering discussion;
+7. no unrelated cosmic-entity / card-art history.
+
+### Control probe
+
+Before the real 4–6 candidate batch, run one inexpensive control probe that requests an ordinary historically grounded late-19th-century industrial-city environment **without occult semantics**.
+
+Reject the context if the control result contains two or more of:
+
+- monumental fantasy cathedral / castle;
+- readable slogans or invented organization names;
+- occult banners / sigils;
+- celestial halo / portal / impossible moon;
+- floating architecture or fantasy landscape;
+- promotional game-key-art composition.
+
+A failed control probe means:
+
+> abort that generation context; do not keep tuning prompt wording inside it.
+
+### Context lifecycle
+
+Use separate generation contexts for:
+
+- W1;
+- W2;
+- each Artifact production batch.
+
+Do not use W1 failures as references for W2, and do not keep dozens of rejected visual priors inside one image-generation thread.
+
+Production gate order is therefore:
+
+```text
+G-CTX Generation Context
+        ↓
+G0 Semantic
+        ↓
+G1 Canon / Atmosphere
+        ↓
+G2 Composition
+        ↓
+G3 Structure
+        ↓
+G4 Production
+        ↓
+G5 Runtime
+```
+
 ## 5. 候选生成：批量探索，不做单发押宝
 
 每一个 Visual Contract 的 Composition Stage 默认生成 **4–6 个候选**。

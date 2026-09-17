@@ -79,6 +79,12 @@ struct PremiumArtworkContractTests {
         #expect(json["artwork_id"] as? String == "W1_WORLD_HERO")
         #expect(json["status"] as? String == "LOCKED_FOR_PRODUCTION")
 
+        let generation = try #require(json["generation"] as? [String: Any])
+        let contextGate = try #require(generation["context_gate"] as? [String: Any])
+        #expect(contextGate["id"] as? String == "G-CTX")
+        #expect(contextGate["required"] as? Bool == true)
+        #expect(contextGate["control_probe_required"] as? Bool == true)
+
         let master = try #require(json["production_master"] as? [String: Any])
         #expect(master["target_width"] as? Int == 4096)
         #expect(master["target_height"] as? Int == 2560)
