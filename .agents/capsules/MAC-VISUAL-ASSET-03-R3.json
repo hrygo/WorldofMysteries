@@ -1,0 +1,71 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-03-R3",
+  "capsule_revision": 3,
+  "supersedes": "CAP-MAC-VISUAL-ASSET-03-R2",
+  "task_id": "MAC-VISUAL-ASSET-03-R3",
+  "title": "建立 macOS 标准行为图标语义注册（集成基线）",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:56:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "integration/visual-assets-final",
+    "base_sha": "e52e6a413e4f92570d9895c25affc0879ea35a53",
+    "target_sha": "e52e6a413e4f92570d9895c25affc0879ea35a53",
+    "context_snapshot": "sha256:17c09a5856b9a77b3142dfdd28941efb24d7ad51406f66859322144182348e0d"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "docs/05_UI/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSystemIcon.swift",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_03_System_Action_Icons.md"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIconAsset.swift",
+      "docs/05_UI/design_tokens.json"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "integrated_system_action_icon_semantics",
+    "token_estimate": 1700,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Batch 03 作为原子 commit 进入视觉资产集成分支；不单独等待 CI，最终对集成结果统一执行权威门禁。"
+  },
+  "impact": {
+    "symbols": ["WOMSystemIcon"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-ASSET-02-R2"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "标准 macOS 行为通过 WOMSystemIcon 类型化映射使用 SF Symbols；不复制系统 glyph 到 Assets.xcassets；总/分方案与实现同 commit 持久化。"
+  }
+}
