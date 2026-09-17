@@ -8,63 +8,56 @@
 - 长期视觉语言、Token 原则、技术边界：以 `Visual_Asset_System_v1.0.md` 为准。
 - 当前实施顺序、资产落盘进度、依赖和恢复入口：以本文件为准。
 - 单批设计与实现细节：以对应 `Batch_xx_*.md`、Task Capsule、原子 commit 为准。
-
-任何关键设计判断不得只存在于聊天、临时工作区或 PR 描述中。
+- 关键设计判断不得只存在于聊天、临时工作区或 PR 描述中。
 
 ## 2. 持久化与提交模型
 
-1. **尽早远端持久化**：任务开始后尽快建立远端分支/PR，不等待整批实现完成。
-2. **PR 不要求最小化**：一个 PR 可以持续承载同一工作流的多个增量阶段。
-3. **原子 commit 才是最小单元**：每个 commit 必须语义单一、可审查、可回滚、可独立定位。
-4. **总 / 分资料同步落盘**：涉及方案时，必须同时维护本 Living Plan 与对应 Batch 文档；实现只完成方案的一部分，也必须把总体方案一起提交。
-5. **资产尽快落盘**：SVG、纹理、注册表、组件实现一旦形成稳定增量即提交，避免只保留在执行环境。
-6. **最终集成验证优先**：低风险同类 UI/资产增量持续推送到同一持久化 PR；准备合并时对最终 head 跑完整权威门禁。
+1. 尽早建立远端分支/PR；
+2. PR 不要求最小化，可承载同一工作流多个阶段；
+3. 原子 commit 是最小审查/回滚单元；
+4. 涉及方案时同步维护 Living Plan + Batch 文档；
+5. 稳定资产/代码增量尽快落 Git；
+6. 同类低风险增量持续推入长期 PR，准备合并时对最终 head 执行完整门禁。
 
 ## 3. 资产技术边界
 
-### 自有世界观图形
+- 世界观图形：原创 vector asset + typed registry，命名 `wom.icon.* / wom.ornament.* / wom.texture.*`；
+- 平台标准行为/状态：SF Symbols + `WOMSystemIcon` / `WOMStatusIcon`；
+- hover / pressed / selected / focused / disabled / loading：由 SwiftUI style + Design Token 控制，不复制位图状态。
 
-使用 `Assets.xcassets` 中原创矢量资产 + 类型化注册表：
+## 4. 已合入 main 的基线
 
-```text
-wom.icon.*
-wom.ornament.*
-wom.texture.*
-```
+| 阶段 | 内容 |
+|---|---|
+| PR #22 | Visual Asset System 基线；World / Ritual / Codex / Artifact；`WOMIconAsset` |
+| PR #21 | Character / Fate / Worldline / Notes；`WOMNavigationIconAsset` |
+| PR #23 + #25 | Clue / Inventory / Settings；Living Plan |
+| PR #24 + #25 | Add / Remove / Edit / Search 系统行为语义 |
 
-### 平台标准行为
+## 5. PR #26 — Wave B 当前进度
 
-优先使用 SF Symbols，通过 `WOMSystemIcon` / `WOMStatusIcon` 做稳定语义映射，不复制系统 glyph 到 Asset Catalog。
-
-### 视觉状态
-
-颜色、hover、pressed、selected、focused、disabled、loading 等状态由 SwiftUI 样式与 Design Token 控制，不通过重复导出大量状态位图实现。
-
-## 4. 已落盘基线
-
-| 阶段 | 内容 | 状态 |
+| Batch | 内容 | 状态 |
 |---|---|---|
-| Foundation / PR #22 | World / Ritual / Codex / Artifact；`WOMIconAsset` 基础；总体设计基线 | 已合入 main |
-| Navigation / PR #21 | Character / Fate / Worldline / Notes；`WOMNavigationIconAsset` | 已合入 main |
-| Batch 02 / PR #23 + #25 | Clue / Inventory / Settings；扩展 `WOMIconAsset`；Living Plan | 已合入 main |
-| Batch 03 / PR #24 + #25 | Add / Remove / Edit / Search 的 SF Symbols 类型化语义 | 已合入 main |
+| 04 | Close / Back / Favorite / More | 已实现 |
+| 05 | 状态语义 + Divination / Spirituality / Gray Fog / Seal / Card | 已实现 |
+| 06 | `WOMTextureAsset` | 已实现 |
+| 07 | `WOMIcon` | 已实现 |
+| 08 | Button Style primitives | 已实现 |
+| 09 | Panel / Card / Texture / Section Chrome | 已实现 |
+| 10 | Component Gallery 展示与视觉回归入口 | 已实现 |
+| 11 | Sidebar 生产迁移 | 已实现 |
+| 12 | Ritual 真实组件：祭坛祈祷 + 黄水晶灵摆 | 已实现 |
+| 13 | Codex / Archive：人物档案 + 廷根卷宗 + 叙事编年史 | 已实现 |
+| 14+ | Artifact / Fate、ContentView shell、可访问性最终收口 | 下一阶段 |
 
-## 5. 当前持久化工作流：Wave B
+## 6. 生产入口事实
 
-长期 PR：`feat/wom-visual-system-wave-b` / PR #26。
+- **Sidebar**：真实生产组件，已迁移。
+- **Ritual**：当前没有独立一级导航；已迁移真实 `BronzeAltarPrayerCard` 与 `CitrinePendulumScryingCard`，不制造空路由。
+- **Story Book / Cards**：当前 `ContentView` 仍进入 generic placeholder；已先迁移真实 Codex/Archive 组件，不虚报页面完成。
+- **Artifact**：产品基线明确作为 Fate 中的命运干预工具嵌入，不新增一级“道具背包”导航。
 
-1. **Batch 04**：Close / Back / Favorite / More。**已实现。**
-2. **Batch 05**：状态语义 + Divination / Spirituality / Gray Fog / Seal / Card。**已实现。**
-3. **Batch 06**：`WOMTextureAsset`。**已实现。**
-4. **Batch 07**：统一 `WOMIcon`。**已实现。**
-5. **Batch 08**：Button Style primitives。**已实现。**
-6. **Batch 09**：Panel / Card / Texture / Section Chrome。**已实现。**
-7. **Batch 10**：Component Gallery 视觉系统展示。**已实现。**
-8. **Batch 11**：Sidebar 生产迁移。**已实现。**
-9. **Batch 12**：现有 Ritual 组件（祭坛祈祷 + 黄水晶灵摆）迁移。**已实现。**
-10. **Batch 13+**：Codex/Story Book、Artifact/Fate 等真实组件与页面继续迁移。
-
-## 6. 原子 commit 规则
+## 7. 原子 commit 序列
 
 ```text
 docs(macos): persist visual system wave B plan
@@ -77,33 +70,17 @@ feat(macos): add panel and card surface primitives
 feat(macos): expose visual system in component gallery
 feat(macos): migrate sidebar to visual system
 feat(macos): migrate ritual components to visual system
+feat(macos): migrate codex and archive components
 ```
-
-不得为了减少 commit 数把不相关资产、组件和页面迁移揉成一个提交。
-
-## 7. 生产页面迁移事实
-
-- Sidebar：存在真实生产组件，已迁移。
-- Ritual：当前**没有独立一级导航路由**；已优先迁移真实存在的 `BronzeAltarPrayerCard` 与 `CitrinePendulumScryingCard`，不制造空路由。
-- Story Book / Cards：当前 `ContentView` 仍进入 generic placeholder；后续先盘点真实 Codex / Card 组件，再决定生产入口。
-- Artifact：当前明确作为 Fate 中的命运干预工具嵌入，不新增一级“道具背包”导航。
 
 ## 8. 下一阶段
 
-1. Codex / Archive 真实组件盘点与迁移；
-2. Artifact / Fate 真实组件迁移；
-3. ContentView shell 的状态栏 / 底部常驻交互 chrome 收口；
-4. accessibility / keyboard / reduced motion / transparency / high contrast 收口。
+1. Artifact / Fate 真实组件迁移；
+2. ContentView shell 顶部状态栏与底部常驻交互 chrome 收口；
+3. 对 placeholder 页面定义正式接入条件，不用视觉壳掩盖功能未完成；
+4. accessibility / keyboard / reduced motion / reduced transparency / high contrast 收口；
+5. 最终 head 统一运行 `MACOS_APP_P0`。
 
 ## 9. 恢复入口
 
-1. `docs/05_UI/Visual_Asset_System_v1.0.md`
-2. 本文件
-3. 最新 `Batch_xx_*.md`
-4. 当前 Task Capsule
-5. `WOMIconAsset.swift` / `WOMNavigationIconAsset.swift` / `WOMSystemIcon.swift` / `WOMStatusIcon.swift`
-6. `WOMIcon.swift` / `WOMButtonStyles.swift` / `WOMSurfaceStyles.swift`
-7. `Assets.xcassets/wom.*`
-8. PR #26 与其原子 commit 历史
-
-目标：任何执行环境丢失后，仅依赖仓库和开放 PR 即可继续推进。
+依次读取：稳定设计基线 → 本文件 → 最新 Batch 文档 → Task Capsules → `DesignSystem/WOM*` → `Assets.xcassets/wom.*` → PR #26 原子 commit 历史。
