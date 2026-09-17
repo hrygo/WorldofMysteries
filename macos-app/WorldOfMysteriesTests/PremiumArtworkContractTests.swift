@@ -71,6 +71,41 @@ struct PremiumArtworkContractTests {
         #expect(fate.contains("fallback: .systemImage(descriptor.systemIcon)"))
     }
 
+    @Test("W1 executable image contract stays aligned with typed runtime registry")
+    func w1ExecutableImageContractAlignment() throws {
+        let data = try Data(contentsOf: w1ContractURL)
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(json["artwork_id"] as? String == "W1_WORLD_HERO")
+        #expect(json["status"] as? String == "LOCKED_FOR_PRODUCTION")
+
+        let master = try #require(json["production_master"] as? [String: Any])
+        #expect(master["target_width"] as? Int == 4096)
+        #expect(master["target_height"] as? Int == 2560)
+        #expect(master["runtime_loadable"] as? Bool == false)
+
+        let derivatives = try #require(json["runtime_derivatives"] as? [[String: Any]])
+        let byName = Dictionary(
+            uniqueKeysWithValues: derivatives.compactMap { entry -> (String, [String: Any])? in
+                guard let name = entry["asset_name"] as? String else { return nil }
+                return (name, entry)
+            }
+        )
+
+        let runtimeName = WOMWorldArtworkAsset.worldHero.runtimeAssetName
+        let wideName = WOMWorldArtworkAsset.worldHero.wideHeaderAssetName
+
+        let runtime = try #require(byName[runtimeName])
+        #expect(runtime["width"] as? Int == 2560)
+        #expect(runtime["height"] as? Int == 1600)
+        #expect(runtime["derivation"] as? String == "deterministic_from_master")
+
+        let wide = try #require(byName[wideName])
+        #expect(wide["width"] as? Int == 2400)
+        #expect(wide["height"] as? Int == 900)
+        #expect(wide["derivation"] as? String == "semantic_crop_from_master")
+    }
+
     @Test("catalog contains no unregistered runtime premium artwork")
     func catalogHasNoOrphanPremiumArtwork() throws {
         let catalog = try catalogArtworkNames()
@@ -109,6 +144,19 @@ struct PremiumArtworkContractTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("WorldOfMysteries", isDirectory: true)
+    }
+
+    private var repositoryRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private var w1ContractURL: URL {
+        repositoryRootURL
+            .appendingPathComponent("docs/05_UI/artwork/contracts", isDirectory: true)
+            .appendingPathComponent("W1_WORLD_HERO.contract.json")
     }
 
     private var assetsCatalogURL: URL {
