@@ -74,7 +74,7 @@ World / Character / Codex / Ritual / Clue / Artifact / Inventory / Divination / 
 
 ### B. 平台行为与通用状态
 
-Add / Remove / Edit / Search / Close / Back / Favorite / More，以及 Warning / Success / Locked / Active / Cooldown。
+Add / Remove / Edit / Search / Close / Back / Favorite / More，以及 Info / Warning / Success / Danger / Locked / Active / Cooldown。
 
 实现：SF Symbols + `WOMSystemIcon` / `WOMStatusIcon`；不得为了资产数量复制一套仿系统 SVG。
 
@@ -176,6 +176,12 @@ WOMCardChrome
 WOMTextureLayer
 WOMSectionHeaderStyle
 WOMDividerOrnament
+WOMOverlayRole
+WOMOverlayPanel
+WOMFeedbackTone
+WOMLoadingState
+WOMStatusBanner
+WOMEmptyState
 ```
 
 主题层提供语义，Asset Catalog 提供资源，避免巨型全局 Singleton。
@@ -209,18 +215,16 @@ WOMDividerOrnament
 
 完成 Asset Catalog contract、typed icon 使用边界、9 个导航与 ⌘1–⌘9 契约、Commands typed icon、⌘K → Advice 原生 Focus 链，以及 placeholder 生产接入条件。
 
-### Wave E — Overlay & Feedback Chrome（CURRENT）
+### Wave E — PR #29 / Overlay & Feedback Chrome（CURRENT）
 
-目标：补齐应用级交互壳层与状态反馈，不改变业务状态机。
+当前已实现：
 
-计划能力：
-
-1. `WOMOverlayPanel`：Inspector / Popover / Sheet 内容统一 chrome；呈现仍由系统 API 完成。
-2. `WOMLoadingState`：统一 Loading / waiting / unavailable 等视觉状态，尊重 Reduced Motion。
-3. `WOMStatusBanner`：Info / Success / Warning / Danger 的持久状态提示。
-4. `MysticEmptyState` typed icon 兼容升级：保留旧 raw SF Symbol API，同时提供 `WOMIconSource` 入口。
+1. `WOMOverlayPanel`：Inspector / Popover / Sheet / HUD 内容统一 chrome；呈现仍由系统 API 完成。
+2. `WOMLoadingState`：系统 `ProgressView` + typed icon + semantic feedback tone。
+3. `WOMStatusBanner`：Info / Success / Warning / Danger，包含 non-color geometry differentiation。
+4. `WOMEmptyState`：新 typed canonical API；原有 `MysticEmptyState(systemIcon:)` 完全保留，避免兼容回归。
 5. Component Gallery Overlay/Feedback specimen。
-6. Overlay semantic contract tests。
+6. `VisualOverlayContractTests` 语义契约测试。
 
 ### Future — Production Binding
 

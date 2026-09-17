@@ -40,7 +40,7 @@
 - **Artifact**：继续作为 Fate 中命运干预工具；不额外制造背包一级导航。
 - **Component Gallery**：设计系统 Showcase / Visual Regression 观察入口，不等于业务页面完成。
 
-## 5. 当前持久化工作流：Wave E
+## 5. 当前持久化工作流：Wave E / PR #29
 
 目标：补齐应用级 Overlay / Feedback visual chrome，使 Inspector / Popover / Sheet 内容、Loading、Status、Empty State 在不破坏 macOS 原生呈现机制的前提下统一视觉语义。
 
@@ -48,23 +48,36 @@
 
 | 子阶段 | 内容 | 状态 |
 |---|---|---|
-| E21.1 | 总体方案 / Living Plan / Task Capsule / Batch 21 持久化 | IN PROGRESS |
-| E21.2 | `WOMOverlayPanel`：Inspector / Popover / Sheet content chrome | PLANNED |
-| E21.3 | `WOMLoadingState` + `WOMStatusBanner` | PLANNED |
-| E21.4 | `MysticEmptyState` typed icon 兼容升级 | PLANNED |
-| E21.5 | Component Gallery Overlay/Feedback specimen | PLANNED |
-| E21.6 | Overlay semantic contract tests | PLANNED |
+| E21.1 | 总体方案 / Living Plan / Task Capsule / Batch 21 持久化 | DONE |
+| E21.2 | `WOMOverlayPanel`：Inspector / Popover / Sheet / HUD content chrome | DONE |
+| E21.3 | `WOMLoadingState` + `WOMStatusBanner` | DONE |
+| E21.4 | `WOMEmptyState` typed canonical API；保留 legacy `MysticEmptyState` | DONE |
+| E21.5 | Component Gallery Overlay/Feedback specimen | DONE |
+| E21.6 | `VisualOverlayContractTests` | DONE |
+| E21.7 | 最终静态审计 + `MACOS_APP_P0` | PENDING |
 
-## 6. Wave E 技术原则
+## 6. Wave E 关键决策
 
 1. `.sheet` / `.popover` / `.inspector` 仍由 SwiftUI 系统 API 控制生命周期、焦点、键盘和辅助功能。
-2. `WOMOverlayPanel` 只定义内容视觉层级、padding、surface、stroke、texture 和 active appearance。
-3. Loading 优先使用系统 `ProgressView`，避免自制无限动画；Reduced Motion 下不添加额外旋转/呼吸效果。
-4. Status Banner 使用 typed status icon / semantic tone，不仅依赖颜色区分。
-5. Empty State 保留现有 raw SF Symbol 初始化器兼容性，同时新增 typed `WOMIconSource` 入口。
+2. `WOMOverlayPanel` 只定义内容视觉层级、padding、surface、stroke 与 texture。
+3. Loading 使用系统 `ProgressView`，不增加自制无限 spinner。
+4. Status Banner 使用 typed status icon + 文本 + 左侧几何 rail；Differentiate Without Color 时增加 dash pattern。
+5. Empty State 不直接改造 legacy `MysticEmptyState` 的 stored API，而是新增 `WOMEmptyState(source:)` 作为 typed canonical 入口；旧组件完全保留。
 6. 不修改 Engine / DB / IPC / schema，不用静态 demo 数据把 placeholder 冒充为生产页面。
 
-## 7. 后续候选
+## 7. Wave E 当前原子 commit
+
+```text
+docs(macos): persist visual system wave E plan
+feat(macos): add native overlay visual chrome
+feat(macos): add typed empty and feedback states
+feat(macos): add overlay feedback gallery specimens
+test(macos): cover overlay visual system contracts
+```
+
+后续只允许加入静态审计发现的原子 fix 或最终资料状态更新，不扩大 Wave E 产品范围。
+
+## 8. 后续候选
 
 - Production workspace binding（仅在真实领域数据源就绪后）；
 - Segmented / Tab-like control style；
@@ -72,6 +85,6 @@
 - 更完整的高对比度 / Reduced Transparency / Reduced Motion 回归矩阵；
 - 页面级窗口尺寸、Inspector 宽度与多窗口策略。
 
-## 8. 恢复入口
+## 9. 恢复入口
 
-稳定设计基线 → 本文件 → `Batch_21_Overlay_Feedback_Chrome.md` → `MAC-VISUAL-SYSTEM-WAVE-E` Task Capsule → `DesignSystem/WOM*` → Component Gallery → 当前 Wave E PR 原子 commit 历史 → 最终 CI/readback。
+稳定设计基线 → 本文件 → `Batch_21_Overlay_Feedback_Chrome.md` → `MAC-VISUAL-SYSTEM-WAVE-E` Task Capsule → PR #29 base/head/diff → `DesignSystem/WOMOverlayPrimitives.swift` → Component Gallery → `VisualOverlayContractTests.swift` → 最终 CI/readback。

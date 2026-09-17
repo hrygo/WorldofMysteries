@@ -2,11 +2,12 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-E`  
 > Base：`main@51a9b2679420edbf1fb9b12189033a2a6cdc8567`  
-> 状态：PLANNED / PERSISTING
+> PR：#29  
+> 状态：IMPLEMENTED / FINAL AUDIT PENDING
 
 ## 1. 背景
 
-Foundation、Wave B/C/D 已经完成图标、纹理、Button/Surface、真实组件迁移、辅助功能状态、Asset Catalog 契约、导航/Commands/Focus 收口。当前缺口主要集中在**应用级 Overlay 与反馈状态**：Inspector、Popover、Sheet 内容虽然可以使用现有 surface 拼装，但尚无统一 chrome；Loading/Status/Empty State 也尚未形成完整 typed 语义。
+Foundation、Wave B/C/D 已经完成图标、纹理、Button/Surface、真实组件迁移、辅助功能状态、Asset Catalog 契约、导航/Commands/Focus 收口。Wave E 补齐应用级 Overlay 与反馈状态：Inspector、Popover、Sheet 内容 chrome、Loading、Status、Empty State，以及对应 Gallery 与语义契约测试。
 
 ## 2. 核心原则
 
@@ -22,12 +23,12 @@ Foundation、Wave B/C/D 已经完成图标、纹理、Button/Surface、真实组
 
 ### 2.2 Feedback 不复制平台状态机
 
-- Loading：系统 `ProgressView` 为主；
-- Focus / active appearance / Increase Contrast / Reduced Transparency / Reduced Motion：读取环境；
+- Loading：系统 `ProgressView`；
+- Focus / active appearance / Increase Contrast / Reduced Transparency / Reduced Motion：沿用已有 environment 策略；
 - Status：typed icon + text + geometry，不能只靠颜色；
-- Empty：兼容现有 raw SF Symbol API，同时向 typed `WOMIconSource` 迁移。
+- Empty：新 WOM 调用使用 typed `WOMIconSource`，旧 `MysticEmptyState(systemIcon:)` 保留兼容。
 
-## 3. 目标 API
+## 3. 已实现 API
 
 ### `WOMOverlayRole`
 
@@ -41,97 +42,105 @@ inspector / popover / sheet / hud
 
 统一：
 
-- surface tone
-- texture policy
-- padding
-- corner radius
-- semantic border
-- active/inactive appearance
-- Increase Contrast / Reduced Transparency 退化
+- surface tone；
+- texture policy；
+- padding；
+- corner radius；
+- 复用 `WOMPanelBackground` 的 active/inactive、Increase Contrast、Reduced Transparency 行为。
 
-### `WOMLoadingState`
-
-覆盖：
-
-- indeterminate loading
-- waiting for engine / IPC
-- background preparation
-
-要求：系统 `ProgressView`；不添加强制无限旋转动画；title/message 可读；可选 typed icon。
-
-### `WOMStatusBanner`
-
-覆盖：
+### `WOMFeedbackTone`
 
 ```text
 info / success / warning / danger
 ```
 
-要求：typed status icon、文本语义、非颜色几何区分、可选 action。
+并扩展 `WOMStatusIcon`：
 
-### `MysticEmptyState` typed upgrade
+```text
+info.circle / checkmark.circle / exclamationmark.triangle / exclamationmark.octagon
+```
 
-- 保留 `init(systemIcon: String, ...)`，避免破坏已有调用；
-- 新增 `init(source: WOMIconSource, ...)`；
-- 新代码优先 typed source；
-- 旧调用可逐步迁移，不做一次性全仓库替换。
+### `WOMLoadingState`
+
+- 使用系统 `ProgressView`；
+- 可选 typed `WOMIconSource`；
+- 不创建第二套无限 spinner；
+- title/message 进入统一 Card surface。
+
+### `WOMStatusBanner`
+
+- Info / Success / Warning / Danger；
+- typed status icon；
+- 左侧 semantic rail；
+- Differentiate Without Color 下使用不同 dash pattern；
+- Increase Contrast 下加强边框；
+- 可选 action。
+
+### `WOMEmptyState`
+
+实际实现没有直接修改 legacy `MysticEmptyState`，而是新增 typed canonical API：
+
+```swift
+WOMEmptyState(source: WOMIconSource, ...)
+```
+
+这样：
+
+- 新视觉系统可使用 custom vector / navigation / system / status 四类 typed source；
+- 旧 `MysticEmptyState(systemIcon: String, ...)` 完全不变；
+- 不会因为 stored property 迁移破坏已有调用；
+- 后续旧调用可按需迁移，而不是一次性机械替换。
 
 ## 4. Component Gallery
 
-新增 Overlay / Feedback specimen，集中观察：
+已新增 `overlayFeedbackSamples`，可观察：
 
-- Inspector / Popover / Sheet / HUD chrome；
+- Inspector / Popover / Sheet / HUD 四类 chrome；
+- Info / Success / Warning / Danger 四类 banner；
 - Loading；
-- Success / Warning / Danger / Info；
-- Empty State typed icon；
-- Increase Contrast / Reduced Transparency / Reduced Motion / inactive window 行为。
+- typed Empty State；
+- Increase Contrast / Differentiate Without Color 与现有 surface accessibility 行为。
 
 Gallery 只承担设计系统回归观察，不代表业务 modal/inspector 已经正式接入。
 
-## 5. 测试策略
+## 5. 测试
 
-新增 `VisualOverlayContractTests`，优先锁定**语义契约**而非像素截图：
+新增 `VisualOverlayContractTests.swift`：
 
 1. `WOMOverlayRole` case 集合稳定；
-2. Status semantic mapping 稳定；
-3. Overlay 只使用已有 `WOMSurfaceTone` / `WOMTextureAsset`，不复制第二套资源；
-4. `MysticEmptyState` raw initializer 与 typed initializer 同时存在；
-5. Gallery 必须包含 Overlay / Feedback specimen；
-6. 不在 visual overlay primitive 内出现 `.sheet` / `.popover` / `.inspector` presentation coordinator，实现层不得接管系统生命周期。
+2. Feedback tone → platform status symbol 映射稳定；
+3. Overlay primitive 不包含 `.sheet(isPresented:)` / `.popover(isPresented:)` / `.inspector(isPresented:)` coordinator，也不直接创建 `NSPanel` / `NSWindow`；
+4. `WOMEmptyState` typed API 与 legacy `MysticEmptyState` 同时存在；
+5. Gallery 必须保留 Overlay / Loading / Status / Empty specimen。
 
-## 6. Scope
+## 6. Scope 回读
 
-允许修改：
+实际修改仅涉及：
 
-- `docs/05_UI/Visual_Asset_System_v1.0.md`
-- `docs/05_UI/visual-assets/`
-- `macos-app/WorldOfMysteries/DesignSystem/`
-- `macos-app/WorldOfMysteries/Components/MysticPrimitives.swift`
-- `macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift`
-- `macos-app/WorldOfMysteriesTests/`
+- 总体方案 / Living Plan / Batch 21；
+- Wave E Task Capsule；
+- `WOMStatusIcon.swift`；
+- `WOMOverlayPrimitives.swift`；
+- `ComponentGalleryVisualSystemSection.swift`；
+- `VisualOverlayContractTests.swift`。
 
-禁止：Engine / DB / IPC / schema / Gate workflow 变更。
+没有 Engine / DB / IPC / schema / Gate workflow 修改。
 
-## 7. 原子 commit 计划
+## 7. 原子 commit
 
 ```text
 docs(macos): persist visual system wave E plan
 feat(macos): add native overlay visual chrome
-feat(macos): add loading and status feedback primitives
-refactor(macos): add typed empty-state icon source
+feat(macos): add typed empty and feedback states
 feat(macos): add overlay feedback gallery specimens
 test(macos): cover overlay visual system contracts
 ```
 
-实际 commit 可根据静态审计拆分或合并，但每个 commit 必须保持单一语义目的。
+## 8. 下一步
 
-## 8. 完成判定
-
-- 总方案、Living Plan、Batch 与 Capsule 已落盘；
-- Overlay / Feedback API 编译；
-- Empty State 向后兼容；
-- Gallery specimen 可观察；
-- semantic tests 通过；
-- 最终 diff 无 Engine/DB/IPC/schema 越界；
-- 最终 head 完整 `MACOS_APP_P0` 全绿；
-- 远端 readback 与 PR metadata 一致。
+1. 同步总体方案 / Living Plan 到真实实现状态；
+2. 最终静态审计 Swift 6/API 使用；
+3. 回读 `main...head` diff 与 Capsule scope；
+4. PR #29 转 Ready；
+5. 只对最终 head 运行完整 `MACOS_APP_P0`；
+6. 失败只做原子 fix，不扩大 Wave E 范围。
