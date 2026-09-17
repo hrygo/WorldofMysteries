@@ -19,7 +19,17 @@ public struct FateArtifactInterventionView: View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
       header
 
-      HStack(spacing: DesignTokens.Spacing.sm) {
+      LazyVGrid(
+        columns: [
+          GridItem(
+            .adaptive(minimum: 148, maximum: 220),
+            spacing: DesignTokens.Spacing.sm,
+            alignment: .top
+          )
+        ],
+        alignment: .leading,
+        spacing: DesignTokens.Spacing.sm
+      ) {
         ForEach(Self.primaryArtifacts) { descriptor in
           quickAccessCard(descriptor)
         }
@@ -39,6 +49,21 @@ public struct FateArtifactInterventionView: View {
   }
 
   private var header: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+        artifactHeaderIdentity
+        Spacer(minLength: DesignTokens.Spacing.md)
+        runtimeBadge
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        artifactHeaderIdentity
+        runtimeBadge
+      }
+    }
+  }
+
+  private var artifactHeaderIdentity: some View {
     HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
       WOMIcon(.artifact, size: .prominent)
         .foregroundStyle(Color.Mystic.brassGoldPrimary)
@@ -50,17 +75,17 @@ public struct FateArtifactInterventionView: View {
         tone: .gold,
         isProminent: true
       )
-
-      Spacer(minLength: DesignTokens.Spacing.md)
-
-      MysticBadge(
-        runtimeBadgeText,
-        tone: runtimeTone,
-        variant: .panel,
-        systemIcon: runtimeIcon,
-        isEmphasized: true
-      )
     }
+  }
+
+  private var runtimeBadge: some View {
+    MysticBadge(
+      runtimeBadgeText,
+      tone: runtimeTone,
+      variant: .panel,
+      systemIcon: runtimeIcon,
+      isEmphasized: true
+    )
   }
 
   private func quickAccessCard(_ descriptor: ArtifactDescriptor) -> some View {
@@ -87,7 +112,7 @@ public struct FateArtifactInterventionView: View {
           Spacer()
 
           Image(systemName: "arrow.up.right")
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.Mystic.textTertiary)
             .accessibilityHidden(true)
         }
@@ -95,20 +120,23 @@ public struct FateArtifactInterventionView: View {
         Text(descriptor.displayName)
           .font(Font.Mystic.titleSmall)
           .foregroundStyle(isEnabled ? Color.Mystic.textPrimary : Color.Mystic.textTertiary)
-          .lineLimit(1)
+          .lineLimit(2)
+          .fixedSize(horizontal: false, vertical: true)
 
         Text(descriptor.subtitle)
           .font(Font.Mystic.monoBadge)
-          .foregroundStyle(descriptor.tone.accent.opacity(isEnabled ? 0.9 : 0.45))
-          .lineLimit(1)
+          .foregroundStyle(isEnabled ? Color.Mystic.textSecondary : Color.Mystic.textTertiary)
+          .lineLimit(2)
+          .fixedSize(horizontal: false, vertical: true)
 
         Text(descriptor.shortGameplay)
           .font(Font.Mystic.caption)
-          .foregroundStyle(Color.Mystic.textSecondary.opacity(isEnabled ? 1 : 0.55))
-          .lineLimit(3)
+          .foregroundStyle(isEnabled ? Color.Mystic.textSecondary : Color.Mystic.textTertiary)
+          .lineLimit(4)
+          .fixedSize(horizontal: false, vertical: true)
           .multilineTextAlignment(.leading)
       }
-      .frame(maxWidth: .infinity, minHeight: 138, alignment: .topLeading)
+      .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
       .padding(DesignTokens.LayoutInsets.compactCardPadding)
       .womCardChrome(
         tone: .card,
@@ -116,7 +144,7 @@ public struct FateArtifactInterventionView: View {
         isHovered: isHovered,
         cornerRadius: DesignTokens.Radii.md
       )
-      .opacity(isEnabled ? 1 : 0.58)
+      .opacity(isEnabled ? 1 : 0.66)
     }
     .buttonStyle(.plain)
     .disabled(!isEnabled)
@@ -133,24 +161,27 @@ public struct FateArtifactInterventionView: View {
   private var runtimeHint: some View {
     switch runtimeAvailability {
     case .preview:
-      HStack(spacing: DesignTokens.Spacing.xs) {
+      HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
         MysticStatusDot(tone: .amber, diameter: 7, isPulsing: !reduceMotion)
         Text("当前为演示模式：Artifact 仅运行本地 Preview Resolver，不写入世界状态。")
           .mysticCaptionStyle(color: Color.Mystic.statusWarning)
+          .fixedSize(horizontal: false, vertical: true)
       }
 
     case .live:
-      HStack(spacing: DesignTokens.Spacing.xs) {
+      HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
         MysticStatusDot(tone: .teal, diameter: 7, isPulsing: !reduceMotion)
         Text("已绑定活动 Worldline / Story Revision；所有效果通过 Local Engine IPC 提交。")
           .mysticCaptionStyle(color: Color.Mystic.statusOnline)
+          .fixedSize(horizontal: false, vertical: true)
       }
 
     case .unavailable:
-      HStack(spacing: DesignTokens.Spacing.xs) {
+      HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
         MysticStatusDot(tone: .amber, diameter: 7)
         Text("Local Engine 已连接，但尚未提供活动世界上下文。为避免伪造世界事实，特殊物品暂不可用。")
           .mysticCaptionStyle(color: Color.Mystic.statusWarning)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
   }
