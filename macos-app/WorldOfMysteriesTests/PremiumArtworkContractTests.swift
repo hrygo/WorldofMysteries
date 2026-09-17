@@ -43,6 +43,18 @@ struct PremiumArtworkContractTests {
         }
     }
 
+    @Test("World and Fate surfaces consume typed W1/W2 runtime artwork")
+    func worldAndFateSurfacesUseTypedArtwork() throws {
+        let source = try String(
+            contentsOf: appSourceURL.appendingPathComponent("ContentView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("WOMWorldArtworkAsset.worldHero.runtimeAssetName"))
+        #expect(source.contains("WOMWorldArtworkAsset.grayFog.wideHeaderAssetName"))
+        #expect(source.contains("WOMArtworkScrim(edge: .leading"))
+    }
+
     @Test("catalog contains no unregistered runtime premium artwork")
     func catalogHasNoOrphanPremiumArtwork() throws {
         let catalog = try catalogArtworkNames()
@@ -69,12 +81,15 @@ struct PremiumArtworkContractTests {
         }
     }
 
-    private var assetsCatalogURL: URL {
+    private var appSourceURL: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("WorldOfMysteries", isDirectory: true)
-            .appendingPathComponent("Assets.xcassets", isDirectory: true)
+    }
+
+    private var assetsCatalogURL: URL {
+        appSourceURL.appendingPathComponent("Assets.xcassets", isDirectory: true)
     }
 
     private var declaredRuntimeArtworkNames: Set<String> {

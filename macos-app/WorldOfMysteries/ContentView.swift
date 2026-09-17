@@ -163,6 +163,8 @@ public struct ContentView: View {
     @ViewBuilder
     private var fateInterventionContent: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            fateArtworkHeader
+
             WOMAdaptivePair(
                 trailingIdealWidth: WOMWorkspaceMetrics.fateAnchorWidth
             ) {
@@ -172,6 +174,39 @@ public struct ContentView: View {
             }
 
             FateArtifactInterventionView()
+        }
+    }
+
+    private var fateArtworkHeader: some View {
+        ZStack(alignment: .leading) {
+            WOMArtworkView(
+                assetName: WOMWorldArtworkAsset.grayFog.wideHeaderAssetName,
+                fallback: .asset(.grayFog),
+                fallbackTint: Color.Mystic.textSecondary,
+                contentMode: .fill,
+                accessibilityLabel: "灰雾命运观测视觉"
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 220)
+
+            WOMArtworkScrim(edge: .leading, strength: 0.9)
+
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                WOMIcon(.grayFog, size: .prominent)
+                    .foregroundStyle(Color.Mystic.brassGoldMuted)
+
+                Text("命运干预 · 灰雾观测层")
+                    .font(Font.Mystic.titleMedium)
+                    .foregroundStyle(Color.Mystic.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(DesignTokens.LayoutInsets.cardPadding)
+        }
+        .frame(maxWidth: .infinity, minHeight: 220, alignment: .leading)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.lg)
+                .stroke(Color.Mystic.brassGoldBorder.opacity(0.32), lineWidth: DesignTokens.Borders.hairline)
         }
     }
 
@@ -248,27 +283,43 @@ public struct ContentView: View {
 
     @ViewBuilder
     private var worldHomeContent: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                WOMIcon(.world, size: .prominent)
-                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
-                Text("世界脉动 (World Observation)")
-                    .font(Font.Mystic.titleMedium)
-                    .foregroundStyle(Color.Mystic.textGoldAccent)
+        ZStack(alignment: .leading) {
+            WOMArtworkView(
+                assetName: WOMWorldArtworkAsset.worldHero.runtimeAssetName,
+                fallback: .asset(.world),
+                fallbackTint: Color.Mystic.brassGoldMuted,
+                contentMode: .fill,
+                accessibilityLabel: "世界脉动主视觉"
+            )
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 320)
+
+            WOMArtworkScrim(edge: .leading, strength: 0.92)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    WOMIcon(.world, size: .prominent)
+                        .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                    Text("世界脉动 (World Observation)")
+                        .font(Font.Mystic.titleMedium)
+                        .foregroundStyle(Color.Mystic.textGoldAccent)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text("贝克兰德正在晨雾与蒸汽烟囱中苏醒，塔索克河上的轮船汽笛隐隐传来。世界正在独立演化，不因单次故事结束而重置。")
+                    .font(Font.Mystic.bodyLarge)
+                    .foregroundStyle(Color.Mystic.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text("贝克兰德正在晨雾与蒸汽烟囱中苏醒，塔索克河上的轮船汽笛隐隐传来。世界正在独立演化，不因单次故事结束而重置。")
-                .font(Font.Mystic.bodyLarge)
-                .foregroundStyle(Color.Mystic.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: 620, alignment: .leading)
+            .padding(DesignTokens.LayoutInsets.cardPadding)
         }
-        .padding(DesignTokens.LayoutInsets.cardPadding)
-        .womCardChrome(
-            tone: .card,
-            texture: .sacredSlate,
-            cornerRadius: DesignTokens.Radii.lg
-        )
+        .frame(maxWidth: .infinity, minHeight: 320, alignment: .leading)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.lg)
+                .stroke(Color.Mystic.brassGoldBorder.opacity(0.32), lineWidth: DesignTokens.Borders.hairline)
+        }
     }
 
     @ViewBuilder
