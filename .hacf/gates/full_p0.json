@@ -1,6 +1,6 @@
 {
   "gate_profile_id": "FULL_P0",
-  "description": "全量三阶段门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试",
+  "description": "全量门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试 + Xcode App Target 编译",
   "risk_class": "high",
   "stages": [
     {
@@ -47,6 +47,29 @@
       "expects": [
         "macos-app/Package.swift",
         "macos-app/WorldOfMysteriesTests"
+      ]
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "cwd": "macos-app",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "expects": [
+        "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj",
+        "macos-app/WorldOfMysteries"
       ]
     }
   ]

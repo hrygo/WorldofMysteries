@@ -1,7 +1,7 @@
 {
   "$comment": "受保护门禁档案摘要表。本文件定义于受保护 main 分支；CI 以目标分支版本为权威校验 PR 内的 profile 文件。",
   "registry_version": 1,
-  "generated_at": "2026-09-16T09:34:19.542755+00:00",
+  "generated_at": "2026-09-17T05:45:00.696792+00:00",
   "profiles": {
     "AI_GATEWAY_P0": {
       "file": ".hacf/gates/ai_gateway_p0.json",
@@ -23,15 +23,15 @@
     },
     "FULL_P0": {
       "file": ".hacf/gates/full_p0.json",
-      "sha256": "16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+      "sha256": "7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
       "risk_class": "high",
-      "description": "全量三阶段门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试"
+      "description": "全量门禁：架构适应度 + Python 引擎全体测试 + Swift 6 客户端测试 + Xcode App Target 编译"
     },
     "MACOS_APP_P0": {
       "file": ".hacf/gates/macos_app_p0.json",
-      "sha256": "a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+      "sha256": "7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
       "risk_class": "medium",
-      "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试"
+      "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试 + Xcode App Target 编译"
     },
     "VOICE_P0": {
       "file": ".hacf/gates/voice_p0.json",

@@ -224,7 +224,7 @@ repo/
                                       │ 2. ci.yml (3-Stage Gates)       │
                                       │    Stage 1: 架构 AST 检查 & Schema│
                                       │    Stage 2: Python 3.14 (uv 缓存) │
-                                      │    Stage 3: Swift 6 (macOS 26+)   │
+                                      │    Stage 3: Swift 6 + Xcode Build │
                                       ├─────────────────────────────────┤
                                       │ 3. pr-gate-reporter.yml         │
                                       │    只复述凭单事实的证据摘要卡片   │
