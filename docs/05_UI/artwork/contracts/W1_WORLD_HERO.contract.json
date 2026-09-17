@@ -1,0 +1,224 @@
+{
+  "contract_version": 2,
+  "artwork_id": "W1_WORLD_HERO",
+  "role": "world_hero",
+  "status": "LOCKED_FOR_PRODUCTION",
+  "visual_thesis": "industrial-age reality first; hidden occult order is perceptible; overt anomaly remains local and restrained",
+  "semantic": {
+    "primary_read": "late_victorian_early_industrial_european_city",
+    "secondary_read": "hidden_occult_order_beneath_ordinary_city_life",
+    "generic_fantasy_allowed": false,
+    "named_canonical_landmark_required": false
+  },
+  "scene_truth": {
+    "era": "late_victorian_early_industrial",
+    "environment": [
+      "dense_european_urban_blocks",
+      "wet_dark_stone_streets",
+      "soot_aged_brick_and_masonry",
+      "blackened_iron",
+      "oxidized_brass",
+      "slate_roofs_and_chimneys",
+      "practical_gas_lamps",
+      "restrained_warm_window_light",
+      "blue_gray_overcast_atmosphere"
+    ],
+    "human_scale": "small_environmental_presence_only",
+    "dominant_character": false
+  },
+  "occult_pressure": {
+    "required": true,
+    "expression": [
+      "church_secret_society_divination_and_ritual_are_implied_not_announced",
+      "subtle_sense_of_observation_or_hidden_order",
+      "archival_mysticism_through_material_and_atmosphere",
+      "supernatural_evidence_must_not_replace_physical_reality"
+    ],
+    "overt_magic": false
+  },
+  "controlled_anomaly": {
+    "count_min": 1,
+    "count_max": 2,
+    "allowed": [
+      "cold_silver_blue_reflection_without_visible_source",
+      "localized_mist_moving_slightly_against_wind",
+      "distant_light_with_impossible_depth",
+      "subtle_window_or_reflection_mismatch"
+    ],
+    "must_be_local": true,
+    "must_not_dominate": true
+  },
+  "composition": {
+    "working_aspect_ratio": "16:10",
+    "quiet_zone": {
+      "x_min": 0.00,
+      "x_max": 0.35,
+      "target_detail": "low_frequency_dark_mid",
+      "forbidden": [
+        "face_or_critical_subject",
+        "bright_lamp_cluster",
+        "dense_signage",
+        "high_frequency_symbol_pattern"
+      ]
+    },
+    "focal_zone": {
+      "x_min": 0.55,
+      "x_max": 0.78,
+      "y_min": 0.28,
+      "y_max": 0.72,
+      "identity": "layered_street_depth_roofs_towers_practical_light_cluster_plus_local_anomaly"
+    },
+    "outer_semantic_reserve": 0.08,
+    "primary_subject_edge_reserve": 0.12,
+    "minimum_runtime_crop": "960x640",
+    "default_runtime_layout": "1180x760"
+  },
+  "palette": {
+    "dominant": [
+      "blue_gray_slate",
+      "charcoal",
+      "wet_stone",
+      "desaturated_brown_dark_timber"
+    ],
+    "secondary": [
+      "aged_brass",
+      "muted_gaslight_amber",
+      "cold_silver_blue"
+    ],
+    "forbidden_dominant": [
+      "saturated_purple",
+      "cyan_magenta_neon",
+      "orange_gold_fantasy_glow"
+    ]
+  },
+  "forbidden": {
+    "typography_or_ui": true,
+    "fake_readable_signage": true,
+    "fantasy_castle": true,
+    "floating_island": true,
+    "giant_magic_circle_or_runes": true,
+    "giant_moon_or_sigil": true,
+    "tentacle_wallpaper": true,
+    "heroic_party_or_character_poster": true,
+    "modern_skyscraper": true,
+    "steampunk_gear_collage": true,
+    "copied_commercial_composition": true
+  },
+  "generation": {
+    "candidate_count_min": 4,
+    "candidate_count_max": 6,
+    "context_isolation": {
+      "exclude_product_terms_from_scene_prompt": [
+        "World of Mysteries",
+        "W1",
+        "hero asset",
+        "Asset Catalog",
+        "SwiftUI"
+      ],
+      "retain_lord_of_mysteries_visual_intent_as_physical_visual_language": true
+    },
+    "prompt_layers": [
+      "scene_truth",
+      "occult_pressure",
+      "controlled_anomaly"
+    ],
+    "negative_prompt_classes": [
+      "no typography",
+      "no fantasy architecture",
+      "no dominant hero character",
+      "no overt magical spectacle"
+    ],
+    "blind_semantic_qa_required": true
+  },
+  "postprocess": {
+    "order": [
+      "semantic_selection",
+      "aspect_ratio_crop_or_outpaint",
+      "composition_qa",
+      "local_structural_repair",
+      "structural_qa",
+      "primary_super_resolution",
+      "material_detail_restoration",
+      "color_grade",
+      "oversample_downsample",
+      "deterministic_derivatives",
+      "runtime_qa"
+    ],
+    "wrong_world_direction_action": "regenerate_not_inpaint",
+    "local_geometry_error_action": "masked_inpaint",
+    "native_resolution_shortfall_action": "super_resolution",
+    "generative_upscale_max_passes": 1
+  },
+  "production_master": {
+    "target_width": 4096,
+    "target_height": 2560,
+    "preferred_intermediate_width": 6144,
+    "preferred_intermediate_height": 3840,
+    "runtime_loadable": false
+  },
+  "runtime_derivatives": [
+    {
+      "asset_name": "wom.art.world.hero",
+      "width": 2560,
+      "height": 1600,
+      "derivation": "deterministic_from_master"
+    },
+    {
+      "asset_name": "wom.art.world.hero.wide",
+      "width": 2400,
+      "height": 900,
+      "derivation": "semantic_crop_from_master"
+    }
+  ],
+  "runtime_presentation": {
+    "scrim": "leading",
+    "text_primary_min_contrast": 4.5,
+    "important_long_copy_target_contrast": 7.0,
+    "high_contrast_mode_must_remain_usable": true
+  },
+  "qa": {
+    "g0_semantic": {
+      "required": true,
+      "primary_read_must_match": "industrial_city_before_supernatural"
+    },
+    "g1_canon_atmosphere": {
+      "era_credibility_min_5": 4,
+      "occult_mystery_atmosphere_min_5": 4,
+      "generic_fantasy_max_5": 1,
+      "world_contradictions_max": 0
+    },
+    "g2_composition": {
+      "quiet_zone_required": true,
+      "focus_zone_required": true,
+      "wide_crop_survival_required": true
+    },
+    "g3_structure": {
+      "inspect_scales_percent": [25, 100, 200],
+      "reject_ai_gibberish": true,
+      "reject_structural_repetition": true
+    },
+    "g4_production": {
+      "verify_dimensions": true,
+      "verify_asset_name": true,
+      "verify_sha256": true,
+      "verify_color_profile": true
+    },
+    "g5_runtime": {
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600",
+        "2400x900"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ]
+    }
+  },
+  "references": [
+    "docs/05_UI/artwork/W1_World_Hero_Production_Brief.md",
+    "docs/05_UI/artwork/Premium_Art_Production_Pipeline_v2.0.md",
+    "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md"
+  ]
+}

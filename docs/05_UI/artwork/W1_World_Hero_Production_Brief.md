@@ -2,8 +2,17 @@
 
 > Program: Premium Art A1  
 > Artwork ID: `W1_WORLD_HERO`  
-> Status: PRODUCTION BRIEF LOCKED  
+> Status: PRODUCTION BRIEF + IMAGE CONTRACT LOCKED  
 > Role: `world_hero`
+
+## Production records
+
+- Machine-readable Image Contract: `docs/05_UI/artwork/contracts/W1_WORLD_HERO.contract.json`
+- QA record: `docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json`
+- Provenance record: `docs/05_UI/artwork/provenance/W1_WORLD_HERO.provenance.json`
+- Production method: `docs/05_UI/artwork/Premium_Art_Production_Pipeline_v2.0.md`
+
+The Markdown brief remains the art-direction source of truth for human review; the JSON contract is the executable acceptance representation used during candidate selection, post-processing and delivery.
 
 ## 1. Product purpose
 

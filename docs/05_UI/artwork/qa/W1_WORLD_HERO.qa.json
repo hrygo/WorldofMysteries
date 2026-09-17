@@ -1,0 +1,72 @@
+{
+  "artwork_id": "W1_WORLD_HERO",
+  "contract_version": 2,
+  "status": "NOT_RUN",
+  "selected_candidate_id": null,
+  "candidates": [],
+  "gates": {
+    "G0_semantic": {
+      "status": "PENDING",
+      "primary_read": null,
+      "secondary_read": null,
+      "generic_fantasy_read": null,
+      "typography_detected": null,
+      "dominant_subject": null,
+      "notes": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING",
+      "era_credibility_5": null,
+      "occult_mystery_atmosphere_5": null,
+      "generic_fantasy_5": null,
+      "world_contradictions": [],
+      "notes": []
+    },
+    "G2_composition": {
+      "status": "PENDING",
+      "quiet_zone_pass": null,
+      "focal_zone_pass": null,
+      "wide_crop_survival_pass": null,
+      "runtime_crop_survival_pass": null,
+      "notes": []
+    },
+    "G3_structure": {
+      "status": "PENDING",
+      "inspection_scales_percent": [25, 100, 200],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "notes": []
+    },
+    "G4_production": {
+      "status": "PENDING",
+      "master_dimensions": null,
+      "runtime_dimensions": {},
+      "color_profile": null,
+      "format": null,
+      "sha256": {},
+      "asset_names": [],
+      "notes": []
+    },
+    "G5_runtime": {
+      "status": "PENDING",
+      "window_checks": {
+        "960x640": null,
+        "1180x760": null,
+        "2560x1600": null,
+        "2400x900": null
+      },
+      "accessibility_checks": {
+        "Increased Contrast": null,
+        "Reduce Transparency": null
+      },
+      "text_primary_contrast_min": null,
+      "important_copy_contrast_min": null,
+      "notes": []
+    }
+  },
+  "final_verdict": "PENDING",
+  "reviewers": [],
+  "reviewed_at": null
+}

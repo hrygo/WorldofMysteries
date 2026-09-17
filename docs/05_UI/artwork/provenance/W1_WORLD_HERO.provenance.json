@@ -1,0 +1,42 @@
+{
+  "artwork_id": "W1_WORLD_HERO",
+  "contract_version": 2,
+  "status": "DRAFT",
+  "generator": {
+    "provider": null,
+    "model": null,
+    "generation_id": null,
+    "source_prompt_digest_sha256": null
+  },
+  "source": {
+    "native_width": null,
+    "native_height": null,
+    "sha256": null
+  },
+  "postprocess": [],
+  "master": {
+    "path": null,
+    "width": 4096,
+    "height": 2560,
+    "format": null,
+    "color_profile": null,
+    "sha256": null
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.world.hero",
+      "width": 2560,
+      "height": 1600,
+      "sha256": null
+    },
+    {
+      "asset_name": "wom.art.world.hero.wide",
+      "width": 2400,
+      "height": 900,
+      "sha256": null
+    }
+  ],
+  "qa_record": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json",
+  "copyright_note": "AI-assisted original artwork; no official commercial asset copying.",
+  "approved_at": null
+}
