@@ -118,6 +118,43 @@ struct VisualQAContractTests {
         #expect(shell.contains("Text(\"\\(Int(value * 100))%\")"))
     }
 
+    @Test("all individual artifact views keep responsive text-first layouts")
+    func individualArtifactVisualQA() throws {
+        let die = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactProbabilityDieView.swift")
+        let arrodes = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactArrodesView.swift")
+        let quill = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactAlzuhodQuillView.swift")
+        let brassBook = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactBrassBookView.swift")
+        let lamp = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactWishingLampView.swift")
+        let leymano = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactLeymanoView.swift")
+        let groselle = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactGroselleView.swift")
+        let azik = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactAzikWhistleView.swift")
+        let cards = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactBlasphemyCardsView.swift")
+        let staff = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactStaffOfStarsView.swift")
+        let oldOnes = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactOldOnesBoxView.swift")
+        let crucifix = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactUnshadowedCrucifixView.swift")
+        let combat = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactCombatComponents.swift")
+
+        #expect(die.contains("LazyVGrid"))
+        #expect(die.contains("face.bias.tone.readableForeground"))
+        #expect(arrodes.contains("GridItem(.adaptive(minimum: 82"))
+        #expect(arrodes.contains("WOMButtonStyle(.danger)"))
+        #expect(quill.contains("private var metricsGrid"))
+        #expect(quill.contains("GridItem(.adaptive(minimum: 170)"))
+        #expect(brassBook.contains("ViewThatFits(in: .horizontal)"))
+        #expect(lamp.contains("GridItem(.adaptive(minimum: 110)"))
+        #expect(leymano.contains("ViewThatFits(in: .horizontal)"))
+        #expect(!azik.contains(".font(.system(size: 9"))
+        #expect(azik.contains("GridItem(.adaptive(minimum: 98)"))
+        #expect(!cards.contains(".lineLimit(1)"))
+        #expect(groselle.contains("ViewThatFits(in: .horizontal)"))
+        #expect(staff.contains("ViewThatFits(in: .horizontal)"))
+        #expect(!staff.contains(".lineLimit(2)"))
+        #expect(oldOnes.contains("ViewThatFits(in: .horizontal)"))
+        #expect(crucifix.contains("GridItem(.adaptive(minimum: 96)"))
+        #expect(combat.contains("private var deathKnellHeader"))
+        #expect(combat.contains("ViewThatFits(in: .horizontal)"))
+    }
+
     @Test("component gallery retains the visual QA stress regression surface")
     func visualQAStressSurface() throws {
         let gallery = try file("macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift")
