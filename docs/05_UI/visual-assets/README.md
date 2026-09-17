@@ -95,6 +95,16 @@ Task: `MAC-VISUAL-QA-SOURCE-GUARDS`
 - Parchment primary/secondary/tertiary hierarchy 数学验证；
 - 动态 Pathway/accent/status 色如要承担正文，必须先进入 Approved Contrast Matrix。
 
+### Typography Guards
+
+`VisualTypographyContractTests.swift` 锁住 Token 级可读性下限：
+
+- `bodyMedium >= 13pt`、`bodyLarge >= 14pt`；
+- `caption / monoBadge >= 11pt`；
+- `titleSmall >= 15pt`，title/display/narrative roles 不得整体缩小；
+- `parchmentCursive >= 14pt`；
+- narrative / parchment / body / title / compact line spacing 具备最低阈值。
+
 ## 8. 生产入口事实
 
 - Sidebar / Fate / Content Shell：真实生产入口。
@@ -107,7 +117,7 @@ Task: `MAC-VISUAL-QA-SOURCE-GUARDS`
 
 1. #31 合并 → #32 retarget `main`、重签 Capsule、最终 CI；
 2. #32 合并 → #33 retarget `main`、重签 Capsule、最终 CI；
-3. #33 合并 → #34 retarget `main`、重签 Capsule、回读 Source Guard/Contrast Guard 纯增量；
+3. #33 合并 → #34 retarget `main`、重签 Capsule、回读 Source/Contrast/Typography Guard 纯增量；
 4. #34 最终 head 运行完整 `MACOS_APP_P0`，首次执行若发现历史残留则修实现，不放宽规则掩盖问题；
 5. 未经明确授权不执行 merge。
 
@@ -122,4 +132,4 @@ Task: `MAC-VISUAL-QA-SOURCE-GUARDS`
 
 ## 11. 恢复入口
 
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 25 → `MAC-VISUAL-QA-SOURCE-GUARDS` Capsule → PR #34 → `VisualQASourceGuardTests.swift` + `VisualContrastContractTests.swift` → retarget → final CI/readback。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 25 → `MAC-VISUAL-QA-SOURCE-GUARDS` Capsule → PR #34 → `VisualQASourceGuardTests.swift` + `VisualContrastContractTests.swift` + `VisualTypographyContractTests.swift` → retarget → final CI/readback。
