@@ -74,30 +74,6 @@ def load_receipts(repo_root: Path, task_id: str) -> List[Dict[str, Any]]:
     return receipts
 
 
-def _arbiter_synced_registry(
-    repo_root: Path, capsule: Dict[str, Any], actual_digest: str
-) -> bool:
-    """治理通道在同一 PR 内同步更新 profile 与 registry 摘要时，允许门禁档案正常演进。
-
-    否则「任何 profile 改动都等于篡改」会让门禁档案在受保护分支上永久冻结，
-    连合法升级都无法通过 PR 完成——这是自锁而非守门。
-    """
-    if capsule.get("assigned_role") not in policy.PRIVILEGED_LANE_ROLES:
-        return False
-    registry_file = repo_root / ".hacf" / "gates" / "registry.json"
-    if not registry_file.exists():
-        return False
-    try:
-        registry = json.loads(registry_file.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return False
-    profile_id = capsule.get("gates", {}).get("profile")
-    entry_pr = registry.get("profiles", {}).get(profile_id)
-    if not entry_pr:
-        return False
-    return f"sha256:{entry_pr.get('sha256')}" == actual_digest
-
-
 def audit_pr(
     *,
     changed_files: Sequence[str],
@@ -203,6 +179,9 @@ def audit_pr(
                 f"[{task_id}] 角色 {role} 不得修改受保护门禁档案: {', '.join(gates_claimed)}",
                 hard=True,
             )
+        # 本胶囊是否走了「受权治理通道 + registry 同变更集同步」的合法归档演进
+        # （与本地 verify 共用 policy.gate_profile_evolution，避免两侧规则分裂）。
+        evolution_accepted = False
         base_registry_digest = None
         if authoritative_registry:
             profile_id = capsule.get("gates", {}).get("profile")
@@ -224,14 +203,19 @@ def audit_pr(
                 if profile_file.exists():
                     actual = f"sha256:{gate_profile.sha256_file(profile_file)}"
                     if actual != base_registry_digest:
-                        if _arbiter_synced_registry(repo_root, capsule, actual):
+                        evolution = policy.gate_profile_evolution(
+                            capsule, actual_digest=actual, repo_root=repo_root
+                        )
+                        if evolution["accepted"]:
+                            evolution_accepted = True
                             notices.append(
                                 f"[{task_id}] 治理通道在同一 PR 内同步更新了 profile 与 registry 摘要，"
                                 f"门禁档案演进被受理: {entry['file']}"
                             )
                         else:
                             report(
-                                f"[{task_id}] PR 内门禁档案被改写且未同步目标分支 registry: {entry['file']}",
+                                f"[{task_id}] PR 内门禁档案被改写且未同步目标分支 registry: "
+                                f"{entry['file']}（{evolution['reason']}）",
                                 hard=True,
                             )
         else:
@@ -263,7 +247,14 @@ def audit_pr(
                     hard=False,
                 )
             if base_registry_digest and receipt.get("gate_profile_digest") != base_registry_digest:
-                report(f"[{task_id}] Work Receipt 的 gate_profile_digest 非权威档案摘要", hard=False)
+                if evolution_accepted:
+                    # 已受理的归档演进：凭单必然记录演进后的摘要，属预期而非异常。
+                    notices.append(
+                        f"[{task_id}] Work Receipt 记录的档案摘要为演进后值"
+                        f"（本变更集已受理该演进）: {receipt.get('gate_profile_digest')}"
+                    )
+                else:
+                    report(f"[{task_id}] Work Receipt 的 gate_profile_digest 非权威档案摘要", hard=False)
             if receipt.get("coverage_gaps"):
                 notices.append(
                     f"[{task_id}] 验收存在覆盖缺口 {len(receipt['coverage_gaps'])} 项："

@@ -398,15 +398,38 @@ def verify_capsule(
             "coverage_gaps": [str(exc)],
         }
 
-    # 4. 摘要链校验：胶囊记录的 profile 摘要必须与受保护档案一致
-    if gate_result.get("gate_profile_digest") and gate_result["gate_profile_digest"] != capsule["gates"].get("profile_digest"):
-        print(
-            "❌ 门禁档案摘要与胶囊记录不一致：\n"
-            f"   capsule : {capsule['gates'].get('profile_digest')}\n"
-            f"   actual  : {gate_result['gate_profile_digest']}"
+    # 4. 摘要链校验：胶囊记录的 profile 摘要必须与受保护档案一致。
+    #    「本变更集自身改写该 profile」的受权治理演进由 policy 统一裁决（与 CI 审计同一规则），
+    #    并在凭单 notes 中留痕；其余不一致一律视为篡改。
+    receipt_notes: List[str] = []
+    actual_profile_digest = gate_result.get("gate_profile_digest")
+    capsule_profile_digest = capsule["gates"].get("profile_digest")
+    evolution: Dict[str, Any] = {"accepted": False, "reason": ""}
+    if actual_profile_digest and actual_profile_digest != capsule_profile_digest:
+        evolution = policy.gate_profile_evolution(
+            capsule, actual_digest=actual_profile_digest, repo_root=workspace_root
         )
-        gate_result["result"] = "failed"
-        gate_result.setdefault("coverage_gaps", []).append("gate profile digest mismatch")
+        if evolution["accepted"]:
+            print(
+                "\n🧾 门禁档案演进被受理（受权治理通道 + registry 已同步）：\n"
+                f"   profile : {evolution['profile_id']}\n"
+                f"   capsule : {capsule_profile_digest}\n"
+                f"   actual  : {actual_profile_digest}"
+            )
+            receipt_notes.append(
+                "门禁档案演进被受理："
+                f"{evolution['profile_id']} 由 {capsule_profile_digest} 演化为 {actual_profile_digest}"
+                f"（{evolution['reason']}）"
+            )
+        else:
+            print(
+                "❌ 门禁档案摘要与胶囊记录不一致：\n"
+                f"   capsule : {capsule_profile_digest}\n"
+                f"   actual  : {actual_profile_digest}\n"
+                f"   裁决    : 不予受理（{evolution['reason']}）"
+            )
+            gate_result["result"] = "failed"
+            gate_result.setdefault("coverage_gaps", []).append("gate profile digest mismatch")
 
     verdict = "passed" if gate_result.get("result") == "passed" else "failed"
     receipt = policy.build_receipt(
@@ -424,6 +447,7 @@ def verify_capsule(
         toolchain=gate_profile.collect_toolchain(REPO_ROOT),
         started_at=started_at,
         verdict=verdict,
+        notes=receipt_notes,
     )
     receipt_path = policy.write_receipt(workspace_root, receipt, head_commit)
     print("\n" + "=" * 66)

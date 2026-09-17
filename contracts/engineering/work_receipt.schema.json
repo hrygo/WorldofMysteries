@@ -28,6 +28,11 @@
     "capsule_id": { "type": "string" },
     "capsule_revision": { "type": "integer", "minimum": 1 },
     "capsule_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "diff_digest": {
+      "type": "string",
+      "pattern": "^(|sha256:[0-9a-f]{64})$",
+      "description": "验收所绑定变更集的内容摘要（`.agents/capsules/`、`.agents/receipts/` 不计入）；变更集为空时为空串。"
+    },
     "assigned_role": { "type": "string" },
     "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] },
     "base_commit": { "type": "string" },
