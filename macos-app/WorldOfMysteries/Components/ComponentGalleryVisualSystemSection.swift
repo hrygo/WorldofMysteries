@@ -20,6 +20,8 @@ struct VisualSystemGallerySection: View {
                 WOMDividerOrnament()
                 surfaceSamples
                 WOMDividerOrnament()
+                overlayFeedbackSamples
+                WOMDividerOrnament()
                 accessibilitySamples
             }
         }
@@ -150,6 +152,67 @@ struct VisualSystemGallerySection: View {
         }
     }
 
+    private var overlayFeedbackSamples: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            Text("Overlay / Feedback Chrome")
+                .womSectionHeaderStyle()
+
+            Text("以下只展示内容 chrome；真实 Sheet / Popover / Inspector 的生命周期仍由 SwiftUI 系统 API 管理。")
+                .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
+                overlaySample("Inspector", role: .inspector)
+                overlaySample("Popover", role: .popover)
+                overlaySample("Sheet", role: .sheet)
+                overlaySample("HUD", role: .hud)
+            }
+
+            VStack(spacing: DesignTokens.Spacing.xs) {
+                WOMStatusBanner(
+                    tone: .info,
+                    title: "世界状态已刷新",
+                    message: "新的已提交世界事实可用于后续叙事。"
+                )
+                WOMStatusBanner(
+                    tone: .success,
+                    title: "本地引擎已连接",
+                    message: "IPC 通道与状态同步均可用。"
+                )
+                WOMStatusBanner(
+                    tone: .warning,
+                    title: "上下文接近预算",
+                    message: "后续请求将优先收敛到当前场景所需事实。"
+                )
+                WOMStatusBanner(
+                    tone: .danger,
+                    title: "提交被拒绝",
+                    message: "领域约束未通过，世界事实没有写入。",
+                    actionTitle: "查看原因"
+                ) {}
+            }
+
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                WOMLoadingState(
+                    title: "正在同步世界状态",
+                    message: "等待 Local Engine 返回最新已提交事实。",
+                    source: .asset(.grayFog),
+                    tone: .info
+                )
+                .frame(maxWidth: 320)
+
+                WOMEmptyState(
+                    source: .asset(.clue),
+                    title: "尚无线索",
+                    message: "当真实调查数据产生后，线索会在这里按世界状态呈现。",
+                    tone: .info,
+                    actionTitle: "返回世界"
+                ) {}
+                .frame(maxWidth: 320)
+            }
+        }
+    }
+
     private var accessibilitySamples: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text("辅助功能状态 · Accessibility States")
@@ -193,6 +256,21 @@ struct VisualSystemGallerySection: View {
                 )
             }
         }
+    }
+
+    private func overlaySample(_ title: String, role: WOMOverlayRole) -> some View {
+        WOMOverlayPanel(role: role) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                Text(title)
+                    .font(Font.Mystic.titleSmall)
+                    .foregroundStyle(Color.Mystic.textPrimary)
+                Text(role.rawValue)
+                    .font(Font.Mystic.monoBadge)
+                    .foregroundStyle(Color.Mystic.textTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(width: 150)
     }
 
     private func accessibilityCard(
@@ -266,10 +344,14 @@ struct VisualSystemGallerySection: View {
 
     private func statusColor(_ icon: WOMStatusIcon) -> Color {
         switch icon {
+        case .info:
+            Color.Mystic.spiritualBlue
         case .warning:
             Color.Mystic.statusWarning
         case .success:
             Color.Mystic.statusOnline
+        case .danger:
+            Color.Mystic.statusDanger
         case .locked:
             Color.Mystic.textSecondary
         case .active:
