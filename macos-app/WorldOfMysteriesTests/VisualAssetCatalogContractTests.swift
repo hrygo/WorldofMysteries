@@ -78,8 +78,9 @@ struct VisualAssetCatalogContractTests {
             "wom.icon.favorite",
             "wom.icon.more",
         ]
+        let catalog = try catalogIconNames()
 
-        #expect(catalogIconNames().isDisjoint(with: forbiddenCustomCopies))
+        #expect(catalog.isDisjoint(with: forbiddenCustomCopies))
     }
 
     private var assetsCatalogURL: URL {
