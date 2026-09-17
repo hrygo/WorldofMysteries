@@ -64,7 +64,8 @@ wom.texture.*
 5. **Batch 08**：建立 `WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle`，覆盖 normal / hover / pressed / disabled / reduced-motion。**已实现于 PR #26。**
 6. **Batch 09**：建立 `WOMPanelBackground`、`WOMCardChrome`、`WOMTextureLayer`、Section Chrome。**已实现于 PR #26。**
 7. **Batch 10**：将 Component Gallery 作为设计系统展示与回归入口。**已实现于 PR #26。**
-8. **Batch 11+**：逐步迁移 Sidebar、Ritual、Codex、Artifact，并补齐 accessibility / keyboard / reduced motion / reduced transparency / high contrast。
+8. **Batch 11**：Sidebar 生产页面迁移，保持路由/selection/badge/collapse 语义不变，只迁移视觉与 accessibility。**已实现于 PR #26。**
+9. **Batch 12+**：继续迁移 Ritual、Codex、Artifact，并补齐 accessibility / keyboard / reduced motion / reduced transparency / high contrast。
 
 ## 6. 原子 commit 规则
 
@@ -79,15 +80,16 @@ feat(macos): add unified WOMIcon component
 feat(macos): add button style primitives
 feat(macos): add panel and card surface primitives
 feat(macos): expose visual system in component gallery
+feat(macos): migrate sidebar to visual system
 ```
 
 不得为了减少 commit 数把不相关资产、组件和页面迁移揉成一个提交。
 
 ## 7. 下一阶段
 
-真实页面迁移不扩大底层 Capsule，而是逐页面新增 Task Capsule。当前优先级：
+真实页面迁移继续使用页面级 Task Capsule，并持续推入 PR #26。当前优先级：
 
-1. Sidebar；
+1. Sidebar；**已迁移于 PR #26。**
 2. Ritual；
 3. Codex；
 4. Artifact；
