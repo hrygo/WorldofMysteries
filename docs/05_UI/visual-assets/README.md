@@ -41,11 +41,11 @@
 | Wave F | #32 | Native segmented fallback、Relation、Achievement、Cooldown、advanced interaction contracts | DONE |
 | Wave G | #33 | Window metrics、native Inspector、responsive workspace layout | DONE |
 | Wave H | #34 | Source Guard、WCAG Contrast Guard、Typography Token Guard | DONE |
-| Closure | current | Living Plan / merge policy / terminal delivery record | IN FINAL GATE |
+| Closure | #35 | Living Plan、merge policy、terminal delivery record | DONE |
 
 > PR #30 是在 `main` 前进后主动关闭的过渡 Backfill PR；其有效工作已从最新主线重新建立并进入 #31，不属于遗留交付。
 
-当前视觉系统不存在待实现的已承诺 Wave。Closure 合并后，本轮视觉系统工程交付视为结束。
+**本轮视觉系统工程交付已经结束。当前不存在待实现或待合并的已承诺 Visual System Wave。**
 
 ## 4. 已形成的系统能力
 
@@ -88,7 +88,7 @@
 - Source Guard scans production visual Swift and reports file + line；
 - approved contrast combinations are calculated with WCAG relative luminance；
 - shared typography token floors prevent global readability regression；
-- Swift 6 / Xcode App Target continue to be required final gates。
+- Swift 6 / Xcode App Target remain required final gates。
 
 ## 5. Merge / verification policy
 
@@ -98,7 +98,7 @@ For visual-system work in this project:
 2. persist Capsule + plan/batch + implementation/tests early；
 3. preserve atomic commits；
 4. stacked work must reconcile to actual `main` before final validation；
-5. final Files changed must contain only the intended wave increment；
+5. final Files changed must contain only the intended increment；
 6. required final checks:
    - PR Task Capsule & Evidence Audit；
    - PR Gate Reporter & Sticky Comment；
@@ -132,6 +132,6 @@ A failed guard is repaired by changing the implementation or approved contract d
 
 ## 8. 恢复入口
 
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 22–26 → Wave B–H Capsules → Component Gallery / Native Inspector Preview → Visual QA / Contrast / Typography contract tests。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 22–27 → Wave B–H Capsules → Component Gallery / Native Inspector Preview → Visual QA / Contrast / Typography contract tests。
 
 本文件为当前执行事实源；历史 Batch 保留决策过程与每阶段证据。

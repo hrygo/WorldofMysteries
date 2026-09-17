@@ -1,0 +1,70 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-STATE-SYNC",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-SYSTEM-STATE-SYNC",
+  "title": "Synchronize post-closure visual-system terminal state",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-18T00:10:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "6881484d25956b456fc3c50504208b32f1b6a71f",
+    "target_sha": "6881484d25956b456fc3c50504208b32f1b6a71f",
+    "context_snapshot": "sha256:83591536014435f0f3b9949247a20727329e94e4512ac20351517e27f00e7a19"
+  },
+  "scope": {
+    "read": [
+      "docs/05_UI/visual-assets/",
+      ".agents/capsules/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/**/*.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_26_Visual_System_Closure.md",
+      "docs/05_UI/visual-assets/Batch_27_Post_Closure_State_Sync.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "docs_only_post_closure_terminal_state_sync",
+    "token_estimate": 2500,
+    "max_core_tokens": 5000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Docs-only post-closure state sync. PR #35 is already merged; this task removes transient pre-merge wording from the Living Plan so the repository remains a stable recovery source. It is not a new visual-system Wave and introduces no product behavior."
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-CLOSURE"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Update only persistent visual-system documentation so the Living Plan reflects the already-merged closure state: #35 DONE, no pending Wave, and future domain-dependent work clearly separated from current delivery. Do not modify production code, Visual QA thresholds, gate definitions or repository workflows."
+  }
+}
