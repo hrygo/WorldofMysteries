@@ -49,17 +49,38 @@ public struct FateArtifactInterventionView: View {
   }
 
   private var header: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-        artifactHeaderIdentity
-        Spacer(minLength: DesignTokens.Spacing.md)
-        runtimeBadge
-      }
+    ZStack(alignment: .leading) {
+      WOMArtworkView(
+        assetName: WOMWorldArtworkAsset.grayFog.wideHeaderAssetName,
+        fallback: .asset(.grayFog),
+        fallbackTint: Color.Mystic.textSecondary,
+        contentMode: .fill
+      )
+      .opacity(0.34)
+      .frame(maxWidth: .infinity)
+      .frame(minHeight: 148)
+      .allowsHitTesting(false)
 
-      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-        artifactHeaderIdentity
-        runtimeBadge
+      WOMArtworkScrim(edge: .leading, strength: 0.92)
+
+      ViewThatFits(in: .horizontal) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+          artifactHeaderIdentity
+          Spacer(minLength: DesignTokens.Spacing.md)
+          runtimeBadge
+        }
+
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+          artifactHeaderIdentity
+          runtimeBadge
+        }
       }
+      .padding(DesignTokens.LayoutInsets.compactCardPadding)
+    }
+    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+        .stroke(Color.Mystic.brassGoldBorder.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
     }
   }
 

@@ -45,14 +45,15 @@ struct PremiumArtworkContractTests {
 
     @Test("runtime surfaces consume all six typed scene artwork identities")
     func runtimeSurfacesUseTypedSceneArtwork() throws {
-        let contentView = try source("ContentView.swift")
+        let world = try source("Components/BacklundMetropolisCard.swift")
+        let fate = try source("Artifacts/ArtifactFateInterventionView.swift")
         let ritual = try source("Components/BronzeAltarPrayerCard.swift")
         let chronicle = try source("Components/NarrativeChronicleView.swift")
         let worldline = try source("Components/WorldlineNodeView.swift")
         let artifactShowcase = try source("Artifacts/ArtifactShowcaseView.swift")
 
-        #expect(contentView.contains("WOMWorldArtworkAsset.worldHero.runtimeAssetName"))
-        #expect(contentView.contains("WOMWorldArtworkAsset.grayFog.wideHeaderAssetName"))
+        #expect(world.contains("WOMWorldArtworkAsset.worldHero.wideHeaderAssetName"))
+        #expect(fate.contains("WOMWorldArtworkAsset.grayFog.wideHeaderAssetName"))
         #expect(ritual.contains("WOMWorldArtworkAsset.ritualAltar.runtimeAssetName"))
         #expect(chronicle.contains("WOMWorldArtworkAsset.codexArchive.runtimeAssetName"))
         #expect(worldline.contains("WOMWorldArtworkAsset.fateWorldline.runtimeAssetName"))
