@@ -50,80 +50,100 @@
 ## 5. 已验证待合并：Visual QA Backfill / PR #31
 
 Branch: `feat/wom-visual-qa-backfill-v2`  
-Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`
-
+Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`  
 状态：**READY TO MERGE / ALL QUALITY GATES PASSED**。
 
-已完成：
-- Wave A–E retroactive contrast / typography / collision / alignment audit；
-- 960×640 minimum-window responsive hardening；
-- shared Mystic primitives / Overlay / Gallery stress；
-- 15/15 Artifact shared + individual visual QA；
-- Reduce Motion / long-content / dynamic tone text remediation；
-- `VisualQAContractTests.swift` regression contract。
+已完成 Wave A–E 的 retroactive contrast / typography / collision / alignment audit、960×640 responsive hardening、shared primitives、15/15 Artifact shared + individual QA、Reduce Motion 和 `VisualQAContractTests.swift`。
 
-#31 尚未由本执行流合并；后续 Wave F 以其已验证 head 作为 stacked base。
+#31 尚未由本执行流合并；Wave F 以该已验证 head 作为 stacked base。
 
-## 6. 当前持久化工作流：Wave F — Advanced Interaction & World-State Chrome
+## 6. 当前持久化工作流：Wave F — Advanced Interaction & World-State Chrome / PR #32
 
 Branch: `feat/wom-visual-system-wave-f`  
 Stacked base: `feat/wom-visual-qa-backfill-v2@8b9ab58428d05762184884c9e60b03f6e8075d71`  
-Batch: [`Batch_23_Wave_F_Advanced_Interaction_Chrome.md`](Batch_23_Wave_F_Advanced_Interaction_Chrome.md)
+Batch: [`Batch_23_Wave_F_Advanced_Interaction_Chrome.md`](Batch_23_Wave_F_Advanced_Interaction_Chrome.md)  
+状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
-### F23.1 — Adaptive segmented mode selection
+### F23.1 — `WOMAdaptiveSegmentedPicker` — DONE
 
-- 使用原生 `Picker`；
-- 宽度充足时 `.segmented`；
-- 空间不足时通过 `ViewThatFits` 降级为 `.menu`；
-- 不用 Buttons 模拟 `NSSegmentedControl`；
-- keyboard / focus / accessibility 保持系统语义。
+- 原生 SwiftUI `Picker`；
+- 宽空间 `.segmented`；
+- segmented 保持 intrinsic readable width；
+- 窄空间 `ViewThatFits` 自动降级 `.menu`；
+- 不使用 Buttons 模拟系统 segmented control；
+- 不引入 AppKit bridge。
 
-### F23.2 — Relationship chrome
+### F23.2 — `WOMRelationBadge` — DONE
 
-新增 presentation-only `WOMRelationBadge`：trusted / aligned / neutral / wary / hostile。
+- trusted / aligned / neutral / wary / hostile；
+- icon + text + border/shape；
+- Differentiate Without Color 使用不同 dash；
+- Increased Contrast 增强边界；
+- 长标题/详情自然换行；
+- 不包含关系分数或持久化。
 
-- icon + text + border/shape 同时表达；
-- 不做 color-only state；
-- 不引入关系持久化或领域分数。
+### F23.3 — `WOMAchievementSeal` — DONE
 
-### F23.3 — Achievement seal
+- locked / discovered / completed；
+- 11pt metadata；
+- locked 状态仍保持可读；
+- icon + text + geometry，非 color-only；
+- 长成就名/说明允许多行。
 
-新增 `WOMAchievementSeal`：locked / discovered / completed。
+### F23.4 — `WOMCooldownIndicator` — DONE
 
-- locked 仍保持可读；
-- completed 用 icon/geometry + text，而非只靠颜色；
-- 长名称允许换行。
+- ready / cooling / locked；
+- determinate `ProgressView`；
+- progress 由外部 Runtime/Domain 提供；
+- 无 Timer / Task.sleep / repeatForever；
+- 不在视觉组件内部制造 availability truth。
 
-### F23.4 — Cooldown / availability indicator
+### F23.5 — Gallery / Contracts — DONE
 
-新增 `WOMCooldownIndicator`：ready / cooling / locked。
+- 正常 segmented 与 220pt narrow Inspector fallback specimen；
+- 5 种 relationship role；
+- 长中英文 hostile label；
+- 3 种 achievement state + 长标题；
+- ready/cooling/locked cooldown；
+- `VisualAdvancedInteractionContractTests.swift` 锁定 native semantics、no timer、no color-only、presentation-only boundary。
 
-- UI 仅呈现外部提供的 progress / remaining label；
-- 不在视觉组件内部实现游戏计时器或 wall-clock truth；
-- 不增加无限动画。
+## 7. Wave F 当前静态事实
 
-### F23.5 — Gallery / Tests
+相对 #31 已验证 head 的首次完整实现审计：
+- ahead 8 / behind 0；
+- 仅 Capsule / Batch / Living Plan、2 个 DesignSystem source、Gallery、1 个 test file；
+- 无 Engine / DB / IPC / schema / `.github` / `.hacf` 变化。
 
-- Advanced interaction specimens；
-- narrow width / long Chinese / long English / differentiate-without-color stress；
-- `VisualAdvancedInteractionContractTests.swift`。
+后续 audit/test/doc 原子提交仍保持同一授权文件集合。
 
-## 7. 生产入口事实
+## 8. 生产入口事实
 
 - Sidebar / Fate / Content Shell：真实生产入口。
 - Ritual：已有真实组件，无独立一级路由。
 - Character / Story Book / Cards / Worldline / Notes：部分 View primitive 已存在，但真实领域数据链未就绪时继续保持 placeholder。
 - Artifact：作为 Fate 命运干预工具，不额外制造背包一级导航。
 - Component Gallery：Showcase / Visual Regression / Visual QA Stress，不代表业务页面完成。
+- Wave F world-state chrome 当前仅进入 Design System + Gallery；真实领域数据源未就绪前不伪造生产绑定。
 
-## 8. Wave F 合并策略
+## 9. Wave F 合并策略
 
-1. Wave F 先作为 stacked Draft PR 持久化。
-2. #31 合并后，Wave F retarget 到 `main`。
-3. 重新核对/reissue Capsule base，确保 base SHA 与主线一致。
-4. 只对最终 Wave F head 跑完整 `MACOS_APP_P0`。
-5. 未经明确指令不执行 merge。
+1. #32 保持 stacked Draft，直至 #31 合并。
+2. #31 合并后，将 #32 retarget 到 `main`。
+3. 重新核对/reissue Capsule base，使 base SHA 与最新主线一致。
+4. 再次回读 diff，确保只剩 Wave F 增量。
+5. Mark Ready，并只对最终 Wave F head 执行完整 `MACOS_APP_P0`。
+6. 若失败，只做日志驱动的原子 fix。
+7. 未经明确指令不执行 merge。
 
-## 9. 恢复入口
+## 10. 后续候选
 
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 23 → `MAC-VISUAL-SYSTEM-WAVE-F` Capsule → Wave F PR → Advanced Interaction primitives → Gallery → contract tests → final CI/readback。
+Wave F 验证完成后再推进：
+- 真实领域数据源就绪后的 Relation/Achievement/Cooldown production binding；
+- 页面级 Inspector sizing / multi-window strategy；
+- 生产 workspace 从 placeholder 迁移时的视觉/数据契约。
+
+任何后续 Wave 继续继承 Visual QA Contract。
+
+## 11. 恢复入口
+
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 23 → `MAC-VISUAL-SYSTEM-WAVE-F` Capsule → PR #32 → `WOMAdaptiveSegmentedPicker` / `WOMWorldStateChrome` → Gallery → `VisualAdvancedInteractionContractTests` → retarget → final CI/readback。
