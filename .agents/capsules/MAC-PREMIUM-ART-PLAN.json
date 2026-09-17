@@ -1,0 +1,81 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-PREMIUM-ART-PLAN",
+  "capsule_revision": 1,
+  "task_id": "MAC-PREMIUM-ART-PLAN",
+  "title": "Premium world art and artifact visual implementation plan",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-18T00:00:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "33ff760a1bd939556a7c93ca760e4413dfb42a6e",
+    "target_sha": "33ff760a1bd939556a7c93ca760e4413dfb42a6e",
+    "context_snapshot": "sha256:dc9329ef5830c52230ebaccc57482dd33d3b3d51f9ea6f90893ad7ba20fde198"
+  },
+  "scope": {
+    "read": [
+      "docs/05_UI/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteriesTests/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "docs/05_UI/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "macos-app/**/*.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/Premium_World_Art_Artifact_Implementation_Plan_v1.0.md",
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/Batch_28_Premium_Art_Program_Plan.md",
+      "docs/05_UI/artwork/Canon_Visual_Brief_Template.md",
+      "docs/05_UI/artwork/Research_Sources_Premium_Art_A0.md",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactModels.swift",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactUIPrimitivesCore.swift",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "docs_only_research_driven_premium_art_program_plan",
+    "token_estimate": 10000,
+    "max_core_tokens": 14000,
+    "expansion_policy": "arbiter_approved",
+    "note": "A0 is a docs-only research and implementation-planning task. It audits the existing 15 Artifact components and Visual QA system, researches Lord of Mysteries world/art direction and primary game/platform UI guidance, and defines a new Premium World Art + Premium Artifact Art program. It must not add runtime images, change Swift code, alter Asset Catalog, or modify domain/engine truth."
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-STATE-SYNC"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Deliver a repository-persisted Premium World Art and Artifact implementation plan grounded in current macOS implementation, Lord of Mysteries official/canon research, and primary game/platform UI guidance. Preserve existing Visual QA thresholds. A0 is documentation only: no runtime artwork, Swift code, Asset Catalog, Engine/DB/IPC/schema changes. Future art must be original, canon-reviewed, UI-safe, provenance-recorded, and integrated through existing WOM/Artifact shared primitives rather than copied official assets or one-off UI shells."
+  }
+}
