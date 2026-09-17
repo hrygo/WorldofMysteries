@@ -6,13 +6,13 @@
   "title": "把 Xcode App Target 编译纳入受保护门禁（默认 MainActor 隔离下的编译失败不再漏到预览）",
   "assigned_role": "AGT-ARB",
   "status": "CREATED",
-  "created_at": "2026-09-17T05:43:22.105032+00:00",
+  "created_at": "2026-09-17T06:00:40.598053+00:00",
   "risk_class": "privileged",
   "base": {
-    "target_ref": "origin/main",
-    "base_sha": "6801f2d2c1f044feb6369527275fda85935102c6",
-    "target_sha": "6801f2d2c1f044feb6369527275fda85935102c6",
-    "context_snapshot": "sha256:99cd1091ac14d01e18c49208cb0d50bd23d288dec23cb48326ef8b0cbd1701eb"
+    "target_ref": "main",
+    "base_sha": "02b4112e98143e225ee043e26e432f5305a2ed6a",
+    "target_sha": "02b4112e98143e225ee043e26e432f5305a2ed6a",
+    "context_snapshot": "sha256:dc26ecaf605184ef06bfe09f857821f808f26be801666c9353dfee187449d43a"
   },
   "scope": {
     "read": [
