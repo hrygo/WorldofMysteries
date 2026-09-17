@@ -72,6 +72,16 @@ struct VisualQAContractTests {
         #expect(shell.contains("GridItem(.adaptive(minimum: 98)"))
     }
 
+    @Test("overlay feedback supports narrow inspector and popover widths")
+    func overlayFeedbackLayoutFallback() throws {
+        let overlay = try file("macos-app/WorldOfMysteries/DesignSystem/WOMOverlayPrimitives.swift")
+        #expect(overlay.contains("public struct WOMStatusBanner"))
+        #expect(overlay.contains("ViewThatFits(in: .horizontal)"))
+        #expect(overlay.contains("private var statusIdentity"))
+        #expect(overlay.contains("private var actionButton"))
+        #expect(overlay.contains(".fixedSize(horizontal: false, vertical: true)"))
+    }
+
     @Test("artifact semantic accent stays decoration rather than small readable text")
     func artifactTextUsesStableTokens() throws {
         let fate = try file("macos-app/WorldOfMysteries/Artifacts/ArtifactFateInterventionView.swift")
