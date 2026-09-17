@@ -16,6 +16,7 @@ public struct WOMTextureLayer: View {
     public let blendMode: BlendMode
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     public init(
         _ asset: WOMTextureAsset,
@@ -31,11 +32,21 @@ public struct WOMTextureLayer: View {
         Image(asset.rawValue)
             .resizable()
             .scaledToFill()
-            .opacity(reduceTransparency ? min(opacity, 0.025) : opacity)
+            .opacity(effectiveOpacity)
             .blendMode(blendMode)
             .clipped()
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+
+    private var effectiveOpacity: Double {
+        if reduceTransparency {
+            return min(opacity, 0.025)
+        }
+        if colorSchemeContrast == .increased {
+            return min(opacity, 0.05)
+        }
+        return opacity
     }
 }
 
@@ -47,6 +58,8 @@ public struct WOMPanelBackground: View {
     public let textureOpacity: Double
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.appearsActive) private var appearsActive
 
     public init(
         tone: WOMSurfaceTone = .panel,
@@ -71,10 +84,14 @@ public struct WOMPanelBackground: View {
                     .clipShape(shape)
             }
 
-            shape.stroke(strokeColor, lineWidth: DesignTokens.Borders.hairline)
+            shape.stroke(strokeColor, lineWidth: strokeWidth)
         }
         .clipShape(shape)
         .shadow(color: shadowColor, radius: shadowRadius, y: shadowOffsetY)
+    }
+
+    private var isIncreasedContrast: Bool {
+        colorSchemeContrast == .increased
     }
 
     private var fillColor: Color {
@@ -93,28 +110,46 @@ public struct WOMPanelBackground: View {
     }
 
     private var strokeColor: Color {
+        if isIncreasedContrast {
+            switch tone {
+            case .parchment:
+                return Color.Mystic.parchmentInkSecondary
+            case .ritual:
+                return Color.Mystic.spiritualBlue
+            case .panel, .card, .floating:
+                return Color.Mystic.textGoldAccent
+            }
+        }
+
+        let activityOpacity = appearsActive ? 1.0 : 0.6
         switch tone {
         case .parchment:
-            Color.Mystic.parchmentBorder.opacity(0.9)
+            return Color.Mystic.parchmentBorder.opacity(0.9 * activityOpacity)
         case .ritual:
-            Color.Mystic.spiritualBlue.opacity(0.38)
+            return Color.Mystic.spiritualBlue.opacity(0.38 * activityOpacity)
         case .panel, .card, .floating:
-            Color.Mystic.brassGoldBorder.opacity(0.62)
+            return Color.Mystic.brassGoldBorder.opacity(0.62 * activityOpacity)
         }
     }
 
+    private var strokeWidth: CGFloat {
+        isIncreasedContrast ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
+    }
+
     private var shadowColor: Color {
+        guard appearsActive, !isIncreasedContrast else { return .clear }
         switch tone {
         case .floating:
-            Color.black.opacity(0.34)
+            return Color.black.opacity(0.34)
         case .ritual:
-            Color.Mystic.spiritualGlow.opacity(0.45)
+            return Color.Mystic.spiritualGlow.opacity(0.45)
         case .panel, .card, .parchment:
-            .clear
+            return .clear
         }
     }
 
     private var shadowRadius: CGFloat {
+        guard appearsActive, !isIncreasedContrast else { return 0 }
         switch tone {
         case .floating: 14
         case .ritual: 7
@@ -123,7 +158,7 @@ public struct WOMPanelBackground: View {
     }
 
     private var shadowOffsetY: CGFloat {
-        tone == .floating ? 6 : 0
+        tone == .floating && appearsActive && !isIncreasedContrast ? 6 : 0
     }
 }
 
@@ -134,6 +169,11 @@ public struct WOMCardChrome: ViewModifier {
     public let isSelected: Bool
     public let isHovered: Bool
     public let cornerRadius: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.appearsActive) private var appearsActive
 
     public init(
         tone: WOMSurfaceTone = .card,
@@ -161,49 +201,95 @@ public struct WOMCardChrome: ViewModifier {
                 )
             )
             .overlay(
-                shape.stroke(
-                    chromeStrokeColor,
-                    lineWidth: isSelected
-                        ? DesignTokens.Interaction.selectedBorderWidth
-                        : DesignTokens.Borders.hairline
-                )
+                shape.stroke(chromeStrokeColor, lineWidth: chromeStrokeWidth)
             )
-            .shadow(
-                color: isSelected
-                    ? Color.Mystic.brassGoldGlow
-                    : (isHovered ? Color.Mystic.brassGoldGlow.opacity(0.45) : .clear),
-                radius: isSelected ? DesignTokens.Interaction.selectedShadowRadius : 3
+            .overlay(
+                shape
+                    .inset(by: 3)
+                    .stroke(
+                        differentiateWithoutColor && isSelected
+                            ? chromeStrokeColor.opacity(0.9)
+                            : Color.clear,
+                        lineWidth: DesignTokens.Borders.hairline
+                    )
             )
-            .animation(DesignTokens.Interaction.selectionSpring, value: isSelected)
-            .animation(DesignTokens.Interaction.hoverAnimation, value: isHovered)
+            .shadow(color: chromeShadowColor, radius: chromeShadowRadius)
+            .animation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring, value: isSelected)
+            .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isHovered)
+    }
+
+    private var isIncreasedContrast: Bool {
+        colorSchemeContrast == .increased
     }
 
     private var chromeStrokeColor: Color {
         if isSelected {
-            return Color.Mystic.brassGoldPrimary
+            return isIncreasedContrast ? Color.Mystic.textGoldAccent : Color.Mystic.brassGoldPrimary
         }
         if isHovered {
-            return Color.Mystic.brassGoldBorder.opacity(0.9)
+            return isIncreasedContrast
+                ? Color.Mystic.textSecondary
+                : Color.Mystic.brassGoldBorder.opacity(0.9)
         }
         return Color.clear
+    }
+
+    private var chromeStrokeWidth: CGFloat {
+        if isSelected {
+            return isIncreasedContrast
+                ? DesignTokens.Borders.heavy
+                : DesignTokens.Interaction.selectedBorderWidth
+        }
+        if isHovered {
+            return isIncreasedContrast ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
+        }
+        return DesignTokens.Borders.hairline
+    }
+
+    private var chromeShadowColor: Color {
+        guard appearsActive, !isIncreasedContrast else { return .clear }
+        if isSelected {
+            return Color.Mystic.brassGoldGlow
+        }
+        if isHovered {
+            return Color.Mystic.brassGoldGlow.opacity(0.45)
+        }
+        return .clear
+    }
+
+    private var chromeShadowRadius: CGFloat {
+        guard appearsActive, !isIncreasedContrast else { return 0 }
+        return isSelected ? DesignTokens.Interaction.selectedShadowRadius : (isHovered ? 3 : 0)
     }
 }
 
 /// Typography treatment for compact section headers.
 public struct WOMSectionHeaderStyle: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.appearsActive) private var appearsActive
+
     public init() {}
 
     public func body(content: Content) -> some View {
         content
             .font(Font.Mystic.caption)
             .tracking(DesignTokens.TypographyMetrics.captionTracking)
-            .foregroundStyle(Color.Mystic.textGoldAccent)
+            .foregroundStyle(headerColor)
+    }
+
+    private var headerColor: Color {
+        if colorSchemeContrast == .increased {
+            return Color.Mystic.textGoldAccent
+        }
+        return Color.Mystic.textGoldAccent.opacity(appearsActive ? 1 : 0.72)
     }
 }
 
 /// Lightweight programmatic divider ornament; no bitmap asset required.
 public struct WOMDividerOrnament: View {
     public let opacity: Double
+
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     public init(opacity: Double = 0.55) {
         self.opacity = opacity
@@ -212,17 +298,29 @@ public struct WOMDividerOrnament: View {
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Rectangle()
-                .frame(height: DesignTokens.Borders.hairline)
+                .frame(height: dividerWidth)
 
             Rectangle()
                 .frame(width: 5, height: 5)
                 .rotationEffect(.degrees(45))
 
             Rectangle()
-                .frame(height: DesignTokens.Borders.hairline)
+                .frame(height: dividerWidth)
         }
-        .foregroundStyle(Color.Mystic.brassGoldBorder.opacity(opacity))
+        .foregroundStyle(dividerColor)
         .accessibilityHidden(true)
+    }
+
+    private var dividerWidth: CGFloat {
+        colorSchemeContrast == .increased
+            ? DesignTokens.Borders.standard
+            : DesignTokens.Borders.hairline
+    }
+
+    private var dividerColor: Color {
+        colorSchemeContrast == .increased
+            ? Color.Mystic.textGoldAccent
+            : Color.Mystic.brassGoldBorder.opacity(opacity)
     }
 }
 

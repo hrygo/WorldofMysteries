@@ -45,9 +45,9 @@ Wave B 最终权威门禁全部通过：Capsule Audit、Architecture/Contracts�
 
 | 子阶段 | 内容 | 状态 |
 |---|---|---|
-| C17.1 | Button chrome：Focus / Increased Contrast / Differentiate Without Color / inactive appearance | 已实现于 #27 |
-| C17.2 | Surface / Card chrome accessibility states | 进行中 |
-| C17.3 | Component Gallery accessibility specimen | 待实现 |
+| C17.1 | Button chrome：Focus / Increased Contrast / Differentiate Without Color / inactive appearance | 已实现 |
+| C17.2 | Surface / Card chrome accessibility states | 已实现 |
+| C17.3 | Component Gallery accessibility specimen | 进行中 |
 | C17.4 | DesignSystem typed registry / size / compatibility tests | 待实现 |
 
 ### 后续候选

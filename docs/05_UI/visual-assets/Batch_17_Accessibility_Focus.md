@@ -2,54 +2,57 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：BUTTON CHROME IMPLEMENTED / SURFACE & TESTS IN PROGRESS
+> 状态：BUTTON + SURFACE IMPLEMENTED / GALLERY & TESTS IN PROGRESS
 
 ## 1. 目标
 
 Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、inactive appearance 与设计系统回归保障，不扩展领域功能。
 
-## 2. Button Chrome 已实现
+## 2. Button Chrome
 
-`WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle` 继续共享同一个 `WOMButtonChrome`，新增读取：
+`WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle` 共享 `WOMButtonChrome`，读取：
 
 - `isFocused`
 - `appearsActive`
 - `colorSchemeContrast`
 - `accessibilityDifferentiateWithoutColor`
-- 原有 `accessibilityReduceMotion`
+- `accessibilityReduceMotion`
 
-### Focus
+实现：Focus 外环、Increase Contrast heavy border、Danger/Ritual 非颜色 dash pattern、inactive-window 降低 accent/glow、reduced motion 关闭反馈动画。
 
-获得键盘焦点时，在既有 border 外增加由 `DesignTokens.Accessibility.focusRingWidth / focusRingOffset` 驱动的外环；不替换 Button 的平台触发机制。
+## 3. Surface / Card Chrome
 
-### Increase Contrast
+### `WOMTextureLayer`
 
-- border 提升到 heavy；
-- Primary / Secondary / Tertiary 使用更清晰的 `textGoldAccent` 边界；
-- Danger / Ritual 使用各自高辨识语义色；
-- 关闭模糊 glow，改靠清晰描边建立层级。
+- Reduced Transparency：纹理 opacity 上限 0.025；
+- Increased Contrast：纹理 opacity 上限 0.05，减少视觉噪声。
 
-### Differentiate Without Color
+### `WOMPanelBackground`
 
-当用户要求“不仅靠颜色区分”时：
+- Increase Contrast 使用更清晰 semantic stroke；
+- stroke 从 hairline 提升到 standard；
+- high contrast / inactive window 关闭 decorative glow/shadow；
+- parchment / ritual / dark surfaces 保持各自语义边界。
 
-- Danger 使用 `[4, 2]` dash pattern；
-- Ritual 使用 `[1, 2]` dot-like pattern；
-- 其他通用按钮保持连续线。
+### `WOMCardChrome`
 
-因此危险/仪式语义即使在无法依赖颜色时仍有几何差异。
+- selected + Increase Contrast → heavy border；
+- `accessibilityDifferentiateWithoutColor` + selected → 增加第二层 inset border，因此 selected 不只靠金色表达；
+- hover/selected 动画尊重 Reduced Motion；
+- inactive window 关闭 glow。
 
-### Inactive Window
+### Section / Divider
 
-`appearsActive == false` 时降低自定义 accent/background 强度，并关闭 hover glow，避免后台窗口保持过强视觉权重。
+- Section Header 在 Increase Contrast 下使用完整 `textGoldAccent`；
+- Divider 在 Increase Contrast 下升级到 standard width 和更高对比色。
 
-## 3. 技术依据
+## 4. macOS 技术原则
 
-采用 SwiftUI 环境状态，不创建第二套 focus/contrast 状态机。自定义 `ButtonStyle` 继续保留平台标准 Button interaction。
+SwiftUI environment 是系统状态事实源；不维护平行的 focus/contrast/accessibility 状态机。自定义 `ButtonStyle` 只改视觉，不重写 Button 的平台触发与键盘行为。
 
-## 4. 下一步
+## 5. 下一步
 
-1. Surface / Card chrome 同步支持 Increased Contrast、Differentiate Without Color、inactive appearance；
-2. Component Gallery 增加 accessibility specimen；
-3. DesignSystemTests 补 typed registry / size / compatibility 回归；
-4. 最终 head 统一运行 `MACOS_APP_P0`。
+1. Component Gallery 增加 Accessibility State specimen；
+2. DesignSystemTests 补 typed registry / size / compatibility 回归；
+3. 静态回读 Wave C diff；
+4. 最终 head 统一执行 `MACOS_APP_P0`。
