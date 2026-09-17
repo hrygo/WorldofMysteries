@@ -117,6 +117,20 @@ jobs:
           cd macos-app
           swift test --scratch-path "${RUNNER_TEMP}/wom-spm-scratch"
 
+      - name: Build Xcode App Target (默认 MainActor 隔离编译验证)
+        # SPM 测试目标未启用默认 MainActor 隔离，无法覆盖宿主 App 的真实编译面；
+        # 该步骤复现 Xcode App Target / 预览的编译配置，避免「只在预览里报错」的问题漏过门禁。
+        # CODE_SIGNING_ALLOWED=NO：本步骤只验证编译，不产出发行签名产物（Runner 无签名身份）。
+        run: |
+          cd macos-app
+          xcodebuild -project WorldOfMysteries.xcodeproj \
+            -scheme WorldOfMysteries \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "${RUNNER_TEMP}/wom-xcode-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
   # Aggregated Gate Summary for Branch Protection
   all-gates-passed:
     name: "All Quality Gates Passed"
