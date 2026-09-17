@@ -131,6 +131,9 @@ ALLOWED_ROOT_FILES = {
     ".gitattributes",
     ".editorconfig",
     ".gitmessage",
+    # git worktree 检出会把 `.git` 落成指针文件（非目录）；它是仓库机制而非根目录垃圾，
+    # 误判会让 HACF 隔离工作区在 Stage 1 无条件失败。
+    ".git",
     ".DS_Store",
 }
 

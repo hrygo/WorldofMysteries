@@ -26,6 +26,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          # 证据卡片必须解析 PR 变更面：`git diff origin/<base>...HEAD` 需要共同祖先，
+          # 默认浅克隆（fetch-depth: 1）会让 diff 以 "no merge base" 失败并被误判为
+          # 「本 PR 未附带胶囊」。此处与 capsule-audit.yml 保持一致的完整历史口径。
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
