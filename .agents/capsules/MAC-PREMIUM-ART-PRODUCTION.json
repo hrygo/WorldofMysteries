@@ -1,0 +1,101 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-PREMIUM-ART-PRODUCTION",
+  "capsule_revision": 1,
+  "task_id": "MAC-PREMIUM-ART-PRODUCTION",
+  "title": "Produce and integrate premium world and Artifact artwork",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-18T00:00:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "d98af5f4eec413407a6c83de245ebc434fcd267d",
+    "target_sha": "d98af5f4eec413407a6c83de245ebc434fcd267d",
+    "context_snapshot": "sha256:premium-art-production-a1-a3"
+  },
+  "scope": {
+    "read": [
+      "docs/05_UI/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "write": [
+      "docs/05_UI/artwork/",
+      "docs/05_UI/visual-assets/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/Premium_World_Art_Artifact_Implementation_Plan_v1.0.md",
+      "docs/05_UI/artwork/Premium_Art_Production_Manifest_v1.md",
+      "docs/05_UI/artwork/Canon_Visual_Brief_Template.md",
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactModels.swift",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactUIPrimitivesCore.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "premium_art_assets_and_macos_presentation_only",
+    "token_estimate": 12000,
+    "max_core_tokens": 18000,
+    "expansion_policy": "arbiter_approved",
+    "note": "One long-lived production PR. Work proceeds by atomic commits. Routine implementation does not wait on GitHub Actions; final gate review happens only at meaningful milestone closure."
+  },
+  "impact": {
+    "symbols": [
+      "WOMWorldArtworkAsset",
+      "WOMArtifactArtworkAsset",
+      "WOMArtworkView",
+      "ArtifactComponentShell"
+    ],
+    "contracts": [
+      "Visual QA Contract",
+      "Premium Art Production Manifest"
+    ],
+    "tests": [
+      "artwork Asset Catalog contract",
+      "artwork registry contract",
+      "visual layout/contrast regression"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-PREMIUM-ART-PLAN"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [3, 9, 10, 12],
+    "assertions": [
+      "premium art does not alter domain truth",
+      "15 Artifact IDs remain the gameplay source of truth",
+      "Probability Die RealityKit remains interactive primary presentation",
+      "artwork integration preserves Visual QA thresholds",
+      "shipping artwork has provenance and runtime-sized derivatives"
+    ],
+    "instructions": "Produce real premium images and integrate them into existing macOS presentation. Do not substitute additional UI primitives for artwork. Preserve domain/IPC boundaries and all Visual QA guards."
+  }
+}
