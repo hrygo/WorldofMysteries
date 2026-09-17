@@ -1,0 +1,74 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-01-R2",
+  "capsule_revision": 2,
+  "supersedes": "CAP-MAC-VISUAL-ASSET-01",
+  "task_id": "MAC-VISUAL-ASSET-01-R2",
+  "title": "建立视觉资产总体方案与首批核心语义图标（重签基线）",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:40:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "d12eb50e1f566ef52120485cac454770d2621bb5",
+    "target_sha": "d12eb50e1f566ef52120485cac454770d2621bb5",
+    "context_snapshot": "sha256:4dc81d7e897ef781a393ef9a09954540781d45c08831a7228c8e78fa881a1518"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "docs/05_UI/",
+      "contracts/engineering/",
+      ".github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIconAsset.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/Batch_01_Core_Semantic_Icons.md"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/InteractionStyles.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/Contents.json",
+      "docs/05_UI/design_tokens.json"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "visual_asset_foundation_with_persistent_plan",
+    "token_estimate": 2600,
+    "max_core_tokens": 4000,
+    "expansion_policy": "arbiter_approved",
+    "note": "从原始干净提交恢复 Batch 01，并重签到最新 main；只落盘总体方案、批次记录、四个 template SVG 与语义注册表，不迁移页面、不新增第二套设计 Token。"
+  },
+  "impact": {
+    "symbols": ["WOMIconAsset"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "方案与实现必须同 PR 持久化；资产使用稳定 wom.icon.* 语义命名、SVG template rendering 与矢量表示；本批不得接触数据库、IPC 或产品领域契约。"
+  }
+}
