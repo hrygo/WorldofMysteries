@@ -6,13 +6,13 @@
   "title": "修复默认 MainActor 隔离下 DesignTokens 令牌在非隔离上下文不可读（组件预览全红）",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-17T05:33:21.975540+00:00",
+  "created_at": "2026-09-17T05:37:23.697997+00:00",
   "risk_class": "medium",
   "base": {
     "target_ref": "fix/m0-token-isolation-fix",
-    "base_sha": "a5e0295c56feabe73aeac3ea00c6f6f793fcddbf",
-    "target_sha": "a5e0295c56feabe73aeac3ea00c6f6f793fcddbf",
-    "context_snapshot": "sha256:4b86c2dbac6428e2ab62a41a330366df425a8234972e4cfc9473b9a2955dad4d"
+    "base_sha": "c0a8b4d1025dcfe2ddbd0e7ebf3cb655a9541630",
+    "target_sha": "c0a8b4d1025dcfe2ddbd0e7ebf3cb655a9541630",
+    "context_snapshot": "sha256:ee6f507ccace82c0a50a5d3aa7fc6d2a2ae0b06b7c4c63820098f7a3bad39058"
   },
   "scope": {
     "read": [
