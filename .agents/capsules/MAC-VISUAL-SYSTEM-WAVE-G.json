@@ -1,0 +1,95 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-G",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-SYSTEM-WAVE-G",
+  "title": "Window inspector and responsive workspace layout Wave G",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T15:33:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "feat/wom-visual-system-wave-f",
+    "base_sha": "a4ae319d48f25b9eadffdf6f8e64845ecc55cada",
+    "target_sha": "a4ae319d48f25b9eadffdf6f8e64845ecc55cada",
+    "context_snapshot": "sha256:64ff7a375b56b77899ea166b38c075d9ca410e360dd6a56ce19f3ca89673ad8c"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_24_Wave_G_Window_Inspector_Layout.md",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMOverlayPrimitives.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "persistent_pr_native_window_inspector_responsive_layout",
+    "token_estimate": 9000,
+    "max_core_tokens": 12000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Wave G standardizes app window metrics, flexible native Inspector width and reusable responsive pair layout. It must not create custom NSWindow/NSPanel coordinators or fake multi-window workflows."
+  },
+  "impact": {
+    "symbols": [
+      "WOMWindowMetrics",
+      "WOMInspectorMetrics",
+      "WOMAdaptivePair",
+      "WOMInspectorContent",
+      "WorldOfMysteriesApp",
+      "ContentView",
+      "VisualSystemGallerySection"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualWindowLayoutContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-WAVE-F"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Use native SwiftUI WindowGroup/inspector/inspectorColumnWidth semantics. Keep 960x640 minimum usable size, provide comfortable default size without locking resize, enforce 280/320/420 Inspector widths, preserve >=13pt body and >=11pt metadata, responsive fallback without overlap, and no Engine/DB/IPC/schema changes."
+  }
+}
