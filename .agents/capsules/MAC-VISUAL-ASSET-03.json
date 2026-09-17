@@ -1,0 +1,71 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-03",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-ASSET-03",
+  "title": "为现有高质量纹理建立语义资产桥接层",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:14:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "730582d843fdf45deaa3b0aad937701636321ff1",
+    "target_sha": "730582d843fdf45deaa3b0aad937701636321ff1",
+    "context_snapshot": "sha256:66d6bcc38f0f395f7cbe378013cf0a713a05f1cfc824d15881342cb84cc1dedf"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "contracts/engineering/",
+      ".github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMTextureAsset.swift"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/TextureFoolVeil.imageset/Contents.json",
+      "macos-app/WorldOfMysteries/Assets.xcassets/TextureGold.imageset/Contents.json",
+      "macos-app/WorldOfMysteries/Assets.xcassets/TextureParchment.imageset/Contents.json",
+      "macos-app/WorldOfMysteries/Assets.xcassets/TextureSacredSlate.imageset/Contents.json",
+      "macos-app/WorldOfMysteries/Assets.xcassets/TextureVelvet.imageset/Contents.json"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "texture_semantic_bridge",
+    "token_estimate": 1400,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "复用现有纹理，不复制位图；通过语义键与当前 Asset Catalog 名称解耦，为后续统一组件皮肤提供稳定入口。"
+  },
+  "impact": {
+    "symbols": ["WOMTextureAsset"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "不得复制现有纹理位图；稳定语义键与 Asset Catalog 当前物理名称分离；不改变现有 token 或页面。"
+  }
+}
