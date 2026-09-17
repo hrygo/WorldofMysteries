@@ -6,13 +6,13 @@
   "title": "修复 PR 证据卡片永不检测内容（浅克隆 diff 失败静默降级）",
   "assigned_role": "AGT-ARB",
   "status": "CREATED",
-  "created_at": "2026-09-17T05:12:08.245615+00:00",
+  "created_at": "2026-09-17T05:14:53.373933+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "feat/reporter-detection-fix",
-    "base_sha": "1e3f80cc3907c2ed9c1a09f3a3a7930db1102186",
-    "target_sha": "1e3f80cc3907c2ed9c1a09f3a3a7930db1102186",
-    "context_snapshot": "sha256:c480e1bf36cdf9c55c58155235823e50ad7e39c81eed527ef15744e36f8a6736"
+    "base_sha": "70dfb2d713f8412cf6af7c73c6f94d947836ed45",
+    "target_sha": "70dfb2d713f8412cf6af7c73c6f94d947836ed45",
+    "context_snapshot": "sha256:76d10b0d97c4102282c4e2b9c18d664bfb2b9dec8fc66b80c46a36d6d8f127f6"
   },
   "scope": {
     "read": [
@@ -55,15 +55,16 @@
       "symbol:check_ai_layer_safety@scripts/check_architecture_fitness.py:100",
       "symbol:check_repository_root_cleanliness@scripts/check_architecture_fitness.py:141",
       "symbol:main@scripts/check_architecture_fitness.py:156",
-      "symbol:_run_git@scripts/generate_pr_report.py:31",
-      "symbol:detect_changed_files@scripts/generate_pr_report.py:41",
-      "symbol:load_capsules@scripts/generate_pr_report.py:87",
-      "symbol:load_changed_receipts@scripts/generate_pr_report.py:110",
-      "symbol:load_task_receipts@scripts/generate_pr_report.py:133",
-      "symbol:_merge_receipts@scripts/generate_pr_report.py:149",
-      "symbol:_verdict_badge@scripts/generate_pr_report.py:158",
-      "symbol:generate_report@scripts/generate_pr_report.py:162",
-      "symbol:_merge_base@scripts/generate_pr_report.py:51",
+      "symbol:_git_env@scripts/generate_pr_report.py:31",
+      "symbol:_run_git@scripts/generate_pr_report.py:43",
+      "symbol:detect_changed_files@scripts/generate_pr_report.py:54",
+      "symbol:load_capsules@scripts/generate_pr_report.py:100",
+      "symbol:load_changed_receipts@scripts/generate_pr_report.py:123",
+      "symbol:load_task_receipts@scripts/generate_pr_report.py:146",
+      "symbol:_merge_receipts@scripts/generate_pr_report.py:162",
+      "symbol:_verdict_badge@scripts/generate_pr_report.py:171",
+      "symbol:generate_report@scripts/generate_pr_report.py:175",
+      "symbol:_merge_base@scripts/generate_pr_report.py:64",
       "symbol:PolicyError@scripts/hacf_policy.py:91",
       "symbol:now_iso@scripts/hacf_policy.py:95",
       "symbol:sha256_bytes@scripts/hacf_policy.py:99",
@@ -76,15 +77,14 @@
       "symbol:changed_files@scripts/hacf_policy.py:165",
       "symbol:capsule_digest@scripts/hacf_policy.py:182",
       "symbol:changes_digest@scripts/hacf_policy.py:186",
-      "symbol:load_capsule@scripts/hacf_policy.py:218",
-      "symbol:path_verdict@scripts/hacf_policy.py:233"
+      "symbol:load_capsule@scripts/hacf_policy.py:218"
     ],
     "related_contracts": [
       "engine_ipc.schema.json",
       "task_capsule.schema.json"
     ],
     "slice_strategy": "focus-ranked",
-    "token_estimate": 635,
+    "token_estimate": 636,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
     "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
@@ -98,6 +98,7 @@
       "check_ai_layer_safety",
       "check_repository_root_cleanliness",
       "main",
+      "_git_env",
       "_run_git",
       "detect_changed_files",
       "load_capsules",
@@ -119,8 +120,7 @@
       "changed_files",
       "capsule_digest",
       "changes_digest",
-      "load_capsule",
-      "path_verdict"
+      "load_capsule"
     ],
     "contracts": [
       "engine_ipc.schema.json",
