@@ -178,6 +178,79 @@ public struct WOMLoadingState: View {
     }
 }
 
+/// Typed empty-state primitive for new visual-system call sites.
+///
+/// The legacy `MysticEmptyState(systemIcon:...)` API remains untouched for compatibility; new WOM
+/// code should prefer this typed source so custom vector assets and platform symbols share one path.
+public struct WOMEmptyState: View {
+    public let source: WOMIconSource
+    public let title: String
+    public let message: String
+    public let tone: WOMFeedbackTone
+    public let actionTitle: String?
+    public var onAction: (@MainActor () -> Void)?
+
+    public init(
+        source: WOMIconSource,
+        title: String,
+        message: String,
+        tone: WOMFeedbackTone = .info,
+        actionTitle: String? = nil,
+        onAction: (@MainActor () -> Void)? = nil
+    ) {
+        self.source = source
+        self.title = title
+        self.message = message
+        self.tone = tone
+        self.actionTitle = actionTitle
+        self.onAction = onAction
+    }
+
+    public var body: some View {
+        VStack(spacing: DesignTokens.Spacing.sm) {
+            WOMIcon(
+                source: source,
+                size: .large,
+                accessibilityLabel: nil
+            )
+            .foregroundStyle(accentColor.opacity(0.82))
+
+            Text(title)
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+
+            Text(message)
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(DesignTokens.TypographyMetrics.compactLineSpacing)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let actionTitle, let onAction {
+                Button(actionTitle, action: onAction)
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                    .padding(.top, DesignTokens.Spacing.xxs)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(DesignTokens.LayoutInsets.cardPadding)
+        .background(
+            WOMPanelBackground(
+                tone: .card,
+                cornerRadius: DesignTokens.Radii.md,
+                texture: .sacredSlate,
+                textureOpacity: 0.018
+            )
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(tone.semanticLabel)：\(title)")
+    }
+
+    private var accentColor: Color {
+        feedbackAccentColor(tone)
+    }
+}
+
 /// Persistent semantic feedback banner for non-modal status communication.
 public struct WOMStatusBanner: View {
     public let tone: WOMFeedbackTone
