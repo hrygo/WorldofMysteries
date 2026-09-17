@@ -6,13 +6,13 @@
   "title": "修复 PR 证据卡片永不检测内容（浅克隆 diff 失败静默降级）",
   "assigned_role": "AGT-ARB",
   "status": "CREATED",
-  "created_at": "2026-09-17T05:17:12.864148+00:00",
+  "created_at": "2026-09-17T05:17:20.132630+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "feat/reporter-detection-fix",
-    "base_sha": "a564ba3bb67bf992b8b5d60cd9bcdfa41c4efa35",
-    "target_sha": "a564ba3bb67bf992b8b5d60cd9bcdfa41c4efa35",
-    "context_snapshot": "sha256:b828cd95817a081aeed639bd4b0b4a40c1939bf25bce3c6fc9106fd61b6ce2a7"
+    "base_sha": "5f22ee19e3021f09ab82649dbd7212ea2b0a5ec7",
+    "target_sha": "5f22ee19e3021f09ab82649dbd7212ea2b0a5ec7",
+    "context_snapshot": "sha256:c1e22a750f0c9643b2b396d8009bacde9d97b064e4202c0bf16c9e22dd5a6e11"
   },
   "scope": {
     "read": [
