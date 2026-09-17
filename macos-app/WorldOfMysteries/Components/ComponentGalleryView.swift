@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 组件全景画廊视图（单页集中预览与调试全部 14 大核心 UI 组件）
+/// 组件全景画廊视图（集中预览核心 UI、通用原语与 15 件特殊物品玩法组件）
 /// 彻底解决频繁切换不同文件时 Xcode Previews 反复冷启动与进程重建的性能痛点
 public struct ComponentGalleryView: View {
     @State private var adviceDraft: String = "小心身后的红月，屏住呼吸离开房间。"
@@ -21,7 +21,7 @@ public struct ComponentGalleryView: View {
                         .font(Font.Mystic.gothicDisplay)
                         .foregroundStyle(Color.Mystic.brassGoldPrimary)
                     
-                    Text("集中展示 16 大核心组件与 8 项通用原语 · 单一 Canvas 会话 · 零重复冷启动开销")
+                    Text("集中展示 16 大核心组件、15 件特殊物品玩法组件与 8 项通用原语 · 单一 Canvas 会话")
                         .font(Font.Mystic.bodyMedium)
                         .foregroundStyle(Color.Mystic.textSecondary)
                 }
@@ -409,6 +409,11 @@ public struct ComponentGalleryView: View {
                         )
                     }
                 }
+
+                // 11. Canon 特殊物品玩法组件库
+                gallerySection(title: "11 · 特殊物品玩法组件 (Canon Artifact Gameplay)") {
+                    ArtifactShowcaseView()
+                }
             }
             .padding(DesignTokens.Spacing.xxl)
         }
@@ -428,7 +433,7 @@ public struct ComponentGalleryView: View {
     }
 }
 
-#Preview("Component Gallery (14 Components)") {
+#Preview("Component Gallery + Artifact Components") {
     ComponentGalleryView()
         .frame(minWidth: 800, minHeight: 900)
 }
