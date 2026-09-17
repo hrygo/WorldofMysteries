@@ -1,0 +1,69 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-02",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-ASSET-02",
+  "title": "建立首批装饰与插槽矢量资产",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:07:16Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "730582d843fdf45deaa3b0aad937701636321ff1",
+    "target_sha": "730582d843fdf45deaa3b0aad937701636321ff1",
+    "context_snapshot": "sha256:9cca8c110d6ac92321c9b3d3dd6833c7dbde1a8e225cd61915a57ee276e45e28"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "contracts/engineering/",
+      ".github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMOrnamentAsset.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/InteractionStyles.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/Contents.json"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "ornament_asset_foundation",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "第二批只新增四个 template vector ornament 与独立语义注册表，不依赖第一批图标 PR。"
+  },
+  "impact": {
+    "symbols": ["WOMOrnamentAsset"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "装饰资产使用稳定 wom.ornament.* 语义命名，保持模板渲染与矢量表示；不承载页面颜色和业务状态。"
+  }
+}
