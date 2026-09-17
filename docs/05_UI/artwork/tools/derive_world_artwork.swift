@@ -185,8 +185,7 @@ private func resized(_ image: CGImage, width: Int, height: Int) throws -> CGImag
     let context = try makeSRGBContext(width: width, height: height)
     context.draw(
         image,
-        in: CGRect(x: 0, y: 0, width: width, height: height),
-        intent: .relativeColorimetricIntent
+        in: CGRect(x: 0, y: 0, width: width, height: height)
     )
     guard let output = context.makeImage() else {
         throw DerivativeError(description: "Unable to create resized image")
@@ -287,7 +286,7 @@ private func run() throws {
         runtime: try record(runtimeOutput, image: runtime),
         wide: try record(wideOutput, image: wide),
         colorSpace: "sRGB",
-        interpolation: "CoreGraphics.high / relativeColorimetricIntent"
+        interpolation: "CoreGraphics.high / sRGB destination context"
     )
 
     let encoder = JSONEncoder()
