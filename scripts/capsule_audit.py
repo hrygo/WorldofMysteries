@@ -326,12 +326,14 @@ def main() -> int:
         ["git", "rev-parse", args.head_ref], cwd=repo_root, capture_output=True, text=True
     ).stdout.strip()
 
-    # 优先只审计本次 PR 变更集涉及的胶囊；若本次 PR 未修改胶囊，则只在包含业务代码时回退至相关胶囊
+    # 优先只审计本次 PR 变更集涉及的胶囊；若本次 PR 未修改胶囊，则回退至仓库现有胶囊
     changed_capsules = [
         repo_root / f
         for f in changed
         if f.startswith(".agents/capsules/") and f.endswith(".json") and (repo_root / f).exists()
     ]
+    if not changed_capsules and (repo_root / ".agents" / "capsules").exists():
+        changed_capsules = sorted((repo_root / ".agents" / "capsules").glob("*.json"))
 
     result = audit_pr(
         changed_files=changed,
