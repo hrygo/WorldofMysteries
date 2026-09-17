@@ -2,7 +2,7 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：IMPLEMENTED / FINAL CI RETRY
+> 状态：IMPLEMENTED / FINAL CI RETRY 3
 
 ## 1. 目标
 
@@ -30,38 +30,48 @@ Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、
 
 ## 4. Component Gallery Accessibility Specimen
 
-新增专门的辅助功能展示区：
-
-- Tab / Shift-Tab 可实测 Focus ring；
-- “聚焦主按钮”可程序化移动焦点；
-- 同屏展示 Disabled / Danger / Ritual；
-- Selected / Unselected 卡片并排验证非颜色选中态；
-- 提示用户切换 macOS 增强对比度、不使用颜色进行区分、减少动态效果和降低透明度观察实时结果。
+新增专门的辅助功能展示区：Tab / Shift-Tab Focus、程序化聚焦、Disabled / Danger / Ritual，以及 Selected / Unselected 非颜色状态对照；并提示切换 macOS 增强对比度、不使用颜色区分、减少动态效果和降低透明度实时观察。
 
 ## 5. 语义回归测试
 
-新增 `VisualSystemSemanticTests.swift`，采用 Swift Testing，覆盖：
+`VisualSystemSemanticTests.swift` 使用 Swift Testing，覆盖：
 
 - `WOMIconSize` = 16 / 20 / 24 / 32；
-- `WOMSystemIcon` 核心系统行为映射；
-- `WOMStatusIcon` 状态映射；
-- `WOMTextureAsset` Wave B compatibility aliases 与 `semanticKey`；
-- `WOMIconAsset` 世界观 registry 必需项；
-- 9 个 `NavigationItem.iconSource` 类型化来源。
+- `WOMSystemIcon` / `WOMStatusIcon` 映射；
+- `WOMTextureAsset` compatibility aliases 与 `semanticKey`；
+- `WOMIconAsset` 世界观 registry；
+- 9 个 `NavigationItem.iconSource`。
 
-不采用像素截图 golden，避免 macOS 字体、渲染器、系统版本变化导致脆弱测试；视觉状态由 Component Gallery 做人工/自动截图入口，语义契约由 Swift Testing 守护。
+不采用像素截图 golden；视觉状态由 Component Gallery 作为观察入口，语义契约由 Swift Testing 守护。
 
-## 6. 最终 CI 首轮发现与修复
+## 6. 最终 CI 发现与修复记录
 
-首轮最终 CI：Architecture/Contracts 与 Python 全绿；Swift 6 Test Suite 失败并阻止 Xcode Build。
+### Retry 1
 
-静态核对确认新测试文件错误导入了 `WorldOfMysteries`，而仓库 Swift Package 的实际 library/test dependency 是 `WorldOfMysteriesCore`。已修复为：
+Architecture/Contracts 与 Python 全绿；Swift 6 Test Suite 失败。确认新测试错误导入 `WorldOfMysteries`，而 Swift Package 实际模块为 `WorldOfMysteriesCore`。已修复：
 
 ```swift
 @testable import WorldOfMysteriesCore
 ```
 
-该修复不改变测试内容、产品代码或视觉方案，只纠正测试目标模块名。随后重新验证最终 head。
+### Retry 2
+
+Architecture/Contracts 与 Python 继续全绿；Swift 6 编译已越过模块导入，随后在 `WOMSurfaceStyles.swift` 报告确定性语法错误：`shadowRadius` getter 在 `guard` 之后使用无 `return` 的 `switch`，导致 `missing return in getter expected to return CGFloat`。
+
+修复为显式 switch expression：
+
+```swift
+private var shadowRadius: CGFloat {
+    guard appearsActive, !isIncreasedContrast else { return 0 }
+    return switch tone {
+    case .floating: 14
+    case .ritual: 7
+    case .panel, .card, .parchment: 0
+    }
+}
+```
+
+该修复只纠正 Swift 6 返回语义，不改变视觉设计或产品逻辑。
 
 ## 7. 技术原则
 

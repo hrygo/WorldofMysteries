@@ -150,7 +150,7 @@ public struct WOMPanelBackground: View {
 
     private var shadowRadius: CGFloat {
         guard appearsActive, !isIncreasedContrast else { return 0 }
-        switch tone {
+        return switch tone {
         case .floating: 14
         case .ritual: 7
         case .panel, .card, .parchment: 0
