@@ -42,7 +42,10 @@ public struct ContentView: View {
             Color.Mystic.obsidianBase
                 .overlay(WOMTextureLayer(.sacredSlate, opacity: 0.012))
         )
-        .frame(minWidth: 960, minHeight: 640)
+        .frame(
+            minWidth: WOMWindowMetrics.minimumWidth,
+            minHeight: WOMWindowMetrics.minimumHeight
+        )
         .task {
             if !appState.isEngineReady {
                 await appState.startAndConnect()
@@ -160,19 +163,12 @@ public struct ContentView: View {
     @ViewBuilder
     private var fateInterventionContent: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
-                    situationColumn
-                        .frame(maxWidth: .infinity)
-                    characterAnchorCard
-                        .frame(width: 280)
-                }
-
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                    situationColumn
-                    characterAnchorCard
-                        .frame(maxWidth: .infinity)
-                }
+            WOMAdaptivePair(
+                trailingIdealWidth: WOMWorkspaceMetrics.fateAnchorWidth
+            ) {
+                situationColumn
+            } secondary: {
+                characterAnchorCard
             }
 
             FateArtifactInterventionView()
