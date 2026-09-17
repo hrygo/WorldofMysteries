@@ -1,0 +1,89 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-QA-SOURCE-GUARDS",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-QA-SOURCE-GUARDS",
+  "title": "Visual QA source guard contracts Wave H",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T15:46:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "feat/wom-visual-system-wave-g",
+    "base_sha": "12b3f9a100193b4ad3dba8de3bd43263ba4e6baf",
+    "target_sha": "12b3f9a100193b4ad3dba8de3bd43263ba4e6baf",
+    "context_snapshot": "sha256:7d7c06b8662f4552837221b3ba78f8b5a04c55375c41caa5e1e55c80e9340b92"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/Visual_QA_Source_Guards_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_25_Wave_H_Visual_QA_Source_Guards.md",
+      "macos-app/WorldOfMysteriesTests/VisualQAContractTests.swift",
+      "macos-app/WorldOfMysteriesTests/VisualWindowLayoutContractTests.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "persistent_pr_visual_qa_source_guard_contracts",
+    "token_estimate": 7000,
+    "max_core_tokens": 10000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Wave H adds generic source-level visual QA guards over production SwiftUI source. It must avoid over-broad bans: 10pt compact labels remain valid; offset/lineLimit/opacity are not globally banned; negative padding guard applies to content layout rather than focus-ring DesignSystem internals."
+  },
+  "impact": {
+    "symbols": [
+      "VisualQASourceGuardTests"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualQASourceGuardTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-WAVE-G"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Add generic source guards for sub-10pt direct semantic type, minimumScaleFactor shrink-to-fit, negative padding in content layout, and custom AppKit window infrastructure. Guard helpers must report file/line violations, exclude tests, preserve legitimate focus-ring implementation, and introduce no Engine/DB/IPC/schema changes."
+  }
+}

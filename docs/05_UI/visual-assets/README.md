@@ -1,7 +1,8 @@
 # Visual Asset System — Living Plan / 当前执行事实源
 
 > 稳定设计基线：[`../Visual_Asset_System_v1.0.md`](../Visual_Asset_System_v1.0.md)  
-> Visual QA：[`Visual_QA_Contract_v1.0.md`](Visual_QA_Contract_v1.0.md)
+> Visual QA：[`Visual_QA_Contract_v1.0.md`](Visual_QA_Contract_v1.0.md)  
+> Source Guards：[`Visual_QA_Source_Guards_v1.0.md`](Visual_QA_Source_Guards_v1.0.md)
 
 ## 1. 持久化与交付规则
 
@@ -12,29 +13,18 @@
 - 不绕过主分支保护；写入成功不等于交付完成。
 - Visual QA Contract 对历史和未来视觉代码都生效，已合并不是豁免理由。
 
-## 2. 技术边界
+## 2. 技术与 QA 边界
 
 - 世界观图形：原创 vector asset + typed registry。
 - 平台行为/状态：SF Symbols + typed semantic registry。
-- Hover / Pressed / Selected / Focused / Disabled / Loading：SwiftUI style + Design Token 驱动。
-- Sheet / Popover / Inspector / segmented selection / WindowGroup 优先系统 SwiftUI/macOS 语义；WOM 只补视觉、语义与布局契约，不伪造系统控件/窗口。
-- Surface 使用程序化 fill/stroke/shadow + 少量纹理。
-- 不允许新增 Engine / DB / IPC / schema 耦合来服务纯视觉组件。
-
-## 3. Visual QA 硬性基线
-
-- 常规正文 / Button / Form text 最终对比度 >= **4.5:1**。
-- 关键非文本 affordance >= **3:1**。
-- 长正文与关键说明优先向 **7:1** 靠拢。
-- 正文默认 >= **13pt**；说明/元数据默认 >= **11pt**。
-- 10pt 仅短数字 / 快捷键 / 极短标签；9pt 以下不承载关键语义。
-- 最小窗口 **960×640** 无结构性重叠。
-- 长中英文、Badge、Loading、Error、Empty 必须自然增长或 responsive fallback。
-- 优先 adaptive Grid / `ViewThatFits`；不得通过缩小字体、负 offset、魔法宽度或抬高最小窗口掩盖布局问题。
-- 同组卡片、按钮、标题基线、padding、视觉重量保持工整一致。
+- Sheet / Popover / Inspector / segmented selection / WindowGroup 优先系统 SwiftUI/macOS 语义；WOM 不伪造系统控件/窗口。
+- 常规正文 / Button / Form text 最终对比度 >= **4.5:1**；关键非文本 affordance >= **3:1**。
+- body 默认 >= **13pt**；metadata 默认 >= **11pt**；10pt 仅短数字/快捷键/极短标签；9pt 以下不承载关键语义。
+- 最小窗口 **960×640** 无结构性重叠；长中英文必须自然增长或 responsive fallback。
+- 优先 adaptive Grid / `ViewThatFits`；不得通过缩小字体、负 padding、魔法宽度或抬高最小窗口掩盖空间问题。
 - Reduce Motion / Increased Contrast / Differentiate Without Color / Reduce Transparency / Keyboard Focus 必须稳定退化。
 
-## 4. 已合入 main
+## 3. 已合入 main
 
 | 阶段 | PR | 内容 | 状态 |
 |---|---|---|---|
@@ -44,15 +34,15 @@
 | Wave D | #28 | Asset contracts、typed icon、navigation/commands/focus | DONE |
 | Wave E | #29 | Overlay / Feedback / Loading / Status / typed Empty State | DONE |
 
-## 5. 已验证待合并：Visual QA Backfill / PR #31
+## 4. 已验证待合并：Visual QA Backfill / PR #31
 
 Branch: `feat/wom-visual-qa-backfill-v2`  
 Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`  
 状态：**READY TO MERGE / ALL QUALITY GATES PASSED**。
 
-已完成 Wave A–E 的 retroactive contrast / typography / collision / alignment audit、960×640 responsive hardening、shared primitives、15/15 Artifact shared + individual QA、Reduce Motion 和 `VisualQAContractTests.swift`。
+已完成 Wave A–E 的 retroactive contrast / typography / collision / alignment audit、960×640 responsive hardening、shared primitives、15/15 Artifact individual QA、Reduce Motion 和 `VisualQAContractTests.swift`。
 
-## 6. 已实现待 retarget：Wave F / PR #32
+## 5. 已实现待 retarget：Wave F / PR #32
 
 Branch: `feat/wom-visual-system-wave-f`  
 Stacked base: `#31@8b9ab58428d05762184884c9e60b03f6e8075d71`  
@@ -60,55 +50,66 @@ Head: `a4ae319d48f25b9eadffdf6f8e64845ecc55cada`
 状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
 已实现：
-
-- `WOMAdaptiveSegmentedPicker`：原生 Picker segmented → menu fallback；
-- `WOMRelationBadge`：5 种关系语义，非 color-only；
-- `WOMAchievementSeal`：locked/discovered/completed；
-- `WOMCooldownIndicator`：外部状态驱动 determinate `ProgressView`；
-- Gallery long-label / narrow-width stress；
+- `WOMAdaptiveSegmentedPicker`：native Picker segmented → menu fallback；
+- `WOMRelationBadge`；
+- `WOMAchievementSeal`；
+- `WOMCooldownIndicator`；
+- Gallery narrow/long-label stress；
 - `VisualAdvancedInteractionContractTests.swift`。
 
-Wave F 不伪造关系分数、成就持久化、冷却计时器或业务真相。
-
-## 7. 当前持久化工作流：Wave G — Window / Inspector / Responsive Workspace Layout / PR #33
+## 6. 已实现待 retarget：Wave G / PR #33
 
 Branch: `feat/wom-visual-system-wave-g`  
-Stacked base: `feat/wom-visual-system-wave-f@a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
-Batch: [`Batch_24_Wave_G_Window_Inspector_Layout.md`](Batch_24_Wave_G_Window_Inspector_Layout.md)  
-Task: `MAC-VISUAL-SYSTEM-WAVE-G`  
+Stacked base: `#32@a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
+Head: `12b3f9a100193b4ad3dba8de3bd43263ba4e6baf`  
 状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
-### G24.1 — Window metrics — DONE
+已实现：
+- `WOMWindowMetrics`：minimum 960×640 / default 1180×760；
+- `WOMInspectorMetrics`：280 / 320 / 420；
+- `WOMAdaptivePair`：双栏 → 纵向 fallback；
+- `WOMInspectorContent`；
+- MyApp `.defaultSize` 与 ContentView shared metrics；
+- Native `.inspector` Visual QA Preview；
+- `VisualWindowLayoutContractTests.swift`。
 
-- minimum usable size：960×640；
-- default initial size：1180×760；
-- 默认尺寸只影响首次窗口，不锁定用户 resize。
+## 7. 当前持久化工作流：Wave H — Visual QA Source Guards
 
-### G24.2 — Inspector metrics — DONE
+Branch: `feat/wom-visual-system-wave-h`  
+Stacked base: `#33@12b3f9a100193b4ad3dba8de3bd43263ba4e6baf`  
+Batch: [`Batch_25_Wave_H_Visual_QA_Source_Guards.md`](Batch_25_Wave_H_Visual_QA_Source_Guards.md)  
+Task: `MAC-VISUAL-QA-SOURCE-GUARDS`  
+状态：**IN PROGRESS**。
 
-- min 280 / ideal 320 / max 420；
-- 系统 `.inspectorColumnWidth(min:ideal:max:)`；
-- 不创建 NSPanel / NSWindow coordinator。
+目标：把已经完成的人工/点名式 QA 回归进一步升级为面向整个生产视觉源码的自动 Guard。
 
-### G24.3 — Responsive workspace primitive — DONE
+### H25.1 — Small Type Guard
 
-- `WOMAdaptivePair` 统一宽屏双栏 → 窄屏纵向；
-- 保留 13pt body / 11pt metadata；
-- 不用负 offset / magic width 解决挤压。
+- 扫描直接 `.font(.system(size: ...))`；
+- `< 10pt` 失败；
+- 不禁止 10pt 短数字/快捷键/短标签。
 
-### G24.4 — Production integration — DONE
+### H25.2 — No Shrink-to-Fit
 
-- `ContentView` min size 改为 `WOMWindowMetrics` 单一事实源；
-- Fate 局势双栏复用 `WOMAdaptivePair`；
-- `WorldOfMysteriesApp` 使用 1180×760 舒适 default size；
-- 不改变 IPC / Domain / navigation state。
+- 禁止 `.minimumScaleFactor`；
+- 空间不足必须通过换行 / adaptive Grid / `ViewThatFits` 解决。
 
-### G24.5 — Native Inspector QA Preview / Contract — DONE
+### H25.3 — Negative Padding Layout Guard
 
-- 独立 `#Preview("Native Inspector · Visual QA")` 使用真实 `.inspector`；
-- 280pt minimum stress 中包含长中英文、Relation、Cooldown；
-- 不继续膨胀 Component Gallery 大文件；
-- `VisualWindowLayoutContractTests.swift` 锁定 metrics、native Inspector、defaultSize、adaptive pair 与 no custom window coordinator。
+- Components / Artifacts / ContentView 禁止负 padding；
+- DesignSystem focus-ring 外扩不做 blanket ban。
+
+### H25.4 — Native Window Guard
+
+- 普通视觉源码禁止 `NSPanel / NSWindow / NSViewRepresentable`；
+- 若未来需要 AppKit bridge，必须独立高风险任务评审。
+
+### H25.5 — Source Guard Test Infrastructure
+
+- 递归扫描 production `.swift`；
+- 排除 Tests；
+- 违规结果包含相对路径、行号与片段；
+- 不全局禁止 offset / lineLimit / opacity 等存在合法场景的 API。
 
 ## 8. 生产入口事实
 
@@ -116,25 +117,16 @@ Task: `MAC-VISUAL-SYSTEM-WAVE-G`
 - Ritual：已有真实组件，无独立一级路由。
 - Character / Story Book / Cards / Worldline / Notes：真实领域数据链未就绪时继续保持 placeholder。
 - Artifact：作为 Fate 命运干预工具，不额外制造背包一级导航。
-- Component Gallery：Showcase / Visual Regression / Visual QA Stress，不代表业务页面完成。
-- 多窗口：在没有独立领域工作流前，不新增无意义 standalone WindowGroup。
+- Component Gallery / Native Inspector Preview：Showcase / Visual Regression / QA surface，不代表业务页面完成。
 
 ## 9. Stacked 合并策略
 
-1. #31 先合并后，#32 retarget `main`、重签 Capsule、最终 CI；
-2. #32 合并后，#33 retarget `main`、重签 Capsule、回读纯 Wave G diff；
-3. #33 Mark Ready，并只对最终 Wave G head 执行完整 `MACOS_APP_P0`；
-4. 未经明确授权不执行 merge。
+1. #31 合并 → #32 retarget `main`、重签 Capsule、最终 CI；
+2. #32 合并 → #33 retarget `main`、重签 Capsule、最终 CI；
+3. #33 合并 → Wave H retarget `main`、重签 Capsule、回读纯增量；
+4. Wave H 最终 head 只跑一次 `MACOS_APP_P0`；
+5. 未经明确授权不执行 merge。
 
-## 10. 后续候选
+## 10. 恢复入口
 
-Wave G 最终验证后再推进：
-
-- 真实领域数据就绪后的 production Inspector binding；
-- placeholder workspace 升级时的 NavigationSplitView / inspector 数据契约；
-- 独立 Codex/Story Book window 仅在具备真实独立工作流与 state restoration 语义后评估；
-- window zoom / ideal size 与 multi-window restore 策略。
-
-## 11. 恢复入口
-
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 24 → `MAC-VISUAL-SYSTEM-WAVE-G` Capsule → PR #33 → `WOMWorkspaceLayout.swift` → `MyApp` / `ContentView` → Native Inspector QA Preview → `VisualWindowLayoutContractTests` → retarget → final CI/readback。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → `Visual_QA_Source_Guards_v1.0.md` → Batch 25 → `MAC-VISUAL-QA-SOURCE-GUARDS` Capsule → Wave H PR → `VisualQASourceGuardTests.swift` → retarget → final CI/readback。
