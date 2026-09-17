@@ -1,6 +1,6 @@
 {
   "gate_profile_id": "MACOS_APP_P0",
-  "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试",
+  "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试 + Xcode App Target 编译",
   "risk_class": "medium",
   "stages": [
     {
@@ -16,6 +16,29 @@
       "cwd": "macos-app",
       "command": ["swift", "test", "--scratch-path", "${WOM_SPM_SCRATCH:-.build}"],
       "expects": ["macos-app/Package.swift", "macos-app/WorldOfMysteriesTests"]
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "cwd": "macos-app",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "expects": [
+        "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj",
+        "macos-app/WorldOfMysteries"
+      ]
     }
   ]
 }

@@ -43,7 +43,7 @@
 │  │ 2. ci.yml (3-Stage Gates):                       │  │
 │  │    - Stage 1: 架构适应度 AST 检查 & Schema 校验   │  │
 │  │    - Stage 2: Python 3.14 (uv --locked) 回归测试  │  │
-│  │    - Stage 3: Swift 6 (macOS 26+) 8 项并发测试    │  │
+│  │    - Stage 3: Swift 6 (macOS 26+) + Xcode Build   │  │
 │  └──────────────────────────────────────────────────┘  │
 └───────────────────────────┬────────────────────────────┘
                             │ 3. 保护分支规则阻断
@@ -75,6 +75,9 @@
      - 依赖 `architecture-and-contracts` 通过；
      - 使用 `actions/cache@v4` 缓存 `macos-app/.build` SPM 编译产物；
      - 激活 Swift 6 严格并发检查，执行 `swift test`，覆盖 8 项跨语言与 Actor 测试。
+     - 额外执行 `xcodebuild ... build` 构建 Xcode App Target：SPM 目标未启用默认 MainActor 隔离
+       （`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`），只有真实 App Target 才能复现宿主应用与预览的
+       编译面；该步骤为编译验证，以 `CODE_SIGNING_ALLOWED=NO` 跳过签名。
   4. **`all-gates-passed` (ubuntu-latest)**：
      - 作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）。
 

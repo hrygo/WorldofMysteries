@@ -1,18 +1,19 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-MAC-COMPONENT-GALLERY",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-MAC-COMPONENT-GALLERY-R2",
+  "capsule_revision": 2,
+  "supersedes": "CAP-MAC-COMPONENT-GALLERY",
   "task_id": "MAC-COMPONENT-GALLERY",
   "title": "拆分并优化 ComponentGalleryView",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-17T06:04:49.499654+00:00",
-  "risk_class": "low",
+  "created_at": "2026-09-17T06:10:30+00:00",
+  "risk_class": "medium",
   "base": {
     "target_ref": "refactor/macos-component-gallery",
-    "base_sha": "02b4112e98143e225ee043e26e432f5305a2ed6a",
-    "target_sha": "02b4112e98143e225ee043e26e432f5305a2ed6a",
-    "context_snapshot": "sha256:632b7f72c91eb1e15556f17485fca9cfa8039211fee3b6589303b6f678018bf3"
+    "base_sha": "effb906f7d9bfd96e23f5385347ccaf1b2b26409",
+    "target_sha": "effb906f7d9bfd96e23f5385347ccaf1b2b26409",
+    "context_snapshot": "sha256:bc1b7184e3d16cf03bdcdb5ee88687640403ed55fd7494d40c4588835aa8825d"
   },
   "scope": {
     "read": [
@@ -57,7 +58,7 @@
   },
   "gates": {
     "profile": "MACOS_APP_P0",
-    "profile_digest": "sha256:a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
     "profile_file": ".hacf/gates/macos_app_p0.json",
     "risk_class": "medium"
   },
