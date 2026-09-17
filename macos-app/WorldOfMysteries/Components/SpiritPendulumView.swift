@@ -155,7 +155,7 @@ public struct SpiritPendulumView: View {
                         .background(Color.Mystic.brassGoldPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
                     }
-                    .buttonStyle(.plain)
+                    .mysticPressable(scale: 0.97)
                 }
             }
         }

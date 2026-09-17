@@ -53,7 +53,7 @@ public struct AdviceInputField: View {
                         .foregroundStyle(Color.Mystic.brassGoldPrimary)
                         .padding(DesignTokens.Spacing.xs)
                 }
-                .buttonStyle(.plain)
+                .mysticPressable(scale: 0.94)
                 
                 // 提交建议按钮
                 Button {
@@ -72,7 +72,7 @@ public struct AdviceInputField: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
                 }
-                .buttonStyle(.plain)
+                .mysticPressable(scale: 0.97)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(.horizontal, DesignTokens.Spacing.md)

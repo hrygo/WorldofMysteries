@@ -90,13 +90,7 @@ public struct CharacterCodexCard: View {
                             .font(Font.Mystic.titleMedium)
                             .foregroundStyle(Color.Mystic.textPrimary)
                         
-                        Text(pathwayTitle)
-                            .font(Font.Mystic.monoBadge)
-                            .foregroundStyle(Color.Mystic.textGoldAccent)
-                            .padding(.horizontal, DesignTokens.Spacing.xs)
-                            .padding(.vertical, 2)
-                            .background(Color.Mystic.brassGoldBorder.opacity(0.4))
-                            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+                        MysticBadge(pathwayTitle, tone: .gold, variant: .panel, isEmphasized: true)
                     }
                     
                     Text(occupation)
@@ -118,22 +112,11 @@ public struct CharacterCodexCard: View {
             // 特质标签排布
             HStack(spacing: DesignTokens.Spacing.xs) {
                 ForEach(traits, id: \.self) { trait in
-                    Text(trait)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textSecondary)
-                        .padding(.horizontal, DesignTokens.Spacing.sm)
-                        .padding(.vertical, 3)
-                        .background(Color.Mystic.obsidianElevated)
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.Mystic.brassGoldBorder.opacity(0.5), lineWidth: DesignTokens.Borders.hairline)
-                        )
+                    MysticBadge(trait, tone: .neutral)
                 }
             }
             
-            Divider()
-                .background(Color.Mystic.brassGoldBorder.opacity(0.3))
+            MysticDivider()
             
             // 精神与灵性状态读数条
             HStack(spacing: DesignTokens.Spacing.lg) {
@@ -149,16 +132,7 @@ public struct CharacterCodexCard: View {
                             .foregroundStyle(Color.Mystic.spiritualBlue)
                     }
                     
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.black.opacity(0.4))
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.Mystic.spiritualBlue)
-                                .frame(width: geo.size.width * CGFloat(spirituality))
-                        }
-                    }
-                    .frame(height: 5)
+                    MysticMetricBar(value: spirituality, tone: .azure)
                 }
                 
                 // 理智/失控风险
@@ -173,16 +147,7 @@ public struct CharacterCodexCard: View {
                             .foregroundStyle(sanityScore < 0.3 ? Color.Mystic.statusDanger : Color.Mystic.statusOnline)
                     }
                     
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.black.opacity(0.4))
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(sanityScore < 0.3 ? Color.Mystic.statusDanger : Color.Mystic.statusOnline)
-                                .frame(width: geo.size.width * CGFloat(sanityScore))
-                        }
-                    }
-                    .frame(height: 5)
+                    MysticMetricBar(value: sanityScore, tone: .teal, criticalThreshold: 0.3)
                 }
             }
             
@@ -212,7 +177,7 @@ public struct CharacterCodexCard: View {
                             .stroke(Color.Mystic.brassGoldPrimary.opacity(0.6), lineWidth: DesignTokens.Borders.standard)
                     )
                 }
-                .buttonStyle(.plain)
+                .mysticPressable()
             }
         }
         .padding(DesignTokens.Spacing.lg)
@@ -230,7 +195,7 @@ public struct CharacterCodexCard: View {
         )
         .shadow(color: Color.black.opacity(0.3), radius: 8, y: 3)
         .onHover { hovering in
-            withAnimation(DesignTokens.Motion.smoothSpring) {
+            withAnimation(DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering
             }
         }

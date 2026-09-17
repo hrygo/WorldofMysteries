@@ -265,5 +265,151 @@ struct DesignSystemTests {
         #expect(DesignTokens.TypographyMetrics.gothicDisplayTracking >= DesignTokens.TypographyMetrics.displayTracking)
         #expect(DesignTokens.TypographyMetrics.displayTracking > DesignTokens.TypographyMetrics.titleTracking)
     }
+    
+    @Test("Citrine artwork geometry pins the pendant to the viewport center without letterboxing")
+    func testCitrineArtworkGeometryCentering() {
+        let geometry = CitrineArtworkGeometry.canonical
+        let panelWidth = DesignTokens.ComponentMetrics.CitrineArtwork.panelWidth
+        let viewport = CGSize(width: panelWidth, height: geometry.panelHeight(forWidth: panelWidth))
+        let layout = geometry.resolveLayout(in: viewport)
+        
+        #expect(layout.scale > 0)
+        // 视窗被原画完全覆盖：边缘无黑边缝隙
+        #expect(geometry.imageSize.width * layout.scale >= viewport.width - 0.5)
+        #expect(geometry.imageSize.height * layout.scale >= viewport.height - 0.5)
+        
+        // 黄水晶几何中心精确落在视窗正中
+        let subject = CGPoint(
+            x: layout.imageOrigin.x + geometry.subjectCenter.x * layout.scale,
+            y: layout.imageOrigin.y + geometry.subjectCenter.y * layout.scale
+        )
+        #expect(abs(subject.x - viewport.width / 2) < 0.01)
+        #expect(abs(subject.y - viewport.height / 2) < 0.01)
+        
+        // 摆动枢轴收敛于捏链点与水晶中心之间，且归一化锚点落在原画内部
+        #expect(layout.swingPivot.y >= geometry.chainGrip.y - 0.01)
+        #expect(layout.swingPivot.y <= geometry.subjectCenter.y)
+        #expect(layout.swingAnchorUnitPoint.x > 0 && layout.swingAnchorUnitPoint.x < 1)
+        #expect(layout.swingAnchorUnitPoint.y > 0 && layout.swingAnchorUnitPoint.y < 1)
+        
+        // 摆动条带涵盖黄水晶、且终止于红茶杯上沿之上（避免鬼影落到杯面）
+        #expect(layout.swingStripFrame.contains(CGPoint(x: viewport.width / 2, y: viewport.height / 2)))
+        #expect(layout.swingStripFrame.maxY < viewport.height)
+        #expect(layout.swingStripFrame.height > viewport.height * 0.25)
+    }
+    
+    @Test("Citrine artwork geometry adapts to other viewport aspects")
+    func testCitrineArtworkGeometryAspectAdaptation() {
+        let geometry = CitrineArtworkGeometry.canonical
+        let viewports = [
+            CGSize(width: 200, height: 240),
+            CGSize(width: 120, height: 400),
+            CGSize(width: 320, height: 200)
+        ]
+        
+        for viewport in viewports {
+            let layout = geometry.resolveLayout(in: viewport)
+            #expect(geometry.imageSize.width * layout.scale >= viewport.width - 0.5)
+            #expect(geometry.imageSize.height * layout.scale >= viewport.height - 0.5)
+            
+            let subject = CGPoint(
+                x: layout.imageOrigin.x + geometry.subjectCenter.x * layout.scale,
+                y: layout.imageOrigin.y + geometry.subjectCenter.y * layout.scale
+            )
+            #expect(abs(subject.x - viewport.width / 2) < 0.01)
+            #expect(abs(subject.y - viewport.height / 2) < 0.01)
+            
+            #expect(layout.swingStripFrame.width > 0)
+            #expect(layout.swingStripFrame.height > 0)
+        }
+    }
+    
+    @Test("Scrying prototype resolution is deterministic and stays in the presentation layer")
+    func testScryingPrototypeResolution() {
+        let statement = "安提哥努斯笔记仍在廷根"
+        let expected: ScryingResult = statement.count % 2 == 0 ? .affirmative : .negative
+        #expect(CitrinePendulumScryingCard.resolveOutcome(for: statement) == expected)
+        
+        // 空语句无从推演
+        #expect(CitrinePendulumScryingCard.resolveOutcome(for: "   ") == .negative)
+        // 涉及高位存在：无法直视
+        #expect(CitrinePendulumScryingCard.resolveOutcome(for: "愚者在上") == .disturbed)
+        #expect(CitrinePendulumScryingCard.resolveOutcome(for: "  灰雾之上的王座  ") == .disturbed)
+        // 同一语句重复推演结果一致（确定性，可复算）
+        #expect(
+            CitrinePendulumScryingCard.resolveOutcome(for: statement)
+                == CitrinePendulumScryingCard.resolveOutcome(for: statement)
+        )
+        
+        // 结论定格后的停摆偏向：肯定向右、否定向左、干扰归中
+        #expect(CitrinePendulumScryingCard.settledSwingAngle(for: .affirmative) > 0)
+        #expect(CitrinePendulumScryingCard.settledSwingAngle(for: .negative) < 0)
+        #expect(CitrinePendulumScryingCard.settledSwingAngle(for: .disturbed) == 0)
+        #expect(CitrinePendulumScryingCard.settledSwingAngle(for: .inquiring) == 0)
+        #expect(ScryingResult.inquiring.tone == .gold)
+        #expect(ScryingResult.affirmative.tone == .teal)
+        #expect(ScryingResult.negative.tone == .crimson)
+        #expect(ScryingResult.disturbed.tone == .amber)
+    }
+    
+    @Test("Mystic primitives cover the semantic tone matrix and assemble cleanly")
+    @MainActor
+    func testMysticPrimitives() {
+        #expect(MysticTone.allCases.count == 6)
+        
+        for tone in MysticTone.allCases {
+            #expect(!tone.semanticLabel.isEmpty)
+            _ = MysticBadge("徽章", tone: tone).body
+            _ = MysticStatusDot(tone: tone, isPulsing: true, label: "状态").body
+            _ = MysticMetricBar(value: 0.42, tone: tone, criticalThreshold: 0.5).body
+            _ = MysticKeyValueRow(key: "键", value: "值", tone: tone, isMonospaced: true).body
+            _ = MysticDivider(tone: tone, label: "分隔").body
+        }
+        
+        _ = MysticBadge("面板徽章", tone: .gold, variant: .panel, systemIcon: "lock.shield").body
+        _ = MysticBadge("纯文本徽章", tone: .neutral, variant: .plain).body
+        _ = MysticMetricBar(value: 0.78, tone: .amber, gradientTones: [.amber, .crimson]).body
+        _ = MysticSectionHeader(title: "分区标题", caption: "副说明", count: 3).body
+        _ = MysticEmptyState(
+            systemIcon: "text.book.closed",
+            title: "尚无内容",
+            message: "说明文本",
+            actionTitle: "执行",
+            onAction: {}
+        ).body
+        _ = MysticIconButton(
+            systemIcon: "arrow.triangle.2.circlepath",
+            title: "重建",
+            tone: .teal,
+            action: {}
+        ).body
+    }
+    
+    @Test("Semantic tones are shared by canon enums instead of per-component colors")
+    func testSemanticToneMappings() {
+        // 地域危险等级
+        #expect(BacklundDistrict.cherwood.tone == .gold)
+        #expect(BacklundDistrict.bridge.tone == .amber)
+        #expect(BacklundDistrict.eastEnd.tone == .crimson)
+        #expect(BacklundDistrict.empress.tone == .teal)
+        
+        // 叙事角色
+        #expect(NarrativeSpeakerRole.narrator.tone == .neutral)
+        #expect(NarrativeSpeakerRole.character("克莱恩").tone == .gold)
+        #expect(NarrativeSpeakerRole.playerAdvice.tone == .azure)
+    }
+    
+    @Test("Whole component library instantiates cleanly")
+    @MainActor
+    func testComponentLibrarySmoke() {
+        _ = ListeningRingView(state: .listening).body
+        _ = SpiritualityGaugeView(title: "灵性", value: 0.5).body
+        _ = TarotCardView(pathwayName: "占卜家途径", sequenceNumber: 9, sequenceTitle: "占卜家").body
+        _ = CluePinboardNodeView(title: "线索", note: "说明").body
+        _ = NarrativeChronicleView(role: .narrator, content: "旁白文本").body
+        _ = NarrativeChronicleView(role: .narrator, content: "").body
+        _ = DatabaseStatusHUDCard(role: .retrieval, isHealthy: true).body
+        _ = AdviceInputField(text: .constant("建议"), targetCharacter: "克莱恩").body
+        _ = CitrinePendulumArtwork(swingAngle: 6, artworkImage: nil).body
+    }
 }
-

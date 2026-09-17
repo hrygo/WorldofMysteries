@@ -105,9 +105,9 @@ public struct CrimsonStarBeaconView: View {
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
             .shadow(color: isHovered ? Color.Mystic.crimsonStar.opacity(0.2) : Color.black.opacity(0.3), radius: 8)
         }
-        .buttonStyle(.plain)
+        .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
         .onHover { hovering in
-            withAnimation(DesignTokens.Motion.smoothSpring) {
+            withAnimation(DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering
             }
         }

@@ -1,0 +1,46 @@
+# ==============================================================================
+# 《诡秘世界》(World of Mysteries) - EditorConfig 代码风格与格式基线
+# http://editorconfig.org
+# ==============================================================================
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Python 源码基线 (PEP 8 / Black / Ruff 对齐)
+[*.{py,pyi}]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+# Swift 源码基线 (Xcode / Swift 6 标准风格)
+[*.swift]
+indent_style = space
+indent_size = 4
+
+# JSON, YAML, Schema 数据与配置
+[*.{json,schema.json,yaml,yml}]
+indent_style = space
+indent_size = 2
+
+# Markdown 文档 (保留行尾双空格换行特性)
+[*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
+
+# Shell 脚本
+[*.sh]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+
+# Makefile
+[Makefile]
+indent_style = tab

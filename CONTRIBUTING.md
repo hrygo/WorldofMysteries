@@ -19,7 +19,8 @@
 - `engine/domain/` 严禁 import AgentScope、SQLite 驱动或云厂商 SDK；
 - `engine/ai/` 严禁直接操作 SQLite 写事务，AI 只能产出 Proposal；
 - `macos-app/` 严禁直连数据库，只通过 UDS IPC NDJSON 通信；
-- 跨语言数据结构变更必须同步 `contracts/schemas/` 下的 JSON Schema 与 Pydantic / Swift 模型。
+- 跨语言数据结构变更必须同步 `contracts/schemas/` 下的 JSON Schema 与 Pydantic / Swift 模型；
+- **原著版权红线**：严禁向仓库提交《诡秘之主》原著小说章节全文、大段正文复制、官方动漫影视商业美术或未经授权的有声书音频；仅允许以结构化契约和最简元数据形式进行系统验证（详见 [`NOTICE.md`](NOTICE.md)）。
 
 边界由 `scripts/check_architecture_fitness.py` 静态校验，本地与 CI 都会执行。
 

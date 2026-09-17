@@ -246,7 +246,7 @@ public struct CitrinePendulumScryingCard: View {
     }
     
     /// 结论定格后的停摆偏向（顺时针为真 / 逆时针为假 / 干扰归中）
-    static func settledSwingAngle(for outcome: ScryingResult) -> Double {
+    nonisolated static func settledSwingAngle(for outcome: ScryingResult) -> Double {
         switch outcome {
         case .affirmative: return DesignTokens.Motion.pendulumSwingMaxDegrees
         case .negative: return -DesignTokens.Motion.pendulumSwingMaxDegrees
@@ -257,7 +257,7 @@ public struct CitrinePendulumScryingCard: View {
     /// 原型推演规则（纯函数，便于单测）：
     /// 涉及高位存在的语句无法直视 → 受阻；其余按语句字数奇偶给出肯定/否定。
     /// 真实占卜结论由引擎 Outcome Resolver 在 COMMIT 边界裁定，本函数不产生任何领域事实。
-    public static func resolveOutcome(for statement: String) -> ScryingResult {
+    nonisolated public static func resolveOutcome(for statement: String) -> ScryingResult {
         let trimmed = statement.trimmingCharacters(in: .whitespacesAndNewlines)
         let unreachableKeywords = ["愚者", "灰雾", "造物主", "隐匿贤者", "永暗之河", "真神"]
         if unreachableKeywords.contains(where: { trimmed.contains($0) }) {

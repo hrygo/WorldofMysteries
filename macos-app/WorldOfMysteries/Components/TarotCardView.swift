@@ -99,7 +99,7 @@ public struct TarotCardView: View {
             )
             .shadow(color: pathwayColor.opacity(stage == .established ? 0.25 : 0.05), radius: 8)
         }
-        .buttonStyle(.plain)
+        .mysticPressable(scale: 0.98)
     }
     
     private var stageText: String {

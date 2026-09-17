@@ -144,6 +144,11 @@ repo/
   覆盖档案后必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
 - `.agents/capsules/`：不可变任务契约，`verify` **严禁**回写；验收结果一律写入 `.agents/receipts/`。
 - `docs/` 及所有 Markdown：**严禁**泄露开发机绝对路径（如 `file:///Users/...` 或 `/Users/...`），文档与文件链接一律只允许使用相对于项目根目录或当前文档的相对路径。
+- **仓库根目录（Root Cleanliness）**：**严禁**随意在项目根目录生成、倾倒临时文件、中间报告、调试日志或脚本（如 `pr_report.md`、`*.log`、`*.tmp` 等）。所有自动化工具、流水线与 Agent 作业产物必须严格收拢至指定子目录：
+  - 流水线/门禁临时报告：统一写入 `.hacf/tmp/`；
+  - 运行与测试日志：统一写入 `.hacf/logs/` 或 `logs/`；
+  - 运行时套接字与状态：统一写入 `.hacf/run/` 或 `run/`；
+  - 临时脚手架与本地调试数据：统一放入 `scratch/` 或 `.agents/scratch/`。
 
 ---
 

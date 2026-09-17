@@ -193,17 +193,21 @@ public struct MysticMetricBar: View {
     public let height: CGFloat
     /// 临界阈值（低于该值转为猩红色警示），nil 表示不启用
     public let criticalThreshold: Double?
+    /// 严重度渐变色阶（由低到高）；提供时优先于 `tone`，用于雾霾等连续恶化读数
+    public let gradientTones: [MysticTone]
     
     public init(
         value: Double,
         tone: MysticTone = .azure,
         height: CGFloat = 5,
-        criticalThreshold: Double? = nil
+        criticalThreshold: Double? = nil,
+        gradientTones: [MysticTone] = []
     ) {
         self.value = value
         self.tone = tone
         self.height = height
         self.criticalThreshold = criticalThreshold
+        self.gradientTones = gradientTones
     }
     
     private var isCritical: Bool {
@@ -226,7 +230,7 @@ public struct MysticMetricBar: View {
                     .fill(Color.black.opacity(0.4))
                 
                 RoundedRectangle(cornerRadius: height / 2)
-                    .fill(resolvedTone.accent)
+                    .fill(fillStyle)
                     .frame(width: geo.size.width * clampedValue)
                     .shadow(color: resolvedTone.accent.opacity(0.5), radius: isCritical ? 5 : 2)
             }
@@ -234,6 +238,19 @@ public struct MysticMetricBar: View {
         .frame(height: height)
         .animation(DesignTokens.Interaction.hoverAnimation, value: clampedValue)
         .accessibilityValue("\(Int(clampedValue * 100))%")
+    }
+    
+    private var fillStyle: AnyShapeStyle {
+        guard gradientTones.count >= 2 else {
+            return AnyShapeStyle(resolvedTone.accent)
+        }
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: gradientTones.map(\.accent),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
     }
 }
 
@@ -245,6 +262,7 @@ public struct MysticSectionHeader<Trailing: View>: View {
     public let caption: String?
     public let count: Int?
     public let tone: MysticTone
+    public let isProminent: Bool
     private let trailing: Trailing
     
     public init(
@@ -252,12 +270,14 @@ public struct MysticSectionHeader<Trailing: View>: View {
         caption: String? = nil,
         count: Int? = nil,
         tone: MysticTone = .gold,
+        isProminent: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.title = title
         self.caption = caption
         self.count = count
         self.tone = tone
+        self.isProminent = isProminent
         self.trailing = trailing()
     }
     
@@ -269,7 +289,7 @@ public struct MysticSectionHeader<Trailing: View>: View {
                     .frame(width: 3, height: 14)
                 
                 Text(title)
-                    .font(Font.Mystic.titleSmall)
+                    .font(isProminent ? Font.Mystic.titleMedium : Font.Mystic.titleSmall)
                     .fontWeight(.semibold)
                     .foregroundStyle(tone.accent)
                 
@@ -295,8 +315,16 @@ public struct MysticSectionHeader<Trailing: View>: View {
 }
 
 public extension MysticSectionHeader where Trailing == EmptyView {
-    init(title: String, caption: String? = nil, count: Int? = nil, tone: MysticTone = .gold) {
-        self.init(title: title, caption: caption, count: count, tone: tone) { EmptyView() }
+    init(
+        title: String,
+        caption: String? = nil,
+        count: Int? = nil,
+        tone: MysticTone = .gold,
+        isProminent: Bool = false
+    ) {
+        self.init(title: title, caption: caption, count: count, tone: tone, isProminent: isProminent) {
+            EmptyView()
+        }
     }
 }
 

@@ -126,7 +126,7 @@ public struct BronzeAltarPrayerCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
                     .shadow(color: Color.Mystic.brassGoldPrimary.opacity(0.3), radius: 6)
                 }
-                .buttonStyle(.plain)
+                .mysticPressable(scale: 0.97)
             }
         }
         .padding(DesignTokens.Spacing.lg)

@@ -145,7 +145,21 @@ def generate_report() -> str:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="PR 质量卡片生成器 (HACF 2.1)")
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        default=REPO_ROOT / ".hacf" / "tmp" / "pr_report.md",
+        help="报告输出文件路径（默认：.hacf/tmp/pr_report.md）",
+    )
+    args = parser.parse_args()
+
     report_text = generate_report()
-    out_file = REPO_ROOT / "pr_report.md"
+    out_file = args.output.resolve()
+    out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(report_text, encoding="utf-8")
     print(report_text)
+
