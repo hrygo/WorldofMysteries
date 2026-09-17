@@ -80,14 +80,31 @@ public struct NarrativeChronicleView: View {
     }
 
     private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                speakerIdentity
+                Spacer(minLength: DesignTokens.Spacing.sm)
+                chronicleMetadata
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                speakerIdentity
+                chronicleMetadata
+            }
+        }
+    }
+
+    private var speakerIdentity: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             WOMIcon(source: role.iconSource, size: .compact)
                 .foregroundStyle(role.badgeColor)
 
             MysticBadge(role.displayName, tone: role.tone, variant: .panel, isEmphasized: true)
+        }
+    }
 
-            Spacer()
-
+    private var chronicleMetadata: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             Text(timestamp)
                 .font(Font.Mystic.monoBadge)
                 .foregroundStyle(Color.Mystic.textTertiary)
