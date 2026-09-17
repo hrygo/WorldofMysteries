@@ -1,0 +1,73 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-04-R2",
+  "capsule_revision": 2,
+  "supersedes": "CAP-MAC-VISUAL-ASSET-04",
+  "task_id": "MAC-VISUAL-ASSET-04-R2",
+  "title": "补齐 Sidebar 世界观导航图标（重签基线）",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:48:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "545d1153376c7716893c279cf0a74ef003528e5e",
+    "target_sha": "545d1153376c7716893c279cf0a74ef003528e5e",
+    "context_snapshot": "sha256:70d0d8c4962f866e7c50fd4633be20f5d2ad3b916471367b5b47f7b654264e1c"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "contracts/engineering/",
+      ".github/PULL_REQUEST_TEMPLATE.md"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMNavigationIconAsset.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/Contents.json",
+      "docs/05_UI/Visual_Asset_System_v1.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "sidebar_domain_icon_assets",
+    "token_estimate": 1700,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "从原始干净提交恢复 Character/Fate/Worldline/Notes 四个世界观导航资产，并重签到 #22 合并后的最新 main。"
+  },
+  "impact": {
+    "symbols": ["WOMNavigationIconAsset"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-ASSET-01-R2"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "四个导航图标必须保持 24x24 模板矢量、16px 级别可辨识；本批不得修改 Sidebar 使用逻辑。"
+  }
+}
