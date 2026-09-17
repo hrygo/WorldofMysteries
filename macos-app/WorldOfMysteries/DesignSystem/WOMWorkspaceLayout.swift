@@ -97,3 +97,80 @@ public struct WOMInspectorContent<Content: View>: View {
         )
     }
 }
+
+/// Preview-only QA host that exercises the real SwiftUI Inspector presentation path.
+/// It deliberately contains long localized content so the 280pt minimum can be inspected for
+/// wrapping, contrast, spacing and collision regressions without creating fake production data.
+private struct WOMInspectorVisualQAPreview: View {
+    @State private var isInspectorPresented = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            Text("Window / Inspector Visual QA")
+                .font(Font.Mystic.titleMedium)
+                .foregroundStyle(Color.Mystic.textGoldAccent)
+
+            Text("主工作区保持 13pt+ 正文与自然换行；Inspector 由系统呈现，不由 WOM 模拟窗口层级。")
+                .font(Font.Mystic.bodyMedium)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(isInspectorPresented ? "隐藏 Inspector" : "显示 Inspector") {
+                isInspectorPresented.toggle()
+            }
+            .buttonStyle(WOMButtonStyle(.secondary))
+
+            WOMAdaptivePair(trailingIdealWidth: WOMWorkspaceMetrics.fateAnchorWidth) {
+                WOMStatusBanner(
+                    tone: .info,
+                    title: "主内容区域",
+                    message: "双栏空间不足时自动降级为纵向，而不是压缩文字。"
+                )
+            } secondary: {
+                WOMAchievementSeal(
+                    title: "Inspector / Workspace Layout Contract",
+                    detail: "Long English metadata and 中文说明都应保持完整、工整且可辨认。",
+                    state: .completed
+                )
+            }
+        }
+        .padding(DesignTokens.LayoutInsets.panelPadding)
+        .frame(
+            minWidth: WOMWindowMetrics.minimumWidth,
+            minHeight: WOMWindowMetrics.minimumHeight
+        )
+        .background(Color.Mystic.obsidianBase)
+        .inspector(isPresented: $isInspectorPresented) {
+            WOMInspectorContent {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                    Text("属性检查器 · Inspector")
+                        .font(Font.Mystic.titleSmall)
+                        .foregroundStyle(Color.Mystic.textPrimary)
+
+                    Text("280pt minimum width stress: 极端长中文属性说明与 English metadata 必须自然换行，不能互相覆盖，也不能通过缩小字体逃避空间不足。")
+                        .font(Font.Mystic.bodyMedium)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    WOMRelationBadge(
+                        "长期可靠联系 / Trusted relationship with localized metadata",
+                        role: .trusted,
+                        detail: "Inspector 内同样遵守 11pt metadata 与非 color-only 状态表达。"
+                    )
+
+                    WOMCooldownIndicator(
+                        "仪式冷却状态",
+                        state: .cooling(
+                            progress: 0.42,
+                            remainingLabel: "剩余信息由 Runtime 提供，不在 Inspector 内部计时"
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+#Preview("Native Inspector · Visual QA") {
+    WOMInspectorVisualQAPreview()
+}
