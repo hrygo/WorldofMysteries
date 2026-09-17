@@ -1,25 +1,23 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-G",
-  "capsule_revision": 1,
-  "task_id": "MAC-VISUAL-SYSTEM-WAVE-G",
-  "title": "Window inspector and responsive workspace layout Wave G",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-F-R2",
+  "capsule_revision": 2,
+  "task_id": "MAC-VISUAL-SYSTEM-WAVE-F",
+  "title": "Advanced interaction and world-state visual primitives Wave F",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-17T15:33:00Z",
+  "created_at": "2026-09-17T15:56:00Z",
   "risk_class": "medium",
   "base": {
-    "target_ref": "feat/wom-visual-system-wave-f",
-    "base_sha": "a4ae319d48f25b9eadffdf6f8e64845ecc55cada",
-    "target_sha": "a4ae319d48f25b9eadffdf6f8e64845ecc55cada",
-    "context_snapshot": "sha256:64ff7a375b56b77899ea166b38c075d9ca410e360dd6a56ce19f3ca89673ad8c"
+    "target_ref": "main",
+    "base_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "target_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "context_snapshot": "sha256:5b26719ba09361113218108305f48796d32a2d539028291cf0f3236232f4a102"
   },
   "scope": {
     "read": [
       "macos-app/WorldOfMysteries/DesignSystem/",
       "macos-app/WorldOfMysteries/Components/",
-      "macos-app/WorldOfMysteries/MyApp.swift",
-      "macos-app/WorldOfMysteries/ContentView.swift",
       "macos-app/WorldOfMysteriesTests/",
       "docs/05_UI/visual-assets/",
       "contracts/engineering/"
@@ -27,8 +25,6 @@
     "write": [
       "macos-app/WorldOfMysteries/DesignSystem/",
       "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift",
-      "macos-app/WorldOfMysteries/MyApp.swift",
-      "macos-app/WorldOfMysteries/ContentView.swift",
       "macos-app/WorldOfMysteriesTests/",
       "docs/05_UI/visual-assets/"
     ],
@@ -46,38 +42,35 @@
     "core_manifest": [
       "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
       "docs/05_UI/visual-assets/README.md",
-      "docs/05_UI/visual-assets/Batch_24_Wave_G_Window_Inspector_Layout.md",
-      "macos-app/WorldOfMysteries/MyApp.swift",
-      "macos-app/WorldOfMysteries/ContentView.swift",
-      "macos-app/WorldOfMysteries/DesignSystem/WOMOverlayPrimitives.swift",
+      "docs/05_UI/visual-assets/Batch_23_Wave_F_Advanced_Interaction_Chrome.md",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMButtonStyles.swift",
       "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/Components/MysticPrimitives.swift",
       "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
     ],
     "related_contracts": [],
-    "slice_strategy": "persistent_pr_native_window_inspector_responsive_layout",
+    "slice_strategy": "main_reconciled_advanced_interaction_world_state_chrome",
     "token_estimate": 9000,
     "max_core_tokens": 12000,
     "expansion_policy": "arbiter_approved",
-    "note": "Wave G standardizes app window metrics, flexible native Inspector width and reusable responsive pair layout. It must not create custom NSWindow/NSPanel coordinators or fake multi-window workflows."
+    "note": "R2 reconciles Wave F after Visual QA Backfill PR #31 merged to main. The final PR diff is limited to Wave F presentation primitives, Gallery specimens, docs and tests."
   },
   "impact": {
     "symbols": [
-      "WOMWindowMetrics",
-      "WOMInspectorMetrics",
-      "WOMAdaptivePair",
-      "WOMInspectorContent",
-      "WorldOfMysteriesApp",
-      "ContentView",
+      "WOMAdaptiveSegmentedPicker",
+      "WOMRelationBadge",
+      "WOMAchievementSeal",
+      "WOMCooldownIndicator",
       "VisualSystemGallerySection"
     ],
     "contracts": [],
     "tests": [
-      "VisualWindowLayoutContractTests"
+      "VisualAdvancedInteractionContractTests"
     ]
   },
   "dependencies": {
     "depends_on": [
-      "MAC-VISUAL-SYSTEM-WAVE-F"
+      "MAC-VISUAL-QA-BACKFILL"
     ],
     "conflicts_with": []
   },
@@ -90,6 +83,6 @@
   "acceptance": {
     "invariants": [12],
     "assertions": ["INV-12"],
-    "instructions": "Use native SwiftUI WindowGroup/inspector/inspectorColumnWidth semantics. Keep 960x640 minimum usable size, provide comfortable default size without locking resize, enforce 280/320/420 Inspector widths, preserve >=13pt body and >=11pt metadata, responsive fallback without overlap, and no Engine/DB/IPC/schema changes."
+    "instructions": "Use native Picker semantics for segmented mode switching; relation/achievement/cooldown are presentation-only primitives. Inherit Visual_QA_Contract_v1.0: readable text >=4.5:1, metadata >=11pt, responsive long labels, no color-only state, no overlap at app minimum width, and no Engine/DB/IPC/schema changes."
   }
 }
