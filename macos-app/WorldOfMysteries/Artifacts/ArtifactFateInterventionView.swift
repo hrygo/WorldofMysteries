@@ -8,6 +8,7 @@ import SwiftUI
 @MainActor
 public struct FateArtifactInterventionView: View {
   @Environment(AppState.self) private var appState
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @State private var presentedArtifact: ArtifactID?
   @State private var hoveredArtifact: ArtifactID?
@@ -15,19 +16,23 @@ public struct FateArtifactInterventionView: View {
   public init() {}
 
   public var body: some View {
-    VictorianCard(style: .obsidianGlass) {
-      VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-        header
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+      header
 
-        HStack(spacing: DesignTokens.Spacing.sm) {
-          ForEach(Self.primaryArtifacts) { descriptor in
-            quickAccessCard(descriptor)
-          }
+      HStack(spacing: DesignTokens.Spacing.sm) {
+        ForEach(Self.primaryArtifacts) { descriptor in
+          quickAccessCard(descriptor)
         }
-
-        runtimeHint
       }
+
+      runtimeHint
     }
+    .padding(DesignTokens.LayoutInsets.cardPadding)
+    .womCardChrome(
+      tone: .card,
+      texture: .sacredSlate,
+      cornerRadius: DesignTokens.Radii.lg
+    )
     .sheet(item: $presentedArtifact) { artifactID in
       artifactSheet(for: artifactID)
     }
@@ -35,6 +40,10 @@ public struct FateArtifactInterventionView: View {
 
   private var header: some View {
     HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+      WOMIcon(.artifact, size: .prominent)
+        .foregroundStyle(Color.Mystic.brassGoldPrimary)
+        .padding(.top, 2)
+
       MysticSectionHeader(
         title: "特殊物品 · 命运干预",
         caption: "只将与当前局势直接相关的高影响物品放在 Fate；完整组件库仍留在 Gallery。",
@@ -65,7 +74,7 @@ public struct FateArtifactInterventionView: View {
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
         HStack {
           ZStack {
-            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
               .fill(descriptor.tone.accent.opacity(0.12))
 
             Image(systemName: descriptor.systemIcon)
@@ -73,12 +82,14 @@ public struct FateArtifactInterventionView: View {
               .foregroundStyle(descriptor.tone.accent)
           }
           .frame(width: 38, height: 38)
+          .accessibilityHidden(true)
 
           Spacer()
 
           Image(systemName: "arrow.up.right")
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(Color.Mystic.textTertiary)
+            .accessibilityHidden(true)
         }
 
         Text(descriptor.displayName)
@@ -99,14 +110,18 @@ public struct FateArtifactInterventionView: View {
       }
       .frame(maxWidth: .infinity, minHeight: 138, alignment: .topLeading)
       .padding(DesignTokens.LayoutInsets.compactCardPadding)
-      .background(Color.Mystic.obsidianCard.opacity(isEnabled ? 0.72 : 0.38))
-      .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
-      .mysticCardSelection(isSelected: false, isHovered: isHovered)
+      .womCardChrome(
+        tone: .card,
+        texture: .sacredSlate,
+        isHovered: isHovered,
+        cornerRadius: DesignTokens.Radii.md
+      )
+      .opacity(isEnabled ? 1 : 0.58)
     }
     .buttonStyle(.plain)
     .disabled(!isEnabled)
     .onHover { isHovering in
-      withAnimation(DesignTokens.Interaction.hoverAnimation) {
+      withAnimation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation) {
         hoveredArtifact = isHovering ? descriptor.id : nil
       }
     }
@@ -119,14 +134,14 @@ public struct FateArtifactInterventionView: View {
     switch runtimeAvailability {
     case .preview:
       HStack(spacing: DesignTokens.Spacing.xs) {
-        MysticStatusDot(tone: .amber, diameter: 7, isPulsing: true)
+        MysticStatusDot(tone: .amber, diameter: 7, isPulsing: !reduceMotion)
         Text("当前为演示模式：Artifact 仅运行本地 Preview Resolver，不写入世界状态。")
           .mysticCaptionStyle(color: Color.Mystic.statusWarning)
       }
 
     case .live:
       HStack(spacing: DesignTokens.Spacing.xs) {
-        MysticStatusDot(tone: .teal, diameter: 7, isPulsing: true)
+        MysticStatusDot(tone: .teal, diameter: 7, isPulsing: !reduceMotion)
         Text("已绑定活动 Worldline / Story Revision；所有效果通过 Local Engine IPC 提交。")
           .mysticCaptionStyle(color: Color.Mystic.statusOnline)
       }
@@ -171,7 +186,14 @@ public struct FateArtifactInterventionView: View {
       description: Text("等待 World / Story Session 向 AppState 注入 ArtifactContext 后再使用。")
     )
     .frame(minWidth: 720, minHeight: 420)
-    .background(Color.Mystic.obsidianBase)
+    .background(
+      WOMPanelBackground(
+        tone: .panel,
+        cornerRadius: 0,
+        texture: .sacredSlate,
+        textureOpacity: 0.025
+      )
+    )
   }
 
   private var runtimeAvailability: ArtifactRuntimeAvailability {

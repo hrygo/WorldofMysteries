@@ -1,0 +1,71 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ARTIFACT-FATE",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-ARTIFACT-FATE",
+  "title": "迁移 Artifact / Fate 视觉入口到 WOM Visual System",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T11:55:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "feat/wom-visual-system-wave-b",
+    "base_sha": "af181cbd3cd210a5929cb570be391af45954148e",
+    "target_sha": "af181cbd3cd210a5929cb570be391af45954148e",
+    "context_snapshot": "sha256:023b49f87d99185579514a65a836e0de4038b5fa74fa405df5bc0d2b3319f150"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactFateInterventionView.swift",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift",
+      "docs/05_UI/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactFateInterventionView.swift",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIcon.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMButtonStyles.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "docs/05_UI/visual-assets/README.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "artifact_fate_visual_migration",
+    "token_estimate": 6500,
+    "max_core_tokens": 9000,
+    "expansion_policy": "arbiter_approved",
+    "note": "保持 Artifact 作为 Fate 内嵌命运干预工具；只迁移视觉入口与 reduced-motion，不改变 Preview/Live/Unavailable、IPC、resolver、model 或事实提交边界。"
+  },
+  "impact": {
+    "symbols": ["FateArtifactInterventionView", "ArtifactShowcaseView"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-SYSTEM-WAVE-B"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [5, 9, 12],
+    "assertions": ["INV-5", "INV-9", "INV-12"],
+    "instructions": "必须保留 ArtifactRuntimeAvailability、Preview/Live sheet、Engine IPC Adapter、Artifact models/resolvers 与不持久化 Preview 语义；不得新增一级 Artifact/Inventory 产品导航。"
+  }
+}
