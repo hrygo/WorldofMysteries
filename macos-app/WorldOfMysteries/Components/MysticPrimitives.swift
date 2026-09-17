@@ -17,7 +17,7 @@ public enum MysticTone: String, Sendable, CaseIterable {
     case crimson
     /// 中性：次要元数据、未激活
     case neutral
-    
+
     public var accent: Color {
         switch self {
         case .gold: return Color.Mystic.brassGoldPrimary
@@ -28,7 +28,25 @@ public enum MysticTone: String, Sendable, CaseIterable {
         case .neutral: return Color.Mystic.textTertiary
         }
     }
-    
+
+    /// Readable semantic foreground for text placed on the app's dark surfaces.
+    /// Accent color remains available for rails, fills, dots and borders; low-contrast semantic
+    /// hues must not carry critical 11–13pt text by themselves.
+    public var readableForeground: Color {
+        switch self {
+        case .gold:
+            Color.Mystic.brassGoldPrimary
+        case .teal:
+            Color.Mystic.statusOnline
+        case .azure, .crimson:
+            Color.Mystic.textPrimary
+        case .amber:
+            Color.Mystic.statusWarning
+        case .neutral:
+            Color.Mystic.textSecondary
+        }
+    }
+
     public var semanticLabel: String {
         switch self {
         case .gold: return "正典灵性"
@@ -59,7 +77,7 @@ public struct MysticBadge: View {
     public let variant: MysticBadgeVariant
     public let systemIcon: String?
     public let isEmphasized: Bool
-    
+
     public init(
         _ text: String,
         tone: MysticTone = .neutral,
@@ -73,17 +91,20 @@ public struct MysticBadge: View {
         self.systemIcon = systemIcon
         self.isEmphasized = isEmphasized
     }
-    
+
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.xxs) {
             if let systemIcon {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(tone.readableForeground)
             }
             Text(text)
-                .font(.system(size: 10, weight: isEmphasized ? .bold : .medium))
+                .font(Font.Mystic.caption)
+                .fontWeight(isEmphasized ? .bold : .medium)
+                .foregroundStyle(tone.readableForeground)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .foregroundStyle(tone.accent)
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, verticalPadding)
         .background(background)
@@ -91,7 +112,7 @@ public struct MysticBadge: View {
         .overlay(border)
         .accessibilityLabel("\(tone.semanticLabel)：\(text)")
     }
-    
+
     private var horizontalPadding: CGFloat {
         switch variant {
         case .capsule: return DesignTokens.LayoutInsets.badgePaddingHorizontal + 2
@@ -99,7 +120,7 @@ public struct MysticBadge: View {
         case .plain: return 0
         }
     }
-    
+
     private var verticalPadding: CGFloat {
         switch variant {
         case .capsule: return DesignTokens.LayoutInsets.badgePaddingVertical
@@ -107,7 +128,7 @@ public struct MysticBadge: View {
         case .plain: return 0
         }
     }
-    
+
     @ViewBuilder
     private var background: some View {
         switch variant {
@@ -119,19 +140,19 @@ public struct MysticBadge: View {
             Color.clear
         }
     }
-    
+
     private var shape: AnyShape {
         switch variant {
         case .capsule: return AnyShape(Capsule())
         case .panel, .plain: return AnyShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
         }
     }
-    
+
     @ViewBuilder
     private var border: some View {
         if variant == .panel {
             RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
-                .stroke(tone.accent.opacity(0.30), lineWidth: DesignTokens.Borders.hairline)
+                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
         }
     }
 }
@@ -144,9 +165,9 @@ public struct MysticStatusDot: View {
     public let diameter: CGFloat
     public let isPulsing: Bool
     public let label: String?
-    
+
     @State private var pulsePhase: Bool = false
-    
+
     public init(
         tone: MysticTone,
         diameter: CGFloat = 8,
@@ -158,12 +179,13 @@ public struct MysticStatusDot: View {
         self.isPulsing = isPulsing
         self.label = label
     }
-    
+
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
             Circle()
                 .fill(tone.accent)
                 .frame(width: diameter, height: diameter)
+                .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
                 .shadow(color: tone.accent.opacity(pulsePhase ? 0.35 : 0.8), radius: pulsePhase ? 6 : 3)
                 .scaleEffect(pulsePhase ? 1.12 : 1.0)
                 .onAppear {
@@ -172,11 +194,11 @@ public struct MysticStatusDot: View {
                         pulsePhase = true
                     }
                 }
-            
+
             if let label {
                 Text(label)
                     .font(Font.Mystic.caption)
-                    .foregroundStyle(tone.accent)
+                    .foregroundStyle(tone.readableForeground)
             }
         }
         .accessibilityLabel(label ?? tone.semanticLabel)
@@ -195,7 +217,7 @@ public struct MysticMetricBar: View {
     public let criticalThreshold: Double?
     /// 严重度渐变色阶（由低到高）；提供时优先于 `tone`，用于雾霾等连续恶化读数
     public let gradientTones: [MysticTone]
-    
+
     public init(
         value: Double,
         tone: MysticTone = .azure,
@@ -209,26 +231,26 @@ public struct MysticMetricBar: View {
         self.criticalThreshold = criticalThreshold
         self.gradientTones = gradientTones
     }
-    
+
     private var isCritical: Bool {
         guard let criticalThreshold else { return false }
         return clampedValue < criticalThreshold
     }
-    
+
     private var clampedValue: Double {
         min(max(value, 0), 1)
     }
-    
+
     private var resolvedTone: MysticTone {
         isCritical ? .crimson : tone
     }
-    
+
     public var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height / 2)
                     .fill(Color.black.opacity(0.4))
-                
+
                 RoundedRectangle(cornerRadius: height / 2)
                     .fill(fillStyle)
                     .frame(width: geo.size.width * clampedValue)
@@ -239,7 +261,7 @@ public struct MysticMetricBar: View {
         .animation(DesignTokens.Interaction.hoverAnimation, value: clampedValue)
         .accessibilityValue("\(Int(clampedValue * 100))%")
     }
-    
+
     private var fillStyle: AnyShapeStyle {
         guard gradientTones.count >= 2 else {
             return AnyShapeStyle(resolvedTone.accent)
@@ -264,7 +286,7 @@ public struct MysticSectionHeader<Trailing: View>: View {
     public let tone: MysticTone
     public let isProminent: Bool
     private let trailing: Trailing
-    
+
     public init(
         title: String,
         caption: String? = nil,
@@ -280,34 +302,36 @@ public struct MysticSectionHeader<Trailing: View>: View {
         self.isProminent = isProminent
         self.trailing = trailing()
     }
-    
+
     public var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(tone.accent)
                     .frame(width: 3, height: 14)
-                
+
                 Text(title)
                     .font(isProminent ? Font.Mystic.titleMedium : Font.Mystic.titleSmall)
                     .fontWeight(.semibold)
-                    .foregroundStyle(tone.accent)
-                
+                    .foregroundStyle(tone.readableForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 if let count {
                     Text("\(count)")
                         .font(Font.Mystic.monoBadge)
                         .foregroundStyle(Color.Mystic.textTertiary)
                 }
-                
+
                 Spacer(minLength: DesignTokens.Spacing.sm)
-                
+
                 trailing
             }
-            
+
             if let caption {
                 Text(caption)
                     .mysticCaptionStyle(color: Color.Mystic.textTertiary)
                     .padding(.leading, DesignTokens.Spacing.md)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
@@ -337,7 +361,7 @@ public struct MysticKeyValueRow: View {
     public let tone: MysticTone
     public let isMonospaced: Bool
     public let systemIcon: String?
-    
+
     public init(
         key: String,
         value: String,
@@ -351,26 +375,42 @@ public struct MysticKeyValueRow: View {
         self.isMonospaced = isMonospaced
         self.systemIcon = systemIcon
     }
-    
+
     public var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.xs) {
+                keyLabel
+                Spacer(minLength: DesignTokens.Spacing.xs)
+                valueLabel
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                keyLabel
+                valueLabel
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var keyLabel: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
             if let systemIcon {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 10))
-                    .foregroundStyle(tone.accent)
+                    .font(.system(size: 11))
+                    .foregroundStyle(tone.readableForeground)
                     .frame(width: 14)
             }
-            
+
             Text(key)
                 .mysticCaptionStyle(color: Color.Mystic.textTertiary)
-            
-            Spacer(minLength: DesignTokens.Spacing.xs)
-            
-            Text(value)
-                .font(isMonospaced ? Font.Mystic.monoBadge : Font.Mystic.caption)
-                .foregroundStyle(tone == .neutral ? Color.Mystic.textSecondary : tone.accent)
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    private var valueLabel: some View {
+        Text(value)
+            .font(isMonospaced ? Font.Mystic.monoBadge : Font.Mystic.caption)
+            .foregroundStyle(tone == .neutral ? Color.Mystic.textSecondary : tone.readableForeground)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -380,25 +420,26 @@ public struct MysticKeyValueRow: View {
 public struct MysticDivider: View {
     public let tone: MysticTone
     public let label: String?
-    
+
     public init(tone: MysticTone = .gold, label: String? = nil) {
         self.tone = tone
         self.label = label
     }
-    
+
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Rectangle()
                 .fill(tone.accent.opacity(0.30))
                 .frame(height: DesignTokens.Borders.hairline)
                 .frame(maxWidth: .infinity)
-            
+
             if let label {
                 Text(label)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(Font.Mystic.caption)
+                    .fontWeight(.semibold)
                     .foregroundStyle(Color.Mystic.textTertiary)
                     .fixedSize()
-                
+
                 Rectangle()
                     .fill(tone.accent.opacity(0.30))
                     .frame(height: DesignTokens.Borders.hairline)
@@ -419,7 +460,7 @@ public struct MysticEmptyState: View {
     public let tone: MysticTone
     public let actionTitle: String?
     public var onAction: (@MainActor () -> Void)?
-    
+
     public init(
         systemIcon: String,
         title: String,
@@ -435,28 +476,30 @@ public struct MysticEmptyState: View {
         self.actionTitle = actionTitle
         self.onAction = onAction
     }
-    
+
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: systemIcon)
                 .font(.system(size: 22))
-                .foregroundStyle(tone.accent.opacity(0.7))
-            
+                .foregroundStyle(tone.readableForeground)
+
             Text(title)
                 .font(Font.Mystic.titleSmall)
-                .foregroundStyle(Color.Mystic.textSecondary)
-            
+                .foregroundStyle(Color.Mystic.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
             Text(message)
                 .font(Font.Mystic.caption)
-                .foregroundStyle(Color.Mystic.textTertiary)
+                .foregroundStyle(Color.Mystic.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(DesignTokens.TypographyMetrics.compactLineSpacing)
-            
+                .fixedSize(horizontal: false, vertical: true)
+
             if let actionTitle, let onAction {
                 Button(action: onAction) {
                     Text(actionTitle)
                         .font(Font.Mystic.caption)
-                        .foregroundStyle(tone.accent)
+                        .foregroundStyle(tone.readableForeground)
                         .padding(.horizontal, DesignTokens.Spacing.md)
                         .padding(.vertical, DesignTokens.Spacing.xs)
                         .background(
@@ -465,7 +508,7 @@ public struct MysticEmptyState: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                                .stroke(tone.accent.opacity(0.35), lineWidth: DesignTokens.Borders.hairline)
+                                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
                         )
                 }
                 .mysticPressable()
@@ -486,9 +529,9 @@ public struct MysticIconButton: View {
     public let tone: MysticTone
     public let helpText: String?
     public var action: @MainActor () -> Void
-    
+
     @State private var isHovered: Bool = false
-    
+
     public init(
         systemIcon: String,
         title: String? = nil,
@@ -502,7 +545,7 @@ public struct MysticIconButton: View {
         self.helpText = helpText
         self.action = action
     }
-    
+
     public var body: some View {
         Button(action: action) {
             HStack(spacing: DesignTokens.Spacing.xs) {
@@ -513,7 +556,7 @@ public struct MysticIconButton: View {
                         .font(Font.Mystic.caption)
                 }
             }
-            .foregroundStyle(isHovered ? tone.accent : Color.Mystic.textSecondary)
+            .foregroundStyle(isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical + 2)
             .background(
@@ -523,7 +566,7 @@ public struct MysticIconButton: View {
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
                     .stroke(
-                        tone.accent.opacity(isHovered ? DesignTokens.Interaction.hoverBorderOpacity : 0.20),
+                        tone.accent.opacity(isHovered ? DesignTokens.Interaction.hoverBorderOpacity : 0.28),
                         lineWidth: DesignTokens.Borders.hairline
                     )
             )

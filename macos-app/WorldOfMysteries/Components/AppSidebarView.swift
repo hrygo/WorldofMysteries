@@ -171,7 +171,7 @@ public struct AppSidebarView: View {
                         .foregroundStyle(Color.Mystic.textPrimary)
 
                     Text("World of Mysteries")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(Font.Mystic.caption)
                         .foregroundStyle(Color.Mystic.brassGoldMuted)
                 }
 
@@ -293,11 +293,11 @@ public struct AppSidebarView: View {
                     }
 
                     Text("⌘\(item.shortcutNumber)")
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(
                             isSelected
-                                ? Color.Mystic.brassGoldMuted
-                                : Color.Mystic.textTertiary.opacity(0.6)
+                                ? Color.Mystic.brassGoldPrimary
+                                : Color.Mystic.textTertiary
                         )
                 }
             }
@@ -362,10 +362,10 @@ public struct AppSidebarView: View {
                         Spacer()
 
                         Text("Seq 9")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundStyle(Color.Mystic.parchmentInkSecondary)
                             .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
+                            .padding(.vertical, 2)
                             .background(
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(Color.Mystic.parchmentCard)
@@ -424,13 +424,13 @@ public struct AppSidebarView: View {
                     .foregroundStyle(Color.Mystic.spiritualBlue)
 
                 Text("灵性储备")
-                    .font(.system(size: 9))
+                    .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textTertiary)
 
                 Spacer()
 
                 Text("85%")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .font(Font.Mystic.monoBadge)
                     .foregroundStyle(Color.Mystic.textSecondary)
             }
 

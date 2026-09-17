@@ -64,35 +64,49 @@ public struct CharacterCodexCard: View {
     }
 
     private var identityHeader: some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             portrait
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    WOMIcon(navigation: .character, size: .standard)
-                        .foregroundStyle(Color.Mystic.brassGoldPrimary)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
+                        identityTitle
+                        MysticBadge(pathwayTitle, tone: .gold, variant: .panel, isEmphasized: true)
+                    }
 
-                    Text(characterName)
-                        .font(Font.Mystic.titleMedium)
-                        .foregroundStyle(Color.Mystic.textPrimary)
-
-                    MysticBadge(pathwayTitle, tone: .gold, variant: .panel, isEmphasized: true)
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        identityTitle
+                        MysticBadge(pathwayTitle, tone: .gold, variant: .panel, isEmphasized: true)
+                    }
                 }
 
                 Text(occupation)
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
                     Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11, weight: .medium))
                     Text(location)
                         .font(Font.Mystic.caption)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .foregroundStyle(Color.Mystic.textTertiary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
-            Spacer()
+    private var identityTitle: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            WOMIcon(navigation: .character, size: .standard)
+                .foregroundStyle(Color.Mystic.brassGoldPrimary)
+
+            Text(characterName)
+                .font(Font.Mystic.titleMedium)
+                .foregroundStyle(Color.Mystic.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -141,7 +155,11 @@ public struct CharacterCodexCard: View {
     }
 
     private var traitBadges: some View {
-        HStack(spacing: DesignTokens.Spacing.xs) {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 96), spacing: DesignTokens.Spacing.xs, alignment: .leading)],
+            alignment: .leading,
+            spacing: DesignTokens.Spacing.xs
+        ) {
             ForEach(traits, id: \.self) { trait in
                 MysticBadge(trait, tone: .neutral)
             }
@@ -149,7 +167,7 @@ public struct CharacterCodexCard: View {
     }
 
     private var stateMetrics: some View {
-        HStack(spacing: DesignTokens.Spacing.lg) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: DesignTokens.Spacing.xs) {
                     WOMIcon(.spirituality, size: .compact)
@@ -165,6 +183,7 @@ public struct CharacterCodexCard: View {
 
                 MysticMetricBar(value: spirituality, tone: .azure)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("灵性储量")
             .accessibilityValue("\(Int(spirituality * 100))%")
@@ -179,13 +198,14 @@ public struct CharacterCodexCard: View {
                         .font(Font.Mystic.monoBadge)
                         .foregroundStyle(
                             sanityScore < 0.3
-                                ? Color.Mystic.statusDanger
+                                ? Color.Mystic.textPrimary
                                 : Color.Mystic.statusOnline
                         )
                 }
 
                 MysticMetricBar(value: sanityScore, tone: .teal, criticalThreshold: 0.3)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("理智稳定度")
             .accessibilityValue("\(Int(sanityScore * 100))%")
@@ -193,25 +213,38 @@ public struct CharacterCodexCard: View {
     }
 
     private var adviceAction: some View {
-        HStack {
-            Text("“非命令 · 意图建议”")
-                .font(Font.Mystic.caption)
-                .foregroundStyle(Color.Mystic.textTertiary)
-
-            Spacer()
-
-            Button {
-                onVoiceAdviceTapped?()
-            } label: {
-                HStack(spacing: DesignTokens.Spacing.xs) {
-                    WOMIcon(system: .voiceAdvice, size: .standard)
-                    Text("向角色发起 Advice")
-                        .font(Font.Mystic.titleSmall)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.md) {
+                adviceDisclaimer
+                Spacer(minLength: DesignTokens.Spacing.sm)
+                adviceButton
             }
-            .buttonStyle(WOMButtonStyle(.secondary))
-            .accessibilityLabel("向 \(characterName) 发起 Advice")
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                adviceDisclaimer
+                adviceButton
+            }
         }
+    }
+
+    private var adviceDisclaimer: some View {
+        Text("“非命令 · 意图建议”")
+            .font(Font.Mystic.caption)
+            .foregroundStyle(Color.Mystic.textTertiary)
+    }
+
+    private var adviceButton: some View {
+        Button {
+            onVoiceAdviceTapped?()
+        } label: {
+            HStack(spacing: DesignTokens.Spacing.xs) {
+                WOMIcon(system: .voiceAdvice, size: .standard)
+                Text("向角色发起 Advice")
+                    .font(Font.Mystic.titleSmall)
+            }
+        }
+        .buttonStyle(WOMButtonStyle(.secondary))
+        .accessibilityLabel("向 \(characterName) 发起 Advice")
     }
 }
 

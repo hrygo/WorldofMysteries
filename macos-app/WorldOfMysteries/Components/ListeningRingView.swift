@@ -8,7 +8,7 @@ public enum ListeningRingState: String, Sendable, CaseIterable {
     case deciding = "deciding"
     case narrating = "narrating"
     case speaking = "speaking"
-    
+
     public var promptText: String {
         switch self {
         case .idle: return "世界正在聆听"
@@ -26,11 +26,12 @@ public struct ListeningRingView: View {
     public let state: ListeningRingState
     public let audioLevel: Double
     public var onRingTapped: (@MainActor () -> Void)?
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isBreathing: Bool = false
     @State private var rotationAngle: Double = 0
     @State private var rippleScale: CGFloat = 1.0
-    
+
     public init(
         state: ListeningRingState = .idle,
         audioLevel: Double = 0.0,
@@ -40,11 +41,10 @@ public struct ListeningRingView: View {
         self.audioLevel = min(max(audioLevel, 0.0), 1.0)
         self.onRingTapped = onRingTapped
     }
-    
+
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.xs) {
             ZStack {
-                // 外层发光与涟漪 (支持真实音频振幅动态反馈)
                 Circle()
                     .stroke(
                         state == .listening ? Color.Mystic.spiritualGlow : Color.Mystic.brassGoldGlow,
@@ -54,22 +54,16 @@ public struct ListeningRingView: View {
                         width: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault,
                         height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
                     )
-                    .scaleEffect(
-                        (state == .listening || state == .speaking) && audioLevel > 0
-                        ? (1.0 + CGFloat(audioLevel) * 0.3)
-                        : (state == .listening ? rippleScale : (isBreathing ? 1.08 : 0.96))
-                    )
-                    .opacity(isBreathing ? 0.9 : 0.4)
-                
-                // 次级同心金属环
+                    .scaleEffect(resolvedRingScale)
+                    .opacity(reduceMotion ? 0.62 : (isBreathing ? 0.9 : 0.4))
+
                 Circle()
                     .stroke(
                         Color.Mystic.brassGoldBorder,
                         lineWidth: DesignTokens.Borders.standard
                     )
                     .frame(width: 46, height: 46)
-                
-                // 核心金属光圈与图标
+
                 Circle()
                     .fill(Color.Mystic.obsidianCard)
                     .frame(width: 38, height: 38)
@@ -78,26 +72,25 @@ public struct ListeningRingView: View {
                             .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
                     )
                     .shadow(
-                        color: Color.Mystic.brassGoldPrimary.opacity(0.35),
-                        radius: state == .idle ? 4 : 8
+                        color: Color.Mystic.brassGoldPrimary.opacity(reduceMotion ? 0.2 : 0.35),
+                        radius: reduceMotion ? 3 : (state == .idle ? 4 : 8)
                     )
-                
-                // 中心麦克风 / 状态图标
+
                 Image(systemName: iconName)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(iconColor)
-                    .rotationEffect(.degrees(state == .deciding ? rotationAngle : 0))
+                    .rotationEffect(.degrees(reduceMotion ? 0 : (state == .deciding ? rotationAngle : 0)))
             }
             .contentShape(Circle())
             .onTapGesture {
                 onRingTapped?()
             }
-            
-            // 语义提示文字（世界语义，不显示技术术语）
+
             Text(state.promptText)
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
-                .animation(DesignTokens.Motion.smoothSpring, value: state)
+                .fixedSize(horizontal: false, vertical: true)
+                .animation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring, value: state)
         }
         .onAppear {
             startAnimations()
@@ -105,8 +98,26 @@ public struct ListeningRingView: View {
         .onChange(of: state) { _, newState in
             handleStateChange(newState)
         }
+        .onChange(of: reduceMotion) { _, newValue in
+            if newValue {
+                resetMotionState()
+            } else {
+                startAnimations()
+                handleStateChange(state)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(state.promptText)
     }
-    
+
+    private var resolvedRingScale: CGFloat {
+        if reduceMotion { return 1 }
+        if (state == .listening || state == .speaking) && audioLevel > 0 {
+            return 1.0 + CGFloat(audioLevel) * 0.3
+        }
+        return state == .listening ? rippleScale : (isBreathing ? 1.08 : 0.96)
+    }
+
     private var iconName: String {
         switch state {
         case .idle, .listening:
@@ -121,29 +132,36 @@ public struct ListeningRingView: View {
             return "waveform"
         }
     }
-    
+
     private var iconColor: Color {
         switch state {
         case .idle:
             return Color.Mystic.brassGoldPrimary
-        case .listening:
+        case .listening, .interpreting:
             return Color.Mystic.spiritualBlue
-        case .interpreting:
-            return Color.Mystic.spiritualGlow
         case .deciding:
             return Color.Mystic.brassGoldHover
         case .narrating, .speaking:
             return Color.Mystic.textGoldAccent
         }
     }
-    
+
     private func startAnimations() {
+        guard !reduceMotion else {
+            resetMotionState()
+            return
+        }
         withAnimation(DesignTokens.Motion.listeningBreathing) {
             isBreathing = true
         }
     }
-    
+
     private func handleStateChange(_ newState: ListeningRingState) {
+        guard !reduceMotion else {
+            resetMotionState()
+            return
+        }
+
         if newState == .listening {
             withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                 rippleScale = 1.25
@@ -156,6 +174,12 @@ public struct ListeningRingView: View {
             rippleScale = 1.0
             rotationAngle = 0
         }
+    }
+
+    private func resetMotionState() {
+        isBreathing = false
+        rippleScale = 1.0
+        rotationAngle = 0
     }
 }
 

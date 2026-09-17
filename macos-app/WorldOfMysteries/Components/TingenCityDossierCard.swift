@@ -43,22 +43,7 @@ public struct TingenCityDossierCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
             dossierHeader
-
-            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
-                statusPill(
-                    title: "查尼斯门状态",
-                    value: "安宁 (圣赛缪尔骨灰封印)",
-                    source: .status(.locked),
-                    color: Color.Mystic.statusOnline
-                )
-
-                statusPill(
-                    title: "当前核心调查",
-                    value: "追查《安提哥努斯笔记》",
-                    source: .system(.search),
-                    color: Color.Mystic.brassGoldPrimary
-                )
-            }
+            statusSummary
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 HStack(spacing: DesignTokens.Spacing.xs) {
@@ -83,6 +68,40 @@ public struct TingenCityDossierCard: View {
                 texture: .sacredSlate,
                 textureOpacity: 0.035
             )
+        )
+    }
+
+    private var statusSummary: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
+                sealStatus
+                    .frame(maxWidth: .infinity)
+                investigationStatus
+                    .frame(maxWidth: .infinity)
+            }
+
+            VStack(spacing: DesignTokens.Spacing.sm) {
+                sealStatus
+                investigationStatus
+            }
+        }
+    }
+
+    private var sealStatus: some View {
+        statusPill(
+            title: "查尼斯门状态",
+            value: "安宁 (圣赛缪尔骨灰封印)",
+            source: .status(.locked),
+            color: Color.Mystic.statusOnline
+        )
+    }
+
+    private var investigationStatus: some View {
+        statusPill(
+            title: "当前核心调查",
+            value: "追查《安提哥努斯笔记》",
+            source: .system(.search),
+            color: Color.Mystic.brassGoldPrimary
         )
     }
 
@@ -127,12 +146,12 @@ public struct TingenCityDossierCard: View {
 
                     Circle()
                         .fill(Color.Mystic.crimsonStar)
-                        .frame(width: 4, height: 4)
+                        .frame(width: 5, height: 5)
                         .accessibilityHidden(true)
 
                     Text("红月笼罩")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.Mystic.crimsonStar)
+                        .font(Font.Mystic.monoBadge)
+                        .foregroundStyle(Color.Mystic.textPrimary)
                 }
 
                 HStack(spacing: DesignTokens.Spacing.xs) {
@@ -164,17 +183,20 @@ public struct TingenCityDossierCard: View {
             WOMIcon(source: source, size: .compact)
                 .foregroundStyle(color)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 9))
+                    .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textTertiary)
                 Text(value)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Font.Mystic.caption)
+                    .fontWeight(.semibold)
                     .foregroundStyle(color)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer()
+            Spacer(minLength: DesignTokens.Spacing.xs)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal + 2)
         .padding(.vertical, 6)
         .background(
@@ -225,9 +247,10 @@ public struct TingenCityDossierCard: View {
                         .mysticCaptionStyle(
                             color: isSelected ? Color.Mystic.brassGoldMuted : Color.Mystic.textTertiary
                         )
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer()
+                Spacer(minLength: DesignTokens.Spacing.xs)
 
                 if isSelected {
                     Circle()

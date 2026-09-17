@@ -37,7 +37,7 @@ public nonisolated enum WOMFeedbackTone: String, CaseIterable, Sendable {
     }
 }
 
-/// Reusable visual chrome for content hosted by native Inspector / Popover / Sheet / HUD surfaces.
+/// Reusable visual chrome for content hosted by native macOS overlays.
 ///
 /// The caller remains responsible for using the platform presentation API. This component only
 /// supplies spacing, surface tone, texture, radius and accessible visual hierarchy.
@@ -149,6 +149,7 @@ public struct WOMLoadingState: View {
                 Text(title)
                     .font(Font.Mystic.titleSmall)
                     .foregroundStyle(Color.Mystic.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if let message {
                     Text(message)
@@ -218,6 +219,7 @@ public struct WOMEmptyState: View {
             Text(title)
                 .font(Font.Mystic.titleSmall)
                 .foregroundStyle(Color.Mystic.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(message)
                 .font(Font.Mystic.caption)
@@ -277,33 +279,16 @@ public struct WOMStatusBanner: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
-            WOMIcon(
-                status: tone.statusIcon,
-                size: .standard,
-                accessibilityLabel: nil
-            )
-            .foregroundStyle(accentColor)
-
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(title)
-                    .font(Font.Mystic.bodyMedium)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.Mystic.textPrimary)
-
-                if let message {
-                    Text(message)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
+                statusIdentity
+                Spacer(minLength: DesignTokens.Spacing.sm)
+                actionButton
             }
 
-            Spacer(minLength: DesignTokens.Spacing.sm)
-
-            if let actionTitle, let onAction {
-                Button(actionTitle, action: onAction)
-                    .buttonStyle(WOMButtonStyle(.tertiary))
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                statusIdentity
+                actionButton
             }
         }
         .padding(DesignTokens.LayoutInsets.compactCardPadding)
@@ -336,6 +321,42 @@ public struct WOMStatusBanner: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(tone.semanticLabel)：\(title)")
+    }
+
+    private var statusIdentity: some View {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+            WOMIcon(
+                status: tone.statusIcon,
+                size: .standard,
+                accessibilityLabel: nil
+            )
+            .foregroundStyle(accentColor)
+            .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                Text(title)
+                    .font(Font.Mystic.bodyMedium)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.Mystic.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let message {
+                    Text(message)
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var actionButton: some View {
+        if let actionTitle, let onAction {
+            Button(actionTitle, action: onAction)
+                .buttonStyle(WOMButtonStyle(.tertiary))
+        }
     }
 
     private var accentColor: Color {

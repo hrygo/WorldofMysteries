@@ -6,7 +6,7 @@ public enum WorldlineBranchStatus: String, Sendable, CaseIterable {
     case diverged = "因果分叉"
     case active = "当前活跃"
     case pruned = "已剪枝"
-    
+
     public var iconName: String {
         switch self {
         case .canonical: return "lock.shield.fill"
@@ -15,7 +15,7 @@ public enum WorldlineBranchStatus: String, Sendable, CaseIterable {
         case .pruned: return "scissors"
         }
     }
-    
+
     public var accentColor: Color {
         switch self {
         case .canonical: return Color.Mystic.brassGoldPrimary
@@ -35,9 +35,9 @@ public struct WorldlineNodeView: View {
     public let causeSummary: String
     public let turnIndex: Int
     public var onSelect: (@MainActor () -> Void)?
-    
+
     @State private var isHovered: Bool = false
-    
+
     public init(
         title: String,
         worldTime: String,
@@ -53,74 +53,29 @@ public struct WorldlineNodeView: View {
         self.turnIndex = turnIndex
         self.onSelect = onSelect
     }
-    
+
     public var body: some View {
         Button {
             onSelect?()
         } label: {
             HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-                // 左侧时间轴状态指示器
-                VStack(spacing: DesignTokens.Spacing.xs) {
-                    Circle()
-                        .fill(status.accentColor.opacity(0.2))
-                        .frame(width: 32, height: 32)
-                        .overlay(
-                            Image(systemName: status.iconName)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(status.accentColor)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(status.accentColor.opacity(isHovered ? 0.9 : 0.4), lineWidth: DesignTokens.Borders.standard)
-                        )
-                        .shadow(color: status.accentColor.opacity(status == .active ? 0.4 : 0.1), radius: 6)
-                    
-                    // 纵向连接轴线
-                    Rectangle()
-                        .fill(Color.Mystic.brassGoldBorder.opacity(0.5))
-                        .frame(width: 2)
-                        .frame(maxHeight: .infinity)
-                }
-                
-                // 右侧因果节点内容
+                timelineIndicator
+
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                    // 顶部标牌行：纪元时间与状态胶囊
-                    HStack {
-                        Text(worldTime)
-                            .font(Font.Mystic.monoBadge)
-                            .foregroundStyle(Color.Mystic.textGoldAccent)
-                        
-                        Spacer()
-                        
-                        Text("回合 #\(turnIndex)")
-                            .font(Font.Mystic.caption)
-                            .foregroundStyle(Color.Mystic.textTertiary)
-                        
-                        Text(status.rawValue)
-                            .font(Font.Mystic.caption)
-                            .padding(.horizontal, DesignTokens.Spacing.xs)
-                            .padding(.vertical, 2)
-                            .background(status.accentColor.opacity(0.15))
-                            .foregroundStyle(status.accentColor)
-                            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
-                                    .stroke(status.accentColor.opacity(0.3), lineWidth: DesignTokens.Borders.hairline)
-                            )
-                    }
-                    
-                    // 节点主标题
+                    metadataHeader
+
                     Text(title)
                         .font(Font.Mystic.titleMedium)
                         .foregroundStyle(Color.Mystic.textPrimary)
-                    
-                    // 分叉成因与因果偏差说明
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Text(causeSummary)
                         .font(Font.Mystic.bodyMedium)
                         .foregroundStyle(Color.Mystic.textSecondary)
-                        .lineLimit(2)
                         .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(DesignTokens.Spacing.md)
             .background(
@@ -144,12 +99,81 @@ public struct WorldlineNodeView: View {
             }
         }
     }
+
+    private var timelineIndicator: some View {
+        VStack(spacing: DesignTokens.Spacing.xs) {
+            Circle()
+                .fill(status.accentColor.opacity(0.2))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Image(systemName: status.iconName)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(status.accentColor)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(status.accentColor.opacity(isHovered ? 0.9 : 0.4), lineWidth: DesignTokens.Borders.standard)
+                )
+                .shadow(color: status.accentColor.opacity(status == .active ? 0.4 : 0.1), radius: 6)
+
+            Rectangle()
+                .fill(Color.Mystic.brassGoldBorder.opacity(0.5))
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+        }
+    }
+
+    private var metadataHeader: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                worldTimeLabel
+                Spacer(minLength: DesignTokens.Spacing.sm)
+                turnLabel
+                statusLabel
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                worldTimeLabel
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    turnLabel
+                    statusLabel
+                }
+            }
+        }
+    }
+
+    private var worldTimeLabel: some View {
+        Text(worldTime)
+            .font(Font.Mystic.monoBadge)
+            .foregroundStyle(Color.Mystic.textGoldAccent)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var turnLabel: some View {
+        Text("回合 #\(turnIndex)")
+            .font(Font.Mystic.caption)
+            .foregroundStyle(Color.Mystic.textTertiary)
+    }
+
+    private var statusLabel: some View {
+        Text(status.rawValue)
+            .font(Font.Mystic.caption)
+            .padding(.horizontal, DesignTokens.Spacing.xs)
+            .padding(.vertical, 2)
+            .background(status.accentColor.opacity(0.15))
+            .foregroundStyle(status.accentColor)
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
+                    .stroke(status.accentColor.opacity(0.3), lineWidth: DesignTokens.Borders.hairline)
+            )
+    }
 }
 
 #Preview("Worldline Nodes") {
     ZStack {
         Color.Mystic.obsidianBase.ignoresSafeArea()
-        
+
         VStack(spacing: DesignTokens.Spacing.md) {
             WorldlineNodeView(
                 title: "正典主轴：廷根市的枪声",
@@ -158,7 +182,7 @@ public struct WorldlineNodeView: View {
                 causeSummary: "既定历史：克莱恩·莫雷蒂在自杀现场苏醒，安提哥努斯笔记随韦尔奇身亡而不知所踪。",
                 turnIndex: 0
             )
-            
+
             WorldlineNodeView(
                 title: "分支 A：提前上报值夜者小队",
                 worldTime: "第五纪 1349年 6月28日 午",
@@ -166,7 +190,7 @@ public struct WorldlineNodeView: View {
                 causeSummary: "因果偏离：玩家建议向邓恩·史密斯汇报韦尔奇日记疑点，值夜者在瑞尔·比伯逃逸前封锁码头。",
                 turnIndex: 3
             )
-            
+
             WorldlineNodeView(
                 title: "分支 B：私自追踪密修会占卜师",
                 worldTime: "第五纪 1349年 6月29日 夜",

@@ -26,22 +26,11 @@ public struct GroselleTravelsArtifactView: View {
   public var body: some View {
     ArtifactComponentShell(artifactID: .groselleTravels) {
       VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-        HStack {
-          VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            Text("书中世界")
-              .font(Font.Mystic.titleMedium)
-              .foregroundStyle(Color.Mystic.textGoldAccent)
-            Text("StorySpace 不是与主世界无关的副本菜单。")
-              .mysticCaptionStyle()
-          }
-          Spacer()
-          ArtifactStatusPill(
-            insideBookWorld ? "书中" : "主世界", systemImage: insideBookWorld ? "book.fill" : "globe",
-            tone: insideBookWorld ? .amber : .azure)
-        }
+        header
 
         ArtifactSection(
-          insideBookWorld ? "返回边界" : "书页入口", caption: "Worldline · \(context.worldlineID)",
+          insideBookWorld ? "返回边界" : "书页入口",
+          caption: "Worldline · \(context.worldlineID)",
           tone: .azure
         ) {
           ZStack {
@@ -51,6 +40,7 @@ public struct GroselleTravelsArtifactView: View {
               Image(systemName: insideBookWorld ? "arrow.uturn.backward.circle" : "book.pages")
                 .font(.system(size: 30, weight: .ultraLight))
                 .foregroundStyle(Color.Mystic.spiritualBlue)
+                .accessibilityHidden(true)
               Text(insideBookWorld ? "返回主世界" : "页面正在形成空间")
                 .font(Font.Mystic.titleSmall)
                 .foregroundStyle(Color.Mystic.textPrimary)
@@ -59,12 +49,21 @@ public struct GroselleTravelsArtifactView: View {
           .frame(maxWidth: .infinity)
         }
 
-        ArtifactSection("参与者快照", caption: "进入前固定 Story Session 参与者；状态与记忆可回流", tone: .neutral) {
+        ArtifactSection(
+          "参与者快照",
+          caption: "进入前固定 Story Session 参与者；状态与记忆可回流",
+          tone: .neutral
+        ) {
           if participantIDs.isEmpty {
-            MysticBadge(context.actorID ?? "当前角色", tone: .neutral, systemIcon: "person.crop.circle")
+            MysticBadge(
+              context.actorID ?? "当前角色",
+              tone: .neutral,
+              systemIcon: "person.crop.circle"
+            )
           } else {
             LazyVGrid(
-              columns: [GridItem(.adaptive(minimum: 150))], alignment: .leading,
+              columns: [GridItem(.adaptive(minimum: 150))],
+              alignment: .leading,
               spacing: DesignTokens.Spacing.xs
             ) {
               ForEach(participantIDs, id: \.self) { id in
@@ -72,6 +71,7 @@ public struct GroselleTravelsArtifactView: View {
               }
             }
           }
+
           MysticDivider(tone: .azure)
           Label("角色状态会带入书中", systemImage: "arrow.down.doc")
           Label("Memory / Knowledge 可以带回", systemImage: "brain.head.profile")
@@ -83,12 +83,14 @@ public struct GroselleTravelsArtifactView: View {
         ArtifactResolutionView(model: model)
 
         ArtifactSection(
-          insideBookWorld ? "离开书中世界" : "进入确认", caption: "这是世界状态转换，不是普通页面导航",
+          insideBookWorld ? "离开书中世界" : "进入确认",
+          caption: "这是世界状态转换，不是普通页面导航",
           tone: insideBookWorld ? .amber : .azure
         ) {
           if !insideBookWorld {
             Toggle("我确认进入书中世界", isOn: $confirmed)
           }
+
           HStack {
             Spacer()
             ArtifactHoldToCommitButton(
@@ -102,8 +104,12 @@ public struct GroselleTravelsArtifactView: View {
               Task {
                 await model.perform(
                   .init(
-                    artifactID: .groselleTravels, action: action, context: context,
-                    selectionIDs: participantIDs))
+                    artifactID: .groselleTravels,
+                    action: action,
+                    context: context,
+                    selectionIDs: participantIDs
+                  )
+                )
                 if model.lastResolution?.disposition == .committed {
                   insideBookWorld.toggle()
                   confirmed = false
@@ -114,5 +120,39 @@ public struct GroselleTravelsArtifactView: View {
         }
       }
     }
+  }
+
+  private var header: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+        headerText
+        Spacer(minLength: DesignTokens.Spacing.md)
+        worldStatePill
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        headerText
+        worldStatePill
+      }
+    }
+  }
+
+  private var headerText: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+      Text("书中世界")
+        .font(Font.Mystic.titleMedium)
+        .foregroundStyle(Color.Mystic.textGoldAccent)
+      Text("StorySpace 不是与主世界无关的副本菜单。")
+        .mysticCaptionStyle()
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private var worldStatePill: some View {
+    ArtifactStatusPill(
+      insideBookWorld ? "书中" : "主世界",
+      systemImage: insideBookWorld ? "book.fill" : "globe",
+      tone: insideBookWorld ? .amber : .azure
+    )
   }
 }

@@ -6,11 +6,12 @@ public struct CrimsonStarBeaconView: View {
     public let prayerPreview: String
     public let unheardEchoesCount: Int
     public var onTapStar: (@MainActor () -> Void)?
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered: Bool = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.6
-    
+
     public init(
         starName: String,
         prayerPreview: String,
@@ -22,73 +23,35 @@ public struct CrimsonStarBeaconView: View {
         self.unheardEchoesCount = unheardEchoesCount
         self.onTapStar = onTapStar
     }
-    
+
     public var body: some View {
         Button {
             onTapStar?()
         } label: {
-            HStack(spacing: DesignTokens.Spacing.md) {
-                // 左侧多层脉动深红星辰
-                ZStack {
-                    // 外层扩散红光光晕
-                    Circle()
-                        .fill(Color.Mystic.crimsonGlow)
-                        .frame(width: 38, height: 38)
-                        .scaleEffect(pulseScale)
-                        .opacity(pulseOpacity)
-                    
-                    // 中层深红核心
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [Color(red: 255/255, green: 110/255, blue: 120/255), Color.Mystic.crimsonStar, Color.Mystic.crimsonThread],
-                                center: .center,
-                                startRadius: 2,
-                                endRadius: 14
-                            )
-                        )
-                        .frame(width: 20, height: 20)
-                        .shadow(color: Color.Mystic.crimsonStar, radius: 8)
-                    
-                    // 内部神圣十字光芒
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.white)
-                    
-                    // 未读祈祷回响角标
-                    if unheardEchoesCount > 0 {
-                        Text("\(unheardEchoesCount)")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Color.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.Mystic.crimsonThread)
-                            .clipShape(Capsule())
-                            .offset(x: 12, y: -12)
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                beacon
+
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: DesignTokens.Spacing.sm) {
+                            starTitle
+                            Spacer(minLength: DesignTokens.Spacing.sm)
+                            resonanceLabel
+                        }
+
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                            starTitle
+                            resonanceLabel
+                        }
                     }
-                }
-                .frame(width: 44, height: 44)
-                
-                // 右侧信徒与祈祷信息
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    HStack {
-                        Text(starName)
-                            .font(Font.Mystic.titleSmall)
-                            .foregroundStyle(isHovered ? Color.Mystic.textGoldAccent : Color.Mystic.textPrimary)
-                        
-                        Spacer()
-                        
-                        Text("灰雾共鸣")
-                            .font(Font.Mystic.caption)
-                            .foregroundStyle(Color.Mystic.crimsonStar)
-                    }
-                    
+
                     Text("“\(prayerPreview)”")
                         .font(Font.Mystic.bodyMedium)
                         .foregroundStyle(Color.Mystic.textSecondary)
-                        .lineLimit(2)
                         .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(DesignTokens.Spacing.md)
             .background(
@@ -107,18 +70,96 @@ public struct CrimsonStarBeaconView: View {
         }
         .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
         .onHover { hovering in
-            withAnimation(DesignTokens.Interaction.hoverAnimation) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering
             }
         }
         .onAppear {
-            withAnimation(
-                .easeInOut(duration: 1.8)
-                .repeatForever(autoreverses: true)
-            ) {
-                pulseScale = 1.35
-                pulseOpacity = 0.2
+            startPulseIfNeeded()
+        }
+        .onChange(of: reduceMotion) { _, newValue in
+            if newValue {
+                pulseScale = 1
+                pulseOpacity = 0.62
+            } else {
+                startPulseIfNeeded()
             }
+        }
+        .accessibilityLabel(starName)
+        .accessibilityValue(unheardEchoesCount > 0 ? "\(unheardEchoesCount) 条未听祈祷，\(prayerPreview)" : prayerPreview)
+    }
+
+    private var beacon: some View {
+        ZStack {
+            Circle()
+                .fill(Color.Mystic.crimsonGlow)
+                .frame(width: 38, height: 38)
+                .scaleEffect(reduceMotion ? 1 : pulseScale)
+                .opacity(reduceMotion ? 0.62 : pulseOpacity)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 255/255, green: 110/255, blue: 120/255),
+                            Color.Mystic.crimsonStar,
+                            Color.Mystic.crimsonThread
+                        ],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: 14
+                    )
+                )
+                .frame(width: 20, height: 20)
+                .shadow(color: Color.Mystic.crimsonStar, radius: reduceMotion ? 3 : 8)
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.white)
+
+            if unheardEchoesCount > 0 {
+                Text("\(unheardEchoesCount)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.Mystic.crimsonThread)
+                    .clipShape(Capsule())
+                    .offset(x: 12, y: -12)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .accessibilityHidden(true)
+    }
+
+    private var starTitle: some View {
+        Text(starName)
+            .font(Font.Mystic.titleSmall)
+            .foregroundStyle(isHovered ? Color.Mystic.textGoldAccent : Color.Mystic.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var resonanceLabel: some View {
+        HStack(spacing: DesignTokens.Spacing.xs) {
+            Circle()
+                .fill(Color.Mystic.crimsonStar)
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+            Text("灰雾共鸣")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+        }
+    }
+
+    private func startPulseIfNeeded() {
+        guard !reduceMotion else {
+            pulseScale = 1
+            pulseOpacity = 0.62
+            return
+        }
+        withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+            pulseScale = 1.35
+            pulseOpacity = 0.2
         }
     }
 }
@@ -126,20 +167,20 @@ public struct CrimsonStarBeaconView: View {
 #Preview("Crimson Star Beacons") {
     ZStack {
         Color.Mystic.obsidianBase.ignoresSafeArea()
-        
+
         VStack(spacing: DesignTokens.Spacing.md) {
             CrimsonStarBeaconView(
                 starName: "深红星辰 · 正义小姐 (奥黛丽·霍尔)",
                 prayerPreview: "不属于这个时代的愚者先生，贝克兰德即将举行一场非凡者聚会，我希望能向您献祭一页罗塞尔日记以换取启示...",
                 unheardEchoesCount: 2
             )
-            
+
             CrimsonStarBeaconView(
                 starName: "深红星辰 · 倒吊人 (阿尔杰·威尔逊)",
                 prayerPreview: "风暴之主的信徒在苏尼亚海发现了幽灵船的踪迹，似乎与齐林格斯有关，请求伟大的愚者指引方向...",
                 unheardEchoesCount: 1
             )
-            
+
             CrimsonStarBeaconView(
                 starName: "微弱光点 · 廷根老尼尔",
                 prayerPreview: "虔诚祈求隐秘的庇佑，希望能用纯银小刀驱散那些缠绕在我耳边的呢喃呓语...",

@@ -5,7 +5,7 @@ public struct SpiritualityGaugeView: View {
     public let title: String
     /// 灵性值：0.0 (枯竭/失控) ~ 1.0 (充盈稳固)
     public let value: Double
-    
+
     public init(
         title: String = "灵性存量 (Spirituality)",
         value: Double = 0.85
@@ -13,11 +13,10 @@ public struct SpiritualityGaugeView: View {
         self.title = title
         self.value = min(max(value, 0.0), 1.0)
     }
-    
+
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.xs) {
             ZStack {
-                // 外层黄铜铆钉表圈
                 Circle()
                     .fill(Color.Mystic.obsidianCard)
                     .frame(width: 88, height: 88)
@@ -26,13 +25,11 @@ public struct SpiritualityGaugeView: View {
                             .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
                     )
                     .shadow(color: Color.black.opacity(0.4), radius: 6)
-                
-                // 表盘内底纹
+
                 Circle()
                     .fill(Color.Mystic.obsidianBase)
                     .frame(width: 74, height: 74)
-                
-                // 警戒弧线 (0 ~ 180度)
+
                 Circle()
                     .trim(from: 0.0, to: 0.5)
                     .stroke(
@@ -50,42 +47,44 @@ public struct SpiritualityGaugeView: View {
                     )
                     .frame(width: 60, height: 60)
                     .rotationEffect(.degrees(180))
-                
-                // 黄铜指针
+
                 Rectangle()
                     .fill(Color.Mystic.brassGoldHover)
                     .frame(width: 2, height: 26)
                     .offset(y: -13)
                     .rotationEffect(.degrees(gaugeAngle))
                     .animation(DesignTokens.Motion.smoothSpring, value: value)
-                
-                // 表心黄铜铆钉
+
                 Circle()
                     .fill(Color.Mystic.brassGoldPrimary)
                     .frame(width: 8, height: 8)
             }
-            
-            // 仪表数值与标题
+
             VStack(spacing: DesignTokens.Spacing.xxs) {
                 Text("\(Int(value * 100))%")
                     .font(Font.Mystic.monoBadge)
-                    .foregroundStyle(valueColor)
-                
+                    .foregroundStyle(valueTextColor)
+
                 Text(title)
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(Int(value * 100))%")
     }
-    
+
     /// 0.0 映射到 -90 度，1.0 映射到 +90 度
     private var gaugeAngle: Double {
         -90.0 + (value * 180.0)
     }
-    
-    private var valueColor: Color {
+
+    /// Danger remains visible in the gauge arc; the numeric value itself must remain readable.
+    private var valueTextColor: Color {
         if value < 0.25 {
-            return Color.Mystic.statusDanger
+            return Color.Mystic.textPrimary
         } else if value < 0.5 {
             return Color.Mystic.statusWarning
         } else {

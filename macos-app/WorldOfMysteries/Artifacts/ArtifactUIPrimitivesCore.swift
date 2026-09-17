@@ -66,10 +66,14 @@ public struct ArtifactMeterCard: View {
         Spacer()
         Text("\(Int(value * 100))%")
           .font(Font.Mystic.monoBadge)
-          .foregroundStyle(tone.accent)
+          .foregroundStyle(Color.Mystic.textPrimary)
       }
       MysticMetricBar(value: value, tone: tone)
-      if let detail { Text(detail).mysticCaptionStyle(color: Color.Mystic.textTertiary) }
+      if let detail {
+        Text(detail)
+          .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
     .padding(DesignTokens.LayoutInsets.compactCardPadding)
     .background(Color.Mystic.obsidianElevated.opacity(0.78))
@@ -192,46 +196,28 @@ public struct ArtifactComponentShell<Content: View>: View {
 
   public var body: some View {
     let descriptor = ArtifactRegistry.descriptor(for: artifactID)
-    HStack(spacing: 0) {
-      ZStack {
-        Color.Mystic.abyssVoid
-        ArtifactAmbientField(tone: descriptor.tone, intensity: hovered ? 1 : 0.65)
-        ArtifactPulseRing(tone: descriptor.tone, active: hovered)
-          .frame(width: 170, height: 170)
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-          MysticBadge(
-            descriptor.family.localizedTitle, tone: descriptor.tone,
-            systemIcon: descriptor.systemIcon)
-          Spacer()
-          Image(systemName: descriptor.systemIcon)
-            .font(.system(size: 62, weight: .ultraLight))
-            .foregroundStyle(descriptor.tone.accent)
-          Spacer()
-          Text(descriptor.displayName).font(Font.Mystic.titleLarge).foregroundStyle(
-            Color.Mystic.textGoldAccent)
-          Text(descriptor.subtitle).font(Font.Mystic.monoBadge).foregroundStyle(
-            descriptor.tone.accent)
-          Text(descriptor.shortGameplay).mysticCaptionStyle(color: Color.Mystic.textSecondary)
-          HStack(spacing: DesignTokens.Spacing.xs) {
-            MysticBadge(descriptor.canonClass.localizedTitle, tone: .gold, systemIcon: "seal")
-            MysticBadge(
-              "World-bound", tone: .neutral, systemIcon: "point.3.connected.trianglepath.dotted")
-          }
-        }
-        .padding(DesignTokens.LayoutInsets.panelPadding)
-      }
-      .frame(minWidth: 250, idealWidth: 300, maxWidth: 340)
-      .onHover { hovered = $0 }
 
-      MysticDivider(tone: .gold).frame(width: DesignTokens.Borders.standard)
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: 0) {
+        identityPanel(descriptor)
+          .frame(minWidth: 250, idealWidth: 300, maxWidth: 340)
 
-      ScrollView {
-        content
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(DesignTokens.LayoutInsets.panelPadding)
+        MysticDivider(tone: .gold).frame(width: DesignTokens.Borders.standard)
+
+        detailPanel
+          .frame(minWidth: 430)
       }
-      .background(Color.Mystic.obsidianBase)
-      .frame(minWidth: 430)
+
+      VStack(spacing: 0) {
+        identityPanel(descriptor)
+          .frame(maxWidth: .infinity, minHeight: 300)
+
+        MysticDivider(tone: .gold)
+          .padding(.horizontal, DesignTokens.Spacing.lg)
+
+        detailPanel
+          .frame(maxWidth: .infinity)
+      }
     }
     .frame(minHeight: 520)
     .background(Color.Mystic.obsidianBase)
@@ -241,6 +227,67 @@ public struct ArtifactComponentShell<Content: View>: View {
         .stroke(
           Color.Mystic.brassGoldBorder.opacity(0.55), lineWidth: DesignTokens.Borders.standard)
     }
+  }
+
+  private func identityPanel(_ descriptor: ArtifactDescriptor) -> some View {
+    ZStack {
+      Color.Mystic.abyssVoid
+      ArtifactAmbientField(tone: descriptor.tone, intensity: hovered ? 1 : 0.65)
+      ArtifactPulseRing(tone: descriptor.tone, active: hovered)
+        .frame(width: 170, height: 170)
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        MysticBadge(
+          descriptor.family.localizedTitle,
+          tone: descriptor.tone,
+          systemIcon: descriptor.systemIcon
+        )
+
+        Spacer(minLength: DesignTokens.Spacing.md)
+
+        Image(systemName: descriptor.systemIcon)
+          .font(.system(size: 62, weight: .ultraLight))
+          .foregroundStyle(descriptor.tone.accent)
+          .accessibilityHidden(true)
+
+        Spacer(minLength: DesignTokens.Spacing.md)
+
+        Text(descriptor.displayName)
+          .font(Font.Mystic.titleLarge)
+          .foregroundStyle(Color.Mystic.textGoldAccent)
+          .fixedSize(horizontal: false, vertical: true)
+
+        Text(descriptor.subtitle)
+          .font(Font.Mystic.monoBadge)
+          .foregroundStyle(Color.Mystic.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+
+        Text(descriptor.shortGameplay)
+          .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+          .fixedSize(horizontal: false, vertical: true)
+
+        LazyVGrid(
+          columns: [GridItem(.adaptive(minimum: 98), spacing: DesignTokens.Spacing.xs)],
+          alignment: .leading,
+          spacing: DesignTokens.Spacing.xs
+        ) {
+          MysticBadge(descriptor.canonClass.localizedTitle, tone: .gold, systemIcon: "seal")
+          MysticBadge(
+            "World-bound", tone: .neutral, systemIcon: "point.3.connected.trianglepath.dotted")
+        }
+      }
+      .padding(DesignTokens.LayoutInsets.panelPadding)
+    }
+    .onHover { hovered = $0 }
+  }
+
+  private var detailPanel: some View {
+    ScrollView {
+      content
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignTokens.LayoutInsets.panelPadding)
+    }
+    .background(Color.Mystic.obsidianBase)
   }
 }
 
@@ -269,7 +316,11 @@ public struct ArtifactResolutionView: View {
             dispositionTitle(result.disposition), tone: dispositionTone(result.disposition),
             systemIcon: dispositionIcon(result.disposition))
           ArtifactTypewriterText(result.message)
-          ForEach(result.detailLines, id: \.self) { Text("• \($0)").mysticCaptionStyle() }
+          ForEach(result.detailLines, id: \.self) {
+            Text("• \($0)")
+              .mysticCaptionStyle()
+              .fixedSize(horizontal: false, vertical: true)
+          }
           if let followUp = result.followUpPrompt {
             MysticDivider(tone: severityTone(result.severity))
             ArtifactTypewriterText(followUp, font: Font.Mystic.narrativeSubtitle)
@@ -278,7 +329,8 @@ public struct ArtifactResolutionView: View {
       }
     case .error(let message):
       ArtifactSection("操作失败", tone: .crimson) {
-        Label(message, systemImage: "xmark.octagon.fill").foregroundStyle(Color.Mystic.statusDanger)
+        Label(message, systemImage: "xmark.octagon.fill")
+          .foregroundStyle(Color.Mystic.textPrimary)
       }
     }
   }

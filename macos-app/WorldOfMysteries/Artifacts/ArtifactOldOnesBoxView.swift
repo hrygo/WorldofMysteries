@@ -18,18 +18,7 @@ public struct BoxOfGreatOldOnesArtifactView: View {
   public var body: some View {
     ArtifactComponentShell(artifactID: .boxOfGreatOldOnes) {
       VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-        HStack {
-          VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            Text("三层空间容器").font(Font.Mystic.titleMedium).foregroundStyle(
-              Color.Mystic.textGoldAccent)
-            Text("三层不是难度等级，而是三种性质不同的空间机制。").mysticCaptionStyle()
-          }
-          Spacer()
-          ArtifactStatusPill(
-            "第 \(selectedLayer) 层",
-            systemImage: selectedLayer == 3 ? "lock.trianglebadge.exclamationmark" : "shippingbox",
-            tone: selectedLayer == 3 ? .crimson : .amber)
-        }
+        header
 
         ArtifactSection("旧日之盒", caption: "选择一层查看当前允许的操作", tone: .amber) {
           VStack(spacing: DesignTokens.Spacing.sm) {
@@ -38,17 +27,23 @@ public struct BoxOfGreatOldOnesArtifactView: View {
                 selectedLayer = layer
                 mode = layer == 1 ? "swap" : (layer == 2 ? "travel" : "observe")
               } label: {
-                HStack {
+                HStack(spacing: DesignTokens.Spacing.sm) {
                   VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                    Text("LAYER \(layer)").font(Font.Mystic.monoBadge).foregroundStyle(
-                      Color.Mystic.textTertiary)
-                    Text(layerTitle(layer)).font(Font.Mystic.titleSmall).foregroundStyle(
-                      Color.Mystic.textPrimary)
+                    Text("LAYER \(layer)")
+                      .font(Font.Mystic.monoBadge)
+                      .foregroundStyle(Color.Mystic.textTertiary)
+                    Text(layerTitle(layer))
+                      .font(Font.Mystic.titleSmall)
+                      .foregroundStyle(Color.Mystic.textPrimary)
+                      .fixedSize(horizontal: false, vertical: true)
                   }
-                  Spacer()
+                  .frame(maxWidth: .infinity, alignment: .leading)
+
                   Image(systemName: layer == 3 ? "lock.fill" : "chevron.right")
                     .foregroundStyle(
-                      layer == 3 ? Color.Mystic.statusDanger : Color.Mystic.statusWarning)
+                      layer == 3 ? Color.Mystic.statusDanger : Color.Mystic.statusWarning
+                    )
+                    .accessibilityHidden(true)
                 }
                 .padding(DesignTokens.Spacing.md)
                 .background(Color.Mystic.obsidianElevated)
@@ -56,6 +51,7 @@ public struct BoxOfGreatOldOnesArtifactView: View {
                 .mysticCardSelection(isSelected: selectedLayer == layer)
               }
               .buttonStyle(.plain)
+              .accessibilityLabel("第 \(layer) 层，\(layerTitle(layer))")
             }
           }
         }
@@ -66,6 +62,40 @@ public struct BoxOfGreatOldOnesArtifactView: View {
     }
   }
 
+  private var header: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+        headerText
+        Spacer(minLength: DesignTokens.Spacing.md)
+        layerPill
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        headerText
+        layerPill
+      }
+    }
+  }
+
+  private var headerText: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+      Text("三层空间容器")
+        .font(Font.Mystic.titleMedium)
+        .foregroundStyle(Color.Mystic.textGoldAccent)
+      Text("三层不是难度等级，而是三种性质不同的空间机制。")
+        .mysticCaptionStyle()
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private var layerPill: some View {
+    ArtifactStatusPill(
+      "第 \(selectedLayer) 层",
+      systemImage: selectedLayer == 3 ? "lock.trianglebadge.exclamationmark" : "shippingbox",
+      tone: selectedLayer == 3 ? .crimson : .amber
+    )
+  }
+
   @ViewBuilder
   private var layerInspector: some View {
     if selectedLayer == 1 {
@@ -73,7 +103,8 @@ public struct BoxOfGreatOldOnesArtifactView: View {
         Picker("模式", selection: $mode) {
           Text("交换").tag("swap")
           Text("微缩").tag("miniaturize")
-        }.pickerStyle(.segmented)
+        }
+        .pickerStyle(.segmented)
         actionButton(title: "开启第一层", icon: "shippingbox.and.arrow.backward", tone: .amber)
       }
     } else if selectedLayer == 2 {
@@ -81,33 +112,59 @@ public struct BoxOfGreatOldOnesArtifactView: View {
         Picker("模式", selection: $mode) {
           Text("定向旅行").tag("travel")
           Text("未知空间").tag("unknown")
-        }.pickerStyle(.segmented)
+        }
+        .pickerStyle(.segmented)
         actionButton(title: "开启第二层", icon: "arrow.up.right.square", tone: .azure)
       }
     } else {
       ArtifactSection("第三层 · 禁忌", caption: "不提供客户端强制开启后门", tone: .crimson) {
-        Label("High-Level Story / Lore Gate", systemImage: "lock.shield.fill")
-          .foregroundStyle(Color.Mystic.statusDanger)
+        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+          Image(systemName: "lock.shield.fill")
+            .foregroundStyle(Color.Mystic.statusDanger)
+            .accessibilityHidden(true)
+          Text("High-Level Story / Lore Gate")
+            .font(Font.Mystic.bodyMedium)
+            .foregroundStyle(Color.Mystic.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+
         Text("可以请求观察，但默认结果是拒绝；真正开放必须来自世界条件。")
           .mysticCaptionStyle()
+          .fixedSize(horizontal: false, vertical: true)
+
         actionButton(
-          title: "尝试观察第三层", icon: "eye.trianglebadge.exclamationmark", tone: .crimson, hold: 1.4)
+          title: "尝试观察第三层",
+          icon: "eye.trianglebadge.exclamationmark",
+          tone: .crimson,
+          hold: 1.4
+        )
       }
     }
   }
 
-  private func actionButton(title: String, icon: String, tone: MysticTone, hold: Double = 0.8)
-    -> some View
-  {
+  private func actionButton(
+    title: String,
+    icon: String,
+    tone: MysticTone,
+    hold: Double = 0.8
+  ) -> some View {
     HStack {
       Spacer()
       ArtifactHoldToCommitButton(
-        title, systemImage: icon, tone: tone, holdDuration: hold, disabled: model.isBusy
+        title,
+        systemImage: icon,
+        tone: tone,
+        holdDuration: hold,
+        disabled: model.isBusy
       ) {
         model.performDetached(
           .init(
-            artifactID: .boxOfGreatOldOnes, action: .openLayer, context: context,
-            stringParameters: ["layer": String(selectedLayer), "mode": mode]))
+            artifactID: .boxOfGreatOldOnes,
+            action: .openLayer,
+            context: context,
+            stringParameters: ["layer": String(selectedLayer), "mode": mode]
+          )
+        )
       }
     }
   }
