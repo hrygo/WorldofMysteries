@@ -1,0 +1,74 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-RITUAL-COMPONENTS",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-RITUAL-COMPONENTS",
+  "title": "迁移现有 Ritual 组件到 WOM Visual System",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T11:34:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "feat/wom-visual-system-wave-b",
+    "base_sha": "3be6020d71af72b145a2ca92ed30a394fab6f989",
+    "target_sha": "3be6020d71af72b145a2ca92ed30a394fab6f989",
+    "context_snapshot": "sha256:0825de930612e6122b21f87d0ca0a99baa7657397ccc74f399089f09c3f05834"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/BronzeAltarPrayerCard.swift",
+      "macos-app/WorldOfMysteries/Components/CitrinePendulumScryingCard.swift",
+      "docs/05_UI/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Components/BronzeAltarPrayerCard.swift",
+      "macos-app/WorldOfMysteries/Components/CitrinePendulumScryingCard.swift",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIcon.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMButtonStyles.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "docs/05_UI/visual-assets/README.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "existing_ritual_components_visual_migration",
+    "token_estimate": 5200,
+    "max_core_tokens": 7200,
+    "expansion_policy": "arbiter_approved",
+    "note": "仓库当前没有独立 Ritual 一级路由；本任务迁移现存祭坛祈祷与黄水晶灵摆占卜组件，不新造产品导航。"
+  },
+  "impact": {
+    "symbols": [
+      "BronzeAltarPrayerCard",
+      "CitrinePendulumScryingCard"
+    ],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-SYSTEM-WAVE-B"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [5, 9, 12],
+    "assertions": ["INV-5", "INV-9", "INV-12"],
+    "instructions": "不得改变占卜原型结果规则、领域事实边界或回调语义；只迁移视觉 primitive 与 accessibility/reduced-motion 行为；不得新增独立 Ritual 产品路由。"
+  }
+}

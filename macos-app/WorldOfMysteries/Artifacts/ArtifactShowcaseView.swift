@@ -4,6 +4,8 @@ import SwiftUI
 /// 使用 `Preview*Resolver` 仅用于画廊演示；生产态应注入 Local Engine IPC Adapter。
 @MainActor
 public struct ArtifactShowcaseView: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   @State private var selection: ArtifactID = .probabilityDie
   @State private var searchText = ""
 
@@ -33,45 +35,67 @@ public struct ArtifactShowcaseView: View {
   public var body: some View {
     VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
       HStack(spacing: DesignTokens.Spacing.md) {
+        WOMIcon(.artifact, size: .prominent)
+          .foregroundStyle(Color.Mystic.brassGoldPrimary)
+
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
           Text("Canon Artifact Component Library")
             .font(Font.Mystic.titleMedium)
             .foregroundStyle(Color.Mystic.textGoldAccent)
-          Text("15 件原著高辨识度特殊物品 · 共用现有 DesignTokens / MysticTone / MysticPrimitives")
+          Text("15 件原著高辨识度特殊物品 · 共用 DesignTokens 与 WOM Visual System")
             .mysticCaptionStyle()
         }
 
         Spacer()
 
-        TextField("搜索特殊物品", text: $searchText)
-          .textFieldStyle(.roundedBorder)
-          .frame(width: 190)
+        HStack(spacing: DesignTokens.Spacing.xs) {
+          WOMIcon(system: .search, size: .compact)
+            .foregroundStyle(Color.Mystic.textTertiary)
+          TextField("搜索特殊物品", text: $searchText)
+            .textFieldStyle(.plain)
+            .frame(width: 170)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.sm)
+        .padding(.vertical, 6)
+        .background(
+          WOMPanelBackground(
+            tone: .card,
+            cornerRadius: DesignTokens.Radii.sm,
+            texture: .sacredSlate,
+            textureOpacity: 0.018
+          )
+        )
       }
 
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: DesignTokens.Spacing.sm) {
           ForEach(filteredDescriptors) { descriptor in
+            let isSelected = selection == descriptor.id
+
             Button {
-              withAnimation(DesignTokens.Interaction.selectionSpring) {
+              withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
                 selection = descriptor.id
                 genericModel.resetPresentation(keepHistory: false)
               }
             } label: {
               HStack(spacing: DesignTokens.Spacing.xs) {
                 Image(systemName: descriptor.systemIcon)
+                  .accessibilityHidden(true)
                 Text(descriptor.displayName)
               }
               .font(Font.Mystic.caption)
-              .foregroundStyle(
-                selection == descriptor.id ? descriptor.tone.accent : Color.Mystic.textSecondary
-              )
+              .foregroundStyle(isSelected ? descriptor.tone.accent : Color.Mystic.textSecondary)
               .padding(.horizontal, DesignTokens.Spacing.md)
               .padding(.vertical, DesignTokens.Spacing.sm)
-              .background(Color.Mystic.obsidianElevated)
-              .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
-              .mysticCardSelection(isSelected: selection == descriptor.id)
+              .womCardChrome(
+                tone: .card,
+                texture: .sacredSlate,
+                isSelected: isSelected,
+                cornerRadius: DesignTokens.Radii.sm
+              )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(descriptor.displayName)
           }
         }
         .padding(.vertical, DesignTokens.Spacing.xs)
@@ -80,12 +104,13 @@ public struct ArtifactShowcaseView: View {
       selectedComponent
     }
     .padding(DesignTokens.LayoutInsets.panelPadding)
-    .background(Color.Mystic.abyssVoid.opacity(0.45))
-    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.lg))
-    .overlay(
-      RoundedRectangle(cornerRadius: DesignTokens.Radii.lg)
-        .stroke(
-          Color.Mystic.brassGoldBorder.opacity(0.55), lineWidth: DesignTokens.Borders.standard)
+    .background(
+      WOMPanelBackground(
+        tone: .panel,
+        cornerRadius: DesignTokens.Radii.lg,
+        texture: .sacredSlate,
+        textureOpacity: 0.025
+      )
     )
   }
 

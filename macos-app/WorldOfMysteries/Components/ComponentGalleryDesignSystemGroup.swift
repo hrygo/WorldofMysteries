@@ -5,5 +5,6 @@ struct ComponentGalleryDesignSystemGroup: View {
     var body: some View {
         InteractionAndTypographyGallerySection()
         PrimitivesGallerySection()
+        VisualSystemGallerySection()
     }
 }
