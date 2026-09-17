@@ -1,0 +1,102 @@
+{
+  "receipt_id": "RCP-WORK-HACF-2.4-REPORTER-FIX-40e466077ea3",
+  "receipt_type": "work",
+  "task_id": "HACF-2.4-REPORTER-FIX",
+  "capsule_id": "CAP-HACF-2.4-REPORTER-FIX",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3e0dde33e20c95f34f74c70603f79792d24ef1dc6869bbb477e0e928bf5b622a",
+  "diff_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "high",
+  "base_commit": "40e466077ea33adb3a1d887c67e1f7b157613352",
+  "head_commit": "40e466077ea33adb3a1d887c67e1f7b157613352",
+  "target_ref": "feat/reporter-detection-fix",
+  "target_sha": "40e466077ea33adb3a1d887c67e1f7b157613352",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-reporter-detection-fix",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-17T05:17:47.086541+00:00",
+      "finished_at": "2026-09-17T05:17:47.112149+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-reporter-detection-fix/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-17T05:17:47.112247+00:00",
+      "finished_at": "2026-09-17T05:17:48.809010+00:00",
+      "raw_log_digest": "sha256:13082f3e50565917dac88e825e46926fda9adaf548099b7334f6ab1ccb9c40f7",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-reporter-detection-fix/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-reporter-detection-fix/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-17T05:17:48.809105+00:00",
+      "finished_at": "2026-09-17T05:17:49.873118+00:00",
+      "raw_log_digest": "sha256:fcaabac43c5405160a54d4c625f394f8589d6b45e0f9cc44f4d8b559905b664f",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.15 (Homebrew 2026-09-15 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-reporter-detection-fix"
+  },
+  "started_at": "2026-09-17T05:17:47.060626+00:00",
+  "finished_at": "2026-09-17T05:17:49.956694+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
