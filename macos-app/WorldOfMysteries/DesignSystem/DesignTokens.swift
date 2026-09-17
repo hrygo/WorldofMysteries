@@ -6,7 +6,11 @@ import SwiftUI
 /// 对齐 `docs/05_UI/design_tokens.json`（v1.1.0）。
 /// v1.2 增补族（`LayoutInsets` / `Interaction` / `ComponentMetrics.CitrineArtwork`）与排版度量扩项
 /// 尚未回写该 JSON：`docs/` 属 AGT-ARB 管辖，需扩权或架构评审后同步，避免出现第二份事实源。
-public enum DesignTokens: Sendable {
+///
+/// `nonisolated`：本模块启用默认 MainActor 隔离（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`），
+/// 单纯 `Sendable` 合规不会豁免隔离。令牌是无 actor 亲和状态的编译期常量，
+/// 必须可从非隔离上下文（如 `nonisolated` 纯函数、Swift Testing 用例）读取。
+public nonisolated enum DesignTokens: Sendable {
     
     // MARK: - Spacing Grid (4pt / 8pt 阶梯)
     public enum Spacing: Sendable {
