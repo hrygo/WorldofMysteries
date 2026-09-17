@@ -20,7 +20,7 @@
 3. **原子 commit 才是最小单元**：每个 commit 必须语义单一、可审查、可回滚、可独立定位。
 4. **总 / 分资料同步落盘**：涉及方案时，必须同时维护本 Living Plan 与对应 Batch 文档；实现只完成方案的一部分，也必须把总体方案一起提交。
 5. **资产尽快落盘**：SVG、纹理、注册表、组件实现一旦形成稳定增量即提交，避免只保留在执行环境。
-6. **最终集成验证优先**：低风险同类 UI/资产批次可先合并到集成分支，最后对整体集成结果跑一次权威门禁；高风险架构/契约改动仍可独立加严。
+6. **最终集成验证优先**：低风险同类 UI/资产增量持续推送到同一持久化 PR；在准备合并时对最终 head 跑完整权威门禁。
 
 ## 3. 资产技术边界
 
@@ -42,39 +42,56 @@ wom.texture.*
 
 颜色、hover、pressed、selected、focused、disabled、loading 等状态由 SwiftUI 样式与 Design Token 控制，不通过重复导出大量状态位图实现。
 
-## 4. 当前已落盘链路
+## 4. 已落盘基线
 
-| 阶段 | 内容 | 持久化状态 |
+| 阶段 | 内容 | 状态 |
 |---|---|---|
-| Foundation / PR #22 | Visual Asset System 基线；World / Ritual / Codex / Artifact；`WOMIconAsset` 基础 | 已合入 main |
+| Foundation / PR #22 | World / Ritual / Codex / Artifact；`WOMIconAsset` 基础；总体设计基线 | 已合入 main |
 | Navigation / PR #21 | Character / Fate / Worldline / Notes；`WOMNavigationIconAsset` | 已合入 main |
-| Batch 02 / PR #23 | Clue / Inventory / Settings；扩展 `WOMIconAsset`；Living Plan | 已进入集成分支 |
-| Batch 03 / PR #24 | Add / Remove / Edit / Search 的 SF Symbols 类型化语义 | 本次进入集成分支 |
+| Batch 02 / PR #23 + #25 | Clue / Inventory / Settings；扩展 `WOMIconAsset`；Living Plan | 已合入 main |
+| Batch 03 / PR #24 + #25 | Add / Remove / Edit / Search 的 SF Symbols 类型化语义 | 已合入 main |
 
-## 5. 后续路线
+## 5. 当前持久化工作流：Wave B
 
-后续不再强制“一批 = 一个 PR”；可以在同一持久化 PR 内用多个原子 commit 连续推进。
+长期 PR：`feat/wom-visual-system-wave-b`。
 
-优先顺序：
+目标是在同一个远端 PR 内，用多个原子 commit 连续完成：
 
-1. 补齐系统行为语义：Close / Back / Favorite / More。
-2. 状态与世界交互语义：Warning / Success / Locked / Active / Cooldown / Divination / Spirituality / Fate / Gray Fog / Seal / Card。
-3. 纹理注册与质量盘点：Parchment / Gold / Veil / Slate / Velvet。
-4. `WOMIcon`：统一 custom asset 与 SF Symbols source。
-5. `WOMButtonStyle` / Icon Button / Toolbar Button。
-6. `WOMPanelBackground` / `WOMCardChrome` / `WOMTextureLayer` / Section Chrome。
-7. 真实页面逐步迁移：Sidebar、Ritual、Codex、Artifact、Component Gallery。
-8. 最终补齐 accessibility、keyboard navigation、reduced motion/transparency/high contrast。
+1. **Batch 04**：补齐 Close / Back / Favorite / More 系统行为语义。
+2. **Batch 05**：状态与世界交互语义资产：Warning / Success / Locked / Active / Cooldown / Divination / Spirituality / Gray Fog / Seal / Card。
+3. **Batch 06**：盘点已有 Parchment / Gold / Veil / Slate / Velvet，并建立 `WOMTextureAsset` 类型化注册。
+4. **Batch 07**：实现 `WOMIcon`，统一 custom asset 与 SF Symbols source、尺寸、rendering 与 accessibility。
+5. **Batch 08**：建立 `WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle` 的完整状态模型。
+6. **Batch 09**：建立 `WOMPanelBackground`、`WOMCardChrome`、`WOMTextureLayer`、Section Chrome。
+7. **Batch 10**：将 Component Gallery 作为设计系统展示与回归入口。
+8. **Batch 11+**：逐步迁移 Sidebar、Ritual、Codex、Artifact，并补齐 accessibility / keyboard / reduced motion / reduced transparency / high contrast。
 
-## 6. 恢复入口
+## 6. 原子 commit 规则
 
-新执行环境恢复时，按以下顺序读取：
+同一 PR 内按语义拆 commit，例如：
+
+```text
+docs(macos): persist visual system wave B plan
+feat(macos): complete system action icon semantics
+feat(macos): add occult state and interaction icon assets
+feat(macos): register texture assets
+feat(macos): add unified WOMIcon component
+feat(macos): add button style primitives
+feat(macos): add panel and card surface primitives
+```
+
+不得为了减少 commit 数把不相关资产、组件和页面迁移揉成一个提交。
+
+## 7. 恢复入口
+
+新执行环境恢复时依次读取：
 
 1. `docs/05_UI/Visual_Asset_System_v1.0.md`
 2. 本文件
-3. 最新 Batch 文档
-4. `WOMIconAsset.swift` / `WOMNavigationIconAsset.swift` / `WOMSystemIcon.swift`
-5. `Assets.xcassets/wom.*`
-6. 当前远端 PR 与最近原子 commit
+3. 最新 `Batch_xx_*.md`
+4. 当前 Task Capsule
+5. `WOMIconAsset.swift` / `WOMNavigationIconAsset.swift` / `WOMSystemIcon.swift`
+6. `Assets.xcassets/wom.*`
+7. 当前长期 PR 与其原子 commit 历史
 
-目标是保证任何环境丢失后，仅依赖仓库即可恢复当前视觉系统状态和下一步工作。
+目标：任何执行环境丢失后，仅依赖仓库和开放 PR 即可继续推进。
