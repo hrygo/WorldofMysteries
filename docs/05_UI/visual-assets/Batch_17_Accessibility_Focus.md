@@ -2,7 +2,7 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：IMPLEMENTED / FINAL CI RETRY 3
+> 状态：IMPLEMENTED / FINAL CI RETRY 4
 
 ## 1. 目标
 
@@ -46,33 +46,43 @@ Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、
 
 ## 6. 最终 CI 发现与修复记录
 
-### Retry 1
+### Retry 1 — Test module import
 
-Architecture/Contracts 与 Python 全绿；Swift 6 Test Suite 失败。确认新测试错误导入 `WorldOfMysteries`，而 Swift Package 实际模块为 `WorldOfMysteriesCore`。已修复：
+Architecture/Contracts 与 Python 全绿；Swift 6 Test Suite 失败。新测试错误导入 `WorldOfMysteries`，而 Swift Package 实际模块为 `WorldOfMysteriesCore`。已修复为 `@testable import WorldOfMysteriesCore`。
 
-```swift
-@testable import WorldOfMysteriesCore
+### Retry 2 — Surface getter return
+
+Swift 6 编译继续推进后，`WOMSurfaceStyles.swift` 报 `missing return in getter expected to return CGFloat`。已将 `shadowRadius` 修复为显式 `return switch tone`。
+
+### Retry 3 — Gallery frame overload
+
+前两项修复后，Swift 6 编译推进到 Gallery accessibility specimen，随后报告：
+
+```text
+extra argument 'minHeight' in call
 ```
 
-### Retry 2
-
-Architecture/Contracts 与 Python 继续全绿；Swift 6 编译已越过模块导入，随后在 `WOMSurfaceStyles.swift` 报告确定性语法错误：`shadowRadius` getter 在 `guard` 之后使用无 `return` 的 `switch`，导致 `missing return in getter expected to return CGFloat`。
-
-修复为显式 switch expression：
+根因是使用了不存在的 SwiftUI `frame(width:minHeight:alignment:)` 组合：
 
 ```swift
-private var shadowRadius: CGFloat {
-    guard appearsActive, !isIncreasedContrast else { return 0 }
-    return switch tone {
-    case .floating: 14
-    case .ritual: 7
-    case .panel, .card, .parchment: 0
-    }
-}
+.frame(width: 260, minHeight: 86, alignment: .leading)
 ```
 
-该修复只纠正 Swift 6 返回语义，不改变视觉设计或产品逻辑。
+已修复为合法 min/max frame：
+
+```swift
+.frame(
+    minWidth: 260,
+    maxWidth: 260,
+    minHeight: 86,
+    alignment: .leading
+)
+```
+
+该修复只纠正 Gallery specimen 的 SwiftUI API 调用，不改变视觉尺寸、辅助功能设计或产品行为。
 
 ## 7. 技术原则
 
 SwiftUI environment 是系统状态事实源；不维护平行的 focus/contrast/accessibility 状态机。自定义 `ButtonStyle` 只改视觉，不重写 Button 的平台触发与键盘行为。
+
+下一步只重新验证 PR #27 最终 head；若出现新的独立编译/测试问题，继续使用原子 fix commit 处理。
