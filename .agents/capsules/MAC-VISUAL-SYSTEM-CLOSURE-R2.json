@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-CLOSURE",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-CLOSURE-R2",
+  "capsule_revision": 2,
   "task_id": "MAC-VISUAL-SYSTEM-CLOSURE",
   "title": "Close the macOS visual system delivery and persist final merge policy",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-18T00:00:00Z",
-  "risk_class": "low",
+  "created_at": "2026-09-18T00:05:00Z",
+  "risk_class": "medium",
   "base": {
     "target_ref": "main",
     "base_sha": "5661a15a3d4e25fe3287dae9e5b483f6f4a6abd9",
     "target_sha": "5661a15a3d4e25fe3287dae9e5b483f6f4a6abd9",
-    "context_snapshot": "sha256:3d073762ee76337fd9cb26595191cbd4f90f64e346fb5acbb93b4617d2699f78"
+    "context_snapshot": "sha256:45109432663505406032708286445ac132928534107213287129dcf63b6c0e7d"
   },
   "scope": {
     "read": [
@@ -41,11 +41,11 @@
       "docs/05_UI/visual-assets/Batch_26_Visual_System_Closure.md"
     ],
     "related_contracts": [],
-    "slice_strategy": "docs_only_visual_system_terminal_closure",
+    "slice_strategy": "docs_only_visual_system_terminal_closure_main_reconciled",
     "token_estimate": 4000,
     "max_core_tokens": 7000,
     "expansion_policy": "arbiter_approved",
-    "note": "Docs-only terminal closure after PRs #31-#34 merged. Persist final delivery state and the current project authorization that a final head may be merged automatically only after all required gates pass and expected-head verification is used. No product code changes are allowed."
+    "note": "R2 normalizes the closure capsule to the authoritative MACOS_APP_P0 registry risk class after the initial metadata-only closure audit rejected R1. This remains a docs-only terminal closure; no product code or gate definition is modified."
   },
   "impact": {
     "symbols": [],
@@ -60,9 +60,9 @@
   },
   "gates": {
     "profile": "MACOS_APP_P0",
-    "profile_digest": "sha256:7de7135b5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
     "profile_file": ".hacf/gates/macos_app_p0.json",
-    "risk_class": "low"
+    "risk_class": "medium"
   },
   "acceptance": {
     "invariants": [12],

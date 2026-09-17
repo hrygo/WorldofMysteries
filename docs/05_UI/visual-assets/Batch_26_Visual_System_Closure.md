@@ -63,13 +63,17 @@ PR #30 为主线漂移时主动关闭的过渡 PR，其有效工作已在 #31 �
 
 ## 6. 本批文件范围
 
-- `.agents/capsules/MAC-VISUAL-SYSTEM-CLOSURE.json`
+- `.agents/capsules/MAC-VISUAL-SYSTEM-CLOSURE-R2.json`
 - `docs/05_UI/visual-assets/README.md`
 - `docs/05_UI/visual-assets/Batch_26_Visual_System_Closure.md`
 
 无生产 Swift、Engine、DB、IPC、schema、`.github`、`.hacf` 改动。
 
-## 7. Completion definition
+## 7. Capsule R2 说明
+
+Closure R1 首次 Capsule Audit 在 docs-only PR 上被 gate 以 profile metadata 判定拒绝；R2 不修改门禁定义，而是将 capsule/gates 的 `risk_class` 统一到目标分支 `MACOS_APP_P0` registry 的 `medium`，并保留相同权威 `profile_digest`。R1 从最终树移除，历史保留审计痕迹。
+
+## 8. Completion definition
 
 本 PR 最终 `MACOS_APP_P0` 全绿并合并后：
 
