@@ -173,7 +173,10 @@ private struct WOMButtonChrome<Label: View>: View {
         case .tertiary:
             return Color.Mystic.obsidianElevated.opacity((isHovered ? 0.72 : 0) * activityOpacity)
         case .danger:
-            return Color.Mystic.crimsonStar.opacity((isHovered ? 0.95 : 0.78) * activityOpacity)
+            // `crimsonThread` keeps white labels above the 4.5:1 text-contrast floor even after
+            // hover/pressed/inactive-window compositing. The previous semi-transparent
+            // `crimsonStar` fill dipped below the Visual QA contract.
+            return Color.Mystic.crimsonThread.opacity((isHovered ? 1.0 : 0.88) * activityOpacity)
         case .ritual:
             return Color.Mystic.deepVoid.opacity((isHovered ? 0.96 : 0.82) * activityOpacity)
         }
