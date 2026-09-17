@@ -1,17 +1,17 @@
 # Batch 25 — Wave H：Visual QA Source Guards
 
-> 状态：IN PROGRESS  
+> 状态：IMPLEMENTATION COMPLETE / UPSTREAM RECONCILE + FINAL CI PENDING  
 > 上游：Wave G / PR #33  
 > Visual QA：`Visual_QA_Contract_v1.0.md`  
 > Source Guard：`Visual_QA_Source_Guards_v1.0.md`
 
 ## 1. 目标
 
-Wave A–G 已通过追溯整改和响应式布局治理，但当前多数回归测试仍是“点名组件”的契约。Wave H 把用户明确要求的可读性/不重叠/macOS 原生性进一步升级为**生产视觉源码自动 Guard**，使未来新增组件默认受约束。
+Wave A–G 已通过追溯整改和响应式布局治理，但此前多数回归测试仍是“点名组件”的契约。Wave H 把用户明确要求的可读性/不重叠/对比度/macOS 原生性升级为**生产视觉源码自动 Guard**，使未来新增组件默认受约束。
 
 ## 2. Guard 范围
 
-扫描：
+扫描生产表达层：
 
 - DesignSystem
 - Components
@@ -19,36 +19,52 @@ Wave A–G 已通过追溯整改和响应式布局治理，但当前多数回归
 - ContentView
 - MyApp
 
-Guard 只覆盖表达层，不修改 Engine / DB / IPC / schema。
+Guard 不修改 Engine / DB / IPC / schema。
 
-## 3. Guard 规则
+## 3. 已实现
 
-### H25.1 — Small Type Guard
+### H25.1 — Small Type Guard — DONE
 
-生产视觉 `.font(.system(size: ...))` 中，小于 10pt 直接失败。
+- 递归扫描直接 `.font(.system(size: ...))`；
+- `< 10pt` 失败；
+- 10pt 仍允许短数字/快捷键/极短标签。
 
-### H25.2 — No Shrink-to-Fit Guard
+### H25.2 — No Shrink-to-Fit Guard — DONE
 
-禁止 `.minimumScaleFactor(...)`。
+- 生产视觉源码禁止 `.minimumScaleFactor(...)`；
+- 空间不足必须通过换行 / adaptive Grid / `ViewThatFits` / 纵向 fallback 解决。
 
-### H25.3 — Negative Padding Layout Guard
+### H25.3 — Negative Padding Layout Guard — DONE
 
-在 Components / Artifacts / ContentView 禁止负 padding；DesignSystem 不 blanket-ban，因为 focus ring 外扩属于合法基础样式实现。
+- Components / Artifacts / ContentView 禁止负 padding；
+- DesignSystem 不 blanket-ban，因为 focus ring 外扩属于合法基础样式实现。
 
-### H25.4 — Native Window Guard
+### H25.4 — Native Window Guard — DONE
 
-禁止普通视觉代码直接引入 `NSPanel / NSWindow / NSViewRepresentable`。
+- 普通视觉源码禁止 `NSPanel / NSWindow / NSViewRepresentable`；
+- Window / Inspector / Sheet / Popover 继续走 SwiftUI/macOS 原生机制。
 
-### H25.5 — Guard Contract Self-Test
+### H25.5 — Generic Scanner Infrastructure — DONE
 
-测试辅助方法必须能：
+- 递归读取 production `.swift`；
+- Tests 不进入生产扫描；
+- 违规在 CI 输出 `relative/path.swift:line: detail :: snippet`；
+- 不全局禁止 offset / lineLimit / opacity 等存在合法场景的 API。
 
-- 递归扫描目录；
-- 只读取 `.swift` 生产文件；
-- 排除 Tests；
-- 返回路径 + 行号 + 违规片段，便于定位。
+### H25.6 — Approved Contrast Matrix — DONE
 
-## 4. 不做的过度限制
+新增 `VisualContrastContractTests.swift`：
+
+- 直接解析 `DesignTokens.swift` RGB Token；
+- 使用 WCAG relative luminance / contrast ratio 公式；
+- AAA/长文本优先组合锁定 >= 7:1；
+- 常规可读文字组合锁定 >= 4.5:1；
+- Danger Button 锁定 `textPrimary / crimsonThread`；
+- Parchment primary/secondary/tertiary ink 层级分别验证。
+
+动态 Pathway/accent/status 色若要新增正文职责，必须先进入 Approved Contrast Matrix。
+
+## 4. 明确不做的过度限制
 
 不全局禁止：
 
@@ -58,20 +74,35 @@ Guard 只覆盖表达层，不修改 Engine / DB / IPC / schema。
 - 10pt 短标签
 - 图标固定尺寸
 
-原因：这些存在合法视觉场景，不能用粗暴字符串规则代替语义审查。
+这些存在合法视觉场景，不能用粗暴字符串规则代替语义审查。
 
-## 5. 验收
+## 5. 当前交付
 
-- 新 Guard 在 Wave G stacked head 上应无违规；
-- Guard 自身不得扫描测试文件造成自我命中；
-- Guard 失败必须输出可定位的相对路径与行号；
-- 不新增生产行为；
-- 最终合并前仍需完整 `MACOS_APP_P0`。
+- `.agents/capsules/MAC-VISUAL-QA-SOURCE-GUARDS.json`
+- `docs/05_UI/visual-assets/Visual_QA_Source_Guards_v1.0.md`
+- `docs/05_UI/visual-assets/Batch_25_Wave_H_Visual_QA_Source_Guards.md`
+- `macos-app/WorldOfMysteriesTests/VisualQASourceGuardTests.swift`
+- `macos-app/WorldOfMysteriesTests/VisualContrastContractTests.swift`
+- Living Plan 更新。
 
-## 6. 交付策略
+## 6. 原子 commit
 
-1. 总体规则 / Batch / Capsule 先落远端；
-2. 立即开 stacked Draft PR；
-3. `VisualQASourceGuardTests.swift` 独立原子提交；
-4. 若 Guard 首次发现历史残留，按问题类别继续原子修复；
-5. 上游 #31 → #32 → #33 合并后，Wave H retarget `main`、重签 Capsule、最终 CI。
+```text
+docs(macos): persist visual QA source guard plan wave H
+test(macos): add generic visual QA source guards
+test(macos): enforce approved visual contrast token pairs
+docs(macos): add approved contrast matrix to visual QA guards
+```
+
+## 7. 验收状态
+
+当前是 stacked PR，尚未把“代码已写”表述成“最终 CI 已通过”。
+
+待上游 #31 → #32 → #33 依次合并后：
+
+1. retarget Wave H 到 `main`；
+2. reconcile/reissue Capsule base；
+3. 回读纯 Wave H diff；
+4. Mark Ready；
+5. 对最终 head 执行一次完整 `MACOS_APP_P0`；
+6. 若 Source Guard 首次执行发现历史残留，则按问题类别追加原子修复，不放宽规则掩盖问题。
