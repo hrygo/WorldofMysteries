@@ -1,0 +1,88 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-F-R2",
+  "capsule_revision": 2,
+  "task_id": "MAC-VISUAL-SYSTEM-WAVE-F",
+  "title": "Advanced interaction and world-state visual primitives Wave F",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T15:56:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "target_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "context_snapshot": "sha256:5b26719ba09361113218108305f48796d32a2d539028291cf0f3236232f4a102"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_23_Wave_F_Advanced_Interaction_Chrome.md",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMButtonStyles.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/Components/MysticPrimitives.swift",
+      "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "main_reconciled_advanced_interaction_world_state_chrome",
+    "token_estimate": 9000,
+    "max_core_tokens": 12000,
+    "expansion_policy": "arbiter_approved",
+    "note": "R2 reconciles Wave F after Visual QA Backfill PR #31 merged to main. The final PR diff is limited to Wave F presentation primitives, Gallery specimens, docs and tests."
+  },
+  "impact": {
+    "symbols": [
+      "WOMAdaptiveSegmentedPicker",
+      "WOMRelationBadge",
+      "WOMAchievementSeal",
+      "WOMCooldownIndicator",
+      "VisualSystemGallerySection"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualAdvancedInteractionContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-QA-BACKFILL"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Use native Picker semantics for segmented mode switching; relation/achievement/cooldown are presentation-only primitives. Inherit Visual_QA_Contract_v1.0: readable text >=4.5:1, metadata >=11pt, responsive long labels, no color-only state, no overlap at app minimum width, and no Engine/DB/IPC/schema changes."
+  }
+}
