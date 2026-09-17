@@ -43,16 +43,20 @@ struct PremiumArtworkContractTests {
         }
     }
 
-    @Test("World and Fate surfaces consume typed W1/W2 runtime artwork")
-    func worldAndFateSurfacesUseTypedArtwork() throws {
-        let source = try String(
-            contentsOf: appSourceURL.appendingPathComponent("ContentView.swift"),
-            encoding: .utf8
-        )
+    @Test("runtime surfaces consume all six typed scene artwork identities")
+    func runtimeSurfacesUseTypedSceneArtwork() throws {
+        let contentView = try source("ContentView.swift")
+        let ritual = try source("Components/BronzeAltarPrayerCard.swift")
+        let chronicle = try source("Components/NarrativeChronicleView.swift")
+        let worldline = try source("Components/WorldlineNodeView.swift")
+        let artifactShowcase = try source("Artifacts/ArtifactShowcaseView.swift")
 
-        #expect(source.contains("WOMWorldArtworkAsset.worldHero.runtimeAssetName"))
-        #expect(source.contains("WOMWorldArtworkAsset.grayFog.wideHeaderAssetName"))
-        #expect(source.contains("WOMArtworkScrim(edge: .leading"))
+        #expect(contentView.contains("WOMWorldArtworkAsset.worldHero.runtimeAssetName"))
+        #expect(contentView.contains("WOMWorldArtworkAsset.grayFog.wideHeaderAssetName"))
+        #expect(ritual.contains("WOMWorldArtworkAsset.ritualAltar.runtimeAssetName"))
+        #expect(chronicle.contains("WOMWorldArtworkAsset.codexArchive.runtimeAssetName"))
+        #expect(worldline.contains("WOMWorldArtworkAsset.fateWorldline.runtimeAssetName"))
+        #expect(artifactShowcase.contains("WOMWorldArtworkAsset.artifactVault.wideHeaderAssetName"))
     }
 
     @Test("catalog contains no unregistered runtime premium artwork")
@@ -79,6 +83,13 @@ struct PremiumArtworkContractTests {
                 )
             }
         }
+    }
+
+    private func source(_ relativePath: String) throws -> String {
+        try String(
+            contentsOf: appSourceURL.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
     }
 
     private var appSourceURL: URL {

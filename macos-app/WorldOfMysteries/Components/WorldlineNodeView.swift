@@ -58,26 +58,39 @@ public struct WorldlineNodeView: View {
         Button {
             onSelect?()
         } label: {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-                timelineIndicator
+            ZStack {
+                WOMArtworkView(
+                    assetName: WOMWorldArtworkAsset.fateWorldline.runtimeAssetName,
+                    fallback: .asset(.world),
+                    fallbackTint: status.accentColor,
+                    contentMode: .fill
+                )
+                .opacity(0.14)
+                .allowsHitTesting(false)
 
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                    metadataHeader
+                WOMArtworkScrim(edge: .leading, strength: 0.9)
 
-                    Text(title)
-                        .font(Font.Mystic.titleMedium)
-                        .foregroundStyle(Color.Mystic.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+                    timelineIndicator
 
-                    Text(causeSummary)
-                        .font(Font.Mystic.bodyMedium)
-                        .foregroundStyle(Color.Mystic.textSecondary)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        metadataHeader
+
+                        Text(title)
+                            .font(Font.Mystic.titleMedium)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text(causeSummary)
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                            .lineSpacing(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(DesignTokens.Spacing.md)
             }
-            .padding(DesignTokens.Spacing.md)
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
                     .fill(isHovered ? Color.Mystic.obsidianElevated : Color.Mystic.obsidianCard)

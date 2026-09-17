@@ -85,17 +85,38 @@ public struct ArtifactShowcaseView: View {
   }
 
   private var header: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(spacing: DesignTokens.Spacing.md) {
-        libraryIdentity
-        Spacer(minLength: DesignTokens.Spacing.md)
-        searchField
-      }
+    ZStack(alignment: .leading) {
+      WOMArtworkView(
+        assetName: WOMWorldArtworkAsset.artifactVault.wideHeaderAssetName,
+        fallback: .asset(.artifact),
+        fallbackTint: Color.Mystic.brassGoldMuted,
+        contentMode: .fill
+      )
+      .opacity(0.24)
+      .frame(maxWidth: .infinity)
+      .frame(minHeight: 168)
+      .allowsHitTesting(false)
 
-      VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-        libraryIdentity
-        searchField
+      WOMArtworkScrim(edge: .leading, strength: 0.92)
+
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: DesignTokens.Spacing.md) {
+          libraryIdentity
+          Spacer(minLength: DesignTokens.Spacing.md)
+          searchField
+        }
+
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+          libraryIdentity
+          searchField
+        }
       }
+      .padding(DesignTokens.LayoutInsets.compactCardPadding)
+    }
+    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+        .stroke(Color.Mystic.brassGoldBorder.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
     }
   }
 

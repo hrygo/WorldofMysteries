@@ -35,13 +35,26 @@ public struct BronzeAltarPrayerCard: View {
     }
 
     public var body: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            ritualHeader
-            honorifics
-            intentPanel
-            chantAction
+        ZStack {
+            WOMArtworkView(
+                assetName: WOMWorldArtworkAsset.ritualAltar.runtimeAssetName,
+                fallback: .asset(.ritual),
+                fallbackTint: Color.Mystic.spiritualBlue,
+                contentMode: .fill
+            )
+            .opacity(0.22)
+            .allowsHitTesting(false)
+
+            WOMArtworkScrim(edge: .leading, strength: 0.88)
+
+            VStack(spacing: DesignTokens.Spacing.md) {
+                ritualHeader
+                honorifics
+                intentPanel
+                chantAction
+            }
+            .padding(DesignTokens.Spacing.lg)
         }
-        .padding(DesignTokens.Spacing.lg)
         .background(
             WOMPanelBackground(
                 tone: .ritual,
