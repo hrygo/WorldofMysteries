@@ -7,7 +7,7 @@
 
 ## 1. 目标
 
-Wave A–G 已通过追溯整改和响应式布局治理，但此前多数回归测试仍是“点名组件”的契约。Wave H 把用户明确要求的可读性/不重叠/对比度/macOS 原生性升级为**生产视觉源码自动 Guard**，使未来新增组件默认受约束。
+Wave A–G 已通过追溯整改和响应式布局治理，但此前多数回归测试仍是“点名组件”的契约。Wave H 把用户明确要求的可读性/不重叠/对比度/macOS 原生性升级为**生产视觉源码自动 Guard + Token 数学契约**，使未来新增组件和 Token 改动默认受约束。
 
 ## 2. Guard 范围
 
@@ -53,7 +53,7 @@ Guard 不修改 Engine / DB / IPC / schema。
 
 ### H25.6 — Approved Contrast Matrix — DONE
 
-新增 `VisualContrastContractTests.swift`：
+`VisualContrastContractTests.swift`：
 
 - 直接解析 `DesignTokens.swift` RGB Token；
 - 使用 WCAG relative luminance / contrast ratio 公式；
@@ -63,6 +63,18 @@ Guard 不修改 Engine / DB / IPC / schema。
 - Parchment primary/secondary/tertiary ink 层级分别验证。
 
 动态 Pathway/accent/status 色若要新增正文职责，必须先进入 Approved Contrast Matrix。
+
+### H25.7 — Typography Token Floors — DONE
+
+`VisualTypographyContractTests.swift` 防止 Typography Token 自身被未来改小：
+
+- `bodyMedium >= 13pt`；
+- `bodyLarge >= 14pt`；
+- `caption / monoBadge >= 11pt`；
+- `titleSmall >= 15pt`；
+- title / display / narrative roles 保持现有可读性下限；
+- `parchmentCursive >= 14pt`；
+- narrative / parchment / body / title / compact line spacing 均有最低阈值。
 
 ## 4. 明确不做的过度限制
 
@@ -83,6 +95,7 @@ Guard 不修改 Engine / DB / IPC / schema。
 - `docs/05_UI/visual-assets/Batch_25_Wave_H_Visual_QA_Source_Guards.md`
 - `macos-app/WorldOfMysteriesTests/VisualQASourceGuardTests.swift`
 - `macos-app/WorldOfMysteriesTests/VisualContrastContractTests.swift`
+- `macos-app/WorldOfMysteriesTests/VisualTypographyContractTests.swift`
 - Living Plan 更新。
 
 ## 6. 原子 commit
@@ -92,11 +105,14 @@ docs(macos): persist visual QA source guard plan wave H
 test(macos): add generic visual QA source guards
 test(macos): enforce approved visual contrast token pairs
 docs(macos): add approved contrast matrix to visual QA guards
+docs(macos): close wave H source guard implementation scope
+docs(macos): advance living plan through wave H QA guards
+test(macos): lock visual typography readability floors
 ```
 
 ## 7. 验收状态
 
-当前是 stacked PR，尚未把“代码已写”表述成“最终 CI 已通过”。
+当前是 stacked PR，尚未把“实现已写入”表述成“最终 CI 已通过”。
 
 待上游 #31 → #32 → #33 依次合并后：
 
