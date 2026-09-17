@@ -48,14 +48,9 @@ Wave B 最终权威门禁全部通过：Capsule Audit、Architecture/Contracts�
 | C17.1 | Button chrome：Focus / Increased Contrast / Differentiate Without Color / inactive appearance | 已实现 |
 | C17.2 | Surface / Card chrome accessibility states | 已实现 |
 | C17.3 | Component Gallery accessibility specimen | 已实现 |
-| C17.4 | DesignSystem typed registry / size / compatibility tests | 进行中 |
+| C17.4 | typed registry / size / compatibility Swift Testing | 已实现 |
 
-### 后续候选
-
-- keyboard navigation / focused scene command 收口；
-- placeholder 页面正式数据接入条件；
-- 图标与 raw `Image(systemName:)` 使用审计；
-- high contrast / reduced transparency / reduced motion 视觉回归矩阵。
+Wave C 当前实现已完成，下一动作仅为最终 head 静态回读与一次完整 `MACOS_APP_P0`。
 
 ## 6. Wave C 原子 commit
 
@@ -67,6 +62,13 @@ feat(macos): add accessibility specimens to gallery
 test(macos): cover visual system semantic registries
 ```
 
-## 7. 恢复入口
+## 7. 后续候选
+
+- keyboard navigation / focused scene command 收口；
+- placeholder 页面正式数据接入条件；
+- 图标与 raw `Image(systemName:)` 使用审计；
+- high contrast / reduced transparency / reduced motion 视觉回归矩阵。
+
+## 8. 恢复入口
 
 稳定设计基线 → 本文件 → 最新 Batch 文档 → 当前 Wave Task Capsule → `DesignSystem/WOM*` → `Assets.xcassets/wom.*` → PR #27 原子 commit 历史。

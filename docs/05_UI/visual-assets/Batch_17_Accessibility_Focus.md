@@ -2,7 +2,7 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：BUTTON + SURFACE + GALLERY IMPLEMENTED / TESTS IN PROGRESS
+> 状态：IMPLEMENTED / FINAL CI PENDING
 
 ## 1. 目标
 
@@ -30,20 +30,31 @@ Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、
 
 ## 4. Component Gallery Accessibility Specimen
 
-`VisualSystemGallerySection` 新增专门的辅助功能展示区：
+新增专门的辅助功能展示区：
 
-- 可用 Tab / Shift-Tab 实测 Focus ring；
-- 提供“聚焦主按钮”动作，可直接把键盘焦点移动到目标按钮；
+- Tab / Shift-Tab 可实测 Focus ring；
+- “聚焦主按钮”可程序化移动焦点；
 - 同屏展示 Disabled / Danger / Ritual；
-- Selected / Unselected 卡片并排，用于验证 Differentiate Without Color 的双层描边；
-- 文案明确提示可在 macOS 系统辅助功能中切换增强对比度、不使用颜色区分、减少动态效果和降低透明度观察实时结果。
+- Selected / Unselected 卡片并排验证非颜色选中态；
+- 提示用户切换 macOS 增强对比度、不使用颜色进行区分、减少动态效果和降低透明度观察实时结果。
 
-## 5. 技术原则
+## 5. 语义回归测试
+
+新增 `VisualSystemSemanticTests.swift`，采用 Swift Testing，覆盖：
+
+- `WOMIconSize` = 16 / 20 / 24 / 32；
+- `WOMSystemIcon` 核心系统行为映射；
+- `WOMStatusIcon` 状态映射；
+- `WOMTextureAsset` Wave B compatibility aliases 与 `semanticKey`；
+- `WOMIconAsset` 世界观 registry 必需项；
+- 9 个 `NavigationItem.iconSource` 类型化来源。
+
+不采用像素截图 golden，避免 macOS 字体、渲染器、系统版本变化导致脆弱测试；视觉状态由 Component Gallery 做人工/自动截图入口，语义契约由 Swift Testing 守护。
+
+## 6. 技术原则
 
 SwiftUI environment 是系统状态事实源；不维护平行的 focus/contrast/accessibility 状态机。自定义 `ButtonStyle` 只改视觉，不重写 Button 的平台触发与键盘行为。
 
-## 6. 下一步
+## 7. 下一步
 
-1. `DesignSystemTests` 补 typed registry / icon size / texture compatibility / Navigation icon-source 回归；
-2. 静态回读 Wave C diff；
-3. 最终 head 统一执行 `MACOS_APP_P0`。
+Wave C 当前实现完成。下一步只对 PR #27 最终 head 统一执行 `MACOS_APP_P0`；若失败，仅用原子 fix commit 修复最终结果。
