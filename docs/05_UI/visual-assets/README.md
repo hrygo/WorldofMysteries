@@ -34,7 +34,7 @@
 |---|---|---|
 | 04 | Close / Back / Favorite / More | 已实现 |
 | 05 | 状态语义 + Divination / Spirituality / Gray Fog / Seal / Card | 已实现 |
-| 06 | `WOMTextureAsset` | 已实现 |
+| 06 | `WOMTextureAsset` | 已实现；兼容性已复核 |
 | 07 | `WOMIcon` | 已实现 |
 | 08 | Button Style primitives | 已实现 |
 | 09 | Panel / Card / Texture / Section Chrome | 已实现 |
@@ -44,7 +44,7 @@
 | 13 | Codex / Archive：人物档案 + 廷根卷宗 + 叙事编年史 | 已实现 |
 | 14 | Artifact / Fate：生产快捷入口 + 15 件 Showcase | 已实现 |
 | 15 | ContentView 公共 Shell | 已实现 |
-| 16 | accessibility / keyboard / high-contrast 最终审计 | 下一阶段 |
+| 16 | 最终静态审计 + Texture Registry 兼容修复 | 已完成 |
 
 ## 5. 生产入口事实
 
@@ -54,7 +54,13 @@
 - **Artifact**：继续作为 Fate 中的命运干预工具；Preview/Live/Unavailable 三态和 IPC 边界保持不变。
 - **ContentView Shell**：视觉壳已迁移；placeholder 明确标识功能仍待正式接入。
 
-## 6. 原子 commit 历史语义
+## 6. 审计结论
+
+最终静态审计发现并修复一项兼容问题：`WOMTextureAsset` 在 main 已存在，必须保留原有 `grayFogSoft / agedGold / semanticKey`。Wave B 现通过 `foolVeil / gold` 兼容别名扩展，而非替换旧 API。
+
+Token/API 已直接对照当前 `DesignTokens.swift`，新 primitive 引用的 Interaction / Motion / Accessibility token 均存在。
+
+## 7. 原子 commit 历史语义
 
 ```text
 docs(macos): persist visual system wave B plan
@@ -70,16 +76,15 @@ feat(macos): migrate ritual components to visual system
 feat(macos): migrate codex and archive components
 feat(macos): migrate artifact and fate surfaces
 feat(macos): migrate content shell to visual system
+fix(macos): preserve texture registry compatibility
 ```
 
-## 7. 下一阶段
+## 8. 当前状态
 
-1. typed icon / raw `Image(systemName:)` 使用审计：只要求平台/内容合理边界，不机械消灭所有局部 glyph；
-2. keyboard / accessibility / reduced motion / reduced transparency / high contrast 收口；
-3. 回读 PR #26 changed files / commit 链 / Capsule coverage；
-4. 最终 head 统一执行 `MACOS_APP_P0`，失败则用新的原子 fix commit 修复；
-5. 全绿后再合并，不做逐 commit 重复 CI。
+Wave B 实现与静态审计完成。下一动作只有一条：**对 PR #26 最终 head 统一执行完整 `MACOS_APP_P0`。**
 
-## 8. 恢复入口
+若失败，新增原子 fix commit；若全绿，回读最终 diff/commit/PR 状态后合并。
+
+## 9. 恢复入口
 
 稳定设计基线 → 本文件 → 最新 Batch 文档 → Task Capsules → `DesignSystem/WOM*` → `Assets.xcassets/wom.*` → PR #26 原子 commit 历史。
