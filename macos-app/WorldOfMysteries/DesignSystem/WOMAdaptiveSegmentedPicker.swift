@@ -24,7 +24,7 @@ public struct WOMSegmentedOption<Value: Hashable>: Identifiable {
 
 /// Native macOS peer-mode selection that keeps system Picker semantics.
 ///
-/// - Wide layout: SwiftUI `.segmented` picker.
+/// - Wide layout: SwiftUI `.segmented` picker at its intrinsic readable width.
 /// - Narrow layout: SwiftUI `.menu` picker selected through `ViewThatFits`.
 ///
 /// This component intentionally does not recreate `NSSegmentedControl` with a row of Buttons.
@@ -49,6 +49,7 @@ public struct WOMAdaptiveSegmentedPicker<Value: Hashable>: View {
             picker
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .fixedSize(horizontal: true, vertical: false)
 
             picker
                 .pickerStyle(.menu)
