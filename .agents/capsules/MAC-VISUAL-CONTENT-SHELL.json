@@ -1,0 +1,69 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-CONTENT-SHELL",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-CONTENT-SHELL",
+  "title": "迁移 ContentView Shell 到 WOM Visual System",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T12:06:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "feat/wom-visual-system-wave-b",
+    "base_sha": "f57456b188951f2a1c8b5f3d7123b8516b8816e7",
+    "target_sha": "f57456b188951f2a1c8b5f3d7123b8516b8816e7",
+    "context_snapshot": "sha256:d53d320007321cb8078b815b1179052a80afc3e18dc74bfe4d6c8d425e4b2510"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "docs/05_UI/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIcon.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift",
+      "docs/05_UI/visual-assets/README.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "content_shell_visual_only_migration",
+    "token_estimate": 4300,
+    "max_core_tokens": 6200,
+    "expansion_policy": "arbiter_approved",
+    "note": "只迁移顶栏、主背景、底部 Advice/Listening chrome 与 placeholder icon；不改变 Engine 连接、Advice 回调、Listening Ring 状态机或导航分发语义。"
+  },
+  "impact": {
+    "symbols": ["ContentView"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-SYSTEM-WAVE-B", "MAC-VISUAL-SIDEBAR"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "必须保留 AppState.startAndConnect、currentNavigation 分发、AdviceInputField 回调、ListeningRing state transitions 与 Fate/World/Gallery/Settings 内容语义；只迁移公共视觉壳与可访问性/reduced-motion。"
+  }
+}

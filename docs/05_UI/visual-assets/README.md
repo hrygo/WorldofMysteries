@@ -7,7 +7,7 @@
 
 - 长期原则与 Token 边界看 `Visual_Asset_System_v1.0.md`；当前实施顺序与状态以本文件为准。
 - 关键设计判断必须落仓库，不依赖聊天或临时环境。
-- PR 不要求最小化；PR #26 作为 Wave B 的长期持久化工作区。
+- PR #26 是 Wave B 的长期持久化工作区；PR 不要求最小化。
 - 原子 commit 是最小审查/回滚单元。
 - 涉及方案时同步提交总体计划 + Batch 记录 + 实际资产/代码。
 - 稳定增量尽早推远端；准备合并时对最终 head 统一跑完整 `MACOS_APP_P0`。
@@ -17,7 +17,7 @@
 - 世界观图形：原创 vector asset + typed registry，命名 `wom.icon.* / wom.ornament.* / wom.texture.*`。
 - 平台行为与通用状态：SF Symbols + `WOMSystemIcon` / `WOMStatusIcon`。
 - 状态表现：SwiftUI style + Design Token，不复制 hover/pressed/selected 位图。
-- Surface：程序化 fill/stroke/shadow + 少量纹理；reduced transparency 有实色/弱纹理退化。
+- Surface：程序化 fill/stroke/shadow + 少量纹理；reduced transparency 有稳定退化。
 
 ## 3. 已合入 main 的基线
 
@@ -43,7 +43,8 @@
 | 12 | Ritual：祭坛祈祷 + 黄水晶灵摆 | 已实现 |
 | 13 | Codex / Archive：人物档案 + 廷根卷宗 + 叙事编年史 | 已实现 |
 | 14 | Artifact / Fate：生产快捷入口 + 15 件 Showcase | 已实现 |
-| 15+ | ContentView shell、可访问性最终收口 | 下一阶段 |
+| 15 | ContentView 公共 Shell | 已实现 |
+| 16 | accessibility / keyboard / high-contrast 最终审计 | 下一阶段 |
 
 ## 5. 生产入口事实
 
@@ -51,6 +52,7 @@
 - **Ritual**：当前没有独立一级路由；迁移真实 Ritual 组件，不制造空页面。
 - **Story Book / Cards**：当前 `ContentView` 仍是 generic placeholder；真实 Codex / Archive 组件已迁移，但页面功能不得虚报完成。
 - **Artifact**：继续作为 Fate 中的命运干预工具；Preview/Live/Unavailable 三态和 IPC 边界保持不变。
+- **ContentView Shell**：视觉壳已迁移；placeholder 明确标识功能仍待正式接入。
 
 ## 6. 原子 commit 历史语义
 
@@ -67,14 +69,16 @@ feat(macos): migrate sidebar to visual system
 feat(macos): migrate ritual components to visual system
 feat(macos): migrate codex and archive components
 feat(macos): migrate artifact and fate surfaces
+feat(macos): migrate content shell to visual system
 ```
 
 ## 7. 下一阶段
 
-1. `ContentView` shell：Engine 状态栏、主工作区背景、Advice / Listening Ring 底栏；
-2. placeholder 页面定义正式接入条件，视觉系统不得掩盖功能缺失；
-3. accessibility / keyboard / reduced motion / reduced transparency / high contrast 收口；
-4. PR #26 最终 head 统一执行权威门禁并回读 diff。
+1. typed icon / raw `Image(systemName:)` 使用审计：只要求平台/内容合理边界，不机械消灭所有局部 glyph；
+2. keyboard / accessibility / reduced motion / reduced transparency / high contrast 收口；
+3. 回读 PR #26 changed files / commit 链 / Capsule coverage；
+4. 最终 head 统一执行 `MACOS_APP_P0`，失败则用新的原子 fix commit 修复；
+5. 全绿后再合并，不做逐 commit 重复 CI。
 
 ## 8. 恢复入口
 
