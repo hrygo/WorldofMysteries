@@ -59,7 +59,7 @@
 
 ## 6. 当前持久化工作流：Visual QA Backfill / PR #31
 
-目标：将用户确认的四项质量要求追溯应用到 Wave A–E：
+目标：将四项质量要求追溯应用到 Wave A–E：
 1. 对比度符合最佳实践；
 2. 字体清晰可辨；
 3. 组件布局无重叠覆盖；
@@ -69,26 +69,15 @@ Batch：[`Batch_22_Visual_QA_Backfill.md`](Batch_22_Visual_QA_Backfill.md)
 
 ### 已完成实现
 
-- Danger Button 高对比度实心 fill；
-- Ritual dynamic color text / deep-surface small text 修复；
-- Sidebar 9pt / 低 opacity microcopy 修复；
-- Character Codex adaptive identity / traits / state / Advice；
-- Tingen Dossier status layout；
-- Narrative header fallback；
-- Artifact Showcase header/search；
-- ContentView minimum-window Fate / Settings / Engine header；
-- Fate Artifact 5-card adaptive grid；
-- Worldline metadata/cause summary；
-- 15 件 Artifact 共用 Shell 左右→上下 fallback；
+- Button / Ritual / Sidebar / Codex / Dossier / Narrative / Worldline 的 contrast、microcopy、responsive backfill；
+- ContentView 960pt minimum-window Fate / Settings / Engine header；
+- Wave E Overlay / Status / Loading / Empty 在窄 Inspector/Popover 下的 responsive fallback；
+- Spirituality Gauge / Listening Ring / Backlund / Crimson Beacon / Spirit Pendulum 的可读性与 Reduce Motion；
 - shared `MysticTone.readableForeground` / 11pt Badge / KeyValueRow fallback；
-- Wave E `WOMStatusBanner` 窄 Inspector/Popover responsive fallback；
-- Spirituality Gauge 低值数字对比度修复；
-- Listening Ring Reduce Motion + interpreting icon 对比度；
-- Backlund 9pt/status/district layout + Reduce Motion；
-- Crimson Star Beacon 对比度/长文案/Reduce Motion；
-- legacy Spirit Pendulum 状态文字/布局/Reduce Motion；
+- Artifact Showcase / Fate shortcut / shared Artifact Shell adaptive；
+- **15/15 Artifact 个体 View 全量审计与必要返修**：Probability Die、Arrodes、Alzuhod Quill、Brass Book、Wishing Lamp、Creeping Hunger、Leymano、Groselle、Azik、Cards of Blasphemy、Sea God Scepter、Staff of Stars、Old Ones Box、Death Knell、Unshadowed Crucifix；
 - Gallery Visual QA Stress specimens；
-- `VisualQAContractTests.swift` 覆盖主要回归边界。
+- `VisualQAContractTests.swift` 覆盖共享层、生产入口、历史组件与 15/15 Artifact 个体层。
 
 ### 已审计无需修改
 
@@ -97,7 +86,7 @@ Batch：[`Batch_22_Visual_QA_Backfill.md`](Batch_22_Visual_QA_Backfill.md)
 - TarotCardView；
 - CluePinboardNodeView。
 
-当前下一动作：最终 diff / Capsule 回读 → 对最终 head 执行一次 `MACOS_APP_P0` → CI 全绿后标记 READY TO MERGE。
+当前下一动作：**锁最终 head → 最终 diff / Capsule 回读 → `MACOS_APP_P0` → CI 全绿后标记 READY TO MERGE。**
 
 ## 7. Wave E 关键决策（继续有效）
 
