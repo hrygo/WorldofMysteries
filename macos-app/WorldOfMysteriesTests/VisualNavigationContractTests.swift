@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import WorldOfMysteriesCore
 
@@ -22,24 +23,39 @@ struct VisualNavigationContractTests {
         #expect(Set(flattened.map(\.rawValue)) == Set(NavigationItem.allCases.map(\.rawValue)))
     }
 
-    @Test("critical production navigation surfaces no longer fall back to legacy icon strings")
+    @Test("critical production navigation surfaces use typed icon sources")
     func criticalProductionViewsUseTypedNavigationIcons() throws {
-        let root = repositoryRoot
-        let sidebar = try String(
-            contentsOf: root
-                .appendingPathComponent("macos-app/WorldOfMysteries/Components/AppSidebarView.swift"),
-            encoding: .utf8
-        )
-        let content = try String(
-            contentsOf: root
-                .appendingPathComponent("macos-app/WorldOfMysteries/ContentView.swift"),
-            encoding: .utf8
-        )
+        let sidebar = try source("macos-app/WorldOfMysteries/Components/AppSidebarView.swift")
+        let content = try source("macos-app/WorldOfMysteries/ContentView.swift")
+        let commands = try source("macos-app/WorldOfMysteries/Components/AppMenuBarCommands.swift")
 
         #expect(!sidebar.contains("Image(systemName: item.systemIcon)"))
         #expect(!content.contains("Image(systemName: currentNavigation.systemIcon)"))
+        #expect(!commands.contains("item.systemIcon"))
         #expect(sidebar.contains("item.iconSource"))
         #expect(content.contains("currentNavigation.iconSource"))
+        #expect(commands.contains("item.iconSource"))
+    }
+
+    @Test("command-K advice action stays wired to the scene focus request")
+    func adviceFocusCommandIsWired() throws {
+        let app = try source("macos-app/WorldOfMysteries/MyApp.swift")
+        let commands = try source("macos-app/WorldOfMysteries/Components/AppMenuBarCommands.swift")
+        let advice = try source("macos-app/WorldOfMysteries/Components/AdviceInputField.swift")
+
+        #expect(commands.contains("onAdviceRequested()"))
+        #expect(app.contains("adviceFocusRequestID &+= 1"))
+        #expect(app.contains(".environment(\\.adviceFocusRequestID, adviceFocusRequestID)"))
+        #expect(advice.contains("@Environment(\\.adviceFocusRequestID)"))
+        #expect(advice.contains(".focused($isTextFieldFocused)"))
+        #expect(advice.contains(".onChange(of: adviceFocusRequestID)"))
+    }
+
+    private func source(_ relativePath: String) throws -> String {
+        try String(
+            contentsOf: repositoryRoot.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
     }
 
     private var repositoryRoot: URL {

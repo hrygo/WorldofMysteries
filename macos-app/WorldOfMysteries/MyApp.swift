@@ -5,6 +5,7 @@ struct WorldOfMysteriesApp: App {
     @State private var appState = AppState()
     @State private var currentNavigation: NavigationItem = .fate
     @State private var isSidebarCollapsed: Bool = false
+    @State private var adviceFocusRequestID: Int = 0
 
     var body: some Scene {
         WindowGroup {
@@ -13,13 +14,14 @@ struct WorldOfMysteriesApp: App {
                 isSidebarCollapsed: $isSidebarCollapsed
             )
             .environment(appState)
+            .environment(\.adviceFocusRequestID, adviceFocusRequestID)
         }
         .commands {
             AppMenuBarCommands(
                 currentNavigation: $currentNavigation,
                 isSidebarCollapsed: $isSidebarCollapsed,
                 onAdviceRequested: {
-                    // 激活命运干预焦点
+                    adviceFocusRequestID &+= 1
                 },
                 onReconnectEngine: {
                     Task {

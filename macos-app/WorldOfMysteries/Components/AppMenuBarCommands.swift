@@ -29,9 +29,10 @@ public struct AppMenuBarCommands: Commands {
                 Button {
                     currentNavigation = item
                 } label: {
-                    HStack {
-                        Image(systemName: item.systemIcon)
+                    Label {
                         Text(item.localizedTitle)
+                    } icon: {
+                        WOMIcon(source: item.iconSource, size: .compact)
                     }
                 }
                 .keyboardShortcut(KeyEquivalent(Character(item.shortcutNumber)), modifiers: .command)

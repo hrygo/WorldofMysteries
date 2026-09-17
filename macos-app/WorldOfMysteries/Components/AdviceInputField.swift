@@ -1,11 +1,25 @@
 import SwiftUI
 
+private struct AdviceFocusRequestIDKey: EnvironmentKey {
+    static let defaultValue: Int = 0
+}
+
+extension EnvironmentValues {
+    var adviceFocusRequestID: Int {
+        get { self[AdviceFocusRequestIDKey.self] }
+        set { self[AdviceFocusRequestIDKey.self] = newValue }
+    }
+}
+
 /// 命运干预 Advice 建议输入栏（严格践行 Advice ≠ Command 不变量）
 public struct AdviceInputField: View {
     @Binding public var text: String
     public let targetCharacter: String
     public var onVoiceTapped: (@MainActor () -> Void)?
     public var onSubmitAdvice: (@MainActor (String) -> Void)?
+
+    @Environment(\.adviceFocusRequestID) private var adviceFocusRequestID
+    @FocusState private var isTextFieldFocused: Bool
     
     public init(
         text: Binding<String>,
@@ -40,6 +54,7 @@ public struct AdviceInputField: View {
                     .textFieldStyle(.plain)
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textPrimary)
+                    .focused($isTextFieldFocused)
                     .onSubmit {
                         submit()
                     }
@@ -83,6 +98,9 @@ public struct AdviceInputField: View {
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
                     .stroke(Color.Mystic.brassGoldBorder, lineWidth: DesignTokens.Borders.standard)
             )
+        }
+        .onChange(of: adviceFocusRequestID) { _, _ in
+            isTextFieldFocused = true
         }
     }
     
