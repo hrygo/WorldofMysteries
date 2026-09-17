@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-F",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-MAC-VISUAL-SYSTEM-WAVE-F-R2",
+  "capsule_revision": 2,
   "task_id": "MAC-VISUAL-SYSTEM-WAVE-F",
   "title": "Advanced interaction and world-state visual primitives Wave F",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-17T15:12:00Z",
+  "created_at": "2026-09-17T15:56:00Z",
   "risk_class": "medium",
   "base": {
-    "target_ref": "feat/wom-visual-qa-backfill-v2",
-    "base_sha": "8b9ab58428d05762184884c9e60b03f6e8075d71",
-    "target_sha": "8b9ab58428d05762184884c9e60b03f6e8075d71",
-    "context_snapshot": "sha256:375d3551049451942643370452825794458518e8051937396b7e26a1c7f1a421"
+    "target_ref": "main",
+    "base_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "target_sha": "3c26a0107d35251e530bb89a3324ffbaf9f7bab1",
+    "context_snapshot": "sha256:5b26719ba09361113218108305f48796d32a2d539028291cf0f3236232f4a102"
   },
   "scope": {
     "read": [
@@ -49,11 +49,11 @@
       "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
     ],
     "related_contracts": [],
-    "slice_strategy": "persistent_pr_advanced_interaction_world_state_chrome",
+    "slice_strategy": "main_reconciled_advanced_interaction_world_state_chrome",
     "token_estimate": 9000,
     "max_core_tokens": 12000,
     "expansion_policy": "arbiter_approved",
-    "note": "Wave F adds native-semantics segmented mode switching and pure presentation primitives for relation, achievement and cooldown states. It must inherit the retroactive Visual QA contract and must not create domain persistence or replace native macOS tab/window behavior."
+    "note": "R2 reconciles Wave F after Visual QA Backfill PR #31 merged to main. The final PR diff is limited to Wave F presentation primitives, Gallery specimens, docs and tests."
   },
   "impact": {
     "symbols": [
