@@ -51,7 +51,7 @@
   "composition": {
     "working_aspect_ratio": "16:10",
     "quiet_zone": {
-      "x_min": 0.00,
+      "x_min": 0,
       "x_max": 0.35,
       "target_detail": "low_frequency_dark_mid",
       "forbidden": [
@@ -128,7 +128,28 @@
       "no dominant hero character",
       "no overt magical spectacle"
     ],
-    "blind_semantic_qa_required": true
+    "blind_semantic_qa_required": true,
+    "context_gate": {
+      "id": "G-CTX",
+      "required": true,
+      "clean_context_requirements": [
+        "single_artwork_contract_only",
+        "single_generation_pack_only",
+        "no_prior_candidate_images",
+        "no_other_world_or_artifact_generation_context",
+        "no_pr_github_swiftui_asset_catalog_discussion",
+        "no_rejected_fantasy_outputs"
+      ],
+      "control_probe_required": true,
+      "reject_context_if_control_probe_contains_two_or_more": [
+        "monumental_fantasy_cathedral_or_castle",
+        "readable_slogan_or_invented_organization_text",
+        "occult_banner_or_sigil",
+        "celestial_halo_portal_or_impossible_moon",
+        "floating_architecture_or_fantasy_landscape",
+        "promotional_key_art_composition"
+      ]
+    }
   },
   "postprocess": {
     "order": [
@@ -173,7 +194,7 @@
   "runtime_presentation": {
     "scrim": "leading",
     "text_primary_min_contrast": 4.5,
-    "important_long_copy_target_contrast": 7.0,
+    "important_long_copy_target_contrast": 7,
     "high_contrast_mode_must_remain_usable": true
   },
   "qa": {
@@ -193,7 +214,11 @@
       "wide_crop_survival_required": true
     },
     "g3_structure": {
-      "inspect_scales_percent": [25, 100, 200],
+      "inspect_scales_percent": [
+        25,
+        100,
+        200
+      ],
       "reject_ai_gibberish": true,
       "reject_structural_repetition": true
     },
