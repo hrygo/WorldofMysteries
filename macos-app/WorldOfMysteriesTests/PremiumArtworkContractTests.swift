@@ -106,6 +106,62 @@ struct PremiumArtworkContractTests {
         #expect(wide["derivation"] as? String == "semantic_crop_from_master")
     }
 
+    @Test("shipping W1 assets require complete QA and provenance evidence")
+    func shippingW1AssetsRequireEvidence() throws {
+        let catalog = try catalogArtworkNames()
+        let required = Set([
+            WOMWorldArtworkAsset.worldHero.runtimeAssetName,
+            WOMWorldArtworkAsset.worldHero.wideHeaderAssetName,
+        ])
+        let present = catalog.intersection(required)
+
+        guard !present.isEmpty else { return }
+
+        #expect(
+            present == required,
+            "W1 must ship runtime and wide derivatives atomically from the same approved master"
+        )
+
+        let qaData = try Data(contentsOf: w1QAURL)
+        let qa = try #require(JSONSerialization.jsonObject(with: qaData) as? [String: Any])
+        #expect(qa["final_verdict"] as? String == "PASSED")
+
+        let gates = try #require(qa["gates"] as? [String: Any])
+        for gateName in [
+            "G0_semantic",
+            "G1_canon_atmosphere",
+            "G2_composition",
+            "G3_structure",
+            "G4_production",
+            "G5_runtime",
+        ] {
+            let gate = try #require(gates[gateName] as? [String: Any])
+            #expect(gate["status"] as? String == "PASSED", "\(gateName) must pass before W1 ships")
+        }
+
+        let provenanceData = try Data(contentsOf: w1ProvenanceURL)
+        let provenance = try #require(
+            JSONSerialization.jsonObject(with: provenanceData) as? [String: Any]
+        )
+        #expect(provenance["status"] as? String == "APPROVED")
+
+        let master = try #require(provenance["master"] as? [String: Any])
+        #expect(nonEmptyString(master["sha256"]))
+
+        let derivatives = try #require(provenance["derivatives"] as? [[String: Any]])
+        let derivativeByName = Dictionary(
+            uniqueKeysWithValues: derivatives.compactMap { entry -> (String, [String: Any])? in
+                guard let name = entry["asset_name"] as? String else { return nil }
+                return (name, entry)
+            }
+        )
+
+        for assetName in required {
+            let derivative = try #require(derivativeByName[assetName])
+            #expect(nonEmptyString(derivative["sha256"]), "\(assetName) requires a recorded SHA256")
+        }
+    }
+
     @Test("catalog contains no unregistered runtime premium artwork")
     func catalogHasNoOrphanPremiumArtwork() throws {
         let catalog = try catalogArtworkNames()
@@ -157,6 +213,18 @@ struct PremiumArtworkContractTests {
         repositoryRootURL
             .appendingPathComponent("docs/05_UI/artwork/contracts", isDirectory: true)
             .appendingPathComponent("W1_WORLD_HERO.contract.json")
+    }
+
+    private var w1QAURL: URL {
+        repositoryRootURL
+            .appendingPathComponent("docs/05_UI/artwork/qa", isDirectory: true)
+            .appendingPathComponent("W1_WORLD_HERO.qa.json")
+    }
+
+    private var w1ProvenanceURL: URL {
+        repositoryRootURL
+            .appendingPathComponent("docs/05_UI/artwork/provenance", isDirectory: true)
+            .appendingPathComponent("W1_WORLD_HERO.provenance.json")
     }
 
     private var assetsCatalogURL: URL {
@@ -212,6 +280,11 @@ struct PremiumArtworkContractTests {
         let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int)
         let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int)
         return (width, height)
+    }
+
+    private func nonEmptyString(_ value: Any?) -> Bool {
+        guard let string = value as? String else { return false }
+        return !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func expectedPixelSize(for assetName: String) -> (width: Int, height: Int)? {
