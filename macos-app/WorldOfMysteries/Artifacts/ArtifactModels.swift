@@ -188,6 +188,7 @@ public enum ArtifactActionKind: String, Codable, CaseIterable, Sendable {
   case refuseExchange
   case enactRule
   case wish
+  case graze
   case invokeSoul
   case recordAbility
   case invokeRecordedAbility
