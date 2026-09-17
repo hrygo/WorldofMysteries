@@ -1,0 +1,89 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-QA-SOURCE-GUARDS-R2",
+  "capsule_revision": 2,
+  "task_id": "MAC-VISUAL-QA-SOURCE-GUARDS",
+  "title": "Visual QA source, contrast and typography guard contracts Wave H",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T16:31:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "32c78e17604f14d1c5444ea85886519dd0e8f891",
+    "target_sha": "32c78e17604f14d1c5444ea85886519dd0e8f891",
+    "context_snapshot": "sha256:81d9c1b8dcee64306bfead26946e8b526e5cb404e1349660badcfd2c72e92c2e"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/Visual_QA_Source_Guards_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_25_Wave_H_Visual_QA_Source_Guards.md",
+      "macos-app/WorldOfMysteries/DesignTokens.swift",
+      "macos-app/WorldOfMysteriesTests/VisualQAContractTests.swift",
+      "macos-app/WorldOfMysteriesTests/VisualWindowLayoutContractTests.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "main_reconciled_visual_qa_source_contrast_typography_guards",
+    "token_estimate": 7000,
+    "max_core_tokens": 10000,
+    "expansion_policy": "arbiter_approved",
+    "note": "R2 reconciles Wave H after Wave G PR #33 merged to main. Wave H is governance/test-only: generic source guards, approved WCAG contrast matrix and typography token floors. It must not add product behavior or weaken Visual QA rules to silence failures."
+  },
+  "impact": {
+    "symbols": [
+      "VisualQASourceGuardTests",
+      "VisualContrastContractTests",
+      "VisualTypographyContractTests"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualQASourceGuardTests",
+      "VisualContrastContractTests",
+      "VisualTypographyContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-WAVE-G"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "Enforce Visual QA without over-broad bans: fail sub-10pt direct system fonts, minimumScaleFactor shrink-to-fit, negative padding in content layouts and ordinary AppKit window/view bridges; compute approved readable text contrast at >=4.5:1 with long/important combinations >=7:1; enforce shared typography floors of body >=13pt and metadata >=11pt; report file/line violations; exclude test sources from production scanning; preserve legitimate DesignSystem focus-ring behavior; introduce no Engine/DB/IPC/schema changes."
+  }
+}
