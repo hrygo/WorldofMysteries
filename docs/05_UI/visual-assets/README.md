@@ -30,7 +30,7 @@
 | Wave C | #27 | Focus / Contrast / Accessibility states、semantic regression tests | DONE |
 | Wave D | #28 | Asset Catalog contract、typed icon 边界、导航/Commands/⌘K Focus、placeholder readiness | DONE |
 
-当前 `main` 基线：`51a9b2679420edbf1fb9b12189033a2a6cdc8567`（PR #28 merge commit）。
+当前 Wave E 基线：`main@51a9b2679420edbf1fb9b12189033a2a6cdc8567`（PR #28 merge commit）。
 
 ## 4. 生产入口事实
 
@@ -54,7 +54,9 @@
 | E21.4 | `WOMEmptyState` typed canonical API；保留 legacy `MysticEmptyState` | DONE |
 | E21.5 | Component Gallery Overlay/Feedback specimen | DONE |
 | E21.6 | `VisualOverlayContractTests` | DONE |
-| E21.7 | 最终静态审计 + `MACOS_APP_P0` | PENDING |
+| E21.7 | 静态审计 + Capsule + Architecture + Python + Swift 6 + Xcode App Target + Quality Gate | DONE |
+
+实现 head `79399bfbbeb47a43c548fd96caf944e9f6930544` 已完成权威验证：Capsule Audit、PR Gate Reporter、Architecture/Contracts、Python、Swift 6、Xcode App Target 与 `All Quality Gates Passed` 均为 success。其后的 closure commit 只同步本文件与 Batch 状态，不改变实现代码。
 
 ## 6. Wave E 关键决策
 
@@ -65,7 +67,7 @@
 5. Empty State 不直接改造 legacy `MysticEmptyState` 的 stored API，而是新增 `WOMEmptyState(source:)` 作为 typed canonical 入口；旧组件完全保留。
 6. 不修改 Engine / DB / IPC / schema，不用静态 demo 数据把 placeholder 冒充为生产页面。
 
-## 7. Wave E 当前原子 commit
+## 7. Wave E 原子 commit
 
 ```text
 docs(macos): persist visual system wave E plan
@@ -73,9 +75,9 @@ feat(macos): add native overlay visual chrome
 feat(macos): add typed empty and feedback states
 feat(macos): add overlay feedback gallery specimens
 test(macos): cover overlay visual system contracts
+docs(macos): reconcile wave E implementation plan
+docs(macos): close wave E implementation status
 ```
-
-后续只允许加入静态审计发现的原子 fix 或最终资料状态更新，不扩大 Wave E 产品范围。
 
 ## 8. 后续候选
 

@@ -3,7 +3,7 @@
 > Task：`MAC-VISUAL-SYSTEM-WAVE-E`  
 > Base：`main@51a9b2679420edbf1fb9b12189033a2a6cdc8567`  
 > PR：#29  
-> 状态：IMPLEMENTED / FINAL AUDIT PENDING
+> 状态：IMPLEMENTED / READY TO MERGE
 
 ## 1. 背景
 
@@ -40,13 +40,7 @@ inspector / popover / sheet / hud
 
 ### `WOMOverlayPanel<Content>`
 
-统一：
-
-- surface tone；
-- texture policy；
-- padding；
-- corner radius；
-- 复用 `WOMPanelBackground` 的 active/inactive、Increase Contrast、Reduced Transparency 行为。
+统一 surface tone、texture policy、padding、corner radius，并复用 `WOMPanelBackground` 已有的 active/inactive、Increase Contrast、Reduced Transparency 行为。
 
 ### `WOMFeedbackTone`
 
@@ -84,16 +78,11 @@ info.circle / checkmark.circle / exclamationmark.triangle / exclamationmark.octa
 WOMEmptyState(source: WOMIconSource, ...)
 ```
 
-这样：
-
-- 新视觉系统可使用 custom vector / navigation / system / status 四类 typed source；
-- 旧 `MysticEmptyState(systemIcon: String, ...)` 完全不变；
-- 不会因为 stored property 迁移破坏已有调用；
-- 后续旧调用可按需迁移，而不是一次性机械替换。
+因此旧 `MysticEmptyState(systemIcon: String, ...)` 完全不变，避免 stored property 迁移造成已有调用回归。
 
 ## 4. Component Gallery
 
-已新增 `overlayFeedbackSamples`，可观察：
+已新增 `overlayFeedbackSamples`，覆盖：
 
 - Inspector / Popover / Sheet / HUD 四类 chrome；
 - Info / Success / Warning / Danger 四类 banner；
@@ -103,15 +92,27 @@ WOMEmptyState(source: WOMIconSource, ...)
 
 Gallery 只承担设计系统回归观察，不代表业务 modal/inspector 已经正式接入。
 
-## 5. 测试
+## 5. 测试与最终门禁
 
-新增 `VisualOverlayContractTests.swift`：
+新增 `VisualOverlayContractTests.swift`，锁定：
 
-1. `WOMOverlayRole` case 集合稳定；
-2. Feedback tone → platform status symbol 映射稳定；
-3. Overlay primitive 不包含 `.sheet(isPresented:)` / `.popover(isPresented:)` / `.inspector(isPresented:)` coordinator，也不直接创建 `NSPanel` / `NSWindow`；
+1. `WOMOverlayRole` case 集合；
+2. Feedback tone → platform status symbol 映射；
+3. Overlay primitive 不拥有 `.sheet(isPresented:)` / `.popover(isPresented:)` / `.inspector(isPresented:)` coordinator，也不直接创建 `NSPanel` / `NSWindow`；
 4. `WOMEmptyState` typed API 与 legacy `MysticEmptyState` 同时存在；
-5. Gallery 必须保留 Overlay / Loading / Status / Empty specimen。
+5. Gallery 保留 Overlay / Loading / Status / Empty specimen。
+
+实现 head `79399bfbbeb47a43c548fd96caf944e9f6930544` 的最终验证结果：
+
+- PR Task Capsule & Evidence Audit：success
+- PR Gate Reporter & Sticky Comment：success
+- Stage 1 Architecture Fitness & Contracts：success
+- Stage 2 Python Engine & Contracts：success
+- Stage 3 Swift 6 Test Suite：success
+- Stage 3 Xcode App Target build：success
+- `All Quality Gates Passed`：success
+
+随后只追加 closure documentation commit，同步 Batch / Living Plan 状态，不修改实现代码；GitHub required checks 将继续对最终 PR head 进行保护。
 
 ## 6. Scope 回读
 
@@ -134,13 +135,17 @@ feat(macos): add native overlay visual chrome
 feat(macos): add typed empty and feedback states
 feat(macos): add overlay feedback gallery specimens
 test(macos): cover overlay visual system contracts
+docs(macos): reconcile wave E implementation plan
+docs(macos): close wave E implementation status
 ```
 
-## 8. 下一步
+## 8. 下一阶段入口
 
-1. 同步总体方案 / Living Plan 到真实实现状态；
-2. 最终静态审计 Swift 6/API 使用；
-3. 回读 `main...head` diff 与 Capsule scope；
-4. PR #29 转 Ready；
-5. 只对最终 head 运行完整 `MACOS_APP_P0`；
-6. 失败只做原子 fix，不扩大 Wave E 范围。
+Wave E 合并后优先评估：
+
+1. Segmented / Tab-like control style；
+2. Relation / Achievement / Cooldown 等世界观特殊 chrome；
+3. 真实生产数据源就绪后的 Character / Story Book / Cards / Worldline / Notes binding；
+4. 多窗口 / Inspector 宽度 / Window scene 策略。
+
+任何 Production Binding 仍必须遵守：真实数据源、状态/错误模型、交互回调、IPC 边界与测试到位前，不移除 placeholder 声明。
