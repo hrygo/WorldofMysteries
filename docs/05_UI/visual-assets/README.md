@@ -1,112 +1,129 @@
 # Visual Asset System — 执行总体方案与持久化规则
 
 > 稳定设计基线：[`../Visual_Asset_System_v1.0.md`](../Visual_Asset_System_v1.0.md)  
-> 本文件：视觉资产系统的 **Living Plan / 当前执行事实源**。
+> 当前执行事实源：本文件。  
+> Visual QA：[`Visual_QA_Contract_v1.0.md`](Visual_QA_Contract_v1.0.md)
 
-## 1. 当前执行规则
+## 1. 持久化与交付规则
 
-- 长期视觉原则、Token 边界与技术方向以 `Visual_Asset_System_v1.0.md` 为准；当前实施顺序、PR 与状态以本文件为准。
 - 关键设计判断必须落仓库，不依赖聊天或临时环境。
 - 同一阶段采用 **长期持久化 PR + 原子 commit**；PR 不要求最小化。
-- 涉及方案时必须同步提交：总体方案 / Living Plan / Batch 记录 / 实际代码或资产。
-- 稳定增量尽早推远端；最终 head 统一运行完整 `MACOS_APP_P0`。
-- 不绕过主分支保护，不把“写入成功”当作“交付完成”。
-- **Visual QA Contract 追溯适用于所有历史视觉代码；已合并不是豁免理由。**
+- 涉及方案时同步提交：总体/Living Plan + Batch + Capsule + 实际代码/测试。
+- 稳定增量尽早推远端；最终 head 统一执行 `MACOS_APP_P0`。
+- 不绕过主分支保护；写入成功不等于交付完成。
+- Visual QA Contract 对历史和未来视觉代码都生效，已合并不是豁免理由。
 
 ## 2. 技术边界
 
-- 世界观图形：原创 vector asset + typed registry，命名 `wom.icon.* / wom.ornament.* / wom.texture.*`。
-- 平台行为与通用状态：SF Symbols + `WOMSystemIcon` / `WOMStatusIcon`。
-- Hover / Pressed / Selected / Focused / Disabled / Loading：SwiftUI style + Design Token 驱动，不复制状态位图。
-- Surface：程序化 fill/stroke/shadow + 少量纹理；Reduced Transparency / Increase Contrast 有稳定退化。
-- Sheet / Popover / Inspector 的**呈现机制使用系统 API**；WOM 只提供内容 chrome，不模拟系统窗口层级。
-- macOS Focus / contrast / active appearance 读取 SwiftUI environment，不自建第二套平台状态机。
+- 世界观图形：原创 vector asset + typed registry。
+- 平台行为/状态：SF Symbols + typed semantic registry。
+- Hover / Pressed / Selected / Focused / Disabled / Loading：SwiftUI style + Design Token 驱动。
+- Sheet / Popover / Inspector / Tab / segmented selection 优先系统 SwiftUI/macOS 语义；WOM 只补视觉和语义封装，不伪造系统控件。
+- Surface 使用程序化 fill/stroke/shadow + 少量纹理。
+- 不允许新增 Engine / DB / IPC / schema 耦合来服务纯视觉组件。
 
 ## 3. Visual QA 硬性基线
 
-当前权威 QA 规则：[`Visual_QA_Contract_v1.0.md`](Visual_QA_Contract_v1.0.md)。
-
-- 常规正文 / Button / Form text 最终合成对比度 >= **4.5:1**。
+- 常规正文 / Button / Form text 最终对比度 >= **4.5:1**。
 - 关键非文本 affordance >= **3:1**。
 - 长正文与关键说明优先向 **7:1** 靠拢。
 - 正文默认 >= **13pt**；说明/元数据默认 >= **11pt**。
-- 10pt 仅允许短数字 / 快捷键 / 极短标签；9pt 以下不承载关键语义。
-- 最小窗口 **960×640** 必须无结构性重叠。
-- 长中文 / 英文 / Badge / Loading / Error / Empty 必须有自然增长或 responsive fallback。
-- 布局优先 Grid / adaptive / `ViewThatFits`，不得用缩小字体、负 offset 或魔法宽度掩盖空间问题。
+- 10pt 仅短数字 / 快捷键 / 极短标签；9pt 以下不承载关键语义。
+- 最小窗口 **960×640** 无结构性重叠。
+- 长中英文、Badge、Loading、Error、Empty 必须自然增长或 responsive fallback。
+- 优先 adaptive Grid / `ViewThatFits`；不得通过缩小字体、负 offset、魔法宽度或抬高最小窗口掩盖布局问题。
 - 同组卡片、按钮、标题基线、padding、视觉重量保持工整一致。
-- Reduce Motion 必须在组件内部生效，不能只依赖父视图不触发动画。
+- Reduce Motion 必须在组件内部生效；状态不得仅靠颜色表达。
 
 ## 4. 已合入 main
 
 | 阶段 | PR | 内容 | 状态 |
 |---|---|---|---|
-| Foundation | #21–#25 | 核心/导航图标、Ornament、Texture、系统行为语义、持久化基础 | DONE |
-| Wave B | #26 | Icon / Button / Surface primitives、Gallery、Sidebar、Ritual、Codex/Archive、Artifact/Fate、Content Shell | DONE |
-| Wave C | #27 | Focus / Contrast / Accessibility states、semantic regression tests | DONE |
-| Wave D | #28 | Asset Catalog contract、typed icon 边界、导航/Commands/⌘K Focus、placeholder readiness | DONE |
-| Wave E | #29 | Overlay / Feedback chrome、Loading、Status、typed Empty State、Gallery regression | DONE |
+| Foundation | #21–#25 | Core/navigation icons、ornament、texture、platform semantics | DONE |
+| Wave B | #26 | Icon/Button/Surface、Gallery、Sidebar、Ritual、Codex、Artifact/Fate、Shell | DONE |
+| Wave C | #27 | Focus / Contrast / Accessibility states | DONE |
+| Wave D | #28 | Asset contracts、typed icon、navigation/commands/focus | DONE |
+| Wave E | #29 | Overlay / Feedback / Loading / Status / typed Empty State | DONE |
 
-当前主线基线：`main@475949e8d07c99683776faa63c88543e96e8d250`（包含 #29）。
+`main` 当前仍为 `475949e8d07c99683776faa63c88543e96e8d250`（包含 #29）。
 
-## 5. 生产入口事实
+## 5. 已验证待合并：Visual QA Backfill / PR #31
 
-- **Sidebar / Fate / Content Shell**：真实生产入口。
-- **Ritual**：已有真实组件，但没有独立一级路由。
-- **Character / Story Book / Cards / Worldline / Notes**：已有部分高质量 View primitive，但仍缺真实生产数据绑定，继续保持 placeholder。
-- **Artifact**：继续作为 Fate 中命运干预工具；不额外制造背包一级导航。
-- **Component Gallery**：设计系统 Showcase / Visual Regression / Visual QA Stress 观察入口，不等于业务页面完成。
+Branch: `feat/wom-visual-qa-backfill-v2`  
+Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`
 
-## 6. 当前持久化工作流：Visual QA Backfill / PR #31
+状态：**READY TO MERGE / ALL QUALITY GATES PASSED**。
 
-目标：将四项质量要求追溯应用到 Wave A–E：
-1. 对比度符合最佳实践；
-2. 字体清晰可辨；
-3. 组件布局无重叠覆盖；
-4. 布局工整、基线统一、对仗稳定。
+已完成：
+- Wave A–E retroactive contrast / typography / collision / alignment audit；
+- 960×640 minimum-window responsive hardening；
+- shared Mystic primitives / Overlay / Gallery stress；
+- 15/15 Artifact shared + individual visual QA；
+- Reduce Motion / long-content / dynamic tone text remediation；
+- `VisualQAContractTests.swift` regression contract。
 
-Batch：[`Batch_22_Visual_QA_Backfill.md`](Batch_22_Visual_QA_Backfill.md)
+#31 尚未由本执行流合并；后续 Wave F 以其已验证 head 作为 stacked base。
 
-### 已完成实现
+## 6. 当前持久化工作流：Wave F — Advanced Interaction & World-State Chrome
 
-- Button / Ritual / Sidebar / Codex / Dossier / Narrative / Worldline 的 contrast、microcopy、responsive backfill；
-- ContentView 960pt minimum-window Fate / Settings / Engine header；
-- Wave E Overlay / Status / Loading / Empty 在窄 Inspector/Popover 下的 responsive fallback；
-- Spirituality Gauge / Listening Ring / Backlund / Crimson Beacon / Spirit Pendulum 的可读性与 Reduce Motion；
-- shared `MysticTone.readableForeground` / 11pt Badge / KeyValueRow fallback；
-- Artifact Showcase / Fate shortcut / shared Artifact Shell adaptive；
-- **15/15 Artifact 个体 View 全量审计与必要返修**：Probability Die、Arrodes、Alzuhod Quill、Brass Book、Wishing Lamp、Creeping Hunger、Leymano、Groselle、Azik、Cards of Blasphemy、Sea God Scepter、Staff of Stars、Old Ones Box、Death Knell、Unshadowed Crucifix；
-- Gallery Visual QA Stress specimens；
-- `VisualQAContractTests.swift` 覆盖共享层、生产入口、历史组件与 15/15 Artifact 个体层。
+Branch: `feat/wom-visual-system-wave-f`  
+Stacked base: `feat/wom-visual-qa-backfill-v2@8b9ab58428d05762184884c9e60b03f6e8075d71`  
+Batch: [`Batch_23_Wave_F_Advanced_Interaction_Chrome.md`](Batch_23_Wave_F_Advanced_Interaction_Chrome.md)
 
-### 已审计无需修改
+### F23.1 — Adaptive segmented mode selection
 
-- AdviceInputField；
-- DatabaseStatusHUDCard；
-- TarotCardView；
-- CluePinboardNodeView。
+- 使用原生 `Picker`；
+- 宽度充足时 `.segmented`；
+- 空间不足时通过 `ViewThatFits` 降级为 `.menu`；
+- 不用 Buttons 模拟 `NSSegmentedControl`；
+- keyboard / focus / accessibility 保持系统语义。
 
-当前下一动作：**锁最终 head → 最终 diff / Capsule 回读 → `MACOS_APP_P0` → CI 全绿后标记 READY TO MERGE。**
+### F23.2 — Relationship chrome
 
-## 7. Wave E 关键决策（继续有效）
+新增 presentation-only `WOMRelationBadge`：trusted / aligned / neutral / wary / hostile。
 
-1. `.sheet` / `.popover` / `.inspector` 仍由 SwiftUI 系统 API 控制生命周期、焦点、键盘和辅助功能。
-2. `WOMOverlayPanel` 只定义内容视觉层级、padding、surface、stroke 与 texture。
-3. Loading 使用系统 `ProgressView`，不增加自制无限 spinner。
-4. Status Banner 使用 typed status icon + 文本 + 左侧几何 rail；Differentiate Without Color 时增加 dash pattern。
-5. Empty State 使用 `WOMEmptyState(source:)` 作为 typed canonical 入口；旧 `MysticEmptyState` 继续兼容。
-6. 不修改 Engine / DB / IPC / schema，不用静态 demo 数据把 placeholder 冒充为生产页面。
+- icon + text + border/shape 同时表达；
+- 不做 color-only state；
+- 不引入关系持久化或领域分数。
 
-## 8. 后续候选
+### F23.3 — Achievement seal
 
-Visual QA Backfill 完成后再进入：
-- Production workspace binding（仅真实领域数据源就绪后）；
-- Segmented / Tab-like control style；
-- Relation / Achievement / Cooldown 等世界观特殊 chrome；
-- 页面级 Inspector / multi-window 策略。
+新增 `WOMAchievementSeal`：locked / discovered / completed。
 
-任何后续 Wave 必须先满足 Visual QA Contract，不允许新增“风格正确但不可读/会覆盖”的组件。
+- locked 仍保持可读；
+- completed 用 icon/geometry + text，而非只靠颜色；
+- 长名称允许换行。
+
+### F23.4 — Cooldown / availability indicator
+
+新增 `WOMCooldownIndicator`：ready / cooling / locked。
+
+- UI 仅呈现外部提供的 progress / remaining label；
+- 不在视觉组件内部实现游戏计时器或 wall-clock truth；
+- 不增加无限动画。
+
+### F23.5 — Gallery / Tests
+
+- Advanced interaction specimens；
+- narrow width / long Chinese / long English / differentiate-without-color stress；
+- `VisualAdvancedInteractionContractTests.swift`。
+
+## 7. 生产入口事实
+
+- Sidebar / Fate / Content Shell：真实生产入口。
+- Ritual：已有真实组件，无独立一级路由。
+- Character / Story Book / Cards / Worldline / Notes：部分 View primitive 已存在，但真实领域数据链未就绪时继续保持 placeholder。
+- Artifact：作为 Fate 命运干预工具，不额外制造背包一级导航。
+- Component Gallery：Showcase / Visual Regression / Visual QA Stress，不代表业务页面完成。
+
+## 8. Wave F 合并策略
+
+1. Wave F 先作为 stacked Draft PR 持久化。
+2. #31 合并后，Wave F retarget 到 `main`。
+3. 重新核对/reissue Capsule base，确保 base SHA 与主线一致。
+4. 只对最终 Wave F head 跑完整 `MACOS_APP_P0`。
+5. 未经明确指令不执行 merge。
 
 ## 9. 恢复入口
 
-稳定设计基线 → 本文件 → `Visual_QA_Contract_v1.0.md` → `Batch_22_Visual_QA_Backfill.md` → `MAC-VISUAL-QA-BACKFILL` Task Capsule → PR #31 base/head/diff → `VisualQAContractTests.swift` → Component Gallery Visual QA Stress → 最终 CI/readback。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 23 → `MAC-VISUAL-SYSTEM-WAVE-F` Capsule → Wave F PR → Advanced Interaction primitives → Gallery → contract tests → final CI/readback。
