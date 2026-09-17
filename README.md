@@ -128,6 +128,21 @@ python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 | Golden Scenarios 回归基准 | [`docs/04_Golden_Scenarios/`](docs/04_Golden_Scenarios/) |
 | 工程启动与 P0 门禁 | [`docs/07_工程启动/`](docs/07_工程启动/) |
 
+## 10. 开源许可与版权声明
+
+> [!IMPORTANT]
+> **原著版权与非商业声明 (IP & Non-Commercial Disclaimer)**：
+> 本项目为原著读者与技术爱好者发起的**非商业同人开源技术探索项目**。
+> 《诡秘之主》（*Lord of the Mysteries*）及其相关世界观、角色名称、途径序列与背景设定的一切著作权、商标权与商业知识产权，均独家归原作者 **爱潜水的乌贼** 及版权方 **上海阅文信息技术有限公司（阅文集团）** 所有。
+> 本项目**未获得官方商业授权，永久严禁任何商业盈利、付费内购或变现行为**。开源协议（Apache 2.0）仅约束计算机软件源代码本身。详见完整法律声明：[`NOTICE.md`](NOTICE.md)。
+
+- **软件代码许可**：本项目原创源代码基于 [Apache License 2.0](LICENSE) 许可协议开放；
+- **知识产权与避风港声明**：原著版权与权利人联系机制详见 [`NOTICE.md`](NOTICE.md)；
+- **贡献者行为准则**：参见 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)；
+- **安全与漏洞策略**：参见 [`SECURITY.md`](SECURITY.md)。
+
 ---
 
 **状态**：工程交付基线 v1.0 · 未执行的技术 Gate 不因文档存在而被视为已通过。
+
+

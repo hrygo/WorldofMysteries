@@ -47,6 +47,7 @@ PRIVILEGED_SURFACES: List[str] = [
 # 根目录治理与仓库元文件：不属于任何业务角色，纳入 AGT-ARB 治理通道。
 # 非特权角色触碰需显式 privileged grant，避免"无人认领路径"成为审核盲区。
 ROOT_GOVERNANCE_SURFACES: List[str] = [
+    "LICENSE",
     "AGENTS.md",
     "README.md",
     "CONTRIBUTING.md",

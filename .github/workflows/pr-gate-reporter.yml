@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Generate PR Markdown Report
         run: |
@@ -41,7 +41,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const reportBody = fs.readFileSync('pr_report.md', 'utf8');
+            const path = require('path');
+            const reportPath = path.join('.hacf', 'tmp', 'pr_report.md');
+            const reportBody = fs.readFileSync(reportPath, 'utf8');
             const commentHeader = '## 🛡️ 《诡秘世界》协同证据摘要';
 
             const { data: comments } = await github.rest.issues.listComments({

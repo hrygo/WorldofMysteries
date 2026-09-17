@@ -1,0 +1,112 @@
+{
+  "receipt_id": "RCP-INTEGRATION-M0-UI-SPEC-0d72785d0d44",
+  "receipt_type": "integration",
+  "task_id": "M0-UI-SPEC",
+  "capsule_id": "CAP-M0-UI-SPEC",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:4c7dbbb6a9a2d040120188303924f809512926b90ffa08dd534b3f518781603d",
+  "diff_digest": "sha256:9b6a78734c21db3611c877d5e2b270440e0dbe27cfa86b9ed9be8dd0efcf9f46",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "62218eaba3b02bbb2180d59daf7cefafb0b54e2f",
+  "head_commit": "0d72785d0d44c2cff9fa33ee4a6378b5809ec7b5",
+  "target_ref": "main",
+  "target_sha": "0d72785d0d44c2cff9fa33ee4a6378b5809ec7b5",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-m0-ui-spec",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-16T15:40:45.379203+00:00",
+      "finished_at": "2026-09-16T15:40:45.403257+00:00",
+      "raw_log_digest": "sha256:6dca3b4d7738fb84f7511f23d6db77291b1050f7a7edb11fb40cfdc8f65f2af2",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-m0-ui-spec/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-16T15:40:45.403338+00:00",
+      "finished_at": "2026-09-16T15:40:46.391148+00:00",
+      "raw_log_digest": "sha256:db21445d57235595c4e6fe2b30b6dd71ef0358b78e450960d56db90d8d84944f",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-m0-ui-spec/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-m0-ui-spec/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-16T15:40:46.391588+00:00",
+      "finished_at": "2026-09-16T15:40:47.498940+00:00",
+      "raw_log_digest": "sha256:7c2421cf9d2aada3cbf745cd8d32ebc647a88371bbd177775cd79f13f0a0f06b",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/capsules/M0-UI-SPEC.json",
+      ".agents/receipts/M0-UI-SPEC/17479a53c5ed.json",
+      "macos-app/WorldOfMysteriesTests/RenderProbe.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.15 (Homebrew 2026-09-15 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-16T15:40:45.378987+00:00",
+  "finished_at": "2026-09-16T15:40:52.599577+00:00",
+  "verdict": "passed",
+  "merge_authorizing": true,
+  "merge": {
+    "strategy": "fast-forward",
+    "expected_main_sha": "62218eaba3b02bbb2180d59daf7cefafb0b54e2f",
+    "merged_sha": "0d72785d0d44c2cff9fa33ee4a6378b5809ec7b5",
+    "cas_verified": true,
+    "post_merge_smoke": "passed"
+  },
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

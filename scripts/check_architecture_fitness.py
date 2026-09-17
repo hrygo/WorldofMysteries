@@ -119,6 +119,37 @@ def check_ai_layer_safety() -> list[str]:
     return violations
 
 
+ALLOWED_ROOT_FILES = {
+    "LICENSE",
+    "AGENTS.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "NOTICE.md",
+    "CODE_OF_CONDUCT.md",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    ".gitmessage",
+    ".DS_Store",
+}
+
+
+def check_repository_root_cleanliness() -> list[str]:
+    """Verify that no unexpected temporary files or reports are placed in REPO_ROOT."""
+    violations = []
+    for item in REPO_ROOT.iterdir():
+        if item.is_file():
+            name = item.name
+            if name in ALLOWED_ROOT_FILES or name == ".env" or name.startswith(".env."):
+                continue
+            violations.append(
+                f"[Root Cleanliness Violation] Unexpected file at repository root: '{name}'. "
+                "Temporary reports, logs, and artifacts must be placed in .hacf/tmp/, logs/, or scratch/."
+            )
+    return violations
+
+
 def main() -> int:
     print("🔍 [Architecture Fitness] Running architectural boundary checks...")
     all_violations = []
@@ -158,6 +189,15 @@ def main() -> int:
             print(f"❌ {v}")
     else:
         print("✅ contracts/schemas/ all schemas are syntactically valid JSON.")
+
+    # 5. Repository root cleanliness (Root Cleanliness Principle)
+    root_violations = check_repository_root_cleanliness()
+    if root_violations:
+        all_violations.extend(root_violations)
+        for v in root_violations:
+            print(f"❌ {v}")
+    else:
+        print("✅ REPO_ROOT is clean (ZERO unexpected reports/dumps/temporary files).")
 
     if all_violations:
         print(f"\n💥 Total {len(all_violations)} architecture fitness violation(s) detected!")

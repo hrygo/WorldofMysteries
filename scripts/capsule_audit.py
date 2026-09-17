@@ -32,7 +32,7 @@ META_PREFIXES = (".agents/capsules/", ".agents/receipts/", "docs/", "README.md",
 
 # 仓库根部的治理元文件：属协同元数据，不适用「代码变更必须带胶囊」判定。
 # （`.hacf/gates/**` 等受保护门禁档案不在其中，仍按代码严格裁决。）
-ROOT_META_FILES = (".gitignore", ".gitattributes", ".editorconfig", ".gitmessage")
+ROOT_META_FILES = ("LICENSE", ".gitignore", ".gitattributes", ".editorconfig", ".gitmessage")
 
 
 def _is_meta(path: str) -> bool:

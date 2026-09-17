@@ -146,6 +146,8 @@ pr_report.md
 .agent/
 .agents/scratch/
 .gemini/
+.omo/
+
 
 # ------------------------------------------------------------------------------
 # 7. HACF 协同工作区资源命名空间 (Resource Namespace Lease)
@@ -157,3 +159,10 @@ pr_report.md
 .hacf/testdb/
 .hacf/run/
 .hacf/logs/
+
+# ------------------------------------------------------------------------------
+# 8. 文档与 UI 大图设计资源 (UI Reference & Generated Media)
+# ------------------------------------------------------------------------------
+docs/05_UI/assets/01_概念参考/
+docs/05_UI/assets/02_img_gen/
+

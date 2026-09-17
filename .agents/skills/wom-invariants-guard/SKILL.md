@@ -88,4 +88,5 @@ rtk python3 scripts/check_architecture_fitness.py
 1. `engine/domain/` 零外部 AI/DB 驱动导入；
 2. `macos-app/` 零直接 SQLite 依赖；
 3. `engine/ai/` 零直接 SQL 写事务；
-4. `contracts/schemas/` 全部 28 个 Schema 格式无误。
+4. `contracts/schemas/` 全部 28 个 Schema 格式无误；
+5. 仓库根目录严格清洁度（严禁随意倾倒临时报告、日志或脚本）。
