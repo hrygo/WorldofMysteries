@@ -8,4 +8,8 @@ public nonisolated enum WOMIconAsset: String, CaseIterable, Sendable {
     case ritual = "wom.icon.ritual"
     case codex = "wom.icon.codex"
     case artifact = "wom.icon.artifact"
+    case character = "wom.icon.character"
+    case clue = "wom.icon.clue"
+    case inventory = "wom.icon.inventory"
+    case settings = "wom.icon.settings"
 }

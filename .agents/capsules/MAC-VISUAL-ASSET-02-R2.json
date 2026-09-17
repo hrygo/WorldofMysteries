@@ -1,0 +1,73 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-ASSET-02-R2",
+  "capsule_revision": 2,
+  "supersedes": "CAP-MAC-VISUAL-ASSET-02",
+  "task_id": "MAC-VISUAL-ASSET-02-R2",
+  "title": "扩充导航语义图标并建立视觉资产总进度索引（重签基线）",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T10:54:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "e0d71b805de937eb2b4e51a8ff348685dc7ec73f",
+    "target_sha": "e0d71b805de937eb2b4e51a8ff348685dc7ec73f",
+    "context_snapshot": "sha256:1d10b5bcaa6ed994bfca9b8871cc10b44cf385848bfe3f60ca0eb4f1ea3d9428"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "docs/05_UI/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIconAsset.swift",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "docs/05_UI/visual-assets/README.md",
+      "docs/05_UI/visual-assets/Batch_02_Navigation_Icons.md"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/Batch_01_Core_Semantic_Icons.md",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMIconAsset.swift",
+      "docs/05_UI/design_tokens.json"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "navigation_asset_batch_rebased",
+    "token_estimate": 2200,
+    "max_core_tokens": 3500,
+    "expansion_policy": "arbiter_approved",
+    "note": "Character 已由 PR #21 进入 main，本修订不覆盖该资产；仅补入 Clue/Inventory/Settings，扩展 WOMIconAsset，并持久化 Living Plan 与 Batch 02 记录。"
+  },
+  "impact": {
+    "symbols": ["WOMIconAsset"],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": ["MAC-VISUAL-ASSET-01-R2", "MAC-VISUAL-ASSET-04-R2"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "总进度索引、Batch 记录与实际资产同 PR 持久化；新增资产保持 wom.icon.* 语义命名、template rendering 与矢量表示；不迁移真实页面。"
+  }
+}
