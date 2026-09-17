@@ -1,0 +1,99 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-VISUAL-QA-BACKFILL",
+  "capsule_revision": 1,
+  "task_id": "MAC-VISUAL-QA-BACKFILL",
+  "title": "视觉质量追溯审计：对比度、可读性、布局碰撞与对齐",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-17T14:10:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "51a9b2679420edbf1fb9b12189033a2a6cdc8567",
+    "target_sha": "51a9b2679420edbf1fb9b12189033a2a6cdc8567",
+    "context_snapshot": "sha256:7594a48861813d31189044e2b29049986493ff95acb010c08c084ea7e73821d8"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/",
+      "contracts/engineering/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/05_UI/visual-assets/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md",
+      "docs/05_UI/visual-assets/Batch_22_Visual_QA_Backfill.md",
+      "macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMButtonStyles.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSurfaceStyles.swift",
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift",
+      "macos-app/WorldOfMysteries/ContentView.swift"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "retroactive_visual_qa_backfill",
+    "token_estimate": 9000,
+    "max_core_tokens": 12000,
+    "expansion_policy": "arbiter_approved",
+    "note": "追溯审计 Wave A-D 已合入视觉代码：对比度、字体可读性、最小窗口与长文本布局、重叠覆盖、对齐和 accessibility。不得修改 Engine/DB/IPC/schema。"
+  },
+  "impact": {
+    "symbols": [
+      "WOMButtonStyle",
+      "WOMPanelBackground",
+      "AppSidebarView",
+      "ContentView",
+      "BronzeAltarPrayerCard",
+      "CitrinePendulumScryingCard",
+      "CharacterCodexCard",
+      "TingenCityDossierCard",
+      "NarrativeChronicleView",
+      "FateArtifactInterventionView",
+      "ArtifactShowcaseView",
+      "VisualSystemGallerySection"
+    ],
+    "contracts": [],
+    "tests": [
+      "VisualQAContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-VISUAL-SYSTEM-WAVE-D"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "assertions": ["INV-12"],
+    "instructions": "历史视觉代码无豁免：常规文字最终对比度 >=4.5:1，关键非文本边界 >=3:1；正文默认 >=13pt，说明/元数据默认 >=11pt；最小窗口与长文本不得出现结构性重叠；布局应保持统一基线、间距和对仗；不得修改 Engine/DB/IPC/schema。"
+  }
+}
