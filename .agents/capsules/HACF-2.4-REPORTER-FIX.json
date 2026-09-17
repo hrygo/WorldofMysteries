@@ -1,0 +1,178 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-HACF-2.4-REPORTER-FIX",
+  "capsule_revision": 1,
+  "task_id": "HACF-2.4-REPORTER-FIX",
+  "title": "修复 PR 证据卡片永不检测内容（浅克隆 diff 失败静默降级）",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-17T05:17:55.934995+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "feat/reporter-detection-fix",
+    "base_sha": "40e466077ea33adb3a1d887c67e1f7b157613352",
+    "target_sha": "40e466077ea33adb3a1d887c67e1f7b157613352",
+    "context_snapshot": "sha256:594da4fb1e11297ab2db30bb8c998d70cc3794bc12e7ed7991040e84c9468283"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": [
+      ".github/workflows/pr-gate-reporter.yml",
+      "scripts/generate_pr_report.py",
+      "scripts/check_architecture_fitness.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:load_receipts@scripts/capsule_audit.py:67",
+      "symbol:check_domain_dependencies@scripts/check_architecture_fitness.py:31",
+      "symbol:check_contracts_schemas@scripts/check_architecture_fitness.py:64",
+      "symbol:check_macos_app_independence@scripts/check_architecture_fitness.py:80",
+      "symbol:check_ai_layer_safety@scripts/check_architecture_fitness.py:100",
+      "symbol:check_repository_root_cleanliness@scripts/check_architecture_fitness.py:141",
+      "symbol:main@scripts/check_architecture_fitness.py:156",
+      "symbol:_git_env@scripts/generate_pr_report.py:31",
+      "symbol:_run_git@scripts/generate_pr_report.py:43",
+      "symbol:detect_changed_files@scripts/generate_pr_report.py:54",
+      "symbol:load_capsules@scripts/generate_pr_report.py:100",
+      "symbol:load_changed_receipts@scripts/generate_pr_report.py:123",
+      "symbol:load_task_receipts@scripts/generate_pr_report.py:146",
+      "symbol:_merge_receipts@scripts/generate_pr_report.py:162",
+      "symbol:_verdict_badge@scripts/generate_pr_report.py:171",
+      "symbol:generate_report@scripts/generate_pr_report.py:175",
+      "symbol:_merge_base@scripts/generate_pr_report.py:64",
+      "symbol:PolicyError@scripts/hacf_policy.py:91",
+      "symbol:now_iso@scripts/hacf_policy.py:95",
+      "symbol:sha256_bytes@scripts/hacf_policy.py:99",
+      "symbol:sha256_file@scripts/hacf_policy.py:103",
+      "symbol:canonical_json_digest@scripts/hacf_policy.py:107",
+      "symbol:matches_any@scripts/hacf_policy.py:113",
+      "symbol:run_git@scripts/hacf_policy.py:140",
+      "symbol:run_git_bytes@scripts/hacf_policy.py:149",
+      "symbol:split_nul@scripts/hacf_policy.py:156",
+      "symbol:changed_files@scripts/hacf_policy.py:165",
+      "symbol:capsule_digest@scripts/hacf_policy.py:182",
+      "symbol:changes_digest@scripts/hacf_policy.py:186",
+      "symbol:load_capsule@scripts/hacf_policy.py:218"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 636,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "load_receipts",
+      "check_domain_dependencies",
+      "check_contracts_schemas",
+      "check_macos_app_independence",
+      "check_ai_layer_safety",
+      "check_repository_root_cleanliness",
+      "main",
+      "_git_env",
+      "_run_git",
+      "detect_changed_files",
+      "load_capsules",
+      "load_changed_receipts",
+      "load_task_receipts",
+      "_merge_receipts",
+      "_verdict_badge",
+      "generate_report",
+      "_merge_base",
+      "PolicyError",
+      "now_iso",
+      "sha256_bytes",
+      "sha256_file",
+      "canonical_json_digest",
+      "matches_any",
+      "run_git",
+      "run_git_bytes",
+      "split_nul",
+      "changed_files",
+      "capsule_digest",
+      "changes_digest",
+      "load_capsule"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
