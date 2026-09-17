@@ -1,5 +1,5 @@
 import Testing
-@testable import WorldOfMysteries
+@testable import WorldOfMysteriesCore
 
 @Suite("Visual System Semantic Contracts")
 struct VisualSystemSemanticTests {

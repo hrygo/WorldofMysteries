@@ -2,7 +2,7 @@
 
 > Task：`MAC-VISUAL-SYSTEM-WAVE-C`  
 > Base：`main@d0de662e4d2af8d607c9014084ee54ebe7b4a9f3`  
-> 状态：IMPLEMENTED / FINAL CI PENDING
+> 状态：IMPLEMENTED / FINAL CI RETRY
 
 ## 1. 目标
 
@@ -51,10 +51,18 @@ Wave C 聚焦 macOS 原生 Focus、高对比度、Differentiate Without Color、
 
 不采用像素截图 golden，避免 macOS 字体、渲染器、系统版本变化导致脆弱测试；视觉状态由 Component Gallery 做人工/自动截图入口，语义契约由 Swift Testing 守护。
 
-## 6. 技术原则
+## 6. 最终 CI 首轮发现与修复
+
+首轮最终 CI：Architecture/Contracts 与 Python 全绿；Swift 6 Test Suite 失败并阻止 Xcode Build。
+
+静态核对确认新测试文件错误导入了 `WorldOfMysteries`，而仓库 Swift Package 的实际 library/test dependency 是 `WorldOfMysteriesCore`。已修复为：
+
+```swift
+@testable import WorldOfMysteriesCore
+```
+
+该修复不改变测试内容、产品代码或视觉方案，只纠正测试目标模块名。随后重新验证最终 head。
+
+## 7. 技术原则
 
 SwiftUI environment 是系统状态事实源；不维护平行的 focus/contrast/accessibility 状态机。自定义 `ButtonStyle` 只改视觉，不重写 Button 的平台触发与键盘行为。
-
-## 7. 下一步
-
-Wave C 当前实现完成。下一步只对 PR #27 最终 head 统一执行 `MACOS_APP_P0`；若失败，仅用原子 fix commit 修复最终结果。
