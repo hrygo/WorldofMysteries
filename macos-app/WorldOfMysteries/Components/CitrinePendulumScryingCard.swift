@@ -98,10 +98,11 @@ public struct CitrinePendulumScryingCard: View {
 
             HStack(spacing: DesignTokens.Spacing.xs) {
                 WOMIcon(.spirituality, size: .compact)
+                    .foregroundStyle(Color.Mystic.spiritualBlue)
                 Text("灵性消耗 -5%")
+                    .font(Font.Mystic.monoBadge)
+                    .foregroundStyle(Color.Mystic.textSecondary)
             }
-            .font(Font.Mystic.monoBadge)
-            .foregroundStyle(Color.Mystic.spiritualBlue)
             .accessibilityElement(children: .combine)
         }
     }
@@ -128,7 +129,18 @@ public struct CitrinePendulumScryingCard: View {
     private var statePanel: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             HStack(spacing: DesignTokens.Spacing.sm) {
-                MysticStatusDot(tone: state.tone, isPulsing: isScrying && !reduceMotion, label: state.rawValue)
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                    MysticStatusDot(
+                        tone: state.tone,
+                        isPulsing: isScrying && !reduceMotion,
+                        label: nil
+                    )
+                    Text(state.rawValue)
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textPrimary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(state.rawValue)
 
                 Spacer(minLength: DesignTokens.Spacing.sm)
 
@@ -155,7 +167,7 @@ public struct CitrinePendulumScryingCard: View {
     private var statementPanel: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text("默念占卜语句（七遍）：")
-                .mysticCaptionStyle(color: Color.Mystic.brassGoldMuted)
+                .mysticCaptionStyle(color: Color.Mystic.brassGoldPrimary)
 
             HStack(spacing: DesignTokens.Spacing.sm) {
                 TextField("输入占卜语句…", text: $statement)
@@ -216,6 +228,15 @@ public struct CitrinePendulumScryingCard: View {
                 systemIcon: "checkmark.seal"
             )
         }
+        .padding(DesignTokens.LayoutInsets.compactCardPadding)
+        .background(
+            WOMPanelBackground(
+                tone: .card,
+                cornerRadius: DesignTokens.Radii.sm,
+                texture: .sacredSlate,
+                textureOpacity: 0.018
+            )
+        )
     }
 
     // MARK: - 原型推演
