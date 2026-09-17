@@ -59,6 +59,17 @@ struct PremiumArtworkContractTests {
         #expect(artifactShowcase.contains("WOMWorldArtworkAsset.artifactVault.wideHeaderAssetName"))
     }
 
+    @Test("Artifact selectors consume thumbnail variants with semantic fallback")
+    func artifactSelectorsUseThumbnailVariants() throws {
+        let gallery = try source("Artifacts/ArtifactShowcaseView.swift")
+        let fate = try source("Artifacts/ArtifactFateInterventionView.swift")
+
+        #expect(gallery.contains("artworkAsset.thumbnailAssetName"))
+        #expect(fate.contains("artworkAsset.thumbnailAssetName"))
+        #expect(gallery.contains("fallback: .systemImage(descriptor.systemIcon)"))
+        #expect(fate.contains("fallback: .systemImage(descriptor.systemIcon)"))
+    }
+
     @Test("catalog contains no unregistered runtime premium artwork")
     func catalogHasNoOrphanPremiumArtwork() throws {
         let catalog = try catalogArtworkNames()

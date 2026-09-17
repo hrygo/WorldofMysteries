@@ -98,15 +98,18 @@ public struct FateArtifactInterventionView: View {
     } label: {
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
         HStack {
-          ZStack {
+          WOMArtworkView(
+            assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+            fallback: .systemImage(descriptor.systemIcon),
+            fallbackTint: descriptor.tone.accent,
+            contentMode: .fit
+          )
+          .frame(width: 44, height: 44)
+          .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous))
+          .overlay {
             RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
-              .fill(descriptor.tone.accent.opacity(0.12))
-
-            Image(systemName: descriptor.systemIcon)
-              .font(.system(size: 18, weight: .semibold))
-              .foregroundStyle(descriptor.tone.accent)
+              .stroke(descriptor.tone.accent.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
           }
-          .frame(width: 38, height: 38)
           .accessibilityHidden(true)
 
           Spacer()

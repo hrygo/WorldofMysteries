@@ -48,9 +48,15 @@ public struct ArtifactShowcaseView: View {
               }
             } label: {
               HStack(spacing: DesignTokens.Spacing.xs) {
-                Image(systemName: descriptor.systemIcon)
-                  .foregroundStyle(descriptor.tone.accent)
-                  .accessibilityHidden(true)
+                WOMArtworkView(
+                  assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+                  fallback: .systemImage(descriptor.systemIcon),
+                  fallbackTint: descriptor.tone.accent,
+                  contentMode: .fit
+                )
+                .frame(width: 28, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+
                 Text(descriptor.displayName)
                   .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
               }
