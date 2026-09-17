@@ -1,19 +1,27 @@
+import AppKit
 import SwiftUI
 
-/// Semantic fallback used while an artwork payload is unavailable or fails to render.
+/// Semantic fallback displayed whenever artwork is unavailable or has transparent regions.
+public nonisolated enum WOMArtworkFallback: Sendable {
+    case icon(WOMIconSource)
+    case systemImage(String)
+}
+
+/// Runtime presentation for premium artwork with a stable semantic fallback.
 ///
-/// The fallback remains behind the image at all times. A missing named Asset Catalog image is
-/// transparent, so the typed fallback stays visible without requiring a second resource lookup.
+/// Asset existence is resolved through AppKit so alpha-bearing object art never reveals a
+/// fallback icon behind transparent regions. Missing payloads retain the established semantic
+/// icon instead of producing an empty identity surface.
 public struct WOMArtworkView: View {
     public let assetName: String
-    public let fallback: WOMIconSource
+    public let fallback: WOMArtworkFallback
     public let fallbackTint: Color
     public let contentMode: ContentMode
     public let accessibilityLabel: String?
 
     public init(
         assetName: String,
-        fallback: WOMIconSource,
+        fallback: WOMArtworkFallback,
         fallbackTint: Color = Color.Mystic.textTertiary,
         contentMode: ContentMode = .fill,
         accessibilityLabel: String? = nil
@@ -25,22 +33,35 @@ public struct WOMArtworkView: View {
         self.accessibilityLabel = accessibilityLabel
     }
 
+    public init(
+        assetName: String,
+        fallback: WOMIconSource,
+        fallbackTint: Color = Color.Mystic.textTertiary,
+        contentMode: ContentMode = .fill,
+        accessibilityLabel: String? = nil
+    ) {
+        self.init(
+            assetName: assetName,
+            fallback: .icon(fallback),
+            fallbackTint: fallbackTint,
+            contentMode: contentMode,
+            accessibilityLabel: accessibilityLabel
+        )
+    }
+
     @ViewBuilder
     public var body: some View {
         let artwork = ZStack {
             Color.Mystic.obsidianElevated
 
-            WOMIcon(
-                source: fallback,
-                size: .large,
-                accessibilityLabel: nil
-            )
-            .foregroundStyle(fallbackTint.opacity(0.72))
-
-            Image(assetName)
-                .resizable()
-                .aspectRatio(contentMode: contentMode)
-                .accessibilityHidden(true)
+            if let image = NSImage(named: NSImage.Name(assetName)) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: contentMode)
+                    .accessibilityHidden(true)
+            } else {
+                fallbackView
+            }
         }
         .clipped()
 
@@ -50,6 +71,24 @@ public struct WOMArtworkView: View {
                 .accessibilityLabel(Text(accessibilityLabel))
         } else {
             artwork.accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder
+    private var fallbackView: some View {
+        switch fallback {
+        case .icon(let source):
+            WOMIcon(
+                source: source,
+                size: .large,
+                accessibilityLabel: nil
+            )
+            .foregroundStyle(fallbackTint.opacity(0.72))
+        case .systemImage(let name):
+            Image(systemName: name)
+                .font(.system(size: 54, weight: .ultraLight))
+                .foregroundStyle(fallbackTint.opacity(0.72))
+                .accessibilityHidden(true)
         }
     }
 }
