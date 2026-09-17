@@ -1,0 +1,82 @@
+{
+  "receipt_id": "RCP-WORK-M0-TOKEN-ISOLATION-FIX-c0a8b4d1025d",
+  "receipt_type": "work",
+  "task_id": "M0-TOKEN-ISOLATION-FIX",
+  "capsule_id": "CAP-M0-TOKEN-ISOLATION-FIX",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:1c0475c8a6acb53054c4a58c6923131ee5046eb375ce9769de2fc285360d3e75",
+  "diff_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "c0a8b4d1025dcfe2ddbd0e7ebf3cb655a9541630",
+  "head_commit": "c0a8b4d1025dcfe2ddbd0e7ebf3cb655a9541630",
+  "target_ref": "fix/m0-token-isolation-fix",
+  "target_sha": "c0a8b4d1025dcfe2ddbd0e7ebf3cb655a9541630",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-m0-token-isolation-fix",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-17T05:37:26.499342+00:00",
+      "finished_at": "2026-09-17T05:37:26.523277+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/fix-m0-token-isolation-fix/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-m0-token-isolation-fix/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-17T05:37:26.523377+00:00",
+      "finished_at": "2026-09-17T05:37:29.228595+00:00",
+      "raw_log_digest": "sha256:47ee3368ab280ed6db6be218ec65653b69b8393600a46450037b475a5204cd7c",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.15 (Homebrew 2026-09-15 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-m0-token-isolation-fix"
+  },
+  "started_at": "2026-09-17T05:37:26.475334+00:00",
+  "finished_at": "2026-09-17T05:37:29.333348+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
