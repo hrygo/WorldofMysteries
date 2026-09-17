@@ -93,16 +93,18 @@
 - shared typography token floors prevent global readability regression；
 - Swift 6 / Xcode App Target remain required final gates。
 
-## 5. 当前新工作流：Premium Art Program A0
+## 5. 当前新工作流：Premium Art Program
 
-Branch：`feat/premium-world-artifact-plan`  
-Base：`main@33ff760a1bd939556a7c93ca760e4413dfb42a6e`  
+### A0 — Research / Art Bible / Implementation Plan — DONE
+
+PR：**#37**  
+Merged commit：`d98af5f4eec413407a6c83de245ebc434fcd267d`  
 Task：`MAC-PREMIUM-ART-PLAN`  
 Batch：[`Batch_28_Premium_Art_Program_Plan.md`](Batch_28_Premium_Art_Program_Plan.md)  
 总体方案：[`../Premium_World_Art_Artifact_Implementation_Plan_v1.0.md`](../Premium_World_Art_Artifact_Implementation_Plan_v1.0.md)  
-状态：**A0 PLAN COMPLETE / PR VALIDATION PENDING**。
+状态：**A0 DONE / ALL QUALITY GATES PASSED / A1 READY**。
 
-### A0 已完成
+A0 已完成：
 
 - 审计当前 15 件 Artifact 实现和 Asset Catalog；
 - 调研《诡秘之主》官方小说简介、官方 IP 站、2026 当前官方游戏公开表达；
@@ -115,16 +117,11 @@ Batch：[`Batch_28_Premium_Art_Program_Plan.md`](Batch_28_Premium_Art_Program_Pl
 - 建立 [`../artwork/Canon_Visual_Brief_Template.md`](../artwork/Canon_Visual_Brief_Template.md)；
 - 建立 [`../artwork/Research_Sources_Premium_Art_A0.md`](../artwork/Research_Sources_Premium_Art_A0.md)。
 
-### A0 明确没有做
+A0 没有生成运行时 premium image、没有修改 `Assets.xcassets`、没有修改 SwiftUI production code，也没有把现有 SF Symbol fallback 冒充成最终 Artifact 美术。
 
-- 没有生成运行时 premium image；
-- 没有修改 `Assets.xcassets`；
-- 没有修改 SwiftUI production code；
-- 没有把现有 SF Symbol fallback 冒充成最终 Artifact 美术。
+### A1 — World / Scene Premium Art — NEXT
 
-### 下一入口：A1 — 真正生成高品质图片
-
-A0 合并后下一阶段固定为：
+下一阶段固定为真正的图片生产：
 
 1. W1 World Hero；
 2. W2 Gray Fog / Sefirah；
@@ -133,7 +130,7 @@ A0 合并后下一阶段固定为：
 5. 同阶段建立 `WOMWorldArtworkAsset` / `WOMArtworkView` / `WOMArtworkScrim`；
 6. 随后 A2 开始 Artifact P0 7 件 premium object art。
 
-**下一阶段不得继续用“补更多 UI primitive”替代真正绘图。**
+**A1 不得继续用“补更多 UI primitive”替代真正绘图。**
 
 ## 6. Premium Artifact 关键事实
 
@@ -196,6 +193,6 @@ Failed guard 必须修实现或显式修改批准契约；不得单纯为了绿�
 
 ### Premium Art Program
 
-`Premium_World_Art_Artifact_Implementation_Plan_v1.0.md` → 本文件 → Batch 28 → `MAC-PREMIUM-ART-PLAN` Capsule → Canon Visual Brief Template → Research Sources → Premium Art PR → A1 actual artwork production。
+`Premium_World_Art_Artifact_Implementation_Plan_v1.0.md` → 本文件 → Batch 28 → `MAC-PREMIUM-ART-PLAN` Capsule → Canon Visual Brief Template → Research Sources → PR #37 → A1 actual artwork production。
 
 本文件为当前执行事实源；历史 Batch 保留决策过程与每阶段证据。
