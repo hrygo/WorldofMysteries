@@ -8,4 +8,8 @@ public nonisolated enum WOMSystemIcon: String, CaseIterable, Sendable {
     case remove = "minus"
     case edit = "pencil"
     case search = "magnifyingglass"
+    case close = "xmark"
+    case back = "chevron.left"
+    case favorite = "star"
+    case more = "ellipsis"
 }

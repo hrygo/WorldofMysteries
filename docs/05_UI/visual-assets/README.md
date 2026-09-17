@@ -57,7 +57,7 @@ wom.texture.*
 
 目标是在同一个远端 PR 内，用多个原子 commit 连续完成：
 
-1. **Batch 04**：补齐 Close / Back / Favorite / More 系统行为语义。
+1. **Batch 04**：补齐 Close / Back / Favorite / More 系统行为语义。**已实现于 PR #26。**
 2. **Batch 05**：状态与世界交互语义资产：Warning / Success / Locked / Active / Cooldown / Divination / Spirituality / Gray Fog / Seal / Card。
 3. **Batch 06**：盘点已有 Parchment / Gold / Veil / Slate / Velvet，并建立 `WOMTextureAsset` 类型化注册。
 4. **Batch 07**：实现 `WOMIcon`，统一 custom asset 与 SF Symbols source、尺寸、rendering 与 accessibility。

@@ -3,7 +3,7 @@
 > Task：`MAC-VISUAL-SYSTEM-WAVE-B`  
 > 总体设计：[`../Visual_Asset_System_v1.0.md`](../Visual_Asset_System_v1.0.md)  
 > 执行总计划：[`README.md`](README.md)  
-> 状态：PLANNED / PERSISTED BEFORE IMPLEMENTATION
+> 状态：IMPLEMENTED IN PR #26
 
 ## 1. 目标
 
@@ -30,6 +30,12 @@ Selected / filled 状态不在 registry 中复制，例如 Favorite 的选中态
 - 不迁移真实页面；
 - 实现与本文档在同一长期 PR 中持久化。
 
-## 4. 后续
+## 4. 实现结果
 
-完成本批后不关闭 PR，继续以新的原子 commit 推进 Batch 05 状态与世界交互语义资产。
+`WOMSystemIcon` 已补齐 4 个语义，与 Batch 03 合计形成 8 个平台标准行为入口：Add / Remove / Edit / Search / Close / Back / Favorite / More。
+
+本批没有新增 SVG，也没有迁移页面；状态变体继续留给未来 `WOMIcon` / ButtonStyle。
+
+## 5. 后续
+
+PR 保持开放，下一原子 commit 进入 Batch 05 状态与世界交互语义资产。
