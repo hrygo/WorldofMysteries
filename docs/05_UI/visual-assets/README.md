@@ -1,14 +1,13 @@
-# Visual Asset System — 执行总体方案与持久化规则
+# Visual Asset System — Living Plan / 当前执行事实源
 
 > 稳定设计基线：[`../Visual_Asset_System_v1.0.md`](../Visual_Asset_System_v1.0.md)  
-> 当前执行事实源：本文件。  
 > Visual QA：[`Visual_QA_Contract_v1.0.md`](Visual_QA_Contract_v1.0.md)
 
 ## 1. 持久化与交付规则
 
 - 关键设计判断必须落仓库，不依赖聊天或临时环境。
 - 同一阶段采用 **长期持久化 PR + 原子 commit**；PR 不要求最小化。
-- 涉及方案时同步提交：总体/Living Plan + Batch + Capsule + 实际代码/测试。
+- 涉及方案时同步提交：Living Plan + Batch + Capsule + 实际代码/测试。
 - 稳定增量尽早推远端；最终 head 统一执行 `MACOS_APP_P0`。
 - 不绕过主分支保护；写入成功不等于交付完成。
 - Visual QA Contract 对历史和未来视觉代码都生效，已合并不是豁免理由。
@@ -18,7 +17,7 @@
 - 世界观图形：原创 vector asset + typed registry。
 - 平台行为/状态：SF Symbols + typed semantic registry。
 - Hover / Pressed / Selected / Focused / Disabled / Loading：SwiftUI style + Design Token 驱动。
-- Sheet / Popover / Inspector / Tab / segmented selection 优先系统 SwiftUI/macOS 语义；WOM 只补视觉和语义封装，不伪造系统控件。
+- Sheet / Popover / Inspector / segmented selection / WindowGroup 优先系统 SwiftUI/macOS 语义；WOM 只补视觉、语义与布局契约，不伪造系统控件/窗口。
 - Surface 使用程序化 fill/stroke/shadow + 少量纹理。
 - 不允许新增 Engine / DB / IPC / schema 耦合来服务纯视觉组件。
 
@@ -33,7 +32,7 @@
 - 长中英文、Badge、Loading、Error、Empty 必须自然增长或 responsive fallback。
 - 优先 adaptive Grid / `ViewThatFits`；不得通过缩小字体、负 offset、魔法宽度或抬高最小窗口掩盖布局问题。
 - 同组卡片、按钮、标题基线、padding、视觉重量保持工整一致。
-- Reduce Motion 必须在组件内部生效；状态不得仅靠颜色表达。
+- Reduce Motion / Increased Contrast / Differentiate Without Color / Reduce Transparency / Keyboard Focus 必须稳定退化。
 
 ## 4. 已合入 main
 
@@ -45,8 +44,6 @@
 | Wave D | #28 | Asset contracts、typed icon、navigation/commands/focus | DONE |
 | Wave E | #29 | Overlay / Feedback / Loading / Status / typed Empty State | DONE |
 
-`main` 当前仍为 `475949e8d07c99683776faa63c88543e96e8d250`（包含 #29）。
-
 ## 5. 已验证待合并：Visual QA Backfill / PR #31
 
 Branch: `feat/wom-visual-qa-backfill-v2`  
@@ -55,95 +52,89 @@ Final head: `8b9ab58428d05762184884c9e60b03f6e8075d71`
 
 已完成 Wave A–E 的 retroactive contrast / typography / collision / alignment audit、960×640 responsive hardening、shared primitives、15/15 Artifact shared + individual QA、Reduce Motion 和 `VisualQAContractTests.swift`。
 
-#31 尚未由本执行流合并；Wave F 以该已验证 head 作为 stacked base。
-
-## 6. 当前持久化工作流：Wave F — Advanced Interaction & World-State Chrome / PR #32
+## 6. 已实现待 retarget：Wave F / PR #32
 
 Branch: `feat/wom-visual-system-wave-f`  
-Stacked base: `feat/wom-visual-qa-backfill-v2@8b9ab58428d05762184884c9e60b03f6e8075d71`  
-Batch: [`Batch_23_Wave_F_Advanced_Interaction_Chrome.md`](Batch_23_Wave_F_Advanced_Interaction_Chrome.md)  
+Stacked base: `#31@8b9ab58428d05762184884c9e60b03f6e8075d71`  
+Head: `a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
 状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
-### F23.1 — `WOMAdaptiveSegmentedPicker` — DONE
+已实现：
 
-- 原生 SwiftUI `Picker`；
-- 宽空间 `.segmented`；
-- segmented 保持 intrinsic readable width；
-- 窄空间 `ViewThatFits` 自动降级 `.menu`；
-- 不使用 Buttons 模拟系统 segmented control；
-- 不引入 AppKit bridge。
+- `WOMAdaptiveSegmentedPicker`：原生 Picker segmented → menu fallback；
+- `WOMRelationBadge`：5 种关系语义，非 color-only；
+- `WOMAchievementSeal`：locked/discovered/completed；
+- `WOMCooldownIndicator`：外部状态驱动 determinate `ProgressView`；
+- Gallery long-label / narrow-width stress；
+- `VisualAdvancedInteractionContractTests.swift`。
 
-### F23.2 — `WOMRelationBadge` — DONE
+Wave F 不伪造关系分数、成就持久化、冷却计时器或业务真相。
 
-- trusted / aligned / neutral / wary / hostile；
-- icon + text + border/shape；
-- Differentiate Without Color 使用不同 dash；
-- Increased Contrast 增强边界；
-- 长标题/详情自然换行；
-- 不包含关系分数或持久化。
+## 7. 当前持久化工作流：Wave G — Window / Inspector / Responsive Workspace Layout / PR #33
 
-### F23.3 — `WOMAchievementSeal` — DONE
+Branch: `feat/wom-visual-system-wave-g`  
+Stacked base: `feat/wom-visual-system-wave-f@a4ae319d48f25b9eadffdf6f8e64845ecc55cada`  
+Batch: [`Batch_24_Wave_G_Window_Inspector_Layout.md`](Batch_24_Wave_G_Window_Inspector_Layout.md)  
+Task: `MAC-VISUAL-SYSTEM-WAVE-G`  
+状态：**IMPLEMENTATION COMPLETE / RETARGET + FINAL CI PENDING**。
 
-- locked / discovered / completed；
-- 11pt metadata；
-- locked 状态仍保持可读；
-- icon + text + geometry，非 color-only；
-- 长成就名/说明允许多行。
+### G24.1 — Window metrics — DONE
 
-### F23.4 — `WOMCooldownIndicator` — DONE
+- minimum usable size：960×640；
+- default initial size：1180×760；
+- 默认尺寸只影响首次窗口，不锁定用户 resize。
 
-- ready / cooling / locked；
-- determinate `ProgressView`；
-- progress 由外部 Runtime/Domain 提供；
-- 无 Timer / Task.sleep / repeatForever；
-- 不在视觉组件内部制造 availability truth。
+### G24.2 — Inspector metrics — DONE
 
-### F23.5 — Gallery / Contracts — DONE
+- min 280 / ideal 320 / max 420；
+- 系统 `.inspectorColumnWidth(min:ideal:max:)`；
+- 不创建 NSPanel / NSWindow coordinator。
 
-- 正常 segmented 与 220pt narrow Inspector fallback specimen；
-- 5 种 relationship role；
-- 长中英文 hostile label；
-- 3 种 achievement state + 长标题；
-- ready/cooling/locked cooldown；
-- `VisualAdvancedInteractionContractTests.swift` 锁定 native semantics、no timer、no color-only、presentation-only boundary。
+### G24.3 — Responsive workspace primitive — DONE
 
-## 7. Wave F 当前静态事实
+- `WOMAdaptivePair` 统一宽屏双栏 → 窄屏纵向；
+- 保留 13pt body / 11pt metadata；
+- 不用负 offset / magic width 解决挤压。
 
-相对 #31 已验证 head 的首次完整实现审计：
-- ahead 8 / behind 0；
-- 仅 Capsule / Batch / Living Plan、2 个 DesignSystem source、Gallery、1 个 test file；
-- 无 Engine / DB / IPC / schema / `.github` / `.hacf` 变化。
+### G24.4 — Production integration — DONE
 
-后续 audit/test/doc 原子提交仍保持同一授权文件集合。
+- `ContentView` min size 改为 `WOMWindowMetrics` 单一事实源；
+- Fate 局势双栏复用 `WOMAdaptivePair`；
+- `WorldOfMysteriesApp` 使用 1180×760 舒适 default size；
+- 不改变 IPC / Domain / navigation state。
+
+### G24.5 — Native Inspector QA Preview / Contract — DONE
+
+- 独立 `#Preview("Native Inspector · Visual QA")` 使用真实 `.inspector`；
+- 280pt minimum stress 中包含长中英文、Relation、Cooldown；
+- 不继续膨胀 Component Gallery 大文件；
+- `VisualWindowLayoutContractTests.swift` 锁定 metrics、native Inspector、defaultSize、adaptive pair 与 no custom window coordinator。
 
 ## 8. 生产入口事实
 
 - Sidebar / Fate / Content Shell：真实生产入口。
 - Ritual：已有真实组件，无独立一级路由。
-- Character / Story Book / Cards / Worldline / Notes：部分 View primitive 已存在，但真实领域数据链未就绪时继续保持 placeholder。
+- Character / Story Book / Cards / Worldline / Notes：真实领域数据链未就绪时继续保持 placeholder。
 - Artifact：作为 Fate 命运干预工具，不额外制造背包一级导航。
 - Component Gallery：Showcase / Visual Regression / Visual QA Stress，不代表业务页面完成。
-- Wave F world-state chrome 当前仅进入 Design System + Gallery；真实领域数据源未就绪前不伪造生产绑定。
+- 多窗口：在没有独立领域工作流前，不新增无意义 standalone WindowGroup。
 
-## 9. Wave F 合并策略
+## 9. Stacked 合并策略
 
-1. #32 保持 stacked Draft，直至 #31 合并。
-2. #31 合并后，将 #32 retarget 到 `main`。
-3. 重新核对/reissue Capsule base，使 base SHA 与最新主线一致。
-4. 再次回读 diff，确保只剩 Wave F 增量。
-5. Mark Ready，并只对最终 Wave F head 执行完整 `MACOS_APP_P0`。
-6. 若失败，只做日志驱动的原子 fix。
-7. 未经明确指令不执行 merge。
+1. #31 先合并后，#32 retarget `main`、重签 Capsule、最终 CI；
+2. #32 合并后，#33 retarget `main`、重签 Capsule、回读纯 Wave G diff；
+3. #33 Mark Ready，并只对最终 Wave G head 执行完整 `MACOS_APP_P0`；
+4. 未经明确授权不执行 merge。
 
 ## 10. 后续候选
 
-Wave F 验证完成后再推进：
-- 真实领域数据源就绪后的 Relation/Achievement/Cooldown production binding；
-- 页面级 Inspector sizing / multi-window strategy；
-- 生产 workspace 从 placeholder 迁移时的视觉/数据契约。
+Wave G 最终验证后再推进：
 
-任何后续 Wave 继续继承 Visual QA Contract。
+- 真实领域数据就绪后的 production Inspector binding；
+- placeholder workspace 升级时的 NavigationSplitView / inspector 数据契约；
+- 独立 Codex/Story Book window 仅在具备真实独立工作流与 state restoration 语义后评估；
+- window zoom / ideal size 与 multi-window restore 策略。
 
 ## 11. 恢复入口
 
-`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 23 → `MAC-VISUAL-SYSTEM-WAVE-F` Capsule → PR #32 → `WOMAdaptiveSegmentedPicker` / `WOMWorldStateChrome` → Gallery → `VisualAdvancedInteractionContractTests` → retarget → final CI/readback。
+`Visual_Asset_System_v1.0.md` → 本文件 → `Visual_QA_Contract_v1.0.md` → Batch 24 → `MAC-VISUAL-SYSTEM-WAVE-G` Capsule → PR #33 → `WOMWorkspaceLayout.swift` → `MyApp` / `ContentView` → Native Inspector QA Preview → `VisualWindowLayoutContractTests` → retarget → final CI/readback。

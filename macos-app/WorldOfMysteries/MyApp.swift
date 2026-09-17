@@ -16,6 +16,10 @@ struct WorldOfMysteriesApp: App {
             .environment(appState)
             .environment(\.adviceFocusRequestID, adviceFocusRequestID)
         }
+        .defaultSize(
+            width: WOMWindowMetrics.defaultWidth,
+            height: WOMWindowMetrics.defaultHeight
+        )
         .commands {
             AppMenuBarCommands(
                 currentNavigation: $currentNavigation,
