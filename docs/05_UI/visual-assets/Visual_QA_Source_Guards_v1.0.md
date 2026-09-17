@@ -2,7 +2,7 @@
 
 > 状态：ACTIVE  
 > 上位契约：`Visual_QA_Contract_v1.0.md`  
-> 目标：把可读性、响应式布局和 macOS 原生性要求从人工检查升级为自动源代码契约。
+> 目标：把可读性、响应式布局、对比度和 macOS 原生性要求从人工检查升级为自动工程契约。
 
 ## 1. 扫描范围
 
@@ -14,7 +14,7 @@
 - `macos-app/WorldOfMysteries/ContentView.swift`
 - `macos-app/WorldOfMysteries/MyApp.swift`
 
-不扫描 Tests / Preview-only test targets 作为生产规则对象；测试自身可以包含被禁止模式的字符串，用于断言。
+不扫描 Tests 作为生产规则对象；测试自身可以包含被禁止模式的字符串，用于断言。
 
 ## 2. Guard A — 禁止 9pt 及以下直接语义字号
 
@@ -72,7 +72,39 @@
 
 若未来确实需要 AppKit bridge，必须独立高风险 Task Capsule 评审，不得在普通视觉 PR 中顺手引入。
 
-## 6. 明确不做的过度规则
+## 6. Guard E — Approved Contrast Matrix
+
+`VisualContrastContractTests.swift` 直接解析 `DesignTokens.swift` 的 RGB Token，并按 WCAG 相对亮度公式计算批准组合。
+
+### AAA / 长文本优先组合（>= 7:1）
+
+- `textPrimary` / `obsidianBase`
+- `textPrimary` / `obsidianCard`
+- `textPrimary` / `deepVoid`
+- `textSecondary` / `obsidianBase`
+- `textSecondary` / `obsidianCard`
+- `textGoldAccent` / `obsidianCard`
+- `textGoldAccent` / `deepVoid`
+- `brassGoldPrimary` / `obsidianCard`
+- `parchmentInk` / `parchmentCard`
+- `parchmentInkSecondary` / `parchmentCard`
+
+### AA 普通文字组合（>= 4.5:1）
+
+- `textSecondary` / `deepVoid`
+- `textTertiary` / `obsidianBase`
+- `textTertiary` / `obsidianCard`
+- `spiritualBlue` / `obsidianCard`
+- `statusOnline` / `obsidianCard`
+- `statusWarning` / `obsidianCard`
+- `textPrimary` / `crimsonThread`（Danger Button）
+- `parchmentInkTertiary` / `parchmentCard`
+
+未进入批准矩阵的动态 pathway/accent/status 色，默认只能承担图标、边界、装饰或大面积状态提示；若要承担正文，必须先纳入可计算对比度契约。
+
+Contrast Matrix 只验证不含透明合成的 Token 基础组合；带 opacity / texture / material 的最终视觉仍需人工 Visual QA 和压力 Preview 验证。
+
+## 7. 明确不做的过度规则
 
 以下模式**不做全局禁止**，因为存在合法使用场景：
 
@@ -84,24 +116,25 @@
 
 这些仍受最终可读性与布局验收约束，但不通过粗暴字符串禁令治理。
 
-## 7. 失败处理
+## 8. 失败处理
 
-Source Guard 失败时：
+Source Guard / Contrast Guard 失败时：
 
-1. 优先修实现；
+1. 优先修实现或 Token；
 2. 不通过提高最小窗口、缩字或降低内容量绕过；
 3. 若确认是合法例外，应修改 Guard 的语义范围，而不是添加无解释的路径白名单；
-4. 例外规则必须同步更新本文件与 Batch 记录。
+4. 例外规则必须同步更新本文件与 Batch 记录；
+5. 新增可读文字颜色组合必须进入 Approved Contrast Matrix。
 
-## 8. 与人工 Visual QA 的关系
+## 9. 与人工 Visual QA 的关系
 
-Source Guard 只能防止已知高风险写法，不能替代人工检查：
+自动 Guard 不能替代人工检查：
 
-- 最终合成对比度；
-- 纹理背景上的实际可读性；
+- 带透明度、纹理、Material 后的最终合成对比度；
 - 960×640 的真实视觉重叠；
 - Inspector 280pt 压力；
 - 中英文排版节奏；
-- 工整对齐和视觉重量。
+- 工整对齐和视觉重量；
+- 用户缩放、动态内容和系统辅助功能组合。
 
 因此 Component Gallery / Native Inspector Preview / Xcode build 仍是必需的回归面。
