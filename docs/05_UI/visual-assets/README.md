@@ -13,20 +13,18 @@
 
 ## 2. 持久化与提交模型
 
-从本阶段起采用以下固定规则：
-
 1. **尽早远端持久化**：任务开始后尽快建立远端分支/PR，不等待整批实现完成。
 2. **PR 不要求最小化**：一个 PR 可以持续承载同一工作流的多个增量阶段。
 3. **原子 commit 才是最小单元**：每个 commit 必须语义单一、可审查、可回滚、可独立定位。
 4. **总 / 分资料同步落盘**：涉及方案时，必须同时维护本 Living Plan 与对应 Batch 文档；实现只完成方案的一部分，也必须把总体方案一起提交。
 5. **资产尽快落盘**：SVG、纹理、注册表、组件实现一旦形成稳定增量即提交，避免只保留在执行环境。
-6. **最终集成验证优先**：低风险同类 UI/资产增量持续推送到同一持久化 PR；在准备合并时对最终 head 跑完整权威门禁。
+6. **最终集成验证优先**：低风险同类 UI/资产增量持续推送到同一持久化 PR；准备合并时对最终 head 跑完整权威门禁。
 
 ## 3. 资产技术边界
 
 ### 自有世界观图形
 
-使用 `Assets.xcassets` 中原创矢量资产 + 类型化注册表，命名空间统一为：
+使用 `Assets.xcassets` 中原创矢量资产 + 类型化注册表：
 
 ```text
 wom.icon.*
@@ -36,7 +34,7 @@ wom.texture.*
 
 ### 平台标准行为
 
-优先使用 SF Symbols，通过 `WOMSystemIcon` 做稳定语义映射，不复制系统 glyph 到 Asset Catalog。
+优先使用 SF Symbols，通过 `WOMSystemIcon` / `WOMStatusIcon` 做稳定语义映射，不复制系统 glyph 到 Asset Catalog。
 
 ### 视觉状态
 
@@ -53,23 +51,20 @@ wom.texture.*
 
 ## 5. 当前持久化工作流：Wave B
 
-长期 PR：`feat/wom-visual-system-wave-b`。
+长期 PR：`feat/wom-visual-system-wave-b` / PR #26。
 
-目标是在同一个远端 PR 内，用多个原子 commit 连续完成：
-
-1. **Batch 04**：补齐 Close / Back / Favorite / More 系统行为语义。**已实现于 PR #26。**
-2. **Batch 05**：状态与世界交互语义：通用状态使用 `WOMStatusIcon` / SF Symbols；Divination / Spirituality / Gray Fog / Seal / Card 使用原创 SVG。**已实现于 PR #26。**
-3. **Batch 06**：盘点已有 Parchment / Gold / Veil / Slate / Velvet，并建立 `WOMTextureAsset` 类型化注册。**已实现于 PR #26。**
-4. **Batch 07**：实现 `WOMIcon`，统一 custom asset 与 SF Symbols source、尺寸、rendering 与 accessibility。**已实现于 PR #26。**
-5. **Batch 08**：建立 `WOMButtonStyle`、`WOMIconButtonStyle`、`WOMToolbarButtonStyle`，覆盖 normal / hover / pressed / disabled / reduced-motion。**已实现于 PR #26。**
-6. **Batch 09**：建立 `WOMPanelBackground`、`WOMCardChrome`、`WOMTextureLayer`、Section Chrome。**已实现于 PR #26。**
-7. **Batch 10**：将 Component Gallery 作为设计系统展示与回归入口。**已实现于 PR #26。**
-8. **Batch 11**：Sidebar 生产页面迁移，保持路由/selection/badge/collapse 语义不变，只迁移视觉与 accessibility。**已实现于 PR #26。**
-9. **Batch 12+**：继续迁移 Ritual、Codex、Artifact，并补齐 accessibility / keyboard / reduced motion / reduced transparency / high contrast。
+1. **Batch 04**：Close / Back / Favorite / More。**已实现。**
+2. **Batch 05**：状态语义 + Divination / Spirituality / Gray Fog / Seal / Card。**已实现。**
+3. **Batch 06**：`WOMTextureAsset`。**已实现。**
+4. **Batch 07**：统一 `WOMIcon`。**已实现。**
+5. **Batch 08**：Button Style primitives。**已实现。**
+6. **Batch 09**：Panel / Card / Texture / Section Chrome。**已实现。**
+7. **Batch 10**：Component Gallery 视觉系统展示。**已实现。**
+8. **Batch 11**：Sidebar 生产迁移。**已实现。**
+9. **Batch 12**：现有 Ritual 组件（祭坛祈祷 + 黄水晶灵摆）迁移。**已实现。**
+10. **Batch 13+**：Codex/Story Book、Artifact/Fate 等真实组件与页面继续迁移。
 
 ## 6. 原子 commit 规则
-
-同一 PR 内按语义拆 commit，例如：
 
 ```text
 docs(macos): persist visual system wave B plan
@@ -81,30 +76,34 @@ feat(macos): add button style primitives
 feat(macos): add panel and card surface primitives
 feat(macos): expose visual system in component gallery
 feat(macos): migrate sidebar to visual system
+feat(macos): migrate ritual components to visual system
 ```
 
 不得为了减少 commit 数把不相关资产、组件和页面迁移揉成一个提交。
 
-## 7. 下一阶段
+## 7. 生产页面迁移事实
 
-真实页面迁移继续使用页面级 Task Capsule，并持续推入 PR #26。当前优先级：
+- Sidebar：存在真实生产组件，已迁移。
+- Ritual：当前**没有独立一级导航路由**；已优先迁移真实存在的 `BronzeAltarPrayerCard` 与 `CitrinePendulumScryingCard`，不制造空路由。
+- Story Book / Cards：当前 `ContentView` 仍进入 generic placeholder；后续先盘点真实 Codex / Card 组件，再决定生产入口。
+- Artifact：当前明确作为 Fate 中的命运干预工具嵌入，不新增一级“道具背包”导航。
 
-1. Sidebar；**已迁移于 PR #26。**
-2. Ritual；
-3. Codex；
-4. Artifact；
-5. accessibility / keyboard / reduced motion / transparency / high contrast 收口。
+## 8. 下一阶段
 
-## 8. 恢复入口
+1. Codex / Archive 真实组件盘点与迁移；
+2. Artifact / Fate 真实组件迁移；
+3. ContentView shell 的状态栏 / 底部常驻交互 chrome 收口；
+4. accessibility / keyboard / reduced motion / transparency / high contrast 收口。
 
-新执行环境恢复时依次读取：
+## 9. 恢复入口
 
 1. `docs/05_UI/Visual_Asset_System_v1.0.md`
 2. 本文件
 3. 最新 `Batch_xx_*.md`
 4. 当前 Task Capsule
-5. `WOMIconAsset.swift` / `WOMNavigationIconAsset.swift` / `WOMSystemIcon.swift`
-6. `Assets.xcassets/wom.*`
-7. 当前长期 PR 与其原子 commit 历史
+5. `WOMIconAsset.swift` / `WOMNavigationIconAsset.swift` / `WOMSystemIcon.swift` / `WOMStatusIcon.swift`
+6. `WOMIcon.swift` / `WOMButtonStyles.swift` / `WOMSurfaceStyles.swift`
+7. `Assets.xcassets/wom.*`
+8. PR #26 与其原子 commit 历史
 
 目标：任何执行环境丢失后，仅依赖仓库和开放 PR 即可继续推进。
