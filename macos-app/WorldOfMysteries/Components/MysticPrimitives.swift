@@ -161,6 +161,8 @@ public struct MysticBadge: View {
 
 /// 通用状态点：统一在线/预警/危险指示与呼吸微光
 public struct MysticStatusDot: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let tone: MysticTone
     public let diameter: CGFloat
     public let isPulsing: Bool
@@ -186,13 +188,14 @@ public struct MysticStatusDot: View {
                 .fill(tone.accent)
                 .frame(width: diameter, height: diameter)
                 .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
-                .shadow(color: tone.accent.opacity(pulsePhase ? 0.35 : 0.8), radius: pulsePhase ? 6 : 3)
-                .scaleEffect(pulsePhase ? 1.12 : 1.0)
-                .onAppear {
-                    guard isPulsing else { return }
-                    withAnimation(.easeInOut(duration: DesignTokens.Motion.listeningPulseDuration / 2).repeatForever(autoreverses: true)) {
-                        pulsePhase = true
-                    }
+                .shadow(
+                    color: tone.accent.opacity(shouldPulse ? (pulsePhase ? 0.35 : 0.8) : 0.45),
+                    radius: shouldPulse ? (pulsePhase ? 6 : 3) : 2
+                )
+                .scaleEffect(shouldPulse && pulsePhase ? 1.12 : 1.0)
+                .onAppear(perform: updatePulseState)
+                .onChange(of: reduceMotion) { _, _ in
+                    updatePulseState()
                 }
 
             if let label {
@@ -203,12 +206,33 @@ public struct MysticStatusDot: View {
         }
         .accessibilityLabel(label ?? tone.semanticLabel)
     }
+
+    private var shouldPulse: Bool {
+        isPulsing && !reduceMotion
+    }
+
+    private func updatePulseState() {
+        guard shouldPulse else {
+            pulsePhase = false
+            return
+        }
+
+        pulsePhase = false
+        withAnimation(
+            .easeInOut(duration: DesignTokens.Motion.listeningPulseDuration / 2)
+                .repeatForever(autoreverses: true)
+        ) {
+            pulsePhase = true
+        }
+    }
 }
 
 // MARK: - 计量条 (Metric Bar)
 
 /// 通用计量条：统一灵性/理智/雾霾等读数的轨道、圆角、临界阈值提示
 public struct MysticMetricBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// 归一化取值 0...1
     public let value: Double
     public let tone: MysticTone
@@ -258,7 +282,7 @@ public struct MysticMetricBar: View {
             }
         }
         .frame(height: height)
-        .animation(DesignTokens.Interaction.hoverAnimation, value: clampedValue)
+        .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: clampedValue)
         .accessibilityValue("\(Int(clampedValue * 100))%")
     }
 
@@ -547,18 +571,24 @@ public struct MysticIconButton: View {
     }
 
     public var body: some View {
+        let accessibilityText = title ?? helpText ?? systemIcon
+
         Button(action: action) {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 16, height: 16, alignment: .center)
+
                 if let title {
                     Text(title)
                         .font(Font.Mystic.caption)
+                        .fontWeight(.medium)
                 }
             }
             .foregroundStyle(isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-            .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical + 2)
+            .padding(.horizontal, title == nil ? DesignTokens.Spacing.sm : DesignTokens.Spacing.md)
+            .frame(minWidth: title == nil ? 32 : nil, minHeight: 32, alignment: .center)
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
                     .fill(tone.accent.opacity(isHovered ? DesignTokens.Interaction.hoverBackgroundOpacity : 0.06))
@@ -578,5 +608,6 @@ public struct MysticIconButton: View {
             }
         }
         .help(helpText ?? title ?? systemIcon)
+        .accessibilityLabel(Text(accessibilityText))
     }
 }

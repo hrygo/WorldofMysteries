@@ -15,6 +15,15 @@ public nonisolated enum WOMIconSize: CaseIterable, Sendable {
         case .large: 32
         }
     }
+
+    /// Platform symbols keep their native optical rendering rather than being stretched as
+    /// arbitrary vector artwork. Larger semantic icons receive slightly stronger weight.
+    public var symbolWeight: Font.Weight {
+        switch self {
+        case .compact, .standard: .medium
+        case .prominent, .large: .semibold
+        }
+    }
 }
 
 /// A typed source for iconography used by `WOMIcon`.
@@ -76,31 +85,41 @@ public struct WOMIcon: View {
         self.init(source: .status(icon), size: size, accessibilityLabel: accessibilityLabel)
     }
 
-    private var image: Image {
+    @ViewBuilder
+    private var renderedIcon: some View {
         switch source {
         case .asset(let asset):
-            Image(asset.rawValue)
+            customVector(named: asset.rawValue)
         case .navigation(let asset):
-            Image(asset.rawValue)
+            customVector(named: asset.rawValue)
         case .system(let icon):
-            Image(systemName: icon.rawValue)
+            platformSymbol(named: icon.rawValue)
         case .status(let icon):
-            Image(systemName: icon.rawValue)
+            platformSymbol(named: icon.rawValue)
         }
     }
 
-    @ViewBuilder
-    public var body: some View {
-        let rendered = image
+    private func customVector(named name: String) -> some View {
+        Image(name)
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
             .frame(width: size.points, height: size.points)
+    }
 
+    private func platformSymbol(named name: String) -> some View {
+        Image(systemName: name)
+            .symbolRenderingMode(.monochrome)
+            .font(.system(size: size.points, weight: size.symbolWeight))
+            .frame(width: size.points, height: size.points, alignment: .center)
+    }
+
+    @ViewBuilder
+    public var body: some View {
         if let accessibilityLabel {
-            rendered.accessibilityLabel(Text(accessibilityLabel))
+            renderedIcon.accessibilityLabel(Text(accessibilityLabel))
         } else {
-            rendered.accessibilityHidden(true)
+            renderedIcon.accessibilityHidden(true)
         }
     }
 }

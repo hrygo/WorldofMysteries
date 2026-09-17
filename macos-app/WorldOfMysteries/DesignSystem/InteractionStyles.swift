@@ -5,6 +5,8 @@ import SwiftUI
 /// 维多利亚暗金微物理按下反馈 ButtonStyle
 /// 实现轻微内缩 (Scale 0.98) 与平滑阻尼回弹，杜绝生硬跳变
 public struct MysticPressableButtonStyle: ButtonStyle, Sendable {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let scale: CGFloat
     public let pressedOpacity: Double
     public let animation: Animation
@@ -21,14 +23,16 @@ public struct MysticPressableButtonStyle: ButtonStyle, Sendable {
     
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1.0)
             .opacity(configuration.isPressed ? pressedOpacity : 1.0)
-            .animation(animation, value: configuration.isPressed)
+            .animation(reduceMotion ? nil : animation, value: configuration.isPressed)
     }
 }
 
 /// 卡片级选中高光与悬停微光修饰器
 public struct MysticCardSelectionModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let isSelected: Bool
     public let isHovered: Bool
     public let cornerRadius: CGFloat
@@ -60,13 +64,15 @@ public struct MysticCardSelectionModifier: ViewModifier {
                     : (isHovered ? Color.Mystic.brassGoldGlow.opacity(0.15) : Color.clear),
                 radius: isSelected ? DesignTokens.Interaction.selectedShadowRadius : 2
             )
-            .animation(DesignTokens.Interaction.selectionSpring, value: isSelected)
-            .animation(DesignTokens.Interaction.hoverAnimation, value: isHovered)
+            .animation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring, value: isSelected)
+            .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isHovered)
     }
 }
 
 /// 列表项与菜单行选中、悬停与左侧指示柱修饰器
 public struct MysticRowItemModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let isSelected: Bool
     public let isHovered: Bool
     public let cornerRadius: CGFloat
@@ -118,8 +124,8 @@ public struct MysticRowItemModifier: ViewModifier {
                         )
                 )
         )
-        .animation(DesignTokens.Interaction.selectionSpring, value: isSelected)
-        .animation(DesignTokens.Interaction.hoverAnimation, value: isHovered)
+        .animation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring, value: isSelected)
+        .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isHovered)
     }
 }
 

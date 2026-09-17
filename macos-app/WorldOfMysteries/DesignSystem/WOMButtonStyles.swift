@@ -9,7 +9,7 @@ public nonisolated enum WOMButtonVariant: CaseIterable, Sendable {
     case ritual
 }
 
-private nonisolated enum WOMButtonDensity: Sendable {
+nonisolated enum WOMButtonDensity: Sendable {
     case standard
     case icon
     case toolbar
@@ -33,6 +33,16 @@ private nonisolated enum WOMButtonDensity: Sendable {
     var minHeight: CGFloat {
         switch self {
         case .standard: 34
+        case .icon: 32
+        case .toolbar: 28
+        }
+    }
+
+    /// Icon and toolbar controls keep a stable square minimum hit geometry. Text buttons remain
+    /// content-driven horizontally while sharing the same vertical rhythm.
+    var minWidth: CGFloat? {
+        switch self {
+        case .standard: nil
         case .icon: 32
         case .toolbar: 28
         }
@@ -120,7 +130,7 @@ private struct WOMButtonChrome<Label: View>: View {
         label
             .padding(.horizontal, density.horizontalPadding)
             .padding(.vertical, density.verticalPadding)
-            .frame(minHeight: density.minHeight)
+            .frame(minWidth: density.minWidth, minHeight: density.minHeight, alignment: .center)
             .foregroundStyle(foregroundColor)
             .background(shape.fill(backgroundColor))
             .overlay(
