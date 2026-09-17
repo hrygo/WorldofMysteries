@@ -13,7 +13,8 @@ struct VisualAdvancedInteractionContractTests {
         #expect(source.contains(".pickerStyle(.menu)"))
         #expect(source.contains("ViewThatFits(in: .horizontal)"))
         #expect(!source.contains("Button {"))
-        #expect(!source.contains("NSSegmentedControl"))
+        #expect(!source.contains("NSViewRepresentable"))
+        #expect(!source.contains("NSSegmentedControl("))
     }
 
     @Test("world-state chrome keeps icon text and geometry semantic redundancy")
