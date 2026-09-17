@@ -35,6 +35,7 @@
 - 长中文 / 英文 / Badge / Loading / Error / Empty 必须有自然增长或 responsive fallback。
 - 布局优先 Grid / adaptive / `ViewThatFits`，不得用缩小字体、负 offset 或魔法宽度掩盖空间问题。
 - 同组卡片、按钮、标题基线、padding、视觉重量保持工整一致。
+- Reduce Motion 必须在组件内部生效，不能只依赖父视图不触发动画。
 
 ## 4. 已合入 main
 
@@ -66,7 +67,7 @@
 
 Batch：[`Batch_22_Visual_QA_Backfill.md`](Batch_22_Visual_QA_Backfill.md)
 
-### 当前已完成实现
+### 已完成实现
 
 - Danger Button 高对比度实心 fill；
 - Ritual dynamic color text / deep-surface small text 修复；
@@ -80,10 +81,23 @@ Batch：[`Batch_22_Visual_QA_Backfill.md`](Batch_22_Visual_QA_Backfill.md)
 - Worldline metadata/cause summary；
 - 15 件 Artifact 共用 Shell 左右→上下 fallback；
 - shared `MysticTone.readableForeground` / 11pt Badge / KeyValueRow fallback；
+- Wave E `WOMStatusBanner` 窄 Inspector/Popover responsive fallback；
+- Spirituality Gauge 低值数字对比度修复；
+- Listening Ring Reduce Motion + interpreting icon 对比度；
+- Backlund 9pt/status/district layout + Reduce Motion；
+- Crimson Star Beacon 对比度/长文案/Reduce Motion；
+- legacy Spirit Pendulum 状态文字/布局/Reduce Motion；
 - Gallery Visual QA Stress specimens；
-- `VisualQAContractTests.swift`。
+- `VisualQAContractTests.swift` 覆盖主要回归边界。
 
-当前下一动作：最终 diff / Capsule 回读 → Ready → 单次 `MACOS_APP_P0`。
+### 已审计无需修改
+
+- AdviceInputField；
+- DatabaseStatusHUDCard；
+- TarotCardView；
+- CluePinboardNodeView。
+
+当前下一动作：最终 diff / Capsule 回读 → 对最终 head 执行一次 `MACOS_APP_P0` → CI 全绿后标记 READY TO MERGE。
 
 ## 7. Wave E 关键决策（继续有效）
 
