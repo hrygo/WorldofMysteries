@@ -38,9 +38,17 @@ def macho_files(root: Path) -> list[Path]:
     return values
 
 
-def validate_load_paths(text: str) -> None:
-    """otool output must not hide links to a build machine/Homebrew installation."""
-    for line in text.splitlines()[1:]:
+def validate_load_paths(text: str, *, identification: str = '') -> None:
+    """Check loaded dependencies, not the dylib's own LC_ID_DYLIB metadata."""
+    identities = [line.strip() for line in identification.splitlines()[1:] if line.strip()]
+    if len(identities) > 1:
+        raise BundleError('Ambiguous Mach-O install identity')
+    lines = text.splitlines()[1:]
+    if identities:
+        if not lines or lines[0].strip().split(' (', 1)[0] != identities[0]:
+            raise BundleError('Mach-O identification and load list disagree')
+        lines = lines[1:]
+    for line in lines:
         dependency = line.strip().split(' (', 1)[0]
         if not dependency:
             continue
@@ -55,7 +63,9 @@ def sign_bundle(app: Path, logs: Path) -> None:
     binaries = macho_files(app)
     for index, binary in enumerate(binaries):
         loads = run(['otool', '-arch', 'arm64', '-L', str(binary)], cwd=ROOT, log=logs/f'loads-{index}.log')
-        validate_load_paths(loads)
+        identity = run(['otool', '-arch', 'arm64', '-D', str(binary)],
+                       cwd=ROOT, log=logs/f'identity-{index}.log')
+        validate_load_paths(loads, identification=identity)
         # Wheels may be universal2, but every native dependency must contain arm64.
         archs = run(['lipo', '-archs', str(binary)], cwd=ROOT, log=logs/f'arch-{index}.log')
         if 'arm64' not in archs.split():

@@ -76,3 +76,23 @@ def test_dependency_probe_uses_the_locked_sdk_message_api():
     assert "get_text_content() == 'offline'" in source
     signing = (ROOT/'scripts/build_macos_package.py').read_text()
     assert "['otool', '-arch', 'arm64', '-L'" in signing
+
+
+@pytest.mark.parametrize('identity', ['libitcl4.3.8.dylib', '/build/own-id.dylib'])
+def test_dylib_own_identity_is_not_a_loaded_dependency(identity):
+    package.validate_load_paths('binary:\n\t'+identity+' (compatibility version 1.0)\n'
+        '\t/usr/lib/libSystem.B.dylib (compatibility version 1.0)\n',
+        identification='binary:\n'+identity+'\n')
+
+
+def test_identity_does_not_exempt_a_real_external_dependency():
+    with pytest.raises(package.BundleError):
+        package.validate_load_paths('binary:\nlibself.dylib (compatibility version 1.0)\n'
+            '/opt/homebrew/lib/libbad.dylib (compatibility version 1.0)\n',
+            identification='binary:\nlibself.dylib\n')
+
+
+def test_mismatching_native_identity_fails_closed():
+    with pytest.raises(package.BundleError):
+        package.validate_load_paths('binary:\n/opt/homebrew/bad.dylib (compatibility version 1.0)\n',
+            identification='binary:\nlibself.dylib\n')
