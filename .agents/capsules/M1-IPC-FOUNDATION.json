@@ -1,0 +1,133 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-IPC-FOUNDATION",
+  "capsule_revision": 1,
+  "task_id": "M1-IPC-FOUNDATION",
+  "title": "Unify IPC contract and implement authenticated local engine transport",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T07:17:24.170039+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "501d46fa3a6262b0ed501d96807377c3a13a50e4",
+    "target_sha": "501d46fa3a6262b0ed501d96807377c3a13a50e4",
+    "context_snapshot": "sha256:9d25faf962af73ccc1d98cd519a668e9069e7a73d4d296275a72f78b6ece8ecc"
+  },
+  "scope": {
+    "read": [
+      "contracts/",
+      "engine/",
+      "macos-app/",
+      "docs/",
+      "AGENTS.md",
+      "CONTRIBUTING.md"
+    ],
+    "write": [
+      "contracts/protocol/engine_ipc.schema.json",
+      "contracts/tests/test_ipc_contract.py",
+      "contracts/fixtures/ipc/",
+      "engine/contracts/envelope.py",
+      "engine/infrastructure/ipc_server.py",
+      "engine/infrastructure/ipc_framing.py",
+      "engine/tests/test_ipc_server.py",
+      "engine/tests/test_ipc_framing.py",
+      "macos-app/WorldOfMysteries/IPCEnvelope.swift",
+      "macos-app/WorldOfMysteriesTests/IPCContractTests.swift",
+      "docs/07_工程启动/protocol/engine_ipc.schema.json",
+      "docs/07_工程启动/IPC_Protocol_v1.0.md",
+      "docs/07_工程启动/M1_Engine_IPC_Implementation.md",
+      ".agents/capsules/M1-IPC-FOUNDATION.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/outbox*",
+      ".hacf/**",
+      ".github/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml",
+      "macos-app/Package.swift",
+      "macos-app/**/project.pbxproj",
+      "fixtures/golden_001/**"
+    ],
+    "privileged_grants": [
+      "contracts/protocol/engine_ipc.schema.json",
+      "contracts/fixtures/ipc/",
+      "contracts/tests/test_ipc_contract.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:IPCErrorPayload@engine/contracts/envelope.py:7",
+      "symbol:EngineIPCEnvelope@engine/contracts/envelope.py:16"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 42,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "IPCErrorPayload",
+      "EngineIPCEnvelope"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "User approved unified strict IPC and private parent-child credential pipe, conditional on no added end-user steps/cost/permissions. Coordinated protocol/Python/Swift transport only; no domain mutations, no engine-ready UI claim, no automatic merge. Explicit scope supersedes the narrower infrastructure-only scope of issue #44 for this one cross-language prerequisite. Target Mac experience remains separately unverified.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

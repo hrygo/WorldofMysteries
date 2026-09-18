@@ -7,6 +7,10 @@
 
 ---
 
+> **唯一机器可读事实源**：[contracts/protocol/engine_ipc.schema.json](../../contracts/protocol/engine_ipc.schema.json)。
+> `protocol/engine_ipc.schema.json` 仅保留本地 `$ref`，不再独立维护第二套协议。
+> 原骨架的宽松解码不是兼容保证；随包 App/Engine 配套更新，不要求用户配置或迁移存档。
+
 ## 1. 设计目标
 
 协议必须：
@@ -38,12 +42,13 @@ App 建立 UDS 后第一个消息必须是：
   "payload": {
     "app_version": "0.1.0",
     "app_build": "100",
-    "supported_protocols": ["1.0"]
+    "supported_protocols": ["1.0"],
+    "session_token": "<64 lowercase hex characters supplied by the parent process>"
   }
 }
 ```
 
-Engine 返回：
+Engine 返回（能力列表是示例；只能声明本实例实际实现的能力）：
 
 ```json
 {
@@ -55,7 +60,7 @@ Engine 返回：
   "payload": {
     "engine_version": "0.1.0",
     "engine_build": "100",
-    "python_version": "3.11.x",
+    "python_version": "<actual runtime version>",
     "protocol_version": "1.0",
     "capabilities": [
       "world.open",
@@ -284,7 +289,11 @@ cancelled
 - 权限只允许当前用户。
 - 不监听外部 TCP。
 - Engine 验证 App 启动会话 token。
-- token 每次 Engine launch 生成，只存在内存/受保护启动参数或父子进程 channel。
+- token 每次 Engine launch 由 App 生成：32 随机字节编码为 64 位小写十六进制。
+- App 使用专用父子进程 pipe 传入 token；启动参数仅含 pipe 的文件描述符编号，绝不含 token 本身。
+- Engine 读取后关闭 pipe，首次 UDS `system.handshake` 验证 `payload.session_token`；凭据不写日志、普通命令行或持久文件。
+- 每次新连接必须重新握手；进程重启旧 token 失效。鉴权失败不开放其他方法。
+- 正常路径不增加最终用户操作、账号、费用、权限步骤或网络依赖。实际启动/恢复体验仍需目标 Mac 验证。
 - IPC payload 不默认写入普通日志。
 
 ---
@@ -317,3 +326,27 @@ CI 必须执行：
 - Swift encode → Python decode；
 - canonical fixture roundtrip；
 - unknown/invalid fixture rejection。
+
+
+## 12. M1 已实现子集与运行边界
+
+当前系统传输仅公布 `system.health` 与 `system.shutdown`，首次消息为已鉴权的
+`system.handshake`。`transport_ready` 不等于世界、模型或语音可用；未实现的业务方法
+返回 `method_not_supported`，不会伪造接受、提交或叙事事件。
+
+传输限制：每帧最多 1 MiB、JSON 嵌套最多 64 层、最多 16 个同时连接；首次握手与
+已开始的半帧使用 5 秒绝对截止时间。已鉴权的空闲连接不因等待用户思考而轮询或断开。
+重复 JSON key、非有限数字、非法 UTF-8、零长或超限帧一律拒绝。无法安全关联请求的
+非法帧只关闭该连接；可关联的无效信封返回结构化错误后关闭。
+
+父进程将恰好 64 个小写十六进制 ASCII 字节写入私有 pipe 并关闭写端。
+`--token-fd` 只传描述符编号；可将专用 `Pipe` 作为子进程标准输入并指定 FD 0，
+它不是交互式输入，不要求最终用户输入凭据。凭据读取也有大小与时间上限。
+
+父进程须准备当前用户私有 Runtime 目录（0700）。服务持有独立空 lock 文件的
+排他锁，socket 为 0600；只删除同用户、连接被拒绝且 inode 未变的旧 socket。
+退出保留空 lock inode，避免锁文件替换竞态；不删除替换过的 socket 或其他文件。
+这些机制不提供对同一 UID 恶意代码的完整隔离。
+
+本次不实现 App 自动拉起、发行签名与随包 Python、业务取消、持久幂等或事件重放。
+这些能力仍按原规范验收，不能将本传输测试视为完整 GATE-PACKAGE 或 Golden 001。
