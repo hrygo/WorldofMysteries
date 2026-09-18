@@ -1,0 +1,233 @@
+{
+  "artwork_id": "W4_CODEX_ARCHIVE",
+  "task_id": "W4",
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "status_basis": "USER_APPROVED_SOURCE_R1 (approved library source for the archive slot)",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md",
+      "primary_read": "tall gothic library and archive hall with a reading gallery",
+      "secondary_read": "wet night city seen through the window; candle-lit desks with books and instruments",
+      "read_recorded_by": "world-scene finishing review: direct inspection of the finished 4096x2560 master",
+      "scored_criteria": null,
+      "unscored_criteria_note": "W1's numeric art-direction sub-scores were never produced for this scene. This pass rests on the explicit user source-direction approval plus the reading recorded here, not on an invented score; nothing in this record should be read as a scored artistic judgement."
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED",
+      "status_basis": "USER_APPROVED_SOURCE_R1",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md",
+      "world_contradictions": [],
+      "world_contradictions_basis": "these images assert no Canon architecture, ownership or cosmology; the source-direction approval records the metaphor framing explicitly",
+      "scored_criteria": null,
+      "unscored_criteria_note": "W1's numeric art-direction sub-scores were never produced for this scene. This pass rests on the explicit user source-direction approval plus the reading recorded here, not on an invented score; nothing in this record should be read as a scored artistic judgement."
+    },
+    "G2_composition": {
+      "status": "PENDING_RUNTIME_QA",
+      "source_crop_rect_pixels": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_output": {
+        "width": 1584,
+        "height": 990,
+        "sha256": "64e1070b82d9a0a0f64fc8565ba38b6b2ff7660efb84fe1cb760967291ffcd88"
+      },
+      "wide_anchor": "bottom",
+      "wide_master_crop_pixels": [
+        0,
+        1024,
+        4096,
+        2560
+      ],
+      "crop_reference": "docs/05_UI/artwork/delivery/crop_review.json",
+      "wide_crop_survival_pass": "PASS",
+      "runtime_crop_survival_pass": false,
+      "identity_survival": {
+        "rule": "R >= 80 and R - max(G, B) >= 40",
+        "master_red_dominant_pct": 15.77,
+        "wide_red_dominant_pct": 18.154,
+        "wide_vs_master_ratio": 1.151,
+        "wide_retains_identity": true
+      }
+    },
+    "G3_structure": {
+      "status": "PASSED",
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "defects_found": [],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "inspected_at": null,
+      "notes": [
+        "Structural review performed locally on the finished 4096x2560 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "readability_note": "Shelving, book blocks, the gallery railing, the reading desk and the armillary sphere separate cleanly at 100%.",
+      "detail_note": "Book spines carry no invented titles; the manuscript on the desk resolves at 300% as irregular ink and weathering blotches without letterforms.",
+      "seam_note": "No halos on candle flames or the window mullions against the dusk sky.",
+      "text_like_glyph_check": "Explicit 300% check of the manuscript and book covers: no readable or pseudo-readable text.",
+      "structural_repetition_check": "Spine widths and shelf contents vary; no duplicated book block."
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 4096,
+        "height": 2560
+      },
+      "runtime_dimensions": {
+        "wom.art.scene.codex-archive": {
+          "width": 2560,
+          "height": 1600
+        },
+        "wom.art.scene.codex-archive.wide": {
+          "width": 2400,
+          "height": 900
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.scene.codex-archive": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
+        "wom.art.scene.codex-archive.wide": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6"
+      },
+      "master_sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "asset_names": [
+        "wom.art.scene.codex-archive",
+        "wom.art.scene.codex-archive.wide"
+      ],
+      "derivative_tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.scene.codex-archive",
+            "payload": "wom.art.scene.codex-archive.png",
+            "width": 2560,
+            "height": 1600,
+            "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
+            "icc_profile": null
+          },
+          {
+            "asset_name": "wom.art.scene.codex-archive.wide",
+            "payload": "wom.art.scene.codex-archive.wide.png",
+            "width": 2400,
+            "height": 900,
+            "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+            "icc_profile": null
+          }
+        ],
+        "matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600",
+        "2400x900"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "window_checks": {
+        "960x640": null,
+        "1180x760": null,
+        "2560x1600": null,
+        "2400x900": null
+      },
+      "accessibility_checks": {
+        "Increased Contrast": null,
+        "Reduce Transparency": null
+      },
+      "notes": [
+        "Runtime window and accessibility checks have not been captured yet."
+      ]
+    }
+  },
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "pixel_sha256": "7cc0484e6af36a0ec70af818a363ef561df8e9e80eac79f660d704d09589fa3f",
+      "photometry": {
+        "mean_luminance_0_255": 40.96,
+        "luminance_p05_0_255": 2.07,
+        "luminance_p50_0_255": 27.01,
+        "luminance_p95_0_255": 132.06,
+        "shadow_clip_pct": 4.564,
+        "highlight_clip_pct": 0.014
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "64e1070b82d9a0a0f64fc8565ba38b6b2ff7660efb84fe1cb760967291ffcd88",
+      "photometry": {
+        "mean_luminance_0_255": 37.4,
+        "luminance_p05_0_255": 1.49,
+        "luminance_p50_0_255": 23.82,
+        "luminance_p95_0_255": 120.58,
+        "shadow_clip_pct": 6.268,
+        "highlight_clip_pct": 0.033
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 15.77,
+      "wide_red_dominant_pct": 18.154,
+      "wide_vs_master_ratio": 1.151,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 5.512,
+      "luminance_correlation": 0.993,
+      "edge_structure_correlation": 0.9809,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.scene.codex-archive",
+          "payload": "wom.art.scene.codex-archive.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.scene.codex-archive.wide",
+          "payload": "wom.art.scene.codex-archive.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
+  },
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_world_artwork.py"
+  ],
+  "reviewed_at": "2026-09-18"
+}

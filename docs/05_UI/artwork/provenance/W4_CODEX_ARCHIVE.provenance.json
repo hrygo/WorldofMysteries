@@ -1,19 +1,11 @@
 {
-  "artwork_id": "W1_WORLD_HERO",
-  "contract_version": 3,
+  "artwork_id": "W4_CODEX_ARCHIVE",
   "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
-  "generator": {
-    "provider": "OpenAI",
-    "model": null,
-    "generation_id": "76a170ac-75e0-4013-9749-7f819fc1de0a",
-    "source_prompt_digest_sha256": null,
-    "generation_mode": "interactive_iterative_art_direction"
-  },
   "source": {
+    "source_id": "S03_CODEX_LIBRARY",
+    "sha256": "f6a1f1db7f2ec25edf4a3378f63faac305926623dcaba9d7398a416444403131",
     "native_width": 1586,
-    "native_height": 992,
-    "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
-    "source_id": "S01_WORLD_HERO"
+    "native_height": 992
   },
   "postprocess": [
     {
@@ -21,9 +13,9 @@
       "operation": "crop_1px_each_edge",
       "output_width": 1584,
       "output_height": 990,
-      "contract_declared_container_sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
-      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
-      "pixel_sha256": "f409983e8c47b9d94fc173f75855ed9fb98d186ec601dd5ba13e47d31da6aa90",
+      "contract_declared_container_sha256": null,
+      "sha256": "64e1070b82d9a0a0f64fc8565ba38b6b2ff7660efb84fe1cb760967291ffcd88",
+      "pixel_sha256": "462a49ade6d65ab785541d04ac3fde6bc20fcd6939969e932aadb931135e212d",
       "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is expected and is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing; the working crop is produced deterministically from the locked source and the contract crop rectangle.",
       "status": "COMPLETE"
     },
@@ -46,7 +38,7 @@
       "downstream_downsample": "6144x3840",
       "output_width": 6336,
       "output_height": 3960,
-      "sha256": "8bc2a3bbbe35da398e6e3288d344667a465492eeef45844fc3c4706e2d1d59e6",
+      "sha256": "f856d0448dff656c70ef856c820a3478a7bb2f63ce79f4d4c2454690f57d73d5",
       "passes": 1
     },
     {
@@ -69,7 +61,7 @@
       "generative": false,
       "output_width": 6336,
       "output_height": 3960,
-      "sha256": "06611c21cd645d2863b4705fc67443b83eed8a7f117eaf9c397697d318a1ca3a"
+      "sha256": "59cd1802f1f05fb6c3d43d80aafa84af4f6b488aa07e399b34169c2f285d9e4b"
     },
     {
       "stage": "oversample_downsample_to_4096x2560_master",
@@ -78,35 +70,35 @@
       "resample": "Lanczos",
       "output_width": 4096,
       "output_height": 2560,
-      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
-      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5"
+      "sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "pixel_sha256": "7cc0484e6af36a0ec70af818a363ef561df8e9e80eac79f660d704d09589fa3f"
     },
     {
       "stage": "deterministic_derivatives",
       "status": "COMPLETE",
       "tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
-      "wide_crop_anchor": "top",
+      "wide_crop_anchor": "bottom",
       "wide_master_crop_pixels": [
         0,
-        0,
+        1024,
         4096,
-        1536
+        2560
       ],
       "derivatives": [
         {
-          "asset_name": "wom.art.world.hero",
+          "asset_name": "wom.art.scene.codex-archive",
           "width": 2560,
           "height": 1600,
-          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
           "derivation": "full_frame_downsample_from_master"
         },
         {
-          "asset_name": "wom.art.world.hero.wide",
+          "asset_name": "wom.art.scene.codex-archive.wide",
           "width": 2400,
           "height": 900,
-          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
-          "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
-          "crop_anchor": "top"
+          "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+          "derivation": "bottom_aligned_4096x1536_crop_from_master_then_downsample",
+          "crop_anchor": "bottom"
         }
       ]
     },
@@ -116,69 +108,65 @@
       "unmet_requirements": [
         "runtime evidence missing"
       ],
-      "evidence": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json"
+      "evidence": "docs/05_UI/artwork/qa/W4_CODEX_ARCHIVE.qa.json"
     }
   ],
   "master": {
-    "path": "W1_MASTER_4096x2560.png",
+    "path": "W4_MASTER_4096x2560.png",
     "width": 4096,
     "height": 2560,
     "format": "PNG",
     "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
-    "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
     "runtime_loadable": false,
-    "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5"
+    "sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+    "pixel_sha256": "7cc0484e6af36a0ec70af818a363ef561df8e9e80eac79f660d704d09589fa3f"
   },
   "derivatives": [
     {
-      "asset_name": "wom.art.world.hero",
+      "asset_name": "wom.art.scene.codex-archive",
       "width": 2560,
       "height": 1600,
-      "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+      "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
       "derivation": "full_frame_downsample_from_master",
       "catalog_payload_verified": true
     },
     {
-      "asset_name": "wom.art.world.hero.wide",
+      "asset_name": "wom.art.scene.codex-archive.wide",
       "width": 2400,
       "height": 900,
-      "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
-      "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
-      "crop_anchor": "top",
+      "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+      "derivation": "bottom_aligned_4096x1536_crop_from_master_then_downsample",
+      "crop_anchor": "bottom",
       "catalog_payload_verified": true
     }
   ],
-  "qa_record": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json",
-  "copyright_note": "AI-assisted original artwork; no official commercial asset copying.",
-  "approved_at": null,
-  "art_direction_decision": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md",
-  "finishing_backlog": "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md",
+  "qa_record": "docs/05_UI/artwork/qa/W4_CODEX_ARCHIVE.qa.json",
   "production_evidence": {
     "master": {
       "width": 4096,
       "height": 2560,
-      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
-      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5",
+      "sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "pixel_sha256": "7cc0484e6af36a0ec70af818a363ef561df8e9e80eac79f660d704d09589fa3f",
       "photometry": {
-        "mean_luminance_0_255": 66.73,
-        "luminance_p05_0_255": 2.62,
-        "luminance_p50_0_255": 58.24,
-        "luminance_p95_0_255": 164.1,
-        "shadow_clip_pct": 3.462,
-        "highlight_clip_pct": 0.015
+        "mean_luminance_0_255": 40.96,
+        "luminance_p05_0_255": 2.07,
+        "luminance_p50_0_255": 27.01,
+        "luminance_p95_0_255": 132.06,
+        "shadow_clip_pct": 4.564,
+        "highlight_clip_pct": 0.014
       }
     },
     "approved_source_crop": {
       "width": 1584,
       "height": 990,
-      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "sha256": "64e1070b82d9a0a0f64fc8565ba38b6b2ff7660efb84fe1cb760967291ffcd88",
       "photometry": {
-        "mean_luminance_0_255": 61.3,
-        "luminance_p05_0_255": 2.64,
-        "luminance_p50_0_255": 52.21,
-        "luminance_p95_0_255": 152.99,
-        "shadow_clip_pct": 4.257,
-        "highlight_clip_pct": 0.037
+        "mean_luminance_0_255": 37.4,
+        "luminance_p05_0_255": 1.49,
+        "luminance_p50_0_255": 23.82,
+        "luminance_p95_0_255": 120.58,
+        "shadow_clip_pct": 6.268,
+        "highlight_clip_pct": 0.033
       }
     },
     "photometry_rules": {
@@ -187,34 +175,34 @@
     },
     "identity_survival": {
       "rule": "R >= 80 and R - max(G, B) >= 40",
-      "master_red_dominant_pct": 22.077,
-      "wide_red_dominant_pct": 21.862,
-      "wide_vs_master_ratio": 0.99,
+      "master_red_dominant_pct": 15.77,
+      "wide_red_dominant_pct": 18.154,
+      "wide_vs_master_ratio": 1.151,
       "wide_retains_identity": true
     },
     "fidelity": {
-      "mean_absolute_difference_0_255": 7.255,
-      "luminance_correlation": 0.9933,
-      "edge_structure_correlation": 0.9792,
+      "mean_absolute_difference_0_255": 5.512,
+      "luminance_correlation": 0.993,
+      "edge_structure_correlation": 0.9809,
       "verdict": "passed"
     },
     "catalog": {
       "status": "VERIFIED",
       "payloads": [
         {
-          "asset_name": "wom.art.world.hero",
-          "payload": "wom.art.world.hero.png",
+          "asset_name": "wom.art.scene.codex-archive",
+          "payload": "wom.art.scene.codex-archive.png",
           "width": 2560,
           "height": 1600,
-          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
           "icc_profile": null
         },
         {
-          "asset_name": "wom.art.world.hero.wide",
-          "payload": "wom.art.world.hero.wide.png",
+          "asset_name": "wom.art.scene.codex-archive.wide",
+          "payload": "wom.art.scene.codex-archive.wide.png",
           "width": 2400,
           "height": 900,
-          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+          "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
           "icc_profile": null
         }
       ],
@@ -222,5 +210,7 @@
     },
     "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
   },
-  "approved_basis": null
+  "approved_at": null,
+  "approved_basis": null,
+  "copyright_note": "AI-assisted original artwork; no official commercial asset copying."
 }

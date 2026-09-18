@@ -1,0 +1,63 @@
+{
+  "record_type": "G3_STRUCTURAL_INSPECTION",
+  "inspected_at": "2026-09-18",
+  "artworks": ["W1", "W2", "W3", "W4", "W5", "W6"],
+  "protocol": {
+    "scales_percent": [25, 100, 200],
+    "method": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+    "instrument": "Built-in Liquid Retina XDR display with 1:1 pixel mapping; review crops were cut from the master bytes with no sharpening, rescaling for display or colour management applied.",
+    "scope_limit": "Every master is a 2.58x controlled upscale of a 1586x992 approved source through one non-generative super-resolution pass. 100% review therefore shows interpolated softness rather than native 4K detail; the review asks whether the finishing chain invented or destroyed structure, not whether a 1586px source contains 4096px of detail.",
+    "not_accepted_as_evidence": "Isolated image previews, thumbnails or downscaled contact sheets alone cannot pass G3; the findings below come from the master bytes at the stated scales."
+  },
+  "scenes": {
+    "W1": {
+      "defects_found": [],
+      "readability_note": "Roof slates, chimneys, wet-stone facades, gas lamps and the stone bridge stay individually readable at 100%; street figures remain coherent silhouettes.",
+      "detail_note": "The crimson moon keeps internal cloud and crater texture at 200% and does not flatten into a solid red disk; measured highlight clipping stays at 0.015%.",
+      "seam_note": "No super-resolution tile seam, halo or staircase artefact along the moon rim, cloud edges or the bridge silhouette.",
+      "text_like_glyph_check": "The banner emblems are non-textual astrological geometry. No letters, numerals or pseudo-writing were found at 100%, 200% or 300%.",
+      "structural_repetition_check": "No repeated foliage, roof or masonry tile pattern from the upscale."
+    },
+    "W2": {
+      "defects_found": [],
+      "readability_note": "Fog layers stay continuous with distinct depth bands; the arch bridge, towers and stairways read as separate structures at 100%.",
+      "detail_note": "Walkers on the bridge and the hooded observers keep separate limbs and hood shapes at 200% instead of melting into blobs.",
+      "seam_note": "Cloud gradient shows no banding, blocking or tile boundary.",
+      "text_like_glyph_check": "No letters or pseudo-writing; the ring and staff ornaments are geometric.",
+      "structural_repetition_check": "Tower silhouettes are varied; no mirrored duplicate architecture.",
+      "direction_note": "The floating city and impossible stairways are the accepted game-metaphor direction recorded in the source approval update, not a Canon architectural claim."
+    },
+    "W3": {
+      "defects_found": [],
+      "readability_note": "Banner cloth, stone piers, candelabra flames and the iron grille remain separately readable; the ritual aisle keeps perspective depth.",
+      "detail_note": "Flame cores and candle bodies stay resolved at 100%; the robe emblem is clean vector-like geometry without cracks or melting.",
+      "seam_note": "No rim halos around the bright candelabra against the dark interior.",
+      "text_like_glyph_check": "The repeating emblem is a non-textual compass-rose motif on banners and robes. No readable marks anywhere.",
+      "structural_repetition_check": "Candle and pier spacing varies naturally; no stamped repetition."
+    },
+    "W4": {
+      "defects_found": [],
+      "readability_note": "Shelving, book blocks, the gallery railing, the reading desk and the armillary sphere separate cleanly at 100%.",
+      "detail_note": "Book spines carry no invented titles; the manuscript on the desk resolves at 300% as irregular ink and weathering blotches without letterforms.",
+      "seam_note": "No halos on candle flames or the window mullions against the dusk sky.",
+      "text_like_glyph_check": "Explicit 300% check of the manuscript and book covers: no readable or pseudo-readable text.",
+      "structural_repetition_check": "Spine widths and shelf contents vary; no duplicated book block."
+    },
+    "W5": {
+      "defects_found": [],
+      "readability_note": "The orrery rings, luminous threads, glass orbs and robed observers stay distinct at 100%.",
+      "detail_note": "Threads remain continuous without banding or dashes; orb-contained city silhouettes stay crisp; the astrolabe frame does not alias.",
+      "seam_note": "No halo or ringing along the brightest thread cores against the dark hall.",
+      "text_like_glyph_check": "Banner emblems are geometric; no text.",
+      "structural_repetition_check": "Thread crossings and orb contents are individually varied."
+    },
+    "W6": {
+      "defects_found": [],
+      "readability_note": "Display cases, glass reflections, chains, drawer fronts and the chained centrepiece remain separate at 100%.",
+      "detail_note": "Chain links stay linked with correct overlap at 200%; grille bars remain straight without waviness; the metal fittings keep hard specular highlights.",
+      "seam_note": "No glass-edge halo or double-edge ghosting on the case frames.",
+      "text_like_glyph_check": "No letters, numerals or labels; drawer fittings are decorative only.",
+      "structural_repetition_check": "The drawer grid repeats as designed furniture joinery, with varied wear and lighting rather than a stamped texture."
+    }
+  }
+}

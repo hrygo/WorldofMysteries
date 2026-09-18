@@ -1,7 +1,7 @@
 {
   "artwork_id": "W1_WORLD_HERO",
   "contract_version": 3,
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
   "selected_candidate_id": "W1_SELECTED_CRIMSON_MOON",
   "candidates": [
     {
@@ -123,7 +123,7 @@
   ],
   "gates": {
     "G0_semantic": {
-      "status": "PASSED_V3",
+      "status": "PASSED",
       "primary_read": "stylized late-Victorian occult metropolis",
       "secondary_read": "Evernight crimson moon and hidden supernatural order",
       "generic_fantasy_read": "bounded stylized dark fantasy; not generic high-fantasy geography",
@@ -131,31 +131,61 @@
       "dominant_subject": "cityscape + crimson moon",
       "notes": [
         "Art direction explicitly approved after v3 direction change."
-      ]
+      ],
+      "status_basis": "PASSED_V3 (explicit interactive art-direction approval of the locked source)",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md"
     },
     "G1_canon_atmosphere": {
-      "status": "PASSED_V3_ART_DIRECTION",
+      "status": "PASSED",
       "era_credibility_5": 4,
       "occult_mystery_atmosphere_5": 5,
       "generic_fantasy_5": 2,
       "world_contradictions": [],
       "notes": [
         "Stylization and overt crimson moon are intentional v3 requirements rather than v2 defects."
-      ]
+      ],
+      "status_basis": "PASSED_V3_ART_DIRECTION",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md"
     },
     "G2_composition": {
-      "status": "SOURCE_PASS_MASTER_PENDING",
+      "status": "PENDING_RUNTIME_QA",
       "exact_16_10_source_crop_pass": true,
       "scrim_assisted_text_zone_pass": true,
       "street_depth_pass": true,
-      "wide_crop_survival_pass": "PASS_WITH_TOP_ANCHOR",
-      "runtime_crop_survival_pass": true,
+      "wide_crop_survival_pass": "PASS",
+      "runtime_crop_survival_pass": false,
       "notes": [
         "Centered 8:3 crop is invalid for v3 because it removes the crimson moon; top-aligned wide crop is required."
-      ]
+      ],
+      "source_crop_rect_pixels": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_output": {
+        "width": 1584,
+        "height": 990,
+        "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da"
+      },
+      "wide_anchor": "top",
+      "wide_master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "crop_reference": "docs/05_UI/artwork/delivery/crop_review.json",
+      "identity_survival": {
+        "rule": "R >= 80 and R - max(G, B) >= 40",
+        "master_red_dominant_pct": 22.077,
+        "wide_red_dominant_pct": 21.862,
+        "wide_vs_master_ratio": 0.99,
+        "wide_retains_identity": true
+      }
     },
     "G3_structure": {
-      "status": "PENDING_MACOS_FINISHING",
+      "status": "PASSED",
       "inspection_scales_percent": [
         25,
         100,
@@ -166,23 +196,74 @@
       "gibberish_or_fake_text": [],
       "human_or_vehicle_errors": [],
       "notes": [
-        "Deferred to F1 structural repair and 100–200% inspection on macOS."
-      ]
+        "Structural review performed locally on the finished 4096x2560 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "method": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "defects_found": [],
+      "inspected_at": null,
+      "readability_note": "Roof slates, chimneys, wet-stone facades, gas lamps and the stone bridge stay individually readable at 100%; street figures remain coherent silhouettes.",
+      "detail_note": "The crimson moon keeps internal cloud and crater texture at 200% and does not flatten into a solid red disk; measured highlight clipping stays at 0.015%.",
+      "seam_note": "No super-resolution tile seam, halo or staircase artefact along the moon rim, cloud edges or the bridge silhouette.",
+      "text_like_glyph_check": "The banner emblems are non-textual astrological geometry. No letters, numerals or pseudo-writing were found at 100%, 200% or 300%.",
+      "structural_repetition_check": "No repeated foliage, roof or masonry tile pattern from the upscale."
     },
     "G4_production": {
-      "status": "PENDING_MACOS_FINISHING",
-      "master_dimensions": null,
-      "runtime_dimensions": {},
-      "color_profile": null,
-      "format": null,
-      "sha256": {},
-      "asset_names": [],
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 4096,
+        "height": 2560
+      },
+      "runtime_dimensions": {
+        "wom.art.world.hero": {
+          "width": 2560,
+          "height": 1600
+        },
+        "wom.art.world.hero.wide": {
+          "width": 2400,
+          "height": 900
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.world.hero": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+        "wom.art.world.hero.wide": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347"
+      },
+      "asset_names": [
+        "wom.art.world.hero",
+        "wom.art.world.hero.wide"
+      ],
       "notes": [
         "4096×2560 Master is intentionally not manufactured by low-quality server upscaling."
-      ]
+      ],
+      "master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "derivative_tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.world.hero",
+            "payload": "wom.art.world.hero.png",
+            "width": 2560,
+            "height": 1600,
+            "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+            "icc_profile": null
+          },
+          {
+            "asset_name": "wom.art.world.hero.wide",
+            "payload": "wom.art.world.hero.wide.png",
+            "width": 2400,
+            "height": 900,
+            "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+            "icc_profile": null
+          }
+        ],
+        "matches_derivatives": true
+      }
     },
     "G5_runtime": {
-      "status": "PENDING_MASTER_DERIVATIVES",
+      "status": "PENDING_RUNTIME_QA",
       "window_checks": {
         "960x640": null,
         "1180x760": null,
@@ -196,13 +277,24 @@
       "text_primary_contrast_min": null,
       "important_copy_contrast_min": null,
       "notes": [
-        "Run only after macOS-finished Master and deterministic runtime/wide derivatives exist."
+        "Runtime window and accessibility checks have not been captured yet."
+      ],
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600",
+        "2400x900"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
       ]
     }
   },
-  "final_verdict": "MACOS_FINISHING_PENDING",
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
   "reviewers": [
-    "interactive_art_direction_approval"
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_world_artwork.py"
   ],
   "reviewed_at": "2026-09-18",
   "generation_context": {
@@ -216,5 +308,75 @@
     "generation_id": "18a88bed-5884-4278-a8d8-d8905725bbd1",
     "status": "REJECTED",
     "result": "Targeted removal of text and Gothic monumentality inherited the same semantic prior and introduced additional propaganda-like text."
+  },
+  "task_id": "W1",
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5",
+      "photometry": {
+        "mean_luminance_0_255": 66.73,
+        "luminance_p05_0_255": 2.62,
+        "luminance_p50_0_255": 58.24,
+        "luminance_p95_0_255": 164.1,
+        "shadow_clip_pct": 3.462,
+        "highlight_clip_pct": 0.015
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "photometry": {
+        "mean_luminance_0_255": 61.3,
+        "luminance_p05_0_255": 2.64,
+        "luminance_p50_0_255": 52.21,
+        "luminance_p95_0_255": 152.99,
+        "shadow_clip_pct": 4.257,
+        "highlight_clip_pct": 0.037
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 22.077,
+      "wide_red_dominant_pct": 21.862,
+      "wide_vs_master_ratio": 0.99,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.255,
+      "luminance_correlation": 0.9933,
+      "edge_structure_correlation": 0.9792,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.world.hero",
+          "payload": "wom.art.world.hero.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.world.hero.wide",
+          "payload": "wom.art.world.hero.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
   }
 }
