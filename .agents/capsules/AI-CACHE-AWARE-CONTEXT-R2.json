@@ -1,0 +1,105 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AI-CACHE-AWARE-CONTEXT",
+  "capsule_revision": 2,
+  "task_id": "AI-CACHE-AWARE-CONTEXT",
+  "title": "授权上下文的确定性前缀构建、缓存适配与可观测性",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-18T23:10:55.159335+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "target_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "context_snapshot": "sha256:bc8429c68e93e4c104f67609056728cfb5cd4ea281f6fb823f65b81b4cad54b4"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "contracts/",
+      "docs/",
+      ".hacf/gates/"
+    ],
+    "write": [
+      "engine/application/context_compiler.py",
+      "engine/application/context_plan.py",
+      "engine/application/context_epoch.py",
+      "engine/ai/prompt_renderer.py",
+      "engine/ai/prompt_cache_policy.py",
+      "engine/ai/cache_metrics.py",
+      "engine/ai/gateway.py",
+      "engine/ai/agentscope_adapter.py",
+      "engine/tests/test_context_compiler.py",
+      "engine/tests/test_ai_gateway.py",
+      "engine/tests/test_context_epoch.py",
+      "engine/tests/test_context_cache_providers.py",
+      "docs/03_工程规范/Cache_Aware_Context_v1.0.md",
+      "docs/07_工程启动/Context_Cache_Implementation.md"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ContextCompilerProtocol@engine/application/context_compiler.py:5",
+      "symbol:AIGatewayProtocol@engine/ai/gateway.py:5",
+      "symbol:AgentScopeAdapterProtocol@engine/ai/agentscope_adapter.py:5"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 69,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ContextCompilerProtocol",
+      "AIGatewayProtocol",
+      "AgentScopeAdapterProtocol"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。 本任务经架构范围裁定，仅追加上下文缓存实施规范；不修改公共 Schema、Domain、数据库、门禁或 App。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  },
+  "supersedes": "CAP-AI-CACHE-AWARE-CONTEXT"
+}

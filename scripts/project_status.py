@@ -60,7 +60,7 @@ def cmd_status(state: dict, as_json: bool = False):
         deps = f" (前置依赖: {', '.join(m['depends_on'])})" if "depends_on" in m else ""
         print(f"  {status_badge} [{m['id']}] {m['name']} [{m['lead_role']}]{deps}")
 
-    print("\n💡 提示: 运行 `rtk python3 scripts/project_status.py next` 查看下一步科学推进方向。")
+    print("\n💡 提示: 运行 `python3 scripts/project_status.py next` 查看下一步科学推进方向。")
     print("=" * 72)
 
 
@@ -88,7 +88,7 @@ def cmd_next(state: dict, as_json: bool = False):
     print(f"  • 责任人: {dp['assigned_role']} ({dp['role_title']})")
     print(f"  • 任务代号: {dp['task_id']}")
 
-    print("\n💡 提示: 运行 `rtk python3 scripts/project_status.py dispatch` 获取即刻派发指令。")
+    print("\n💡 提示: 运行 `python3 scripts/project_status.py dispatch` 获取即刻派发指令。")
     print("=" * 72)
 
 
@@ -121,8 +121,8 @@ def cmd_dispatch(state: dict, as_json: bool = False):
     print(f"  {dp['worktree_command']}")
 
     print("\n【步骤 3: 专精角色编码完成后的验签合流指令】")
-    print(f"  rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/{dp['task_id']}.json")
-    print(f"  rtk python3 scripts/collab_pipeline.py integrate --branch feat/{dp['task_id'].lower()} --auto-clean")
+    print(f"  python3 scripts/agent_capsule.py verify --capsule .agents/capsules/{dp['task_id']}.json")
+    print(f"  python3 scripts/collab_pipeline.py integrate --branch feat/{dp['task_id'].lower()} --auto-clean")
     print("=" * 72)
 
 

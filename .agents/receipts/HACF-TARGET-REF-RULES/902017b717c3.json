@@ -1,0 +1,169 @@
+{
+  "receipt_id": "RCP-WORK-HACF-TARGET-REF-RULES-902017b717c3",
+  "receipt_type": "work",
+  "task_id": "HACF-TARGET-REF-RULES",
+  "capsule_id": "CAP-HACF-TARGET-REF-RULES",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:c9f9a83a21394f631fd6dae4e62bed62813c9e0bbe3f2933a2dba21b640e3179",
+  "diff_digest": "sha256:7dca3a0b0edc1174ba8cdb6e3531e013236df299daba2870b22ddbac4c09564b",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+  "head_commit": "902017b717c3d4315713170c232037d265c0b71b",
+  "target_ref": "main",
+  "target_sha": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:44:52.842301+00:00",
+      "finished_at": "2026-09-18T22:44:52.877541+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:44:52.877621+00:00",
+      "finished_at": "2026-09-18T22:45:07.490954+00:00",
+      "raw_log_digest": "sha256:8775943911c7f8f22040d5a3b9ae614daea834ae1431a69f0aecc18e90f37a84",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:45:07.491043+00:00",
+      "finished_at": "2026-09-18T22:45:09.741201+00:00",
+      "raw_log_digest": "sha256:442adcb3cc2f3ff0a0fbe3c724e19b127c1f099434a1130359e5d51720a1398f",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:45:09.741309+00:00",
+      "finished_at": "2026-09-18T22:45:11.175192+00:00",
+      "raw_log_digest": "sha256:b5eb3c5fdd48539865db5eb320272b645e893b400e1bc470c18de960b1eb0922",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/prompts/01_arbiter_agent.md",
+      ".agents/prompts/02_domain_agent.md",
+      ".agents/prompts/03_data_agent.md",
+      ".agents/prompts/04_ai_gateway_agent.md",
+      ".agents/prompts/05_voice_agent.md",
+      ".agents/prompts/06_macos_app_agent.md",
+      ".agents/skills/wom-collaborator/SKILL.md",
+      ".agents/skills/wom-data-steward/SKILL.md",
+      ".agents/skills/wom-domain-weaver/SKILL.md",
+      ".agents/skills/wom-invariants-guard/SKILL.md",
+      ".agents/skills/wom-macos-craft/SKILL.md",
+      ".agents/skills/wom-navigator/SKILL.md",
+      ".github/ISSUE_TEMPLATE/01_agent_task.yml",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      "AGENTS.md",
+      "docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md",
+      "docs/03_工程规范/HANDOFF_CHECKLIST.md",
+      "docs/03_工程规范/人机协同研发工作框架_v1.0.md",
+      "docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md",
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py",
+      "scripts/agent_capsule.py",
+      "scripts/project_status.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      ".agents/prompts/01_arbiter_agent.md",
+      ".agents/prompts/02_domain_agent.md",
+      ".agents/prompts/03_data_agent.md",
+      ".agents/prompts/04_ai_gateway_agent.md",
+      ".agents/prompts/05_voice_agent.md",
+      ".agents/prompts/06_macos_app_agent.md",
+      ".agents/skills/wom-collaborator/SKILL.md",
+      ".agents/skills/wom-data-steward/SKILL.md",
+      ".agents/skills/wom-domain-weaver/SKILL.md",
+      ".agents/skills/wom-invariants-guard/SKILL.md",
+      ".agents/skills/wom-macos-craft/SKILL.md",
+      ".agents/skills/wom-navigator/SKILL.md",
+      ".github/ISSUE_TEMPLATE/01_agent_task.yml",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      "AGENTS.md",
+      "scripts/agent_capsule.py",
+      "scripts/project_status.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-hacf-target-ref-rules"
+  },
+  "started_at": "2026-09-18T22:44:52.803510+00:00",
+  "finished_at": "2026-09-18T22:45:11.442089+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

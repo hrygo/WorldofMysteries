@@ -30,8 +30,8 @@
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │            本地开发工作区 (Local Machine)              │
-│   rtk python3 scripts/collab_pipeline.py start ...      │
-│   rtk python3 scripts/agent_capsule.py pack ...         │
+│   python3 scripts/collab_pipeline.py start ...          │
+│   python3 scripts/agent_capsule.py pack ...             │
 ├────────────────────────────────────────────────────────┤
 │   - 独立 Git Worktree 无锁并发                         │
 │   - 每工作区独立 .venv (uv sync --locked --extra dev)   │
@@ -41,7 +41,7 @@
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │         本地机器验收 (Local Verification Gate)         │
-│   rtk python3 scripts/agent_capsule.py verify           │
+│   python3 scripts/agent_capsule.py verify               │
 │   - 静态扫描 git diff 防越界修改                       │
 │   - 自动执行三阶段本地全量测试                         │
 │   - 签发 Work Receipt (摘要凭单，胶囊保持不可变)        │
@@ -77,7 +77,7 @@
 开发者或 Agent 在本地终端执行一条命令拉起完全隔离的并发环境：
 ```bash
 # 秒级拉起独立 Worktree，并自动为角色切片生成初始 Task Capsule
-rtk python3 scripts/collab_pipeline.py start \
+python3 scripts/collab_pipeline.py start \
     --branch feat/m2-data-kernel \
     --role AGT-DOM \
     --task-id M2-DATA-KERNEL \
@@ -86,9 +86,11 @@ rtk python3 scripts/collab_pipeline.py start \
 **系统将在后台自动完成**：
 - 在 `../wom-worktrees/feat-m2-data-kernel` 建立隔离目录；
 - 在**本工作区**创建独立 `engine/.venv`（`uv sync --locked --extra dev`，仅共享 uv 全局缓存）；
-- 生成本工作区资源命名空间租约 `.hacf/workspace.json`（TMPDIR / SPM scratch / 测试库 / socket / 端口段）；
+- 生成本工作区资源命名空间租约 `.hacf/workspace.json`：`tmpdir` / `ipc_socket` 走短路径命名空间
+  （`/tmp/wom-ws-<branch-hash>/`，受 macOS AF_UNIX 104 字节上限约束），SPM scratch / 测试库 / 日志留在工作区内；
 - 调用 AST 静态分析，提取当前角色授权目录中的核心类与函数符号；
-- 生成标准化胶囊文件 `.agents/capsules/M2-DATA-KERNEL.json`。
+- 生成标准化胶囊文件 `.agents/capsules/M2-DATA-KERNEL.json`，其 `base.target_ref` 记录**合入目标**
+  （默认 `origin/main`）而不是当前特性分支——目标 ref 只在合入目标前进时才判定上下文陈旧。
 
 ### 第三步：专注开发与无死锁编码 (Coding)
 切入独立工作区进行开发：
@@ -99,24 +101,34 @@ cd ../wom-worktrees/feat-m2-data-kernel
 - 所有的修改完全发生在独立工作区，不影响主仓库或其他并发工作区。
 
 ### 第四步：本地验证与凭单签发 (Verification & Receipt)
-编码完成后，执行本地验收：
+编码完成后，**先提交实质改动**（`changes_digest` 取 `base_sha...HEAD` 的已提交内容），再执行本地验收：
 ```bash
+# 0. 提交实质改动（未提交内容不进入变更集摘要）
+git commit -m "feat(data): ..."
+
 # 四类边界裁决 + 受保护门禁执行 + 签发 Work Receipt（不回写胶囊）
-rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/M2-DATA-KERNEL.json --cwd "$(pwd)"
+python3 scripts/agent_capsule.py verify --capsule .agents/capsules/M2-DATA-KERNEL.json --cwd "$(pwd)"
+
+# 凭单作为独立提交带上：证据文件（.agents/capsules、.agents/receipts）不计入摘要，不会让凭单自我失效
+git add .agents/receipts/M2-DATA-KERNEL/ && git commit -m "chore(evidence): attach Work Receipt"
 ```
 - **四类边界裁决**：`write` 之外即阻断；`forbidden` 命中即阻断；高风险面未扩权即 `SCOPE_ESCALATION_REQUIRED`；
 - **受保护门禁**：按 `gates.profile`（受保护档案 + 摘要校验）执行，命令不由胶囊携带；
 - **签发凭单**：通过后写入 `.agents/receipts/<TASK_ID>/<head_sha>.json`（含退出码、原始日志摘要、
   工具链摘要、runner 身份）；胶囊保持不可变。**摘要为内容摘要，不是密码学签名。**
+- **陈旧上下文的处置**：`target_ref` 已前进时，在最新基线上重新 `pack`（生成 `capsule_revision` 修订版）
+  后重新验收；`--allow-stale` 仅用于调试，并在凭单中留下 `stale_context=true`。
 
 ### 第五步：发起 PR 与 GitHub Actions 自动化审查 (PR Review)
 将特性分支推送到 GitHub 并创建 Pull Request：
 ```bash
 git push origin feat/m2-data-kernel
 ```
-- **PR 模板自动填充**：填写 PR 模板，勾选不变量自检项，贴入胶囊签名；
+- **PR 模板自动填充**：填写 PR 模板，勾选不变量自检项，贴入胶囊摘要；
 - **GitHub Actions 自动审查卡片**：
-  - 云端 `capsule-audit` 验证签名有效性并检查 diff；
+  - 云端 `capsule-audit` 复算胶囊摘要与凭单 `diff_digest`、核验 PR 未超出 `capsule.scope`；
+    PR 的代码变更若**全部**落在 `.github/workflows/`、`.github/dependabot.yml`、`engine/uv.lock`、
+    `macos-app/Package.resolved`，则按自动化维护 PR 放行（免胶囊与凭单）；
   - 云端 `ci.yml` 在 `macos-latest` (Apple Silicon arm64, macOS 26+ baseline) 与 `ubuntu-latest` 运行跨语言全量矩阵测试；
   - `pr-gate-reporter` 自动在 PR 发表/更新实时质检报告卡片。
 
@@ -124,7 +136,7 @@ git push origin feat/m2-data-kernel
 当云端 CI 全部打上绿色勾（`All Quality Gates Passed`），执行原子合流：
 ```bash
 # 方式 A：通过本地流水线一键合入并自愈清理
-rtk python3 scripts/collab_pipeline.py integrate --branch feat/m2-data-kernel --auto-clean
+python3 scripts/collab_pipeline.py integrate --branch feat/m2-data-kernel --auto-clean
 
 # 方式 B：在 GitHub Web 界面点击 "Rebase and merge" 或 "Squash and merge"
 ```

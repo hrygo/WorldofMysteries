@@ -90,3 +90,15 @@ Schema 目前作为固定执行提示并由 JSON Schema 在本地验证，不冒
 - Provider AUTO 仅不发送特有参数，不承诺关闭服务端自动缓存；默认无付费保活或 NPC 预热循环。
 - 失败/超时可能没有 usage，统计应保留 unknown 覆盖；遥测 sink 自身故障由宿主监控，不能导致领域重试。
 - 对各阶段调用的预算是单次 stage 总期限，含计数、授权与 Schema 重试；不跨已提交阶段回滚。
+
+## 基线刷新记录（2026-09-19）
+
+首个目标平台 run `35404425215` 在精确代码 `8e69abd` 上被原始 verifier 拒绝：
+读取到 `origin/main@afdad649`，而 R1 契约目标仍为 `a44665a`。没有运行放行门禁，
+该次失败不代表 76 项专项测试失败，也不作为通过证据。原始失败 Artifact `10571299118` 保留。
+
+已读取新增治理规范；新 main 只更新 HACF 目标 ref 与作业文档/回归，不与本任务文件重叠。
+业务分支合入 `afdad649e07be3b01f54f1f53ba9a6651cda2d5f`，在该 main 上使用未修改的
+`pack_capsule(..., target_ref="origin/main", supersedes=...)` 创建 R2：
+`.agents/capsules/AI-CACHE-AWARE-CONTEXT-R2.json`。范围及受保护档案保持原样，R1 不回写。
+必须在新已提交 head 上重新执行 verifier；未使用 `--allow-stale`。
