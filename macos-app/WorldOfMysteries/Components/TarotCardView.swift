@@ -100,13 +100,16 @@ public struct TarotCardView: View {
                     )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous)
-                    .stroke(
-                        Color.Mystic.textGoldAccent,
-                        lineWidth: DesignTokens.Accessibility.focusRingWidth
-                    )
-                    .padding(-DesignTokens.Accessibility.focusRingOffset)
-                    .opacity(isCardFocused && onCardTapped != nil ? 1 : 0)
+                RoundedRectangle(
+                    cornerRadius: DesignTokens.Radii.md,
+                    style: .continuous
+                )
+                .inset(by: -DesignTokens.Accessibility.focusRingOffset)
+                .stroke(
+                    Color.Mystic.textGoldAccent,
+                    lineWidth: DesignTokens.Accessibility.focusRingWidth
+                )
+                .opacity(isCardFocused && onCardTapped != nil ? 1 : 0)
             )
             .shadow(color: pathwayColor.opacity(stage == .established ? 0.25 : 0.05), radius: 8)
         }
