@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import closing
 from pathlib import Path
-import sqlite3
+from .sqlite_runtime import sqlite3
 import stat
 
 SQLITE_VERSION = '3.53.4'

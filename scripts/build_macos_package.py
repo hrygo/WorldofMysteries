@@ -298,6 +298,8 @@ def build(output: Path) -> None:
             'signature':'ad-hoc','hardened_runtime':True,'sandbox':True,'helper_inherits_sandbox':True,
             'notarized':False,'gate_package':'not-accepted','runtime_archive_sha256':manifest['runtime_archive_sha256'],
             'python_version':manifest['python_version'],'agentscope_version':manifest['agentscope_version'],
+            'data_sqlite_version':manifest['data_sqlite']['sqlite_version'],
+            'data_sqlite_module':manifest['data_sqlite']['module'],
             'dependency_lock_sha256':manifest['dependency_lock_sha256'],
             'transport_probe':transport,'release_app_probe':actual_app,'bundle_unchanged_after_launch':True,
             'remaining_acceptance':['Developer ID signing and notarization','target-user installation and performance acceptance',

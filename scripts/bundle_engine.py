@@ -24,6 +24,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from build_data_sqlite import stage_data_sqlite
+
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / 'macos-app/Packaging/python-runtime.lock.json'
 ENGINE_DIRS = ('domain', 'application', 'infrastructure', 'ai', 'contracts')
@@ -223,6 +225,7 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
         run([uv, 'pip', 'install', '--python', str(python), '--system', '--require-hashes',
              '--no-deps', '--no-build', '-r', str(requirements)],
             cwd=work, log=logs/'dependency-install.log', env=env, timeout=600)
+        data_sqlite = stage_data_sqlite(runtime, logs, env=env)
         modules = runtime / 'engine'
         modules.mkdir()
         tracked = subprocess.check_output(['git', 'ls-files', '-z', '--',
@@ -235,11 +238,12 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
         # Exercise the installed AgentScope 2.x message API without creating services or calling a model.
-        code = """import agentscope,aiosqlite,pydantic,pydantic_core,openai,jsonschema,sqlite3,ssl,ctypes,sys,json
+        code = """import agentscope,aiosqlite,pydantic,pydantic_core,openai,jsonschema,sqlite3,ssl,ctypes,sys,json,_wom_sqlite3
 from importlib.metadata import distributions,version
 from agentscope.message import UserMsg
 assert UserMsg(name='packaging-probe',content='offline').get_text_content() == 'offline'
 assert version('agentscope') == '2.0.8'
+assert _wom_sqlite3.sqlite_version == '3.53.4'
 class Result(pydantic.BaseModel):
     ok: bool
 assert Result.model_validate_json('{"ok":true}').ok
@@ -261,7 +265,7 @@ print(json.dumps({'agentscope':version('agentscope'),'python':sys.version.split(
             'agentscope_version': lock['agentscope_version'],
             'source_commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'runtime_archive_sha256': lock['sha256'], 'dependency_lock_sha256': sha256(ROOT/'engine/uv.lock'),
-            'runtime_source': lock, 'dependencies': dependencies['packages'],
+            'runtime_source': lock, 'data_sqlite': data_sqlite, 'dependencies': dependencies['packages'],
             'inventory_phase': 'before-code-signing', 'files': source_inventory(runtime)}
         (runtime/'runtime-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
         # All upstream runtime and wheel license data are preserved without pruning.
