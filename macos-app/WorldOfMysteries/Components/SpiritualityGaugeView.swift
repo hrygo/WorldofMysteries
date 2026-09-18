@@ -162,7 +162,7 @@ nonisolated enum WOMGaugeBand: CaseIterable, Hashable, Sendable {
 
 /// Draw the upper semicircle directly in SwiftUI's top-left coordinate system.
 /// Zero is the left endpoint; one is the right endpoint. No post-paint rotation is used.
-struct WOMGaugeScaleArc: Shape {
+nonisolated struct WOMGaugeScaleArc: Shape {
     let fractions: ClosedRange<Double>
 
     func path(in rect: CGRect) -> Path {

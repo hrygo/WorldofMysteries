@@ -4,22 +4,22 @@ import SwiftUI
 ///
 /// 画廊按职责拆分为独立子树，避免单个超大 `body` 带来的类型检查与预览重建开销；
 /// 交互状态也下沉到所属分组，减少局部操作引发的无关视图失效。
+///
+/// 滚动所有权：画廊不自带滚动容器。它被挂载在工作区唯一的滚动容器内，
+/// 嵌套滚动会同时破坏虚拟化与滚动语义（历史缺陷：内外两层纵向滚动容器）。
 public struct ComponentGalleryView: View {
     public init() {}
 
     public var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
-                ComponentGalleryHeader()
-                ComponentGalleryInteractionGroup()
-                ComponentGalleryWorldGroup()
-                ComponentGalleryDesignSystemGroup()
-                ControlRecoveryGallerySection()
-                ComponentGalleryArtifactGroup()
-            }
-            .padding(DesignTokens.Spacing.xxl)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
+            ComponentGalleryHeader()
+            ComponentGalleryInteractionGroup()
+            ComponentGalleryWorldGroup()
+            ComponentGalleryDesignSystemGroup()
+            ControlRecoveryGallerySection()
+            ComponentGalleryArtifactGroup()
         }
-        .background(Color.Mystic.obsidianBase.ignoresSafeArea())
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -9,6 +9,33 @@ public nonisolated enum WOMSurfaceTone: CaseIterable, Sendable {
     case parchment
 }
 
+/// Opaque window canvas for the app's dark-only design language.
+///
+/// The canvas owns the single opaque backdrop of a window. Panels, cards and scroll surfaces
+/// layer on top of it; nothing in the app is allowed to depend on the system window backdrop,
+/// because that backdrop follows the macOS appearance and silently swaps to a light surface.
+public struct WOMWindowCanvas: View {
+    public let texture: WOMTextureAsset?
+    public let textureOpacity: Double
+
+    public init(
+        texture: WOMTextureAsset? = .sacredSlate,
+        textureOpacity: Double = 0.012
+    ) {
+        self.texture = texture
+        self.textureOpacity = textureOpacity
+    }
+
+    public var body: some View {
+        Color.Mystic.obsidianBase
+            .overlay {
+                if let texture {
+                    WOMTextureLayer(texture, opacity: textureOpacity)
+                }
+            }
+    }
+}
+
 /// Reusable texture overlay with accessibility-aware transparency behavior.
 public struct WOMTextureLayer: View {
     public let asset: WOMTextureAsset
@@ -21,7 +48,7 @@ public struct WOMTextureLayer: View {
     public init(
         _ asset: WOMTextureAsset,
         opacity: Double = 0.10,
-        blendMode: BlendMode = .softLight
+        blendMode: BlendMode = .normal
     ) {
         self.asset = asset
         self.opacity = opacity
@@ -32,6 +59,7 @@ public struct WOMTextureLayer: View {
         Image(asset.rawValue)
             .resizable()
             .scaledToFill()
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             .opacity(effectiveOpacity)
             .blendMode(blendMode)
             .clipped()
@@ -76,16 +104,19 @@ public struct WOMPanelBackground: View {
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 
-        ZStack {
-            shape.fill(fillColor)
-
-            if let texture {
-                WOMTextureLayer(texture, opacity: textureOpacity)
-                    .clipShape(shape)
+        // 背景必须「以填充面为根、纹理与描边走 overlay」。
+        // 若把 Shape 放进 ZStack 作为背景根，SwiftUI 会按容器尺寸（而非内容尺寸）布局该背景，
+        // 于是半透明面板会铺满整个工作列并盖住主内容，造成大面积不可读。
+        fillColor
+            .overlay {
+                if let texture {
+                    WOMTextureLayer(texture, opacity: textureOpacity)
+                }
             }
-
-            shape.stroke(strokeColor, lineWidth: strokeWidth)
-        }
+            .overlay {
+                shape.stroke(strokeColor, lineWidth: strokeWidth)
+            }
+        .compositingGroup()
         .clipShape(shape)
         .shadow(color: shadowColor, radius: shadowRadius, y: shadowOffsetY)
     }

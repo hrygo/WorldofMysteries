@@ -260,9 +260,10 @@ public struct FateArtifactInterventionView: View {
 
   private var runtimeBadgeText: String {
     switch runtimeAvailability {
-    case .preview: return "Preview"
-    case .live: return "Engine Live"
-    case .unavailable: return "Awaiting Context"
+    // 界面文案统一以中文为主，英文只作为括号内的模块名出现。
+    case .preview: return "本地预览"
+    case .live: return "引擎实时"
+    case .unavailable: return "等待世界上下文"
     }
   }
 

@@ -48,13 +48,19 @@ private struct CodexAndDatabaseGallerySection: View {
                     location: "佐特兰街36号"
                 )
 
-                VStack(spacing: DesignTokens.Spacing.sm) {
-                    DatabaseStatusHUDCard(role: .canon, isHealthy: true, sizeText: "38.2 MB")
-                    DatabaseStatusHUDCard(role: .world, isHealthy: true, sizeText: "14.6 MB")
-                    DatabaseStatusHUDCard(role: .retrieval, isHealthy: true, sizeText: "52.1 MB")
-                    DatabaseStatusHUDCard(role: .runtime, isHealthy: true, sizeText: "4.8 MB")
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    // 组件样例：显式并列「探针已接入」与「未接入」两种合法状态，
+                    // 生产页面在探针不可达时必须使用后者。
+                    Text("组件样例 · 探针状态 (Probed / Not Probed)")
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textTertiary)
+
+                    DatabaseStatusHUDCard(role: .canon, status: .measured(sizeText: "38.2 MB", isHealthy: true))
+                    DatabaseStatusHUDCard(role: .world, status: .measured(sizeText: "14.6 MB", isHealthy: true))
+                    DatabaseStatusHUDCard(role: .retrieval, status: .measured(sizeText: "52.1 MB", isHealthy: true))
+                    DatabaseStatusHUDCard(role: .runtime)
                 }
-                .frame(width: 220)
+                .frame(width: 240)
             }
         }
     }

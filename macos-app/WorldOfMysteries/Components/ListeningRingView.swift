@@ -183,8 +183,7 @@ public struct ListeningRingView: View {
                         ? DesignTokens.ComponentMetrics.ListeningRing.reducedMotionShadowRadius
                         : DesignTokens.ComponentMetrics.ListeningRing.idleShadowRadius
                 )
-            WOMIcon(source: state.iconSource, size: .compact)
-                .foregroundStyle(iconColor)
+            ringGlyph
             Circle()
                 .stroke(Color.Mystic.textGoldAccent, lineWidth: DesignTokens.Accessibility.focusRingWidth)
                 .frame(
@@ -198,6 +197,81 @@ public struct ListeningRingView: View {
         .contentShape(Circle())
     }
 
+    /// 世界聆听符号。
+    ///
+    /// 对齐 `docs/05_UI/Interaction_Runtime_State_v1.0.md` §10：不使用强科技感麦克风作为主视觉。
+    /// 这里改用与 `WOMDividerOrnament` 同一套菱形母题的装饰语言，
+    /// 状态差异由母题组合、颜色与动效共同承担，而不是换一个科技图标。
+    private var ringGlyph: some View {
+        ZStack {
+            ListeningRingDiamondShape()
+                .stroke(iconColor, lineWidth: DesignTokens.Borders.hairline)
+                .frame(width: 13, height: 13)
+
+            glyphCore
+        }
+        .frame(width: 20, height: 20)
+    }
+
+    @ViewBuilder
+    private var glyphCore: some View {
+        switch state {
+        case .idle:
+            Circle()
+                .fill(iconColor)
+                .frame(width: 4, height: 4)
+        case .listening:
+            ZStack {
+                Circle()
+                    .trim(from: 0.06, to: 0.44)
+                    .stroke(iconColor, lineWidth: 1.6)
+                    .frame(width: 11, height: 11)
+                Circle()
+                    .trim(from: 0.56, to: 0.94)
+                    .stroke(iconColor, lineWidth: 1.6)
+                    .frame(width: 11, height: 11)
+            }
+        case .interpreting:
+            ZStack {
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 11, height: 1.6)
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 1.6, height: 11)
+            }
+        case .deciding:
+            Circle()
+                .trim(from: 0, to: 0.62)
+                .stroke(iconColor, lineWidth: 1.8)
+                .frame(width: 12, height: 12)
+        case .narrating:
+            VStack(spacing: 2) {
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 10, height: 1.4)
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 8, height: 1.4)
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 10, height: 1.4)
+            }
+        case .speaking:
+            HStack(alignment: .center, spacing: 2) {
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 1.6, height: 5)
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 1.6, height: 10)
+                Rectangle()
+                    .fill(iconColor)
+                    .frame(width: 1.6, height: 6)
+            }
+        }
+    }
+
     private var iconColor: Color {
         switch state {
         case .idle: Color.Mystic.brassGoldPrimary
@@ -205,6 +279,22 @@ public struct ListeningRingView: View {
         case .deciding: Color.Mystic.brassGoldHover
         case .narrating, .speaking: Color.Mystic.textGoldAccent
         }
+    }
+}
+
+/// 菱形母题轮廓。
+///
+/// 用显式路径来表达菱形，而不是给矩形加一个静态 45° 旋转变换：
+/// 源码级守卫无法区分「静态摆放」与「持续旋转动效」，路径表达同一个母题且不留歧义。
+nonisolated struct ListeningRingDiamondShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.closeSubpath()
+        return path
     }
 }
 

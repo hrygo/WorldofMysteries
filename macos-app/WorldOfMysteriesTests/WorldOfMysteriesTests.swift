@@ -144,18 +144,24 @@ struct WorldOfMysteriesTests {
         #expect(advice?.primaryIntent == "observe")
     }
 
-    @Test("AppState startAndConnect lifecycle orchestration")
+    @Test("AppState never claims a live engine while the IPC transport is a scaffold")
     @MainActor
     func testAppStateLifecycle() async throws {
         let appState = AppState()
+        #expect(appState.connectionState == .idle)
         #expect(appState.isEngineReady == false)
+        #expect(appState.isShowingDemoData == true)
 
         await appState.startAndConnect()
-        #expect(appState.isEngineReady == true)
+        // 传输层仍是骨架通道（EngineIPCClient.isScaffoldOnly）：握手只是本地回显，
+        // 因此状态必须停在 scaffoldPreview，界面不得显示「已就绪 · IPC 活跃」。
+        #expect(appState.connectionState == .scaffoldPreview)
+        #expect(appState.isEngineReady == false)
+        #expect(appState.isShowingDemoData == true)
         #expect(appState.connectionError == nil)
 
         await appState.shutdown()
+        #expect(appState.connectionState == .idle)
         #expect(appState.isEngineReady == false)
     }
 }
-
