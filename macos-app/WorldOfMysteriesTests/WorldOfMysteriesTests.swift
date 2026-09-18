@@ -144,21 +144,23 @@ struct WorldOfMysteriesTests {
         #expect(advice?.primaryIntent == "observe")
     }
 
-    @Test("AppState never claims a live engine while the IPC transport is a scaffold")
+    @Test("Missing bundled runtime cannot claim a live engine or conceal demo data")
     @MainActor
     func testAppStateLifecycle() async throws {
-        let appState = AppState()
+        let missing = EngineLaunchConfiguration(
+            executableURL: URL(fileURLWithPath: "/nonexistent/wom-runtime/python3"),
+            moduleDirectory: URL(fileURLWithPath: "/nonexistent/wom-runtime/engine"))
+        let appState = AppState(processManager: EngineProcessManager(configuration: missing))
         #expect(appState.connectionState == .idle)
         #expect(appState.isEngineReady == false)
         #expect(appState.isShowingDemoData == true)
 
         await appState.startAndConnect()
-        // 传输层仍是骨架通道（EngineIPCClient.isScaffoldOnly）：握手只是本地回显，
-        // 因此状态必须停在 scaffoldPreview，界面不得显示「已就绪 · IPC 活跃」。
-        #expect(appState.connectionState == .scaffoldPreview)
+        // Absence is an actual launch failure, not an invented successful handshake.
+        #expect(appState.connectionState == .unavailable)
         #expect(appState.isEngineReady == false)
         #expect(appState.isShowingDemoData == true)
-        #expect(appState.connectionError == nil)
+        #expect(appState.connectionError != nil)
 
         await appState.shutdown()
         #expect(appState.connectionState == .idle)

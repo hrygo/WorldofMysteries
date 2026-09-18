@@ -1,0 +1,110 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-APP-ENGINE-REGRESSION",
+  "capsule_revision": 1,
+  "task_id": "M1-APP-ENGINE-REGRESSION",
+  "title": "Preserve Artifact fail-closed coverage after replacing scaffold transport",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T10:14:30.419073+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "f7fa79c718cc80f15a261d1f195d731a3a3f2987",
+    "target_sha": "f7fa79c718cc80f15a261d1f195d731a3a3f2987",
+    "context_snapshot": "sha256:b74797de7d20eb96dbfa05d3a8c4252cffb567e30a29e610ae62388bfabaa1d2"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/Artifacts/",
+      "macos-app/WorldOfMysteriesTests/",
+      "engine/tests/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactEngineAdapter.swift",
+      "macos-app/WorldOfMysteriesTests/ArtifactComponentTests.swift",
+      ".agents/capsules/M1-APP-ENGINE-REGRESSION.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/gates/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml",
+      "macos-app/Package.swift",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "Close target-macOS regression findings for #45 in PR #52. Expose only the existing response decoder at module-internal scope for @testable validation. Replace the obsolete nonexistent-socket success assumption with disconnected resolver rejection and direct production decoder assertions for empty, malformed and error responses. Preserve all previous invariants and the separate real cross-process tests. No wire/handler, domain, dependency, build or protected gate changes; no merge authorized.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

@@ -1,59 +1,97 @@
 import Foundation
 
-/// Actor managing IPC connection and life cycle with Local Python Engine.
-///
-/// - Warning: 当前实现是**骨架通道**：`connect` 不会真的打开 UDS，`send` 返回本地回显。
-///   任何界面都不得据此宣称「本地引擎已就绪」，必须读取 `isScaffoldOnly` 并降级表达。
+/// Authenticated, framed Local Engine client. A connection is not a world session.
 public actor EngineIPCClient {
-    public private(set) var isConnected: Bool = false
+    private var transport: EngineSocketTransport?
+    private var generation: UInt64 = 0
+    private var handshaking = false
+    public private(set) var handshake: EngineHandshake?
+    private let requestTimeout: TimeInterval
+    public var isConnected: Bool { transport?.isConnected == true && handshake != nil }
+    public nonisolated var isScaffoldOnly: Bool { false }
 
-    public init() {}
-
-    /// 传输层是否仍是骨架实现（不会真正连接 Local Engine）。
-    public nonisolated var isScaffoldOnly: Bool { true }
-
-    public func connect(socketPath: String) async throws {
-        // Scaffolding: socket connection logic
-        isConnected = true
+    public init(requestTimeout: TimeInterval = 5) {
+        self.requestTimeout = requestTimeout.isFinite && requestTimeout > 0 ? requestTimeout : 5
     }
 
-    public func performHandshake(traceId: String = UUID().uuidString) async throws -> Bool {
-        guard isConnected else { return false }
-        let handshakeReq = IPCEnvelope(
-            kind: "request",
-            protocolVersion: "1.0",
-            traceId: traceId,
-            requestId: UUID().uuidString,
-            method: "system.handshake"
-        )
-        let response = try await send(envelope: handshakeReq)
-        return response.status == "ok"
+    public func connect(socketPath: String) async throws {
+        generation &+= 1
+        let attempt = generation
+        handshake = nil
+        handshaking = false
+        let previous = transport
+        let next = EngineSocketTransport()
+        transport = next
+        await previous?.close()
+        do {
+            try await next.connect(path: socketPath, timeout: requestTimeout)
+            guard generation == attempt else { throw CancellationError() }
+        } catch {
+            await next.close()
+            if generation == attempt { transport = nil }
+            throw error
+        }
+    }
+
+    @discardableResult
+    public func performHandshake(sessionToken: String, traceId: String = UUID().uuidString) async throws -> EngineHandshake {
+        guard let connection = transport, handshake == nil, !handshaking else { throw EngineConnectionError.notConnected }
+        let attempt = generation
+        handshaking = true
+        defer { if generation == attempt { handshaking = false } }
+        let request = IPCEnvelope(kind: "request", traceId: traceId, requestId: UUID().uuidString,
+            method: "system.handshake", payload: [
+                "app_version": .string("0.1.0"), "app_build": .string("100"),
+                "supported_protocols": .array([.string("1.0")]), "session_token": .string(sessionToken)
+            ])
+        do {
+            let response = try await connection.request(request, timeout: requestTimeout)
+            guard response.status == "ok", let payload = response.payload else { throw EngineConnectionError.authenticationFailed }
+            let welcome = try EngineHandshake(payload: payload)
+            guard generation == attempt, connection.isConnected else { throw EngineConnectionError.disconnected }
+            handshake = welcome
+            return welcome
+        } catch {
+            await connection.close()
+            if generation == attempt { handshake = nil; transport = nil }
+            throw error
+        }
     }
 
     public func send(envelope: IPCEnvelope) async throws -> IPCEnvelope {
-        guard isConnected else {
-            throw NSError(domain: "EngineIPCClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "Engine IPC not connected"])
+        guard let connection = transport, let handshake, connection.isConnected else {
+            throw EngineConnectionError.notConnected
         }
-        // Echo mock response for baseline handshake
-        if envelope.method == "system.handshake" {
-            return IPCEnvelope(
-                kind: "response",
-                protocolVersion: "1.0",
-                traceId: envelope.traceId,
-                requestId: envelope.requestId,
-                status: "ok"
-            )
+        guard let method = envelope.method, handshake.capabilities.contains(method) else {
+            throw EngineConnectionError.methodUnavailable
         }
-        return IPCEnvelope(
-            kind: "response",
-            protocolVersion: "1.0",
-            traceId: envelope.traceId,
-            requestId: envelope.requestId,
-            status: "ok"
-        )
+        // No retries here: losing a response never authorizes another mutation.
+        return try await connection.request(envelope, timeout: requestTimeout)
+    }
+
+    public func health() async throws -> EngineHealth {
+        let response = try await send(envelope: IPCEnvelope(kind: "request", traceId: UUID().uuidString,
+            requestId: UUID().uuidString, method: "system.health"))
+        guard response.status == "ok", let payload = response.payload else { throw EngineConnectionError.invalidFrame }
+        return try EngineHealth(payload: payload)
+    }
+
+    public func eventStream() throws -> AsyncThrowingStream<IPCEnvelope, any Error> {
+        guard let transport, isConnected else { throw EngineConnectionError.notConnected }
+        return transport.events
+    }
+
+    public func connectionFailures() throws -> AsyncStream<EngineConnectionError> {
+        guard let transport, isConnected else { throw EngineConnectionError.notConnected }
+        return transport.failures
     }
 
     public func disconnect() async {
-        isConnected = false
+        generation &+= 1
+        handshake = nil
+        handshaking = false
+        let previous = transport
+        transport = nil
+        await previous?.close()
     }
 }

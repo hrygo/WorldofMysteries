@@ -381,3 +381,13 @@ async def test_duplicate_start_does_not_lose_original_lease(runtime):
     finally:
         await server.close()
     assert not runtime.exists()
+
+
+@pytest.mark.parametrize("parent_pid", [0, 1, -1])
+@pytest.mark.asyncio
+async def test_invalid_launch_parent_refuses_socket(tmp_path, parent_pid):
+    from infrastructure.ipc_server import _run
+    path = tmp_path / "parent.sock"
+    with pytest.raises(BootstrapError):
+        await _run(path, "a" * 64, parent_pid)
+    assert not path.exists()

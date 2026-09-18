@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct WorldOfMysteriesApp: App {
+    @NSApplicationDelegateAdaptor(EngineAppDelegate.self) private var engineDelegate
     @State private var appState = AppState()
     @State private var currentNavigation: NavigationItem = .fate
     @State private var isSidebarCollapsed: Bool = false
@@ -21,6 +22,7 @@ struct WorldOfMysteriesApp: App {
                 isSidebarCollapsed: $isSidebarCollapsed
             )
             .environment(appState)
+            .onAppear { engineDelegate.appState = appState }
             .environment(\.adviceFocusRequestID, adviceFocusRequestID)
             // 视觉系统为暗色单一样式（obsidian 画布 + 黄铜金层级）。
             // 在场景根声明暗色外观，避免系统浅色外观把窗口背板、滚动容器与系统控件

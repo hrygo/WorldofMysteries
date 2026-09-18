@@ -283,17 +283,33 @@ class LocalIPCServer:
             self._token = ""  # Best effort, not a promise of zeroized Python memory.
 
 
-async def _run(path: Path, token: str) -> None:
+async def _watch_parent(server: LocalIPCServer, parent_pid: int) -> None:
+    """Stop after the App exits, including Force Quit; never become a login daemon."""
+    while os.getppid() == parent_pid:
+        await asyncio.sleep(0.25)
+    server.request_stop()
+
+
+async def _run(path: Path, token: str, parent_pid: int | None = None) -> None:
     server = LocalIPCServer(path, token)
     loop = asyncio.get_running_loop()
     installed = []
+    watcher = None
     try:
+        if parent_pid is not None and (parent_pid <= 1 or os.getppid() != parent_pid):
+            raise BootstrapError("Launch parent is no longer available")
         await server.start()
+        if parent_pid is not None:
+            watcher = asyncio.create_task(_watch_parent(server, parent_pid))
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, server.request_stop)
             installed.append(sig)
         await server.wait_stopped()
     finally:
+        if watcher is not None:
+            watcher.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await watcher
         for sig in installed:
             loop.remove_signal_handler(sig)
         await server.close()
@@ -303,10 +319,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Local Engine system transport")
     parser.add_argument("--socket", required=True, type=Path)
     parser.add_argument("--token-fd", required=True, type=int)
+    parser.add_argument("--parent-pid", type=int)
     args = parser.parse_args()
     try:
         token = read_bootstrap_token(args.token_fd)
-        asyncio.run(_run(args.socket, token))
+        asyncio.run(_run(args.socket, token, args.parent_pid))
     except (BootstrapError, OSError, ValueError):
         print("Local Engine startup failed; check the private runtime and bootstrap channel.",
               file=sys.stderr)

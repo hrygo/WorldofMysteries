@@ -78,9 +78,15 @@ struct VisualHonestyContractTests {
 
         #expect(content.contains("case .scaffoldPreview: \"本地引擎未接入 · 界面为示例数据\""))
         #expect(content.contains("demoDataChip"))
-        #expect(state.contains("isScaffoldOnly"))
-        #expect(state.contains("connectionState = .scaffoldPreview"))
-        #expect(client.contains("isScaffoldOnly: Bool { true }"))
+        #expect(client.contains("isScaffoldOnly: Bool { false }"))
+        #expect(state.contains("health.worldReady"))
+        #expect(state.contains("welcome.capabilities.contains(\"world.home\")"))
+        #expect(state.contains(".transportReady"))
+        #expect(content.contains("onSubmitAdvice: nil"))
+        #expect(!client.contains("Echo mock response"))
+        #expect(!content.contains("worldListeningState ="))
+        #expect(!content.contains("这些入口承载真实交互"))
+        #expect(content.contains("世界询问与语音功能尚未开放"))
     }
 
     @Test("four-kernel HUD defaults to an unprobed state")
