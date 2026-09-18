@@ -4,6 +4,12 @@
 > **双层防御**：本地事务工作区 (`collab_pipeline.py`) + 云端 GitHub Actions 权威矩阵  
 > **核心目标**：零上下文稀释 · 零越界提交 · 100% 架构不变量机器守卫  
 
+> 🔁 **Actions 运行时基线刷新（2026-09-18）**：全部工作流已升级到 Node 24 运行时基线
+> （`actions/checkout@v7`、`actions/setup-python@v7`、`actions/cache@v6`、`astral-sh/setup-uv@v10.1.0`、
+> `actions/github-script@v9`、`actions/upload-artifact@v7`）。注意 `astral-sh/setup-uv` 自 v8 起
+> 不再发布大版本标签，必须锁不可变全版本标签；`setup-uv` 的 `enable-cache` 保留 `auto`
+> 安全默认（`pull_request_target` / `workflow_run` / `release` 事件自动禁用缓存，防缓存投毒）。
+>
 > ⚠️ **HACF 2.1 修订（2026-09-16）**：本基线中「签发/校验 sha256 机器防伪签名」表述已修正为
 > **可复算内容摘要凭单**（`.agents/receipts/`），`capsule-audit.yml` 的职责升级为
 > 边界裁决 + 门禁档案主权校验（目标分支 registry 为权威）+ 凭单证据完整性；
@@ -69,11 +75,11 @@
      - 循环校验全部 28 个 JSON Schema 语法与格式。
   2. **`python-engine` (macOS 26+ baseline / macos-latest)**：
      - 依赖 `architecture-and-contracts` 通过；
-     - 使用 `astral-sh/setup-uv@v5` 开启依赖缓存，基于 `engine/uv.lock` 进行秒级环境复现；
+     - 使用 `astral-sh/setup-uv@v10.1.0` 开启依赖缓存（`enable-cache: auto`），基于 `engine/uv.lock` 进行秒级环境复现；
      - 执行 `uv run pytest -v`，覆盖 25 项契约与适配层单测。
   3. **`swift-macos-app` (macOS 26+ baseline / Apple Silicon arm64)**：
      - 依赖 `architecture-and-contracts` 通过；
-     - 使用 `actions/cache@v4` 缓存 `macos-app/.build` SPM 编译产物；
+     - 使用 `actions/cache@v6` 缓存 `macos-app/.build` SPM 编译产物；
      - 激活 Swift 6 严格并发检查，执行 `swift test`，覆盖 8 项跨语言与 Actor 测试。
      - 额外执行 `xcodebuild ... build` 构建 Xcode App Target：SPM 目标未启用默认 MainActor 隔离
        （`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`），只有真实 App Target 才能复现宿主应用与预览的
@@ -86,7 +92,7 @@
 - **核心逻辑**：
   1. 调用 `scripts/generate_pr_report.py` 提取任务契约事实、执行角色、门禁档案摘要与凭单证据
      （**只复述记录，不宣称测试结论**）；
-  2. 使用 `actions/github-script@v7` (Node 20 驱动) 自动发布或更新 PR 顶部的实时门禁报告卡片，避免重复刷屏。
+  2. 使用 `actions/github-script@v9` (Node 24 驱动) 自动发布或更新 PR 顶部的实时门禁报告卡片，避免重复刷屏。
 
 ### 2.4 夜间全景深度回放工作流 (`.github/workflows/nightly-golden-audit.yml`)
 - **触发条件**：每日 UTC 02:00 (北京时间 10:00) 定时触发，或支持 `workflow_dispatch` 手动一键触发。
@@ -94,7 +100,7 @@
   1. 在 `macos-latest` (macOS 26+ baseline) 运行全量契约双向往返验证；
   2. 执行 Golden 001 场景 5 轮状态机深度回放；
   3. 执行 Swift 6 全量测试与架构适应度 AST 扫描；
-  4. 使用 `actions/upload-artifact@v4` 归档为期 14 天的审计工件。
+  4. 使用 `actions/upload-artifact@v7` 归档为期 14 天的审计工件。
 
 ---
 
@@ -104,7 +110,7 @@
 
 | 规范项 | 工业级标准要求 | 《诡秘世界》实施落地 |
 |:---|:---|:---|
-| **官方 Actions 生命周期** | 必须全面迁移至 Node 20 / Node 22 运行时，严禁使用已弃用的 v3 | 全面采用 `actions/checkout@v4`, `actions/setup-python@v5`, `astral-sh/setup-uv@v5`, `actions/cache@v4`, `actions/upload-artifact@v4`, `actions/github-script@v7`。 |
+| **官方 Actions 生命周期** | 工作流引用的全部 Actions 必须运行在 Node 24 运行时，严禁停留在已弃用的旧主版本 | 全面采用 `actions/checkout@v7`, `actions/setup-python@v7`, `astral-sh/setup-uv@v10.1.0`, `actions/cache@v6`, `actions/upload-artifact@v7`, `actions/github-script@v9`（六个引用在锁定标签上实测 `runs.using: node24`）；`astral-sh/setup-uv` 因上游停止发布大版本标签而锁不可变全版本标签。 |
 | **最小权限原则 (Least Privilege)** | 顶层禁用通配写权限，显式限制只读 | 所有工作流顶层严格配置 `permissions: contents: read`；仅在 PR Reporter 中局部按需开放 `pull-requests: write, issues: write`。 |
 | **超时保护 (Timeout Guard)** | 严禁无超时任务，防止 runner 死锁耗费配额 | 所有 Job 均显式声明 `timeout-minutes: 5 ~ 25`，异常卡顿自动自愈熔断。 |
 | **Runner 架构匹配** | 淘汰 Intel x86 runner，对齐 Apple Silicon 硬件与 macOS 26+ 平台基线 | 编译与测试统一采用 `macos-latest` (Apple Silicon arm64, macOS 26+) 与 `ubuntu-latest` 组合。 |
@@ -118,8 +124,8 @@
 
 | 构件类型 | 缓存机制 | 缓存 Key 规划 | 命中后收益 |
 |:---|:---|:---|:---|
-| **Python 依赖** | `astral-sh/setup-uv@v5` 内置全局缓存 | `engine/uv.lock` 哈希计算 | 依赖准备耗时从 45s 降至 **< 2s** |
-| **Swift SPM 依赖** | `actions/cache@v4` | `${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved') }}` | 编译构建耗时由 40s 压缩至 **< 6s** |
+| **Python 依赖** | `astral-sh/setup-uv@v10.1.0` 内置全局缓存（`enable-cache: auto`） | `engine/uv.lock` 哈希计算 | 依赖准备耗时从 45s 降至 **< 2s** |
+| **Swift SPM 依赖** | `actions/cache@v6` | `${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved') }}` | 编译构建耗时由 40s 压缩至 **< 6s** |
 | **AST 架构检查** | 纯 Python 标准库静态分析 | 无外部依赖 | 耗时稳定在 **< 0.5s** |
 
 整体 CI 流水线端到端耗时控制在 **1.5 分钟以内**。
@@ -137,7 +143,7 @@
    - 勾选 `Require branches to be up to date before merging`；
    - 添加以下两项必过检查：
      - `All Quality Gates Passed` (来自 `ci.yml`)；
-     - `Audit Task Capsule Scope & Attestation` (来自 `capsule-audit.yml`)。
+     - `Capsule Gate` (来自 `capsule-audit.yml`，名称以 `.hacf/required-checks.json` 契约为准)。
 3. **Require signed commits** (推荐)。
 4. **Require linear history**：
    - 强制只允许 Squash and merge 或 Rebase and merge，禁止生成非线性 Merge Commit。
