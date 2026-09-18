@@ -91,7 +91,7 @@ struct VisualQAContractTests {
         let gauge = try file("macos-app/WorldOfMysteries/Components/SpiritualityGaugeView.swift")
 
         #expect(listening.contains("@Environment(\\.accessibilityReduceMotion)"))
-        #expect(listening.contains("guard !reduceMotion else"))
+        #expect(listening.contains("!reduceMotion && isEnabled && appearsActive"))
         #expect(backlund.contains("@Environment(\\.accessibilityReduceMotion)"))
         #expect(backlund.contains("ViewThatFits(in: .horizontal)"))
         #expect(!backlund.contains(".font(.system(size: 9"))

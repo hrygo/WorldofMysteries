@@ -155,7 +155,8 @@ struct VisualControlPrimitiveContractTests {
         #expect(source.contains("Button(action: onRingTapped)"))
         #expect(source.contains(".focused($isRingFocused)"))
         #expect(source.contains(".accessibilityHint("))
-        #expect(source.contains("handleStateChange(state)"))
+        #expect(source.contains(".phaseAnimator([0.0, 1.0])"))
+        #expect(!source.contains(".rotationEffect("))
         #expect(!source.contains(".onTapGesture"))
     }
 
