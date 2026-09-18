@@ -47,29 +47,26 @@
 
 ## 2. 实施顺序
 
+2026-09-18 执行顺序补充：以 [Persistent World Alpha 计划](Persistent_World_Alpha_Plan_v1.0.md) 落实第一条真实闭环。下文 M0–M9 仍为技术能力章节编号，不等同于 `PROJECT_STATE.json` 导航里程碑编号；不删除任何 Gate。
+
 ```text
-M0 Contract Freeze
-  ↓
-M1 Local Engine + IPC
-  ↓
-M2 Data Kernel + Outbox
-  ↓
-M3 Domain Repositories
-  ↓
-M4 AgentScope AI Gateway
-  ↓
-M5 Context / Memory / Knowledge
-  ↓
-M6 Golden 001 Turn Loop
-  ↓
-M7 Episode Finalization
-  ↓
-M8 Voice / Narrative / Replay
-  ↓
-M9 Failure Injection / Eval
-  ↓
-Engine Architecture v1.0
+Contract 基线
+  ├─ Local Engine / App IPC（真实进程）
+  ├─ Data Kernel / Outbox（真实持久事务）
+  └─ Golden 断言与故障点准备（立即开始）
+              ↓
+Domain / Context / Memory / Application + 固定模型输出
+              ↓
+第一轮真实 Commit → Golden 001 五轮
+              ↓
+Episode 原子结算 / 重启连续性 / 故障恢复
+              ↓
+真实 AgentScope 模型端到端接入 / 基础语音 / 历史回放
+              ↓
+目标 Mac 独立体验与全部既有 Gate → Engine Architecture v1.0
 ```
+
+仅 Mock 模型输出；Orchestrator、Resolver、Validators、revision、幂等、SQLite transaction、记忆写回、Outbox、Finalization 与 Recovery 都必须是真实代码。AI 接口与版本固定可并行准备，真实 LLM 不阻断确定性 Golden Mock；知识授权边界从第一轮就存在。不得先交付一次性故事、再补持久世界。
 
 ## 3. M0 — Contract Freeze
 

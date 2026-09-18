@@ -1,0 +1,115 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PRODUCT-PERSISTENT-WORLD-ALPHA",
+  "capsule_revision": 1,
+  "task_id": "PRODUCT-PERSISTENT-WORLD-ALPHA",
+  "title": "Bind persistent-world alpha planning and execution metadata",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T06:31:51.737451+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
+    "target_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
+    "context_snapshot": "sha256:6217eb74ef3c136e924220b904480921fa9ae8ee345183695e98c47c69b4588c"
+  },
+  "scope": {
+    "read": [
+      "docs/",
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      "scripts/",
+      "contracts/engineering/",
+      ".hacf/gates/"
+    ],
+    "write": [
+      "docs/PROJECT_STATE.json",
+      "docs/06_实施基线/Persistent_World_Alpha_Plan_v1.0.md",
+      "docs/06_实施基线/Executable_Baseline_v1.0.md",
+      "docs/07_工程启动/Engineering_Tasks_v1.0.yaml",
+      "docs/README.md",
+      ".agents/capsules/PRODUCT-PERSISTENT-WORLD-ALPHA.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      "macos-app/**",
+      "fixtures/**",
+      "contracts/**",
+      "scripts/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      "docs/PROJECT_STATE.json",
+      "docs/06_实施基线/Executable_Baseline_v1.0.md",
+      "docs/07_工程启动/Engineering_Tasks_v1.0.yaml",
+      "scripts/capsule_audit.py"
+    ],
+    "related_contracts": [
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "confirmed-product-decision-and-pinned-source-metadata",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "forbidden",
+    "note": "This is an actual task contract, not a verification receipt. Source was obtained as an immutable GitHub Actions artifact. Context digest hashes the listed baseline bytes, decision and protected gate digest. Created after the initial docs commit to bind this PR explicitly; historical capsules and gate policy remain unchanged."
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ],
+    "instructions": "Update only the five planning/status documents and this immutable task contract. Keep all runtime acceptance unverified; preserve existing art tasks and historical evidence. Validate navigation, task DAGs, links, exact file scope and the unchanged audit CLI. Do not rewrite production code, historical capsules or gates. FULL_P0 remains required; unavailable local macOS/Python capabilities must be reported, not forged into a passing Work Receipt. No merge authorization."
+  }
+}
