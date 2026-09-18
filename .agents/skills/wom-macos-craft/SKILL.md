@@ -51,8 +51,8 @@ Task {
 测试严格基于 Swift 6 原生 **Swift Testing** 宏体系（`@Test`, `#expect`）：
 ```bash
 # 运行 Swift 客户端全量单元测试与并发测试 (要求 0 warnings, 0 data races)
-rtk swift test --package-path macos-app
+swift test --package-path macos-app
 
 # 检查架构独立性 (验证 App 目录零直接 SQLite 依赖)
-rtk python3 scripts/check_architecture_fitness.py
+python3 scripts/check_architecture_fitness.py
 ```

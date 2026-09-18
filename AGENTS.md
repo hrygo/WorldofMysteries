@@ -149,6 +149,12 @@ repo/
   - 运行与测试日志：统一写入 `.hacf/logs/` 或 `logs/`；
   - 运行时套接字与状态：统一写入 `.hacf/run/` 或 `run/`；
   - 临时脚手架与本地调试数据：统一放入 `scratch/` 或 `.agents/scratch/`。
+- **工作区运行时租约（`.hacf/workspace.json`）**：`tmpdir` 与 `ipc_socket` 必须留在短路径命名空间
+  （`/tmp/wom-ws-<branch-hash>/`，可用 `WOM_WORKSPACE_RUNTIME_BASE` 覆盖父目录），不得改回工作区目录内。
+  macOS 的 AF_UNIX `sun_path` 上限为 104 字节（实测可用 103），而工作区路径本身已有 60+ 字符；把 TMPDIR
+  放回工作区内会让 IPC 测试整片失败，而 CI 因没有租约文件、TMPDIR 保持系统默认反而恒绿——这种「本地假红」
+  比失败更难排查。`spm_scratch` / `test_db_dir` / `log_dir` 不受该限制，仍留在工作区内便于取证；
+  `abort` 与 `integrate --auto-clean` 负责回收短命名空间。
 
 ---
 
@@ -169,43 +175,74 @@ repo/
 | **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/` |
 | **`AGT-VOICE`** | 语音引擎大师 | OpenAI Audio API 规范适配、SpeechRail 热拔插、指纹缓存 | `engine/domain/audio*`, `infrastructure/audio/` |
 | **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/` |
-| **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-appTests/` |
+| **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-app/WorldOfMysteriesTests/` |
 
-### 4.2 协同作业四步走规范 (SOP)
+> **角色代号是接口**：唯一口径为 `contracts/engineering/task_capsule.schema.json` 的角色枚举 ——
+> `AGT-ARB` / `AGT-DOM` / `AGT-DATA` / `AGT-AI` / `AGT-VOICE` / `AGT-MAC` / `AGT-QA`。
+> 早期文档里的 `AGT-DAT` / `AGT-VOX` 只是历史别名：`pack --role` 只接受枚举值，写别名会直接 `ValueError`；
+> 新增/改名角色必须同时更新枚举、`scripts/agent_capsule.py` 的 `ROLE_DEFAULTS` 与 `.github/CODEOWNERS`。
+
+### 4.2 协同作业标准流程 (SOP)
+
+> **顺序不可颠倒**：`pack`（定基线）→ `start`（隔离工作区）→ 编码并**提交** → `verify`（签发凭单）→
+> 凭单作为独立提交带上 → `integrate` / `submit`。三条硬规则：
+> ① **`target_ref` 是合入目标（默认 `origin/main`），不是当前工作分支**；只有合入目标前进才判定上下文陈旧；
+> ② **先提交再验收**：`changes_digest` 取 `base_sha...HEAD` 的**已提交内容**，提交前执行只会得到空摘要；
+> ③ `.agents/capsules/` 与 `.agents/receipts/` 不计入摘要（否则「签发凭单 → 提交凭单」会让凭单自我失效），
+> 所以凭单必须在验收之后单独提交。
+
 1. **任务切片派发 (Pack)**：
    ```bash
-   rtk python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>" --focus "<关键词>"
+   python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>" --focus "<关键词>"
    ```
    *背后深度内聚：只引用受保护门禁档案（`gates.profile` + `profile_digest`），按任务焦点排序 AST 切片，
    记录 `base_sha` / `target_sha` / `context_snapshot`。契约不携带任何验收命令。*
+   - **`target_ref` 是合入目标（默认 `origin/main`），不是当前工作分支**：只有合入目标前进才判定上下文陈旧。
+     若把特性分支记成目标，提交自己的改动就会触发 `stale_context`、`verify` 永远拒绝签发凭单；
+     非默认合入目标用 `--target-ref` 显式指定。
+   - `pack` 在 `main` 工作区执行最直观（`start --role --task-id` 的自动 pack 现已采用同一口径）。
 2. **并行无锁编码 (Start Worktree)**：
    ```bash
-   rtk python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
+   python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
    ```
    *背后深度内聚：秒级创建隔离目录、**每工作区独立** `engine/.venv`（`uv sync --locked --extra dev`，共享 uv 缓存）、
    资源命名空间租约（TMPDIR / SPM scratch / 测试库 / socket / 端口段）。*
 3. **本地验证与凭单 (Verify & Receipt)**：
    ```bash
+   # 0. 先提交实质改动：未提交的内容不会进入 changes_digest
+   git commit -m "<type>(<scope>): <summary>"
    # 1. 四类边界裁决（read/write/forbidden/privileged）+ 受保护门禁 + 签发 Work Receipt
-   rtk python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
+   python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
+   # 2. 凭单作为独立提交带上（证据文件不计入摘要，不会让凭单失效）
+   git add .agents/receipts/<TASK_ID>/ && git commit -m "chore(evidence): attach <TASK_ID> Work Receipt"
    ```
+   - **陈旧上下文的处置**：合入目标已前进时，在最新基线上重新 `pack`（生成 `capsule_revision` 修订版）后
+     再验收；不要用 `--allow-stale` 绕过，它仅用于调试且会在凭单里留下 `stale_context=true`。
+   - **凭单绑定内容摘要，不绑定 commit SHA**：`diff_digest` 与 CI 复算值一致即有效，rebase、合入最新
+     `main`、改写提交信息都不会让凭单失效；凭单里的 `head_commit` 仅供追溯。
+   - **范围裁决审的是 `base_sha → HEAD` 的完整范围**（已提交内容 + 工作树），不是只看工作树：
+     否则「先提交再验收」会让本地范围裁决恒为空集、越界改动只剩 CI 一道防线。
 4. **集成预演 (Integrate · 本地)**：
    ```bash
    # 门禁 → expected_main_sha CAS 复核 → 本地 ff 合入 → post-merge smoke → Integration Receipt
-   rtk python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
+   python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
    ```
    *越界或需扩权时退出码 1；高风险面（`contracts/`、`.hacf/`、`.github/`、`migrations/`）须由 `AGT-ARB` 显式 grant。*
    *本地 main 仅作预演：受保护主分支拒绝直接 push，合入必须走 PR。*
 5. **提交 PR (Submit)**：
    ```bash
    # 推送分支 → 建（或复用）PR → 可选 auto-merge（必需检查通过后自动合入）
-   rtk python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
+   python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
    ```
    *必需检查为 `All Quality Gates Passed` 与 `Capsule Gate`。检查名是公开接口：定义在
    `.hacf/required-checks.json`，由 `scripts/check_required_checks.py` 在 CI 守卫，
    `scripts/sync_branch_protection.py`（默认 dry-run）负责与 ruleset 同步——改名而未同步会让所有 PR 永久 pending。*
-   *按改动面收窄本地门禁耗时：`rtk python3 scripts/gate_profile.py resolve` 给出建议档案
+   *按改动面收窄本地门禁耗时：`python3 scripts/gate_profile.py resolve` 给出建议档案
    （治理/工具链路径一律全量，纯元数据走最轻档案）。*
+   - **维护通道（唯一免胶囊情形）**：当 PR 的代码变更**全部**落在 `.github/workflows/`、
+     `.github/dependabot.yml`、`engine/uv.lock`、`macos-app/Package.resolved` 时，`Capsule Gate`
+     按自动化维护 PR 放行，不要求胶囊与 Work Receipt（由 CI 三阶段门禁全权守门）。任何其他代码路径
+     都必须携带胶囊与凭单；`*.md` 等文档属元数据，不参与代码胶囊判定。
 
 ---
 
@@ -239,7 +276,10 @@ repo/
   `astral-sh/setup-uv` 自 v8 起**不再发布大版本标签**（供应链加固），必须锁不可变全版本标签；写 `@v10` 会解析失败，依赖 Dependabot 自动跟进补丁版本；
 - **最小权限原则**：工作流顶层默认强制配置 `permissions: contents: read`；
 - **强制超时熔断**：所有 Job 显式声明 `timeout-minutes: 5 ~ 25`，杜绝 Runner 卡顿消耗；
-- **平台基线对齐**：目标平台与构建环境严格对齐 **macOS 26+ (Apple Silicon arm64)**，采用最新的 Apple Silicon macOS Runner 环境（`macos-latest` / `macos-15+`）；
+- **平台基线对齐**：目标平台与构建环境严格对齐 **macOS 26+ (Apple Silicon arm64)**，Runner 统一写 `macos-latest`
+  （Apple Silicon arm64 上的最新稳定镜像），**不写 `macos-<版本>` 之类的固定标签**，以免与 GitHub 镜像轮转脱节；
+  `macos-app/Package.swift` 声明 `.macOS("26.0")`，镜像一旦低于该基线，Stage 3 的 `swift test` 会直接失败，
+  不会静默降级；
 - **依赖自愈追踪**：通过 `.github/dependabot.yml` 每周一自动审查 Actions 与项目依赖。
 
 ---
@@ -266,8 +306,16 @@ repo/
    - 目标架构为 Apple Silicon (macOS 26+ / arm64)；
    - Python 版本锁定为 **3.14.7**（标准 GIL CPython 构建），AgentScope 版本锁定为 **2.0.8**；
    - 使用 `uv` 作为依赖与包管理工具。
-2. **终端与测试执行优化**：
-   - 终端命令执行遵循 RTK 规则，涉及 git、pytest、cargo 等命令时显式使用 `rtk` 前缀（如 `rtk git status`, `rtk uv run pytest`）。
+   - **解释器口径**：脚本、门禁与治理 CLI 一律跑在 Python 3.14.7（`python3` / `uv run`）。
+     `/usr/bin/python3` 是系统自带的 3.9，无法解析仓库脚本里的 3.12+ 语法（f-string 内嵌同类引号会直接
+     `SyntaxError`），用它执行 `scripts/*.py` 会得到误导性的失败。
+2. **终端与测试执行优化（两个场景，规则相反，勿混用）**：
+   - **本机实际执行**命令时遵循 RTK 路由规则：`git` / `pytest` / `swift` / `python3` 等命令加 `rtk` 前缀
+     （如 `git status`、`uv run pytest`）；RTK 不支持或需要原始输出语义时直接执行并说明原因。
+   - **写入持久化产物**（本文档、`docs/`、`.agents/`（prompts 与 skills）、PR / Issue 模板、CI 配置、示例命令）
+     一律使用**可移植原生命令**（`python3`、`git`、`uv run`、`bash`），不写 `rtk` 前缀：这些产物会在其他机器、
+     CI 与 GitHub Web 上被照抄，本机 wrapper 在那里不存在。判据只有一条——命令是「本机当场执行」还是
+     「被记录/照抄」。
 3. **代码与架构图谱分析**：
    - 涉及符号定义、调用链追踪（Call Graph）或重构影响分析时，优先调用 `codebase-memory-mcp` 工具（项目 ID：`Users-hrygo-Documents-WorldofMysteries`）。
 4. **修改协议与 Schema**：
@@ -276,6 +324,10 @@ repo/
 5. **受保护门禁与凭单**：
    - 验收命令只能定义在 `.hacf/gates/*.json`；新增/调整门禁需同步 `python3 scripts/gate_profile.py refresh-registry`；
    - `verify` 只签发 `.agents/receipts/` 下的凭单，严禁回写胶囊；合入授权以 `Integration Receipt` 为准。
+   - **脚本与测试里调用 git 前必须清掉钩子注入的 `GIT_DIR` / `GIT_INDEX_FILE` / `GIT_WORK_TREE` /
+     `GIT_COMMON_DIR` / `GIT_OBJECT_DIRECTORY`**：pre-commit 钩子（`gate_runner.sh`）会把这些变量注入
+     测试进程，`git -C <临时仓库>` 也会被它们劫持回真实仓库——夹具的裁决会落到真仓库上，曾实际损坏隔离
+     工作区索引。判定口径：进程内 `subprocess` 调用 git 一律显式传净化后的 `env`。
 6. **专精 Agent Skills 协同规范**：
    - **项目级专精业务 Skills ([`.agents/skills/`](.agents/skills/))**：
      - **`wom-navigator`**：工程态势罗盘与架构调度中枢，响应“当前项目状态和进展”、“下一步推进方向”与“任务指派”，联动 `scripts/project_status.py` 事实源；

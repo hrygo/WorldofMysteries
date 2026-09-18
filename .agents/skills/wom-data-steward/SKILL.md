@@ -51,8 +51,8 @@ PRAGMA foreign_keys = ON;
 
 ```bash
 # 验证四库连接管理器与 Outbox 测试
-rtk uv run --directory engine pytest tests/ -k "database or outbox or sqlite"
+uv run --directory engine pytest tests/ -k "database or outbox or sqlite"
 
 # 执行架构适应度检查 (确认 domain 层未被 SQLite 驱动反向污染)
-rtk python3 scripts/check_architecture_fitness.py
+python3 scripts/check_architecture_fitness.py
 ```

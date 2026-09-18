@@ -603,3 +603,71 @@ def test_workspace_lease_rejects_unusably_long_short_base(monkeypatch):
     monkeypatch.setenv("WOM_WORKSPACE_RUNTIME_BASE", "/tmp/" + "x" * 120)
     with pytest.raises(RuntimeError, match="AF_UNIX"):
         collab_pipeline._lease_for("fix/whatever", Path("/tmp/any-worktree"))
+
+
+def test_capsule_target_ref_prefers_integration_base_branch(tmp_path, monkeypatch):
+    """回归：在特性分支工作区里 pack，必须记录合入目标（origin/main）而不是当前分支。
+
+    历史缺陷：`start --role --task-id` 会在新建 worktree 内自动 pack，此时 HEAD 是特性
+    分支，胶囊便把特性分支记成 `target_ref` —— 提交自己的改动就触发 `stale_context`，
+    verify 永远拒绝签发凭单；而按直觉在提交前验收，`changes_digest(base_sha...HEAD)` 又是
+    空 diff（凭单绑定空值）。目标 ref 只应在**受保护的合入目标**前进时才判定上下文陈旧。
+
+    必须清掉钩子注入的 `GIT_*`：pre-commit 会向测试进程注入 `GIT_DIR`，此时进程内
+    `hacf_policy.run_git` 即使拿到 `cwd=临时仓库` 也会解析到真实仓库，让本用例假红。
+    """
+    _isolate_in_process_git_env(monkeypatch)
+    workspace = _init_repo_with_branches(tmp_path, shallow_clone=False)
+    assert _git(workspace, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "feature"
+
+    original_run_git = hacf_policy.run_git
+
+    def run_git_in_workspace(args, cwd=None):
+        return original_run_git(args, cwd=workspace)
+
+    monkeypatch.setattr(hacf_policy, "run_git", run_git_in_workspace)
+
+    assert agent_capsule._detect_target_ref() == "origin/main"
+    # 显式指定优先（合入目标非默认命名时）。
+    assert agent_capsule._detect_target_ref("feature") == "feature"
+    # 记录的目标是合入目标的 sha，与当前特性分支尖端不同 —— 两者混淆正是「自发陈旧」的成因。
+    assert hacf_policy.run_git(["rev-parse", "origin/main"]) != hacf_policy.run_git(
+        ["rev-parse", "HEAD"]
+    )
+
+
+def test_scope_audit_covers_committed_range_not_only_working_tree(tmp_path, monkeypatch):
+    """回归：先提交再 verify 时，范围裁决必须覆盖 `base_sha → HEAD` 的**已提交**内容。
+
+    历史缺陷：审计只取工作树（`git diff HEAD`）。验收流程要求「先提交、再 verify」
+    （否则 `changes_digest` 是空 diff），此时工作区干净、审计恒为空集 —— 越界改动会静默
+    漏过本地门禁，只剩 CI 一道防线。本用例把越界改动**先提交**并保持工作区干净，
+    verify 仍必须判 SCOPE BREACH。
+    """
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, capsule_path, _ = _gate_evolution_workspace(
+        tmp_path, registry_digest=EVOLVED_PROFILE_DIGEST
+    )
+    monkeypatch.setattr(gate_profile, "run_profile", _fake_gate_run(EVOLVED_PROFILE_DIGEST))
+
+    out_of_scope = workspace / "macos-app" / "App.swift"
+    out_of_scope.parent.mkdir()
+    out_of_scope.write_text("// 越界：write scope 只有 .hacf/ 与 app.txt\n", encoding="utf-8")
+    _git(workspace, "add", ".")
+    _git(workspace, "commit", "-q", "-m", "out of scope work")
+    assert _git(workspace, "status", "--porcelain").stdout.strip() == ""
+
+    # 模拟「在该提交上重新 pack」：否则目标 ref 已前进，verify 会先以 STALE CONTEXT 拒绝，
+    # 走不到本用例要检验的范围裁决。
+    capsule = json.loads(capsule_path.read_text(encoding="utf-8"))
+    capsule["base"]["target_sha"] = _git(workspace, "rev-parse", "HEAD").stdout.strip()
+    capsule_path.write_text(json.dumps(capsule, indent=2), encoding="utf-8")
+
+    assert agent_capsule.verify_capsule(capsule_path, cwd=workspace) is False
+
+    receipts = sorted((workspace / ".agents" / "receipts" / "T-GOV-EVOLUTION").glob("*.json"))
+    receipt = json.loads(receipts[-1].read_text(encoding="utf-8"))
+    rendered = json.dumps(receipt, ensure_ascii=False)
+    assert receipt["verdict"] == "failed"
+    assert "范围裁决未通过" in rendered
+    assert "macos-app/App.swift" in rendered

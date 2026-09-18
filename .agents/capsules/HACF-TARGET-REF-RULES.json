@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-HACF-TARGET-REF-RULES",
+  "capsule_revision": 1,
+  "task_id": "HACF-TARGET-REF-RULES",
+  "title": "Fix capsule target_ref inference and make HACF rules explicit",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T22:32:39.588673+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+    "target_sha": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+    "context_snapshot": "sha256:8c55aee455dbddf0cb1f9095f2d51806c16cb0e6e59fcfdf658f920fa480cf98"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_target_shipping_cannot_be_inferred@docs/05_UI/artwork/delivery/tests/test_intake.py:49",
+      "symbol:test_symlink_refused@docs/05_UI/artwork/delivery/tests/test_intake.py:99",
+      "symbol:test_stage_and_refuse_overwrite@docs/05_UI/artwork/delivery/tests/test_intake.py:140",
+      "symbol:test_asset_catalog_destination_refused@docs/05_UI/artwork/delivery/tests/test_intake.py:151",
+      "symbol:test_wrong_hash_refused@docs/05_UI/artwork/delivery/tests/test_intake.py:159",
+      "symbol:assert_stage_refused@docs/05_UI/artwork/delivery/tests/test_intake_isolation.py:27",
+      "symbol:test_only_refuses_unknown_or_duplicate_source_ids@docs/05_UI/artwork/delivery/tests/test_intake_isolation.py:177",
+      "symbol:test_artifact_source_cannot_fill_a_scene_target@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:105",
+      "symbol:artifact_targets@docs/05_UI/artwork/tools/finish_artifact_artwork.py:91",
+      "symbol:test_square_crop_refuses_to_invent_pixels@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:241",
+      "symbol:test_master_refuses_to_upscale@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:276",
+      "symbol:test_publish_catalog_refuses_to_overwrite@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:312",
+      "symbol:test_record_refuses_a_missing_stage@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:353",
+      "symbol:test_record_refuses_tampered_stage_output@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:362",
+      "symbol:test_record_refuses_a_broken_stage_chain@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:369",
+      "symbol:test_record_refuses_failed_fidelity@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:378",
+      "symbol:test_record_refuses_derivatives_from_another_master@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:387",
+      "symbol:test_record_refuses_a_catalog_payload_that_is_not_the_derivative@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:396",
+      "symbol:test_manifest_binding_uses_the_approved_targets@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:433",
+      "symbol:test_unbound_source_is_refused@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:444",
+      "symbol:test_drifted_order_is_refused@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:453",
+      "symbol:test_modified_stage_output_is_refused@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:217",
+      "symbol:test_wrong_wide_anchor_is_refused@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:224",
+      "symbol:test_catalog_payload_that_differs_from_the_derivative_is_refused@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:232",
+      "symbol:test_documentation_schema_is_only_a_local_reference@contracts/tests/test_ipc_contract.py:32",
+      "symbol:_detect_target_ref@scripts/agent_capsule.py:178",
+      "symbol:registry_from_ref@scripts/capsule_audit.py:50",
+      "symbol:refresh_registry@scripts/gate_profile.py:288",
+      "symbol:PolicyError@scripts/hacf_policy.py:91",
+      "symbol:now_iso@scripts/hacf_policy.py:95"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 961,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_target_shipping_cannot_be_inferred",
+      "test_symlink_refused",
+      "test_stage_and_refuse_overwrite",
+      "test_asset_catalog_destination_refused",
+      "test_wrong_hash_refused",
+      "assert_stage_refused",
+      "test_only_refuses_unknown_or_duplicate_source_ids",
+      "test_artifact_source_cannot_fill_a_scene_target",
+      "artifact_targets",
+      "test_square_crop_refuses_to_invent_pixels",
+      "test_master_refuses_to_upscale",
+      "test_publish_catalog_refuses_to_overwrite",
+      "test_record_refuses_a_missing_stage",
+      "test_record_refuses_tampered_stage_output",
+      "test_record_refuses_a_broken_stage_chain",
+      "test_record_refuses_failed_fidelity",
+      "test_record_refuses_derivatives_from_another_master",
+      "test_record_refuses_a_catalog_payload_that_is_not_the_derivative",
+      "test_manifest_binding_uses_the_approved_targets",
+      "test_unbound_source_is_refused",
+      "test_drifted_order_is_refused",
+      "test_modified_stage_output_is_refused",
+      "test_wrong_wide_anchor_is_refused",
+      "test_catalog_payload_that_differs_from_the_derivative_is_refused",
+      "test_documentation_schema_is_only_a_local_reference",
+      "_detect_target_ref",
+      "registry_from_ref",
+      "refresh_registry",
+      "PolicyError",
+      "now_iso"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

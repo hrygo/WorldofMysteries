@@ -82,7 +82,7 @@ description: >-
 
 在提交任何代码前，必须执行：
 ```bash
-rtk python3 scripts/check_architecture_fitness.py
+python3 scripts/check_architecture_fitness.py
 ```
 该工具通过 AST 静态扫描以下硬指标：
 1. `engine/domain/` 零外部 AI/DB 驱动导入；
