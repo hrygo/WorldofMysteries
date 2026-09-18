@@ -1,0 +1,264 @@
+{
+  "artwork_id": "A15_UNSHADOWED_CRUCIFIX",
+  "artifact_id": "unshadowedCrucifix",
+  "asset_name": "wom.art.artifact.unshadowed-crucifix",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A15_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A15_UNSHADOWED_CRUCIFIX",
+    "sha256": "25813960f9e0ffb821eacea2f055ebf6983d6ac8b0b8a9a2ac02c194edd115a5",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "14d87058-d3b9-4d81-adf8-b7e56f3c5e1e"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "a bronze-and-verdigris crucifix on a shaft, its centre bearing a robed relief, blazing with white-gold purification light",
+      "secondary_read": "an object that purifies and separates; the light is directional and hard rather than a decorative halo",
+      "generic_fantasy_read": "bounded Victorian occult devotional object",
+      "typography_detected": false,
+      "dominant_subject": "crucifix",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING_CANON_REVIEW",
+      "notes": [
+        "Visual approval is not Canon verification. This object has no verified primary form claim recorded in docs/05_UI/artwork/delivery/canon_evidence.json, so G1 stays open until the Canon review is recorded."
+      ],
+      "coverage_limit": null,
+      "canon_consistency_note": null,
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "f3b3ae7567908b2a2ebec40b666688dbeb9131c5bcbbd05c9e4fb4040b8208b4"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the cross arms, the relief and the light rays sit inside the frame.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "The cross arms, the verdigris patina, the relief figure and the ray structure stay individually readable at 100%.",
+      "detail_note": "The rays keep separated edges at 200% instead of merging into one white field, and the bronze keeps a warm dark base under the highlights.",
+      "seam_note": "No tile seam across the light rays or on the metal.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%.",
+      "structural_repetition_check": "No repeated ray or patina pattern from the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.unshadowed-crucifix.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.unshadowed-crucifix.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.unshadowed-crucifix.detail": "5e9dae51d06764f2902e1647ff82747a1c54e959304af97e5ab36a2a315022d6",
+        "wom.art.artifact.unshadowed-crucifix.thumbnail": "fa6262bb46aa47b2ed7a2e8d9453ae11d622b3337f138ab50a01b5fed37552fb"
+      },
+      "asset_names": [
+        "wom.art.artifact.unshadowed-crucifix.detail",
+        "wom.art.artifact.unshadowed-crucifix.thumbnail"
+      ],
+      "master_sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.unshadowed-crucifix.detail",
+            "payload": "wom.art.artifact.unshadowed-crucifix.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "5e9dae51d06764f2902e1647ff82747a1c54e959304af97e5ab36a2a315022d6",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.unshadowed-crucifix.thumbnail",
+            "payload": "wom.art.artifact.unshadowed-crucifix.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "fa6262bb46aa47b2ed7a2e8d9453ae11d622b3337f138ab50a01b5fed37552fb",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G1_canon_atmosphere",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A15",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "pixel_sha256": "4f8e5fa0da35d8e2ed163f5c6d7c3b7026ff3f76147ddf7d2dec5bacd1d4a980",
+      "photometry": {
+        "mean_luminance_0_255": 110.98,
+        "luminance_p05_0_255": 8.36,
+        "luminance_p50_0_255": 96.65,
+        "luminance_p95_0_255": 239.53,
+        "shadow_clip_pct": 1.262,
+        "highlight_clip_pct": 0.013
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f3b3ae7567908b2a2ebec40b666688dbeb9131c5bcbbd05c9e4fb4040b8208b4",
+      "photometry": {
+        "mean_luminance_0_255": 104.69,
+        "luminance_p05_0_255": 6.28,
+        "luminance_p50_0_255": 88.72,
+        "luminance_p95_0_255": 240.09,
+        "shadow_clip_pct": 2.546,
+        "highlight_clip_pct": 0.781
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.38,
+      "luminance_correlation": 0.9971,
+      "edge_structure_correlation": 0.9679,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.unshadowed-crucifix.detail",
+          "payload": "wom.art.artifact.unshadowed-crucifix.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "5e9dae51d06764f2902e1647ff82747a1c54e959304af97e5ab36a2a315022d6",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.unshadowed-crucifix.thumbnail",
+          "payload": "wom.art.artifact.unshadowed-crucifix.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "fa6262bb46aa47b2ed7a2e8d9453ae11d622b3337f138ab50a01b5fed37552fb",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

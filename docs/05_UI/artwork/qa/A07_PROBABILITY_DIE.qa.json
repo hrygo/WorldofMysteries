@@ -1,0 +1,273 @@
+{
+  "artwork_id": "A07_PROBABILITY_DIE",
+  "artifact_id": "probabilityDie",
+  "asset_name": "wom.art.artifact.probability-die",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A07_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A07_PROBABILITY_DIE",
+    "sha256": "29fc341d9631f373be536c59291156f3528e241ba96b3ad89add4602b9fa1c36",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "f9cc5d1b-862b-4cc7-a422-a7e28b4f7daa"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "a milky-white die with red pips suspended among red constellation threads and candle bokeh",
+      "secondary_read": "an object that resolves probability; the surrounding lines read as weighted outcomes rather than as decoration",
+      "generic_fantasy_read": "bounded Victorian occult still life",
+      "typography_detected": false,
+      "dominant_subject": "die",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED",
+      "status_basis": "PRIMARY_EVIDENCE_PLUS_FINISHED_MASTER_CONSISTENCY",
+      "canon_claim": "The die is milky white and bears red pips; the visible passage describes faces showing four and six.",
+      "evidence": {
+        "source_type": "official_original_book",
+        "chapter": 607,
+        "chapter_title": "Discovering an Abnormality",
+        "coverage": "PUBLIC_PREVIEW_CLAIM_VERIFIED"
+      },
+      "not_verified": [
+        "opposite-face layout",
+        "exact dimensions",
+        "complete power and sealing rules"
+      ],
+      "canon_consistency_note": "The finished object reads as a milky-white die with red pips, matching the verified primary form claim for this object.",
+      "evidence_reference": "docs/05_UI/artwork/delivery/canon_evidence.json",
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "14617b45830886c4c67155da975db9cf7f7dd865e5decd3b32564ed1f8447b48"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the die, its threads and the bokeh all sit inside the frame.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "The red pips stay crisp circles at 100% and the die edges read as hard facets.",
+      "detail_note": "The die body keeps its milky, slightly cloudy material at 200% instead of a flat grey fill; the pip reds stay separated from the constellation reds.",
+      "seam_note": "No tile seam in the dark background or on the die faces.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%. The die carries pips, not numerals.",
+      "structural_repetition_check": "No repeated bokeh or line pattern from the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.probability-die.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.probability-die.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.probability-die.detail": "42739c9b9586706da8bfa9b71dbb69d5b63b233c56ffce7b9eef8154ac50d077",
+        "wom.art.artifact.probability-die.thumbnail": "7fe86fa2d2ac1990e31aaddb406c38ecb5d0c94e0e1d9faa58cc20c66c2a5503"
+      },
+      "asset_names": [
+        "wom.art.artifact.probability-die.detail",
+        "wom.art.artifact.probability-die.thumbnail"
+      ],
+      "master_sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.probability-die.detail",
+            "payload": "wom.art.artifact.probability-die.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "42739c9b9586706da8bfa9b71dbb69d5b63b233c56ffce7b9eef8154ac50d077",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.probability-die.thumbnail",
+            "payload": "wom.art.artifact.probability-die.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "7fe86fa2d2ac1990e31aaddb406c38ecb5d0c94e0e1d9faa58cc20c66c2a5503",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A07",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "pixel_sha256": "6ddccd59db23e800834b76fa5c611e056805327424c0e335db92b42bb97333a3",
+      "photometry": {
+        "mean_luminance_0_255": 58.82,
+        "luminance_p05_0_255": 9.63,
+        "luminance_p50_0_255": 42.69,
+        "luminance_p95_0_255": 187.96,
+        "shadow_clip_pct": 0.485,
+        "highlight_clip_pct": 0.034
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "14617b45830886c4c67155da975db9cf7f7dd865e5decd3b32564ed1f8447b48",
+      "photometry": {
+        "mean_luminance_0_255": 51.96,
+        "luminance_p05_0_255": 6.06,
+        "luminance_p50_0_255": 35.89,
+        "luminance_p95_0_255": 177.1,
+        "shadow_clip_pct": 1.114,
+        "highlight_clip_pct": 0.032
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.164,
+      "luminance_correlation": 0.9977,
+      "edge_structure_correlation": 0.9777,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.probability-die.detail",
+          "payload": "wom.art.artifact.probability-die.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "42739c9b9586706da8bfa9b71dbb69d5b63b233c56ffce7b9eef8154ac50d077",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.probability-die.thumbnail",
+          "payload": "wom.art.artifact.probability-die.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "7fe86fa2d2ac1990e31aaddb406c38ecb5d0c94e0e1d9faa58cc20c66c2a5503",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

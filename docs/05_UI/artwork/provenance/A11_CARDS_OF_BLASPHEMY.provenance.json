@@ -1,0 +1,163 @@
+{
+  "artwork_id": "A11_CARDS_OF_BLASPHEMY",
+  "artifact_id": "cardsOfBlasphemy",
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "source": {
+    "source_id": "A11_CARDS_OF_BLASPHEMY",
+    "sha256": "621c2c1ddce3e85d2fb83f3ee20c6817846bc858eca72b03108451bfcbbb095c",
+    "native_width": 1370,
+    "native_height": 1148,
+    "generation_id": "482fe1f8-493b-48a1-a061-0a23f31a90fb",
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md"
+  },
+  "postprocess": [
+    {
+      "stage": "macos_square_safety_crop",
+      "operation": "deterministic_centred_square_safety_crop",
+      "generative": false,
+      "rect_pixels": [
+        111,
+        0,
+        1259,
+        1148
+      ],
+      "removed_pixels": {
+        "left": 111,
+        "top": 0,
+        "right": 111,
+        "bottom": 0
+      },
+      "output_width": 1148,
+      "output_height": 1148,
+      "sha256": "4a84cddfcd88514178ac83e2bea8ae1b2294e7d8f598e1afcc42b3914209bf63",
+      "pixel_sha256": "78beda3053f9e5e49ade69594bc444e603489eff610c8b0a03cd2cff4c14b469",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing.",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "NOT_REQUIRED",
+      "basis": "No masked local repair was applied. The approved sources arrive without local damage, the finishing order contains no generative step beyond one super-resolution pass, and every stage output is derivable from the locked source and the recorded grade parameters.",
+      "generative_operations": false
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "4096x4096",
+      "output_width": 4592,
+      "output_height": 4592,
+      "sha256": "dd32e6ef241848f8d3ef69a299f04fd7345ec1d37f97a7ca6ad71148fadef92c",
+      "passes": 1
+    },
+    {
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 4592,
+      "output_height": 4592,
+      "sha256": "f9ecdaac1c2479eb9138df08ddb4629eec9d93345cad785ec089cb9a2913e4a2"
+    },
+    {
+      "stage": "oversample_downsample_to_2048x2048_artifact_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_artifact_master",
+      "resample": "Lanczos",
+      "output_width": 2048,
+      "output_height": 2048,
+      "sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "pixel_sha256": "573673f51d640f70fcba12becc044b0a76adc682daeb89e45b994cb26ee6b36d",
+      "master_is_native_generation": false,
+      "master_quality_note": "Finished / super-resolved Master. The approved source is smaller than the 2048x2048 baseline, so this is not a native 2048x2048 generation."
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "independent_regeneration": false,
+      "derivatives": [
+        {
+          "asset_name": "wom.art.artifact.cards-of-blasphemy.detail",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "bee8a283f1babc28c0c39d66dda30a5106653cf7d94bddbec716fa6ad29ec80e",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.artifact.cards-of-blasphemy.thumbnail",
+          "width": 512,
+          "height": 512,
+          "sha256": "4291d3be0e59b121a247ae1a87bbe0c0786f6f62126136998a14e5e54837985d",
+          "derivation": "full_frame_downsample_from_master"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PENDING_RUNTIME_QA",
+      "unmet_requirements": [
+        "runtime evidence missing"
+      ],
+      "evidence": "docs/05_UI/artwork/qa/A11_CARDS_OF_BLASPHEMY.qa.json"
+    }
+  ],
+  "master": {
+    "path": "A11_MASTER_2048x2048.png",
+    "width": 2048,
+    "height": 2048,
+    "format": "PNG",
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "runtime_loadable": false,
+    "sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+    "pixel_sha256": "573673f51d640f70fcba12becc044b0a76adc682daeb89e45b994cb26ee6b36d",
+    "storage": "not committed; masters stay out of the Asset Catalog and out of git"
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.artifact.cards-of-blasphemy.detail",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "bee8a283f1babc28c0c39d66dda30a5106653cf7d94bddbec716fa6ad29ec80e",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    },
+    {
+      "asset_name": "wom.art.artifact.cards-of-blasphemy.thumbnail",
+      "width": 512,
+      "height": 512,
+      "sha256": "4291d3be0e59b121a247ae1a87bbe0c0786f6f62126136998a14e5e54837985d",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    }
+  ],
+  "gates": {
+    "G0_semantic": "PASSED",
+    "G1_canon_atmosphere": "PENDING_CANON_REVIEW",
+    "G2_composition": "PASSED",
+    "G3_structure": "PASSED",
+    "G4_production": "PASSED",
+    "G5_runtime": "PENDING_RUNTIME_QA"
+  },
+  "shipping_approved": false
+}

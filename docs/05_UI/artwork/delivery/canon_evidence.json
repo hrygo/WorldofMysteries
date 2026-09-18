@@ -13,5 +13,6 @@
     {"artifact_id":"creepingHunger","chapter":146,"url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/creeping-hunger_33158606018898116","result":"PUBLIC_PREVIEW_DOES_NOT_VERIFY_OBJECT_FORM"}
   ],
   "full_p0_canon_review_complete": false,
-  "artifact_source_images_approved": 0
+  "artifact_source_images_approved": 15,
+  "artifact_source_images_approved_note": "Approved list of 15 Artifact source images is bound in approved_sources.json (intake revision 3). Visual approval of a source image is not Canon verification of the object's form: only the three claims above are verified from primary pages, and trunsoestBrassBook / creepingHunger remain explicit coverage limits."
 }
