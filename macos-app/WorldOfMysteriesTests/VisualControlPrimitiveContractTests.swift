@@ -113,6 +113,22 @@ struct VisualControlPrimitiveContractTests {
         #expect(source.contains("label: \"灵性储备\""))
     }
 
+    @Test("typed system-action registry covers refresh and legacy icon buttons accept it")
+    func typedRefreshActionContract() throws {
+        #expect(WOMSystemIcon.refresh.rawValue == "arrow.triangle.2.circlepath")
+
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains("systemIcon: WOMSystemIcon"))
+        #expect(primitives.contains("systemIcon: systemIcon.rawValue"))
+    }
+
+    @Test("database rebuild action cannot appear enabled without a handler")
+    func databaseRebuildAvailabilityContract() throws {
+        let source = try source("Components/DatabaseStatusHUDCard.swift")
+        #expect(source.contains("systemIcon: .refresh"))
+        #expect(source.contains(".disabled(onRebuildTapped == nil)"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

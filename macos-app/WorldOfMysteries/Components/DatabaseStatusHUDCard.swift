@@ -62,12 +62,13 @@ public struct DatabaseStatusHUDCard: View {
                 
                 if role.isRebuildable {
                     MysticIconButton(
-                        systemIcon: "arrow.triangle.2.circlepath",
+                        systemIcon: .refresh,
                         title: "100% 幂等重建索引",
                         tone: .teal,
                         helpText: "retrieval.db 为异步投影，删除后可 100% 幂等重建",
                         action: { onRebuildTapped?() }
                     )
+                    .disabled(onRebuildTapped == nil)
                     .padding(.top, DesignTokens.Spacing.xxs)
                 }
             }

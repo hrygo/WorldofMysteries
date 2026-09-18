@@ -658,6 +658,22 @@ public struct MysticIconButton: View {
         self.action = action
     }
 
+    public init(
+        systemIcon: WOMSystemIcon,
+        title: String? = nil,
+        tone: MysticTone = .gold,
+        helpText: String? = nil,
+        action: @escaping @MainActor () -> Void
+    ) {
+        self.init(
+            systemIcon: systemIcon.rawValue,
+            title: title,
+            tone: tone,
+            helpText: helpText,
+            action: action
+        )
+    }
+
     public var body: some View {
         let accessibilityText = title ?? helpText ?? systemIcon
 
