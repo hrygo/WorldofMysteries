@@ -233,5 +233,12 @@ def test_await_engine_requires_direct_parent_and_exact_executable(tmp_path, monk
 
 @pytest.mark.skipif(sys.platform != 'darwin', reason='Darwin kernel process identity')
 def test_actual_macos_kernel_executable_identity():
-    import os
-    assert package.process_executable(os.getpid()).samefile(sys.executable)
+    # Framework Python may exec Resources/Python.app while sys.executable still
+    # names the venv launcher. Observe a known real binary, not that launcher.
+    import subprocess
+    with subprocess.Popen(['/bin/sleep', '10']) as child:
+        try:
+            assert package.process_executable(child.pid).samefile('/bin/sleep')
+        finally:
+            child.terminate()
+            child.wait(timeout=5)
