@@ -9,7 +9,7 @@ public nonisolated enum WOMButtonVariant: CaseIterable, Sendable {
     case ritual
 }
 
-private nonisolated enum WOMButtonDensity: Sendable {
+nonisolated enum WOMButtonDensity: Sendable {
     case standard
     case icon
     case toolbar
@@ -33,6 +33,16 @@ private nonisolated enum WOMButtonDensity: Sendable {
     var minHeight: CGFloat {
         switch self {
         case .standard: 34
+        case .icon: 32
+        case .toolbar: 28
+        }
+    }
+
+    /// Icon and toolbar controls keep a stable square minimum hit geometry. Text buttons remain
+    /// content-driven horizontally while sharing the same vertical rhythm.
+    var minWidth: CGFloat? {
+        switch self {
+        case .standard: nil
         case .icon: 32
         case .toolbar: 28
         }
@@ -120,27 +130,30 @@ private struct WOMButtonChrome<Label: View>: View {
         label
             .padding(.horizontal, density.horizontalPadding)
             .padding(.vertical, density.verticalPadding)
-            .frame(minHeight: density.minHeight)
-            .foregroundStyle(foregroundColor)
-            .background(shape.fill(backgroundColor))
+            .frame(minWidth: density.minWidth, minHeight: density.minHeight, alignment: .center)
+            .foregroundStyle(palette.foreground)
+            .background(shape.fill(palette.background))
             .overlay(
                 shape.stroke(borderColor, style: borderStrokeStyle)
             )
             .overlay(
                 shape
+                    .inset(by: -DesignTokens.Accessibility.focusRingOffset)
                     .stroke(focusRingColor, lineWidth: DesignTokens.Accessibility.focusRingWidth)
-                    .padding(-DesignTokens.Accessibility.focusRingOffset)
                     .opacity(isFocused && isEnabled ? 1 : 0)
             )
             .shadow(color: shadowColor, radius: shadowRadius)
             .scaleEffect(pressedScale)
-            .opacity(isEnabled ? pressedOpacity : 0.48)
+            .opacity(palette.opacity)
             .contentShape(shape)
             .animation(reduceMotion ? nil : DesignTokens.Interaction.clickSpring, value: isPressed)
             .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isHovered)
             .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: isFocused)
             .onHover { hovering in
-                isHovered = hovering
+                isHovered = isEnabled && hovering
+            }
+            .onChange(of: isEnabled) { _, enabled in
+                if !enabled { isHovered = false }
             }
     }
 
@@ -148,43 +161,22 @@ private struct WOMButtonChrome<Label: View>: View {
         colorSchemeContrast == .increased
     }
 
-    private var foregroundColor: Color {
-        switch variant {
-        case .primary:
-            Color.Mystic.obsidianBase
-        case .secondary, .tertiary, .ritual, .danger:
-            Color.Mystic.textPrimary
-        }
-    }
-
-    private var backgroundColor: Color {
-        guard isEnabled else {
-            return Color.Mystic.obsidianCard.opacity(0.55)
-        }
-
-        let activityOpacity = appearsActive ? 1.0 : 0.72
-
-        switch variant {
-        case .primary:
-            return (isHovered ? Color.Mystic.brassGoldHover : Color.Mystic.brassGoldPrimary)
-                .opacity((isPressed ? 0.86 : 1) * activityOpacity)
-        case .secondary:
-            return Color.Mystic.obsidianCard.opacity((isHovered ? 1 : 0.82) * activityOpacity)
-        case .tertiary:
-            return Color.Mystic.obsidianElevated.opacity((isHovered ? 0.72 : 0) * activityOpacity)
-        case .danger:
-            // `crimsonThread` keeps white labels above the 4.5:1 text-contrast floor even after
-            // hover/pressed/inactive-window compositing. The previous semi-transparent
-            // `crimsonStar` fill dipped below the Visual QA contract.
-            return Color.Mystic.crimsonThread.opacity((isHovered ? 1.0 : 0.88) * activityOpacity)
-        case .ritual:
-            return Color.Mystic.deepVoid.opacity((isHovered ? 0.96 : 0.82) * activityOpacity)
-        }
+    private var palette: WOMButtonPalette {
+        WOMButtonPalette(
+            variant: variant,
+            isEnabled: isEnabled,
+            isHovered: isHovered,
+            isPressed: isPressed,
+            appearsActive: appearsActive,
+            increasedContrast: isIncreasedContrast
+        )
     }
 
     private var borderColor: Color {
         guard isEnabled else {
-            return Color.Mystic.brassGoldBorder.opacity(0.25)
+            return isIncreasedContrast
+                ? Color.Mystic.textSecondary
+                : Color.Mystic.brassGoldBorder
         }
 
         if isIncreasedContrast {
@@ -222,10 +214,10 @@ private struct WOMButtonChrome<Label: View>: View {
     }
 
     private var borderWidth: CGFloat {
-        if isIncreasedContrast || isFocused {
+        if isIncreasedContrast || (isEnabled && isFocused) {
             return DesignTokens.Borders.heavy
         }
-        return isHovered ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
+        return isEnabled && isHovered ? DesignTokens.Borders.standard : DesignTokens.Borders.hairline
     }
 
     private var borderDash: [CGFloat] {
@@ -273,8 +265,59 @@ private struct WOMButtonChrome<Label: View>: View {
         return DesignTokens.Interaction.pressedScale
     }
 
-    private var pressedOpacity: Double {
-        guard isEnabled, isPressed else { return 1 }
-        return DesignTokens.Interaction.pressedOpacity
+}
+
+/// Colors actually consumed by all three button densities, so compositing tests exercise the
+/// production state resolver instead of duplicating a second set of appearance rules.
+@MainActor
+struct WOMButtonPalette {
+    let foreground: Color
+    let background: Color
+    let opacity: Double
+
+    init(
+        variant: WOMButtonVariant,
+        isEnabled: Bool,
+        isHovered: Bool,
+        isPressed: Bool,
+        appearsActive: Bool,
+        increasedContrast: Bool
+    ) {
+        guard isEnabled else {
+            // Unavailable is not invisible. The neutral surface removes the action emphasis;
+            // fading a dark primary label over it made the command name illegible.
+            foreground = increasedContrast ? Color.Mystic.textPrimary : Color.Mystic.textSecondary
+            background = Color.Mystic.obsidianCard
+            opacity = 1
+            return
+        }
+
+        if variant == .primary {
+            // The gold/ink pair must stay opaque even in an inactive window while pressed.
+            // Layering inactive-fill and pressed-group opacity previously fell below 4.5:1.
+            foreground = Color.Mystic.obsidianBase
+            background = !appearsActive
+                ? Color.Mystic.brassGoldMuted
+                : (isHovered && !isPressed ? Color.Mystic.brassGoldHover : Color.Mystic.brassGoldPrimary)
+            opacity = 1
+            return
+        }
+
+        foreground = Color.Mystic.textPrimary
+        opacity = isPressed ? DesignTokens.Interaction.pressedOpacity : 1
+        let activityOpacity = appearsActive ? 1.0 : 0.72
+        switch variant {
+        case .secondary:
+            background = Color.Mystic.obsidianCard.opacity((isHovered ? 1 : 0.82) * activityOpacity)
+        case .tertiary:
+            background = Color.Mystic.obsidianElevated.opacity((isHovered ? 0.72 : 0) * activityOpacity)
+        case .danger:
+            background = Color.Mystic.crimsonThread.opacity((isHovered ? 1.0 : 0.88) * activityOpacity)
+        case .ritual:
+            background = Color.Mystic.deepVoid.opacity((isHovered ? 0.96 : 0.82) * activityOpacity)
+        case .primary:
+            // Handled above; retain exhaustive checking when semantic roles change.
+            background = Color.Mystic.brassGoldPrimary
+        }
     }
 }

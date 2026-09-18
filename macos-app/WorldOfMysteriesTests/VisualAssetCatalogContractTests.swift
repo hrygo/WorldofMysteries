@@ -41,6 +41,44 @@ struct VisualAssetCatalogContractTests {
         }
     }
 
+    @Test("custom icon SVGs share the 24pt optical-weight contract")
+    func customIconSVGGeometryAndWeightContract() throws {
+        let registered = Set(WOMIconAsset.allCases.map(\.rawValue))
+            .union(WOMNavigationIconAsset.allCases.map(\.rawValue))
+
+        for assetName in registered.sorted() {
+            let imagesetURL = assetsCatalogURL
+                .appendingPathComponent("\(assetName).imageset", isDirectory: true)
+            let contents = try decodeContents(at: imagesetURL.appendingPathComponent("Contents.json"))
+            let svgNames = contents.images.compactMap(\.filename).filter { $0.lowercased().hasSuffix(".svg") }
+
+            for svgName in svgNames {
+                let svg = try String(
+                    contentsOf: imagesetURL.appendingPathComponent(svgName),
+                    encoding: .utf8
+                )
+
+                #expect(svg.contains("width=\"24\""))
+                #expect(svg.contains("height=\"24\""))
+                #expect(svg.contains("viewBox=\"0 0 24 24\""))
+                #expect(!svg.lowercased().contains("<text"))
+                #expect(!svg.lowercased().contains("font-family"))
+
+                let strokeWidths = svg
+                    .components(separatedBy: "stroke-width=\"")
+                    .dropFirst()
+                    .compactMap { component -> Double? in
+                        guard let token = component.split(separator: "\"").first else { return nil }
+                        return Double(token)
+                    }
+
+                #expect(!strokeWidths.isEmpty, "\(assetName) must contain stroked vector geometry")
+                #expect(strokeWidths.allSatisfy { $0 >= 1.0 && $0 <= 1.6 })
+                #expect((strokeWidths.max() ?? 0) >= 1.4, "\(assetName) primary silhouette is too light")
+            }
+        }
+    }
+
     @Test("texture registry points to real catalog resources without duplicate aliases")
     func textureRegistryMatchesCatalog() throws {
         for texture in WOMTextureAsset.allCases {

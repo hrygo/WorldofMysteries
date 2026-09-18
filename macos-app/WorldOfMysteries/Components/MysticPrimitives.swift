@@ -57,6 +57,18 @@ public enum MysticTone: String, Sendable, CaseIterable {
         case .neutral: return "次要元数据"
         }
     }
+
+    /// Non-color fallback used when macOS asks the app to differentiate state without color.
+    public var differentiationSystemIcon: String {
+        switch self {
+        case .gold: return "star.fill"
+        case .teal: return "checkmark.circle.fill"
+        case .azure: return "info.circle.fill"
+        case .amber: return "exclamationmark.triangle.fill"
+        case .crimson: return "exclamationmark.octagon.fill"
+        case .neutral: return "minus.circle"
+        }
+    }
 }
 
 // MARK: - 状态徽章 (Badge)
@@ -72,6 +84,9 @@ public enum MysticBadgeVariant: Sendable {
 
 /// 通用状态徽章：统一「图标 + 文本 + 语义色 + 边距」的呈现方式
 public struct MysticBadge: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     public let text: String
     public let tone: MysticTone
     public let variant: MysticBadgeVariant
@@ -96,6 +111,7 @@ public struct MysticBadge: View {
         HStack(spacing: DesignTokens.Spacing.xxs) {
             if let systemIcon {
                 Image(systemName: systemIcon)
+                    .symbolRenderingMode(.monochrome)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(tone.readableForeground)
             }
@@ -150,9 +166,48 @@ public struct MysticBadge: View {
 
     @ViewBuilder
     private var border: some View {
-        if variant == .panel {
-            RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
-                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
+        if variant != .plain {
+            shape.stroke(
+                badgeBorderColor,
+                style: StrokeStyle(
+                    lineWidth: badgeBorderWidth,
+                    lineCap: .round,
+                    lineJoin: .round,
+                    dash: badgeBorderDash
+                )
+            )
+        }
+    }
+
+    private var badgeBorderColor: Color {
+        if colorSchemeContrast == .increased {
+            return tone.readableForeground.opacity(0.95)
+        }
+        if differentiateWithoutColor {
+            return tone.readableForeground.opacity(0.72)
+        }
+        return variant == .panel ? tone.accent.opacity(0.45) : tone.accent.opacity(0.22)
+    }
+
+    private var badgeBorderWidth: CGFloat {
+        colorSchemeContrast == .increased
+            ? DesignTokens.Borders.standard
+            : DesignTokens.Borders.hairline
+    }
+
+    private var badgeBorderDash: [CGFloat] {
+        guard differentiateWithoutColor else { return [] }
+        switch tone {
+        case .gold, .teal:
+            return []
+        case .azure:
+            return [1, 2]
+        case .amber:
+            return [4, 2]
+        case .crimson:
+            return [2, 2, 6, 2]
+        case .neutral:
+            return [2, 3]
         }
     }
 }
@@ -161,6 +216,9 @@ public struct MysticBadge: View {
 
 /// 通用状态点：统一在线/预警/危险指示与呼吸微光
 public struct MysticStatusDot: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let tone: MysticTone
     public let diameter: CGFloat
     public let isPulsing: Bool
@@ -182,17 +240,16 @@ public struct MysticStatusDot: View {
 
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
-            Circle()
-                .fill(tone.accent)
-                .frame(width: diameter, height: diameter)
-                .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
-                .shadow(color: tone.accent.opacity(pulsePhase ? 0.35 : 0.8), radius: pulsePhase ? 6 : 3)
-                .scaleEffect(pulsePhase ? 1.12 : 1.0)
-                .onAppear {
-                    guard isPulsing else { return }
-                    withAnimation(.easeInOut(duration: DesignTokens.Motion.listeningPulseDuration / 2).repeatForever(autoreverses: true)) {
-                        pulsePhase = true
-                    }
+            statusMark
+                .onAppear(perform: updatePulseState)
+                .onChange(of: reduceMotion) { _, _ in
+                    updatePulseState()
+                }
+                .onChange(of: differentiateWithoutColor) { _, _ in
+                    updatePulseState()
+                }
+                .onChange(of: isPulsing) { _, _ in
+                    updatePulseState()
                 }
 
             if let label {
@@ -203,67 +260,133 @@ public struct MysticStatusDot: View {
         }
         .accessibilityLabel(label ?? tone.semanticLabel)
     }
+
+    @ViewBuilder
+    private var statusMark: some View {
+        if differentiateWithoutColor {
+            Image(systemName: tone.differentiationSystemIcon)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: max(11, diameter + 2), weight: .semibold))
+                .foregroundStyle(tone.readableForeground)
+                .frame(minWidth: max(14, diameter + 4), minHeight: max(14, diameter + 4))
+        } else {
+            Circle()
+                .fill(tone.accent)
+                .frame(width: diameter, height: diameter)
+                .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
+                .shadow(
+                    color: tone.accent.opacity(shouldPulse ? (pulsePhase ? 0.35 : 0.8) : 0.45),
+                    radius: shouldPulse ? (pulsePhase ? 6 : 3) : 2
+                )
+                .scaleEffect(shouldPulse && pulsePhase ? 1.12 : 1.0)
+        }
+    }
+
+    private var shouldPulse: Bool {
+        isPulsing && !reduceMotion && !differentiateWithoutColor
+    }
+
+    private func updatePulseState() {
+        guard shouldPulse else {
+            pulsePhase = false
+            return
+        }
+
+        pulsePhase = false
+        withAnimation(
+            .easeInOut(duration: DesignTokens.Motion.listeningPulseDuration / 2)
+                .repeatForever(autoreverses: true)
+        ) {
+            pulsePhase = true
+        }
+    }
 }
 
 // MARK: - 计量条 (Metric Bar)
 
 /// 通用计量条：统一灵性/理智/雾霾等读数的轨道、圆角、临界阈值提示
 public struct MysticMetricBar: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// 归一化取值 0...1
     public let value: Double
     public let tone: MysticTone
     public let height: CGFloat
     /// 临界阈值（低于该值转为猩红色警示），nil 表示不启用
     public let criticalThreshold: Double?
-    /// 严重度渐变色阶（由低到高）；提供时优先于 `tone`，用于雾霾等连续恶化读数
+    /// 严重度渐变色阶（由低到高）；正常读数优先于 `tone`，临界状态仍使用警示色。
     public let gradientTones: [MysticTone]
+    public let label: String?
 
     public init(
         value: Double,
         tone: MysticTone = .azure,
         height: CGFloat = 5,
         criticalThreshold: Double? = nil,
-        gradientTones: [MysticTone] = []
+        gradientTones: [MysticTone] = [],
+        label: String? = nil
     ) {
         self.value = value
         self.tone = tone
         self.height = height
         self.criticalThreshold = criticalThreshold
         self.gradientTones = gradientTones
+        self.label = label
     }
 
-    private var isCritical: Bool {
-        guard let criticalThreshold else { return false }
-        return clampedValue < criticalThreshold
+    var reading: WOMMetricReading { WOMMetricReading(value) }
+
+    var isCritical: Bool { reading.isBelow(criticalThreshold) }
+
+    private var clampedValue: Double { reading.geometryFraction }
+
+    var resolvedTone: MysticTone {
+        guard reading.fraction != nil else { return .neutral }
+        return isCritical ? .crimson : tone
     }
 
-    private var clampedValue: Double {
-        min(max(value, 0), 1)
-    }
-
-    private var resolvedTone: MysticTone {
-        isCritical ? .crimson : tone
+    // A decorative gradient must never override an actual critical reading.
+    var usesGradient: Bool {
+        reading.fraction != nil && !isCritical && gradientTones.count >= 2
     }
 
     public var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height / 2)
-                    .fill(Color.black.opacity(0.4))
+                    .fill(Color.Mystic.shadowBase.opacity(0.4))
 
-                RoundedRectangle(cornerRadius: height / 2)
-                    .fill(fillStyle)
-                    .frame(width: geo.size.width * clampedValue)
-                    .shadow(color: resolvedTone.accent.opacity(0.5), radius: isCritical ? 5 : 2)
+                if reading.fraction != nil {
+                    RoundedRectangle(cornerRadius: height / 2)
+                        .fill(fillStyle)
+                        .frame(width: geo.size.width * clampedValue)
+                        .shadow(color: resolvedTone.accent.opacity(0.5), radius: isCritical ? 5 : 2)
+                }
             }
         }
         .frame(height: height)
-        .animation(DesignTokens.Interaction.hoverAnimation, value: clampedValue)
-        .accessibilityValue("\(Int(clampedValue * 100))%")
+        .overlay {
+            RoundedRectangle(cornerRadius: height / 2)
+                .stroke(
+                    reading.fraction == nil
+                        ? Color.Mystic.textTertiary
+                        : (isCritical ? resolvedTone.readableForeground.opacity(0.9) : Color.clear),
+                    style: reading.fraction == nil
+                        ? StrokeStyle(lineWidth: DesignTokens.Borders.hairline, dash: [2, 2])
+                        : StrokeStyle(
+                            lineWidth: DesignTokens.Borders.hairline,
+                            dash: differentiateWithoutColor && isCritical ? [4, 2] : []
+                        )
+                )
+        }
+        .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: clampedValue)
+        .accessibilityLabel(label ?? "\(resolvedTone.semanticLabel)读数")
+        .accessibilityValue(reading.percentText)
     }
 
     private var fillStyle: AnyShapeStyle {
-        guard gradientTones.count >= 2 else {
+        guard usesGradient else {
             return AnyShapeStyle(resolvedTone.accent)
         }
         return AnyShapeStyle(
@@ -480,7 +603,8 @@ public struct MysticEmptyState: View {
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: systemIcon)
-                .font(.system(size: 22))
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(tone.readableForeground)
 
             Text(title)
@@ -496,27 +620,22 @@ public struct MysticEmptyState: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let actionTitle, let onAction {
-                Button(action: onAction) {
-                    Text(actionTitle)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(tone.readableForeground)
-                        .padding(.horizontal, DesignTokens.Spacing.md)
-                        .padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(
-                            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                                .fill(tone.accent.opacity(0.12))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
-                        )
-                }
-                .mysticPressable()
-                .padding(.top, DesignTokens.Spacing.xxs)
+                Button(actionTitle, action: onAction)
+                    .buttonStyle(WOMButtonStyle(emptyActionVariant))
+                    .padding(.top, DesignTokens.Spacing.xxs)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(DesignTokens.LayoutInsets.cardPadding)
+    }
+
+    private var emptyActionVariant: WOMButtonVariant {
+        switch tone {
+        case .gold: .primary
+        case .azure: .ritual
+        case .crimson: .danger
+        case .teal, .amber, .neutral: .secondary
+        }
     }
 }
 
@@ -524,6 +643,11 @@ public struct MysticEmptyState: View {
 
 /// 通用图标命令按钮：统一图标、可选标题、悬停微光与按压反馈
 public struct MysticIconButton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isEnabled) private var isEnabled
+    @FocusState private var isFocused: Bool
+
     public let systemIcon: String
     public let title: String?
     public let tone: MysticTone
@@ -546,19 +670,49 @@ public struct MysticIconButton: View {
         self.action = action
     }
 
+    public init(
+        systemIcon: WOMSystemIcon,
+        title: String? = nil,
+        tone: MysticTone = .gold,
+        helpText: String? = nil,
+        action: @escaping @MainActor () -> Void
+    ) {
+        self.init(
+            systemIcon: systemIcon.rawValue,
+            title: title,
+            tone: tone,
+            helpText: helpText,
+            action: action
+        )
+    }
+
     public var body: some View {
+        let accessibilityText = title ?? helpText ?? systemIcon
+
         Button(action: action) {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 Image(systemName: systemIcon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: WOMIconSize.compact.points, weight: WOMIconSize.compact.symbolWeight))
+                    .frame(width: WOMIconSize.compact.points, height: WOMIconSize.compact.points, alignment: .center)
+
                 if let title {
                     Text(title)
                         .font(Font.Mystic.caption)
+                        .fontWeight(.medium)
                 }
             }
-            .foregroundStyle(isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
-            .padding(.horizontal, DesignTokens.Spacing.sm)
-            .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical + 2)
+            .foregroundStyle(
+                isEnabled
+                    ? (isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
+                    : Color.Mystic.textTertiary
+            )
+            .padding(.horizontal, title == nil ? DesignTokens.Spacing.sm : DesignTokens.Spacing.md)
+            .frame(
+                minWidth: title == nil ? WOMButtonDensity.icon.minWidth : nil,
+                minHeight: WOMButtonDensity.icon.minHeight,
+                alignment: .center
+            )
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
                     .fill(tone.accent.opacity(isHovered ? DesignTokens.Interaction.hoverBackgroundOpacity : 0.06))
@@ -570,13 +724,30 @@ public struct MysticIconButton: View {
                         lineWidth: DesignTokens.Borders.hairline
                     )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radii.xs, style: .continuous)
+                    .inset(by: -DesignTokens.Accessibility.focusRingOffset)
+                    .stroke(
+                        colorSchemeContrast == .increased
+                            ? Color.Mystic.textPrimary
+                            : tone.readableForeground,
+                        lineWidth: DesignTokens.Accessibility.focusRingWidth
+                    )
+                    .opacity(isFocused && isEnabled ? 1 : 0)
+            )
         }
-        .mysticPressable(scale: 0.97)
+        // The shared style owns disabled opacity; a second dimming layer hides the glyph.
+        .mysticPressable()
+        .focused($isFocused)
         .onHover { hovering in
-            withAnimation(DesignTokens.Interaction.hoverAnimation) {
-                isHovered = hovering
+            withAnimation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation) {
+                isHovered = isEnabled && hovering
             }
         }
+        .onChange(of: isEnabled) { _, enabled in
+            if !enabled { isHovered = false }
+        }
         .help(helpText ?? title ?? systemIcon)
+        .accessibilityLabel(Text(accessibilityText))
     }
 }

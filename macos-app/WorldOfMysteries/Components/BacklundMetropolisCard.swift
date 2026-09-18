@@ -90,41 +90,18 @@ public struct BacklundMetropolisCard: View {
 
     private var cityHeader: some View {
         ZStack(alignment: .bottomLeading) {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 16/255, green: 28/255, blue: 44/255),
-                        Color.Mystic.obsidianElevated
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                if NSImage(named: "TextureFoolVeil") != nil {
-                    Image("TextureFoolVeil")
-                        .resizable(resizingMode: .tile)
-                        .blendMode(.screen)
-                        .opacity(0.12)
-                }
-
-                HStack {
-                    Spacer()
-                    ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(Color.Mystic.spiritualBlue.opacity(0.2))
-                            .frame(width: 140, height: 140)
-                            .blur(radius: 24)
-
-                        Image(systemName: "building.columns.circle")
-                            .font(.system(size: 64, weight: .ultraLight))
-                            .foregroundStyle(Color.Mystic.brassGoldPrimary.opacity(0.35))
-                    }
-                    .padding(.trailing, DesignTokens.Spacing.lg)
-                    .accessibilityHidden(true)
-                }
-            }
+            WOMArtworkView(
+                assetName: WOMWorldArtworkAsset.worldHero.wideHeaderAssetName,
+                fallback: .asset(.world),
+                fallbackTint: Color.Mystic.brassGoldMuted,
+                contentMode: .fill
+            )
+            .frame(maxWidth: .infinity)
             .frame(height: 120)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+            .allowsHitTesting(false)
+
+            WOMArtworkScrim(edge: .leading, strength: 0.92)
 
             VStack(alignment: .leading, spacing: DesignTokens.TypographyMetrics.compactLineSpacing) {
                 ViewThatFits(in: .horizontal) {

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-09-18",
+  "status": "PARTIAL_PRIMARY_EVIDENCE_NOT_CANON_APPROVAL",
+  "policy": "Only claims visible in the official original-book pages below were verified. Other books hosted on WebNovel, fan fiction, community summaries and copied novel text are not primary evidence for this project. No novel passage is copied into the repository.",
+  "claims": [
+    {"artifact_id":"alzuhodQuill","claim":"The object looks like an ordinary quill and writes without an ink supply.","source_type":"official_original_book","chapter":19,"chapter_title":"Sealed Artifacts","url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/sealed-artifacts_31208778930126601","coverage":"VISIBLE_PASSAGE_VERIFIED","not_verified":["precise feather color","exact silhouette proportions","additional ornament"]},
+    {"artifact_id":"probabilityDie","claim":"The die is milky white and bears red pips; the visible passage describes faces showing four and six.","source_type":"official_original_book","chapter":607,"chapter_title":"Discovering an Abnormality","url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/discovering-an-abnormality_39746092924987653","coverage":"PUBLIC_PREVIEW_CLAIM_VERIFIED","not_verified":["opposite-face layout","exact dimensions","complete power and sealing rules"]},
+    {"artifact_id":"arrodesMirror","claim":"Arrodes is presented through a silver mirror that displays a scene.","source_type":"official_original_book","chapter":417,"chapter_title":"Arrodes","url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/arrodes_38036732448391597","coverage":"PUBLIC_PREVIEW_CLAIM_VERIFIED","not_verified":["eye-shaped side ornaments","reverse ornamentation","exact frame shape"]}
+  ],
+  "coverage_limits": [
+    {"artifact_id":"trunsoestBrassBook","chapter":1286,"url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/new-applications-of-old-methods_45129713366134340","result":"PUBLIC_PREVIEW_DOES_NOT_VERIFY_OBJECT_FORM"},
+    {"artifact_id":"creepingHunger","chapter":146,"url":"https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/creeping-hunger_33158606018898116","result":"PUBLIC_PREVIEW_DOES_NOT_VERIFY_OBJECT_FORM"}
+  ],
+  "full_p0_canon_review_complete": false,
+  "artifact_source_images_approved": 0
+}

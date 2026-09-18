@@ -99,7 +99,7 @@ public struct SpiritPendulumView: View {
 
     private var statementTitle: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
-            Image(systemName: "sparkles")
+            WOMIcon(status: .active, size: .compact)
                 .foregroundStyle(Color.Mystic.parchmentInkSecondary)
                 .accessibilityHidden(true)
             Text("占卜语句 (Divination Statement)")
@@ -212,7 +212,7 @@ public struct SpiritPendulumView: View {
                 onTriggerScry()
             } label: {
                 HStack(spacing: DesignTokens.Spacing.xs) {
-                    Image(systemName: "arrow.counterclockwise")
+                    WOMIcon(system: .retry, size: .compact)
                     Text("默念七遍并占卜")
                 }
                 .font(Font.Mystic.titleSmall)

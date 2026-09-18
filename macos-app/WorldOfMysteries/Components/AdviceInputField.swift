@@ -19,6 +19,8 @@ public struct AdviceInputField: View {
     public var onSubmitAdvice: (@MainActor (String) -> Void)?
 
     @Environment(\.adviceFocusRequestID) private var adviceFocusRequestID
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isEnabled) private var isEnabled
     @FocusState private var isTextFieldFocused: Bool
     
     public init(
@@ -37,8 +39,7 @@ public struct AdviceInputField: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             // 语义提示：Advice ≠ Command
             HStack(spacing: DesignTokens.Spacing.xs) {
-                Image(systemName: "feather.pointed.fill")
-                    .font(.system(size: 11))
+                WOMIcon(system: .advice, size: .compact)
                     .foregroundStyle(Color.Mystic.brassGoldPrimary)
                 
                 Text("建议干预（Advice to \(targetCharacter) · 决策权归人物所有）")
@@ -55,48 +56,43 @@ public struct AdviceInputField: View {
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textPrimary)
                     .focused($isTextFieldFocused)
+                    .accessibilityLabel("给\(targetCharacter)的建议")
                     .onSubmit {
                         submit()
                     }
                 
-                // 语音麦克风直发
+                // 语音建议：统一 icon-only button geometry / focus / disabled / Reduce Motion。
                 Button {
                     onVoiceTapped?()
                 } label: {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.Mystic.brassGoldPrimary)
-                        .padding(DesignTokens.Spacing.xs)
+                    WOMIcon(system: .voiceAdvice, size: .compact)
                 }
-                .mysticPressable(scale: 0.94)
+                .buttonStyle(WOMIconButtonStyle(.secondary))
+                .disabled(onVoiceTapped == nil)
+                .accessibilityLabel("语音输入建议")
+                .help("语音输入建议")
                 
-                // 提交建议按钮
-                Button {
+                // 提交建议：统一主行动按钮，不再局部复制按钮色彩与按压规则。
+                Button("提交建议") {
                     submit()
-                } label: {
-                    Text("提交建议")
-                        .font(Font.Mystic.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.Mystic.obsidianBase)
-                        .padding(.horizontal, DesignTokens.Spacing.md)
-                        .padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(
-                            text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? Color.Mystic.brassGoldMuted
-                            : Color.Mystic.brassGoldPrimary
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
                 }
-                .mysticPressable(scale: 0.97)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(WOMButtonStyle(.primary))
+                .disabled(isSubmitDisabled)
+                .accessibilityHint("将建议提交给\(targetCharacter)，人物仍保留最终决策权")
             }
             .padding(.horizontal, DesignTokens.Spacing.md)
             .padding(.vertical, DesignTokens.Spacing.sm)
             .background(Color.Mystic.obsidianCard)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
             .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                    .stroke(Color.Mystic.brassGoldBorder, lineWidth: DesignTokens.Borders.standard)
+                RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
+                    .stroke(inputBorderColor, lineWidth: inputBorderWidth)
+            )
+            .shadow(
+                color: isTextFieldFocused
+                    ? Color.Mystic.brassGoldGlow.opacity(0.22)
+                    : Color.clear,
+                radius: isTextFieldFocused ? 4 : 0
             )
         }
         .onChange(of: adviceFocusRequestID) { _, _ in
@@ -104,11 +100,34 @@ public struct AdviceInputField: View {
         }
     }
     
+    private var isSubmitDisabled: Bool {
+        AdviceDraftSubmission.payload(
+            from: text,
+            isEnabled: isEnabled,
+            hasHandler: onSubmitAdvice != nil
+        ) == nil
+    }
+
+    private var inputBorderColor: Color {
+        if colorSchemeContrast == .increased {
+            return isTextFieldFocused ? Color.Mystic.textPrimary : Color.Mystic.textGoldAccent
+        }
+        return isTextFieldFocused ? Color.Mystic.brassGoldPrimary : Color.Mystic.brassGoldBorder
+    }
+
+    private var inputBorderWidth: CGFloat {
+        isTextFieldFocused || colorSchemeContrast == .increased
+            ? DesignTokens.Borders.heavy
+            : DesignTokens.Borders.standard
+    }
+
     private func submit() {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onSubmitAdvice?(trimmed)
-        text = ""
+        AdviceDraftSubmission.submit(
+            readDraft: { text },
+            writeDraft: { text = $0 },
+            isEnabled: isEnabled,
+            handler: onSubmitAdvice
+        )
     }
 }
 

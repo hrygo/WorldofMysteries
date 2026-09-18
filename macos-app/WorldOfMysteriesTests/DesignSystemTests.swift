@@ -46,8 +46,8 @@ struct DesignSystemTests {
             #expect(!state.promptText.isEmpty)
         }
         
-        #expect(ListeningRingState.idle.promptText == "世界正在聆听")
-        #expect(ListeningRingState.listening.promptText.contains("Advice"))
+        #expect(ListeningRingState.idle.promptText == "等待你的声音")
+        #expect(ListeningRingState.listening.promptText.contains("建议"))
     }
     
     @Test("NavigationItem covers 8 primary experiences defined in baseline plus component gallery")

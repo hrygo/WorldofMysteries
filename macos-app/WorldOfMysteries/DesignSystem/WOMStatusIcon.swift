@@ -10,4 +10,6 @@ public nonisolated enum WOMStatusIcon: String, CaseIterable, Sendable {
     case locked = "lock"
     case active = "sparkles"
     case cooldown = "timer"
+    case unknown = "questionmark"
+    case concealed = "eye.slash.fill"
 }

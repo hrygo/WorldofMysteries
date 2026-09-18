@@ -1,34 +1,8 @@
 import SwiftUI
 
-/// Typed option used by `WOMAdaptiveSegmentedPicker`.
-///
-/// The option is presentation metadata only. The bound `value` remains the caller's source of
-/// truth and is never persisted by the visual-system component.
-public struct WOMSegmentedOption<Value: Hashable>: Identifiable {
-    public let value: Value
-    public let title: String
-    public let systemImage: String?
-
-    public init(
-        value: Value,
-        title: String,
-        systemImage: String? = nil
-    ) {
-        self.value = value
-        self.title = title
-        self.systemImage = systemImage
-    }
-
-    public var id: Value { value }
-}
-
 /// Native macOS peer-mode selection that keeps system Picker semantics.
-///
-/// - Wide layout: SwiftUI `.segmented` picker at its intrinsic readable width.
-/// - Narrow layout: SwiftUI `.menu` picker selected through `ViewThatFits`.
-///
-/// This component intentionally does not recreate `NSSegmentedControl` with a row of Buttons.
-/// Keyboard, focus, VoiceOver and selection semantics remain owned by the native `Picker`.
+/// Wide layouts use segments; narrow layouts use a menu. A missing selected value is retained
+/// as a disabled menu entry, never silently replaced with the first available choice.
 public struct WOMAdaptiveSegmentedPicker<Value: Hashable>: View {
     public let label: String
     @Binding public var selection: Value
@@ -45,24 +19,43 @@ public struct WOMAdaptiveSegmentedPicker<Value: Hashable>: View {
     }
 
     public var body: some View {
-        ViewThatFits(in: .horizontal) {
-            picker
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize(horizontal: true, vertical: false)
+        let presentation = WOMSegmentedPresentation(options: options, selection: selection)
 
-            picker
-                .pickerStyle(.menu)
-                .labelsHidden()
+        Group {
+            if presentation.hasAvailableSelection {
+                ViewThatFits(in: .horizontal) {
+                    picker(presentation)
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    picker(presentation)
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                }
+            } else {
+                picker(presentation)
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+            }
         }
+        .disabled(presentation.isEmpty)
         .accessibilityLabel(label)
+        .help(presentation.displayedSelectionTitle)
     }
 
-    private var picker: some View {
+    private func picker(_ presentation: WOMSegmentedPresentation<Value>) -> some View {
         Picker(label, selection: $selection) {
-            ForEach(options) { option in
+            if !presentation.hasAvailableSelection {
+                Text(presentation.placeholderTitle)
+                    .tag(selection)
+                    .disabled(true)
+            }
+
+            ForEach(presentation.options) { option in
                 optionLabel(option)
                     .tag(option.value)
+                    .help(option.title)
             }
         }
     }
@@ -70,9 +63,17 @@ public struct WOMAdaptiveSegmentedPicker<Value: Hashable>: View {
     @ViewBuilder
     private func optionLabel(_ option: WOMSegmentedOption<Value>) -> some View {
         if let systemImage = option.systemImage {
-            Label(option.title, systemImage: systemImage)
+            Label {
+                Text(option.title)
+                    .lineLimit(1)
+            } icon: {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .imageScale(.small)
+            }
         } else {
             Text(option.title)
+                .lineLimit(1)
         }
     }
 }

@@ -1,0 +1,220 @@
+{
+  "artwork_id": "W1_WORLD_HERO",
+  "contract_version": 3,
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "selected_candidate_id": "W1_SELECTED_CRIMSON_MOON",
+  "candidates": [
+    {
+      "id": "A",
+      "generation_id": "192c71af-ea9c-4adf-9253-560fbe31870c",
+      "status": "REJECTED_G0",
+      "quiet_focus_edge_ratio": 0.193,
+      "bright_centroid": [
+        0.761,
+        0.438
+      ],
+      "reasons": [
+        "baked_readable_text",
+        "monumental_gothic_skyline",
+        "literalized_occult_signage"
+      ]
+    },
+    {
+      "id": "B",
+      "generation_id": "30c93636-6c56-4530-bfe0-d749dfe54480",
+      "status": "REJECTED_G0",
+      "quiet_focus_edge_ratio": 0.203,
+      "bright_centroid": [
+        0.739,
+        0.593
+      ],
+      "reasons": [
+        "baked_readable_text",
+        "celestial_halo",
+        "fantasy_gothic_skyline"
+      ]
+    },
+    {
+      "id": "C",
+      "generation_id": "99be3782-706d-41a6-be48-804a762a9974",
+      "status": "REJECTED_G0",
+      "quiet_focus_edge_ratio": 0.116,
+      "bright_centroid": [
+        0.702,
+        0.432
+      ],
+      "reasons": [
+        "supernatural_vortex",
+        "zeppelin_spectacle",
+        "dominant_cathedral",
+        "explicit_emblem"
+      ]
+    },
+    {
+      "id": "D",
+      "generation_id": "1b68c197-75e7-49d6-b0c5-7e773dc4b7d1",
+      "status": "REJECTED_G0",
+      "quiet_focus_edge_ratio": 0.246,
+      "bright_centroid": [
+        0.716,
+        0.617
+      ],
+      "reasons": [
+        "baked_readable_text",
+        "monumental_gothic_skyline",
+        "fantasy_ruin"
+      ]
+    },
+    {
+      "id": "E",
+      "generation_id": "c535c694-0532-4f4a-a0d6-acbdbc07f923",
+      "status": "REJECTED_G0",
+      "quiet_focus_edge_ratio": 0.153,
+      "bright_centroid": [
+        0.713,
+        0.647
+      ],
+      "reasons": [
+        "baked_slogan_text",
+        "occult_banner",
+        "monolithic_fantasy_skyline",
+        "celestial_spectacle"
+      ]
+    },
+    {
+      "id": "F_CONTROL",
+      "generation_id": "863435f0-2208-4db1-bc2e-68d9a42209e8",
+      "status": "REJECTED_GCTX",
+      "quiet_focus_edge_ratio": 0.245,
+      "bright_centroid": [
+        0.738,
+        0.488
+      ],
+      "reasons": [
+        "control_prompt_contaminated",
+        "baked_readable_text",
+        "occult_banner",
+        "monumental_cathedral",
+        "fantasy_key_art"
+      ]
+    },
+    {
+      "id": "W1_SELECTED_CRIMSON_MOON",
+      "generation_id": "76a170ac-75e0-4013-9749-7f819fc1de0a",
+      "status": "SELECTED_ART_DIRECTION_APPROVED",
+      "native_size": [
+        1586,
+        992
+      ],
+      "native_sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+      "exact_16_10_crop_size": [
+        1584,
+        990
+      ],
+      "exact_16_10_crop_sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
+      "reasons": [
+        "explicit_human_art_direction_approval",
+        "strong_occult_game_atmosphere",
+        "crimson_moon_identity",
+        "victorian_industrial_city_depth",
+        "readable_gaslight_and_wet_stone_midtones"
+      ]
+    }
+  ],
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED_V3",
+      "primary_read": "stylized late-Victorian occult metropolis",
+      "secondary_read": "Evernight crimson moon and hidden supernatural order",
+      "generic_fantasy_read": "bounded stylized dark fantasy; not generic high-fantasy geography",
+      "typography_detected": false,
+      "dominant_subject": "cityscape + crimson moon",
+      "notes": [
+        "Art direction explicitly approved after v3 direction change."
+      ]
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED_V3_ART_DIRECTION",
+      "era_credibility_5": 4,
+      "occult_mystery_atmosphere_5": 5,
+      "generic_fantasy_5": 2,
+      "world_contradictions": [],
+      "notes": [
+        "Stylization and overt crimson moon are intentional v3 requirements rather than v2 defects."
+      ]
+    },
+    "G2_composition": {
+      "status": "SOURCE_PASS_MASTER_PENDING",
+      "exact_16_10_source_crop_pass": true,
+      "scrim_assisted_text_zone_pass": true,
+      "street_depth_pass": true,
+      "wide_crop_survival_pass": "PASS_WITH_TOP_ANCHOR",
+      "runtime_crop_survival_pass": true,
+      "notes": [
+        "Centered 8:3 crop is invalid for v3 because it removes the crimson moon; top-aligned wide crop is required."
+      ]
+    },
+    "G3_structure": {
+      "status": "PENDING_MACOS_FINISHING",
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "notes": [
+        "Deferred to F1 structural repair and 100–200% inspection on macOS."
+      ]
+    },
+    "G4_production": {
+      "status": "PENDING_MACOS_FINISHING",
+      "master_dimensions": null,
+      "runtime_dimensions": {},
+      "color_profile": null,
+      "format": null,
+      "sha256": {},
+      "asset_names": [],
+      "notes": [
+        "4096×2560 Master is intentionally not manufactured by low-quality server upscaling."
+      ]
+    },
+    "G5_runtime": {
+      "status": "PENDING_MASTER_DERIVATIVES",
+      "window_checks": {
+        "960x640": null,
+        "1180x760": null,
+        "2560x1600": null,
+        "2400x900": null
+      },
+      "accessibility_checks": {
+        "Increased Contrast": null,
+        "Reduce Transparency": null
+      },
+      "text_primary_contrast_min": null,
+      "important_copy_contrast_min": null,
+      "notes": [
+        "Run only after macOS-finished Master and deterministic runtime/wide derivatives exist."
+      ]
+    }
+  },
+  "final_verdict": "MACOS_FINISHING_PENDING",
+  "reviewers": [
+    "interactive_art_direction_approval"
+  ],
+  "reviewed_at": "2026-09-18",
+  "generation_context": {
+    "gate": "G-CTX-v2",
+    "status": "SUPERSEDED_BY_V3_ART_DIRECTION",
+    "reason": "The v2 realism-heavy context gate no longer represents the approved product direction. The selected v3 source was explicitly approved during iterative art direction and is tracked as a new contract decision rather than falsely claiming a v2 G-CTX pass.",
+    "decision_record": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md"
+  },
+  "edit_experiment": {
+    "source_candidate": "A",
+    "generation_id": "18a88bed-5884-4278-a8d8-d8905725bbd1",
+    "status": "REJECTED",
+    "result": "Targeted removal of text and Gothic monumentality inherited the same semantic prior and introduced additional propaganda-like text."
+  }
+}

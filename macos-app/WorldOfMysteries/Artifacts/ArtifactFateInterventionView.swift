@@ -49,17 +49,38 @@ public struct FateArtifactInterventionView: View {
   }
 
   private var header: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-        artifactHeaderIdentity
-        Spacer(minLength: DesignTokens.Spacing.md)
-        runtimeBadge
-      }
+    ZStack(alignment: .leading) {
+      WOMArtworkView(
+        assetName: WOMWorldArtworkAsset.grayFog.wideHeaderAssetName,
+        fallback: .asset(.grayFog),
+        fallbackTint: Color.Mystic.textSecondary,
+        contentMode: .fill
+      )
+      .opacity(0.34)
+      .frame(maxWidth: .infinity)
+      .frame(minHeight: 148)
+      .allowsHitTesting(false)
 
-      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-        artifactHeaderIdentity
-        runtimeBadge
+      WOMArtworkScrim(edge: .leading, strength: 0.92)
+
+      ViewThatFits(in: .horizontal) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+          artifactHeaderIdentity
+          Spacer(minLength: DesignTokens.Spacing.md)
+          runtimeBadge
+        }
+
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+          artifactHeaderIdentity
+          runtimeBadge
+        }
       }
+      .padding(DesignTokens.LayoutInsets.compactCardPadding)
+    }
+    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+        .stroke(Color.Mystic.brassGoldBorder.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
     }
   }
 
@@ -98,15 +119,18 @@ public struct FateArtifactInterventionView: View {
     } label: {
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
         HStack {
-          ZStack {
+          WOMArtworkView(
+            assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+            fallback: .systemImage(descriptor.systemIcon),
+            fallbackTint: descriptor.tone.accent,
+            contentMode: .fit
+          )
+          .frame(width: 44, height: 44)
+          .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous))
+          .overlay {
             RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
-              .fill(descriptor.tone.accent.opacity(0.12))
-
-            Image(systemName: descriptor.systemIcon)
-              .font(.system(size: 18, weight: .semibold))
-              .foregroundStyle(descriptor.tone.accent)
+              .stroke(descriptor.tone.accent.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
           }
-          .frame(width: 38, height: 38)
           .accessibilityHidden(true)
 
           Spacer()

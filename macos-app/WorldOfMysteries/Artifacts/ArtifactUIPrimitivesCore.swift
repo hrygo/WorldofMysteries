@@ -233,9 +233,6 @@ public struct ArtifactComponentShell<Content: View>: View {
     ZStack {
       Color.Mystic.abyssVoid
       ArtifactAmbientField(tone: descriptor.tone, intensity: hovered ? 1 : 0.65)
-      ArtifactPulseRing(tone: descriptor.tone, active: hovered)
-        .frame(width: 170, height: 170)
-
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
         MysticBadge(
           descriptor.family.localizedTitle,
@@ -243,14 +240,25 @@ public struct ArtifactComponentShell<Content: View>: View {
           systemIcon: descriptor.systemIcon
         )
 
-        Spacer(minLength: DesignTokens.Spacing.md)
+        WOMArtworkView(
+          assetName: artifactID.artworkAsset.detailAssetName,
+          fallback: .systemImage(descriptor.systemIcon),
+          fallbackTint: descriptor.tone.accent,
+          contentMode: .fit,
+          accessibilityLabel: descriptor.displayName
+        )
+        .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: 220)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+        .overlay {
+          RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+            .stroke(
+              descriptor.tone.accent.opacity(hovered ? 0.42 : 0.24),
+              lineWidth: DesignTokens.Borders.hairline
+            )
+        }
 
-        Image(systemName: descriptor.systemIcon)
-          .font(.system(size: 62, weight: .ultraLight))
-          .foregroundStyle(descriptor.tone.accent)
-          .accessibilityHidden(true)
-
-        Spacer(minLength: DesignTokens.Spacing.md)
+        Spacer(minLength: DesignTokens.Spacing.xs)
 
         Text(descriptor.displayName)
           .font(Font.Mystic.titleLarge)

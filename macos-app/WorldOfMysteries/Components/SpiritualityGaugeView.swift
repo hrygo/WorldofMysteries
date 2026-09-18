@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 维多利亚复古黄铜灵性与理智仪表盘 (Spirituality & Sanity Gauge)
 public struct SpiritualityGaugeView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let title: String
     /// 灵性值：0.0 (枯竭/失控) ~ 1.0 (充盈稳固)
     public let value: Double
@@ -11,7 +13,7 @@ public struct SpiritualityGaugeView: View {
         value: Double = 0.85
     ) {
         self.title = title
-        self.value = min(max(value, 0.0), 1.0)
+        self.value = value.isFinite ? min(max(value, 0.0), 1.0) : value
     }
 
     public var body: some View {
@@ -19,49 +21,54 @@ public struct SpiritualityGaugeView: View {
             ZStack {
                 Circle()
                     .fill(Color.Mystic.obsidianCard)
-                    .frame(width: 88, height: 88)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.diameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.diameter
+                    )
                     .overlay(
                         Circle()
                             .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
                     )
-                    .shadow(color: Color.black.opacity(0.4), radius: 6)
+                    .shadow(
+                        color: Color.Mystic.shadowBase.opacity(0.4),
+                        radius: DesignTokens.ComponentMetrics.Gauge.shadowRadius
+                    )
 
                 Circle()
                     .fill(Color.Mystic.obsidianBase)
-                    .frame(width: 74, height: 74)
-
-                Circle()
-                    .trim(from: 0.0, to: 0.5)
-                    .stroke(
-                        AngularGradient(
-                            gradient: Gradient(colors: [
-                                Color.Mystic.statusDanger,
-                                Color.Mystic.statusWarning,
-                                Color.Mystic.spiritualBlue
-                            ]),
-                            center: .center,
-                            startAngle: .degrees(180),
-                            endAngle: .degrees(360)
-                        ),
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.innerDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.innerDiameter
                     )
-                    .frame(width: 60, height: 60)
-                    .rotationEffect(.degrees(180))
 
-                Rectangle()
-                    .fill(Color.Mystic.brassGoldHover)
-                    .frame(width: 2, height: 26)
-                    .offset(y: -13)
-                    .rotationEffect(.degrees(gaugeAngle))
-                    .animation(DesignTokens.Motion.smoothSpring, value: value)
+                scaleTrack
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.arcDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.arcDiameter
+                    )
+
+                if reading.fraction != nil {
+                    Rectangle()
+                        .fill(Color.Mystic.brassGoldHover)
+                        .frame(
+                            width: DesignTokens.ComponentMetrics.Gauge.needleWidth,
+                            height: DesignTokens.ComponentMetrics.Gauge.needleLength
+                        )
+                        .offset(y: -DesignTokens.ComponentMetrics.Gauge.needleLength / 2)
+                        .rotationEffect(.degrees(gaugeAngle))
+                        .animation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring, value: reading.geometryFraction)
+                }
 
                 Circle()
                     .fill(Color.Mystic.brassGoldPrimary)
-                    .frame(width: 8, height: 8)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.hubDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.hubDiameter
+                    )
             }
 
             VStack(spacing: DesignTokens.Spacing.xxs) {
-                Text("\(Int(value * 100))%")
+                Text(reading.percentText)
                     .font(Font.Mystic.monoBadge)
                     .foregroundStyle(valueTextColor)
 
@@ -71,25 +78,105 @@ public struct SpiritualityGaugeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue("\(Int(value * 100))%")
+        .accessibilityValue(reading.percentText)
     }
+
+    // The scale and the needle use the same increasing, left-to-right fraction.
+    // Rotating a trimmed Circle also rotated its gradient, reversing the old warning colors.
+    @ViewBuilder
+    private var scaleTrack: some View {
+        if reading.fraction != nil {
+            ZStack {
+                ForEach(WOMGaugeBand.allCases, id: \.self) { band in
+                    WOMGaugeScaleArc(fractions: band.fractions)
+                        .stroke(
+                            band.color,
+                            style: StrokeStyle(
+                                lineWidth: DesignTokens.ComponentMetrics.Gauge.arcLineWidth,
+                                lineCap: .butt
+                            )
+                        )
+                }
+            }
+        } else {
+            // Unknown is neither safe nor dangerous. No severity band or needle is implied.
+            WOMGaugeScaleArc(fractions: 0...1)
+                .stroke(
+                    Color.Mystic.textSecondary,
+                    style: StrokeStyle(
+                        lineWidth: DesignTokens.Borders.standard,
+                        dash: [DesignTokens.Spacing.xxs, DesignTokens.Spacing.xxs]
+                    )
+                )
+        }
+    }
+
+    var reading: WOMMetricReading { WOMMetricReading(value) }
 
     /// 0.0 映射到 -90 度，1.0 映射到 +90 度
     private var gaugeAngle: Double {
-        -90.0 + (value * 180.0)
+        DesignTokens.ComponentMetrics.Gauge.needleMinimumDegrees
+            + reading.geometryFraction * (
+                DesignTokens.ComponentMetrics.Gauge.needleMaximumDegrees
+                    - DesignTokens.ComponentMetrics.Gauge.needleMinimumDegrees
+            )
     }
 
     /// Danger remains visible in the gauge arc; the numeric value itself must remain readable.
     private var valueTextColor: Color {
-        if value < 0.25 {
+        guard reading.fraction != nil else { return Color.Mystic.textSecondary }
+        if reading.isBelow(DesignTokens.ComponentMetrics.Gauge.criticalThreshold) {
             return Color.Mystic.textPrimary
-        } else if value < 0.5 {
+        } else if reading.isBelow(DesignTokens.ComponentMetrics.Gauge.warningThreshold) {
             return Color.Mystic.statusWarning
         } else {
             return Color.Mystic.spiritualBlue
         }
+    }
+}
+
+/// Visual ranges only: reuse the existing scale thresholds, do not infer Domain state.
+nonisolated enum WOMGaugeBand: CaseIterable, Hashable, Sendable {
+    case critical, warning, reserve
+
+    var fractions: ClosedRange<Double> {
+        switch self {
+        case .critical: 0...DesignTokens.ComponentMetrics.Gauge.criticalThreshold
+        case .warning:
+            DesignTokens.ComponentMetrics.Gauge.criticalThreshold...DesignTokens.ComponentMetrics.Gauge.warningThreshold
+        case .reserve: DesignTokens.ComponentMetrics.Gauge.warningThreshold...1
+        }
+    }
+
+    @MainActor
+    var color: Color {
+        switch self {
+        case .critical: Color.Mystic.statusDanger
+        case .warning: Color.Mystic.statusWarning
+        case .reserve: Color.Mystic.spiritualBlue
+        }
+    }
+}
+
+/// Draw the upper semicircle directly in SwiftUI's top-left coordinate system.
+/// Zero is the left endpoint; one is the right endpoint. No post-paint rotation is used.
+struct WOMGaugeScaleArc: Shape {
+    let fractions: ClosedRange<Double>
+
+    func path(in rect: CGRect) -> Path {
+        let start = DesignTokens.ComponentMetrics.Gauge.arcStartDegrees
+        let span = DesignTokens.ComponentMetrics.Gauge.arcEndDegrees - start
+        var path = Path()
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: rect.midY),
+            radius: min(rect.width, rect.height) / 2,
+            startAngle: .degrees(start + fractions.lowerBound * span),
+            endAngle: .degrees(start + fractions.upperBound * span),
+            clockwise: false
+        )
+        return path
     }
 }
 

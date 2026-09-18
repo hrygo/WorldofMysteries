@@ -1,0 +1,81 @@
+{
+  "artwork_id": "W1_WORLD_HERO",
+  "contract_version": 3,
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "generator": {
+    "provider": "OpenAI",
+    "model": null,
+    "generation_id": "76a170ac-75e0-4013-9749-7f819fc1de0a",
+    "source_prompt_digest_sha256": null,
+    "generation_mode": "interactive_iterative_art_direction"
+  },
+  "source": {
+    "native_width": 1586,
+    "native_height": 992,
+    "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd"
+  },
+  "postprocess": [
+    {
+      "stage": "server_exact_16_10_crop",
+      "operation": "crop_1px_each_edge",
+      "output_width": 1584,
+      "output_height": 990,
+      "sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "PENDING"
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "PENDING"
+    },
+    {
+      "stage": "macos_material_restoration",
+      "status": "PENDING"
+    },
+    {
+      "stage": "macos_color_luminance_grade",
+      "status": "PENDING"
+    },
+    {
+      "stage": "downsample_to_4096x2560_master",
+      "status": "PENDING"
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "PENDING",
+      "wide_crop_anchor": "top"
+    }
+  ],
+  "master": {
+    "path": null,
+    "width": 4096,
+    "height": 2560,
+    "format": "PNG",
+    "color_profile": "sRGB target",
+    "sha256": null
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.world.hero",
+      "width": 2560,
+      "height": 1600,
+      "sha256": null,
+      "derivation": "full_frame_downsample_from_master"
+    },
+    {
+      "asset_name": "wom.art.world.hero.wide",
+      "width": 2400,
+      "height": 900,
+      "sha256": null,
+      "derivation": "top_aligned_crop_from_master"
+    }
+  ],
+  "qa_record": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json",
+  "copyright_note": "AI-assisted original artwork; no official commercial asset copying.",
+  "approved_at": null,
+  "art_direction_decision": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md",
+  "finishing_backlog": "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md"
+}

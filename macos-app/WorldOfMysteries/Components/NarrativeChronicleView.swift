@@ -56,22 +56,35 @@ public struct NarrativeChronicleView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            header
+        ZStack {
+            WOMArtworkView(
+                assetName: WOMWorldArtworkAsset.codexArchive.runtimeAssetName,
+                fallback: .asset(.codex),
+                fallbackTint: Color.Mystic.brassGoldMuted,
+                contentMode: .fill
+            )
+            .opacity(0.16)
+            .allowsHitTesting(false)
 
-            if content.isEmpty {
-                MysticEmptyState(
-                    systemIcon: "text.alignleft",
-                    title: "本章回尚无已提交叙事",
-                    message: "叙事只在 COMMIT 之后落库；条目为空即表示尚未产生已提交章回。",
-                    tone: .neutral
-                )
-            } else {
-                Text(content)
-                    .mysticNarrativeStyle()
+            WOMArtworkScrim(edge: .leading, strength: 0.92)
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                header
+
+                if content.isEmpty {
+                    MysticEmptyState(
+                        systemIcon: "text.alignleft",
+                        title: "本章回尚无已提交叙事",
+                        message: "叙事只在 COMMIT 之后落库；条目为空即表示尚未产生已提交章回。",
+                        tone: .neutral
+                    )
+                } else {
+                    Text(content)
+                        .mysticNarrativeStyle()
+                }
             }
+            .padding(DesignTokens.LayoutInsets.cardPadding)
         }
-        .padding(DesignTokens.LayoutInsets.cardPadding)
         .womCardChrome(
             tone: .card,
             texture: .sacredSlate,
