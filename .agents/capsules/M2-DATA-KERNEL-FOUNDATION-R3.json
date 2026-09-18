@@ -1,0 +1,123 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M2-DATA-KERNEL-FOUNDATION-R3",
+  "capsule_revision": 3,
+  "task_id": "M2-DATA-KERNEL-FOUNDATION",
+  "title": "Persist authoritative commits and recover isolated outbox projections",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T15:09:15.867923+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "36fdd9cd32a6edf05e94ca074cbc0dc0bc4683b2",
+    "target_sha": "36fdd9cd32a6edf05e94ca074cbc0dc0bc4683b2",
+    "context_snapshot": "sha256:c030fb3f9df0fb4e86e9896c4149d61fbe60766f2cc110399dce3cec28f937be"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "contracts/",
+      "docs/",
+      ".agents/",
+      ".hacf/",
+      "scripts/"
+    ],
+    "write": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/outbox.py",
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql",
+      "engine/tests/test_database_manager.py",
+      "engine/tests/test_outbox.py",
+      "docs/07_工程启动/M2_Data_Kernel_Foundation.md",
+      ".agents/capsules/M2-DATA-KERNEL-FOUNDATION.json",
+      ".agents/capsules/M2-DATA-KERNEL-FOUNDATION-R3.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "engine/infrastructure/ipc*",
+      "engine/infrastructure/audio/**",
+      "contracts/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "AGENTS.md",
+      "docs/03_工程规范/Data_Architecture_v1.0.md",
+      ".agents/skills/wom-data-steward/SKILL.md",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/outbox.py",
+      "engine/infrastructure/database_schema.py"
+    ],
+    "related_contracts": [
+      "contracts/schemas/world_event.schema.json",
+      "contracts/schemas/state_delta.schema.json",
+      "contracts/engineering/task_capsule.schema.json"
+    ],
+    "slice_strategy": "arbiter-reviewed-explicit-files",
+    "token_estimate": 1700,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 3 refreshes the validation base to the new main after the independent App icon change. The r2 contract is retired from the active capsule directory, with its original bytes preserved at fe83fdd in Git history; no published history or receipt is rewritten. All incoming App icon files remain byte-identical to main. Data implementation is unchanged from fe83fdd; SQLite production alignment remains #58."
+  },
+  "impact": {
+    "symbols": [
+      "DatabaseManager",
+      "DomainTransaction",
+      "OutboxProjector"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_database_manager.py",
+      "engine/tests/test_outbox.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Refs #46/#43. Limited infrastructure foundation only: four physically isolated SQLite roles, default production SQLite 3.53.4 pin, FULL/WAL, one bounded Domain Writer, atomic commit/event/outbox, idempotent replay, durable rebuildable event projection, disk/process crash evidence. No SQL exposed to AI/App; no Domain rules, IPC activation, gameplay, full episode finalization, branch lineage or user data migration. Preserve #55 independently. No merge authorization.",
+    "assertions": [
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-M2-DATA-KERNEL-FOUNDATION"
+}
