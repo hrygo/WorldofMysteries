@@ -6,13 +6,13 @@
   "title": "Deliver the finished World / Scene artwork set",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-18T23:43:33.084982+00:00",
-  "risk_class": "medium",
+  "created_at": "2026-09-18T23:50:57.229214+00:00",
+  "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "06f12486a4d9669b8f143c0bb64c5244bb1ba3d0",
+    "base_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
     "target_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
-    "context_snapshot": "sha256:f7ddaf3d940cde53680e65d3caa8224f03421e4e98cb0787ac29c02f73204cfc"
+    "context_snapshot": "sha256:100a7941cb72f7a17084d893fba0860cd547616d51e89d199caa2d54368ebebf"
   },
   "scope": {
     "read": [
