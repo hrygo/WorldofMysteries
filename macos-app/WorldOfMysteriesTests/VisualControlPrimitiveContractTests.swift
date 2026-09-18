@@ -70,6 +70,30 @@ struct VisualControlPrimitiveContractTests {
         #expect(primitives.contains("withAnimation(reduceMotion ? nil"))
     }
 
+    @Test("status and metric primitives expose non-color semantic fallbacks")
+    func statusAndMetricNonColorContract() throws {
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains("differentiationSystemIcon"))
+        #expect(primitives.contains("isPulsing && !reduceMotion && !differentiateWithoutColor"))
+        #expect(primitives.contains("dash: differentiateWithoutColor && isCritical ? [4, 2] : []"))
+        #expect(primitives.contains(".accessibilityLabel(label ??"))
+    }
+
+    @Test("legacy empty-state action reuses unified WOM button chrome")
+    func emptyStateActionUsesUnifiedButtonChrome() throws {
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains(".buttonStyle(WOMButtonStyle(emptyActionVariant))"))
+        #expect(primitives.contains("private var emptyActionVariant: WOMButtonVariant"))
+    }
+
+    @Test("adaptive segmented options keep compact native symbol rendering")
+    func segmentedPickerSymbolContract() throws {
+        let picker = try source("DesignSystem/WOMAdaptiveSegmentedPicker.swift")
+        #expect(picker.contains(".symbolRenderingMode(.monochrome)"))
+        #expect(picker.contains(".imageScale(.small)"))
+        #expect(picker.contains(".lineLimit(1)"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

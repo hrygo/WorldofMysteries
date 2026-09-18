@@ -57,6 +57,18 @@ public enum MysticTone: String, Sendable, CaseIterable {
         case .neutral: return "次要元数据"
         }
     }
+
+    /// Non-color fallback used when macOS asks the app to differentiate state without color.
+    public var differentiationSystemIcon: String {
+        switch self {
+        case .gold: return "star.fill"
+        case .teal: return "checkmark.circle.fill"
+        case .azure: return "info.circle.fill"
+        case .amber: return "exclamationmark.triangle.fill"
+        case .crimson: return "exclamationmark.octagon.fill"
+        case .neutral: return "minus.circle"
+        }
+    }
 }
 
 // MARK: - 状态徽章 (Badge)
@@ -204,6 +216,7 @@ public struct MysticBadge: View {
 
 /// 通用状态点：统一在线/预警/危险指示与呼吸微光
 public struct MysticStatusDot: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public let tone: MysticTone
@@ -227,17 +240,12 @@ public struct MysticStatusDot: View {
 
     public var body: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
-            Circle()
-                .fill(tone.accent)
-                .frame(width: diameter, height: diameter)
-                .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
-                .shadow(
-                    color: tone.accent.opacity(shouldPulse ? (pulsePhase ? 0.35 : 0.8) : 0.45),
-                    radius: shouldPulse ? (pulsePhase ? 6 : 3) : 2
-                )
-                .scaleEffect(shouldPulse && pulsePhase ? 1.12 : 1.0)
+            statusMark
                 .onAppear(perform: updatePulseState)
                 .onChange(of: reduceMotion) { _, _ in
+                    updatePulseState()
+                }
+                .onChange(of: differentiateWithoutColor) { _, _ in
                     updatePulseState()
                 }
 
@@ -250,8 +258,29 @@ public struct MysticStatusDot: View {
         .accessibilityLabel(label ?? tone.semanticLabel)
     }
 
+    @ViewBuilder
+    private var statusMark: some View {
+        if differentiateWithoutColor {
+            Image(systemName: tone.differentiationSystemIcon)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: max(11, diameter + 2), weight: .semibold))
+                .foregroundStyle(tone.readableForeground)
+                .frame(minWidth: max(14, diameter + 4), minHeight: max(14, diameter + 4))
+        } else {
+            Circle()
+                .fill(tone.accent)
+                .frame(width: diameter, height: diameter)
+                .overlay(Circle().stroke(Color.Mystic.textPrimary.opacity(0.28), lineWidth: 1))
+                .shadow(
+                    color: tone.accent.opacity(shouldPulse ? (pulsePhase ? 0.35 : 0.8) : 0.45),
+                    radius: shouldPulse ? (pulsePhase ? 6 : 3) : 2
+                )
+                .scaleEffect(shouldPulse && pulsePhase ? 1.12 : 1.0)
+        }
+    }
+
     private var shouldPulse: Bool {
-        isPulsing && !reduceMotion
+        isPulsing && !reduceMotion && !differentiateWithoutColor
     }
 
     private func updatePulseState() {
@@ -274,6 +303,7 @@ public struct MysticStatusDot: View {
 
 /// 通用计量条：统一灵性/理智/雾霾等读数的轨道、圆角、临界阈值提示
 public struct MysticMetricBar: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// 归一化取值 0...1
@@ -284,19 +314,22 @@ public struct MysticMetricBar: View {
     public let criticalThreshold: Double?
     /// 严重度渐变色阶（由低到高）；提供时优先于 `tone`，用于雾霾等连续恶化读数
     public let gradientTones: [MysticTone]
+    public let label: String?
 
     public init(
         value: Double,
         tone: MysticTone = .azure,
         height: CGFloat = 5,
         criticalThreshold: Double? = nil,
-        gradientTones: [MysticTone] = []
+        gradientTones: [MysticTone] = [],
+        label: String? = nil
     ) {
         self.value = value
         self.tone = tone
         self.height = height
         self.criticalThreshold = criticalThreshold
         self.gradientTones = gradientTones
+        self.label = label
     }
 
     private var isCritical: Bool {
@@ -325,7 +358,18 @@ public struct MysticMetricBar: View {
             }
         }
         .frame(height: height)
+        .overlay {
+            RoundedRectangle(cornerRadius: height / 2)
+                .stroke(
+                    isCritical ? resolvedTone.readableForeground.opacity(0.9) : Color.clear,
+                    style: StrokeStyle(
+                        lineWidth: DesignTokens.Borders.hairline,
+                        dash: differentiateWithoutColor && isCritical ? [4, 2] : []
+                    )
+                )
+        }
         .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: clampedValue)
+        .accessibilityLabel(label ?? "\(resolvedTone.semanticLabel)读数")
         .accessibilityValue("\(Int(clampedValue * 100))%")
     }
 
@@ -547,7 +591,8 @@ public struct MysticEmptyState: View {
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: systemIcon)
-                .font(.system(size: 22))
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(tone.readableForeground)
 
             Text(title)
@@ -563,27 +608,22 @@ public struct MysticEmptyState: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let actionTitle, let onAction {
-                Button(action: onAction) {
-                    Text(actionTitle)
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(tone.readableForeground)
-                        .padding(.horizontal, DesignTokens.Spacing.md)
-                        .padding(.vertical, DesignTokens.Spacing.xs)
-                        .background(
-                            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                                .fill(tone.accent.opacity(0.12))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm)
-                                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
-                        )
-                }
-                .mysticPressable()
-                .padding(.top, DesignTokens.Spacing.xxs)
+                Button(actionTitle, action: onAction)
+                    .buttonStyle(WOMButtonStyle(emptyActionVariant))
+                    .padding(.top, DesignTokens.Spacing.xxs)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(DesignTokens.LayoutInsets.cardPadding)
+    }
+
+    private var emptyActionVariant: WOMButtonVariant {
+        switch tone {
+        case .gold: .primary
+        case .azure: .ritual
+        case .crimson: .danger
+        case .teal, .amber, .neutral: .secondary
+        }
     }
 }
 

@@ -70,9 +70,17 @@ public struct WOMAdaptiveSegmentedPicker<Value: Hashable>: View {
     @ViewBuilder
     private func optionLabel(_ option: WOMSegmentedOption<Value>) -> some View {
         if let systemImage = option.systemImage {
-            Label(option.title, systemImage: systemImage)
+            Label {
+                Text(option.title)
+                    .lineLimit(1)
+            } icon: {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.monochrome)
+                    .imageScale(.small)
+            }
         } else {
             Text(option.title)
+                .lineLimit(1)
         }
     }
 }
