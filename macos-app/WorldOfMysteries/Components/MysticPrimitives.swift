@@ -315,7 +315,7 @@ public struct MysticMetricBar: View {
     public let height: CGFloat
     /// 临界阈值（低于该值转为猩红色警示），nil 表示不启用
     public let criticalThreshold: Double?
-    /// 严重度渐变色阶（由低到高）；提供时优先于 `tone`，用于雾霾等连续恶化读数
+    /// 严重度渐变色阶（由低到高）；正常读数优先于 `tone`，临界状态仍使用警示色。
     public let gradientTones: [MysticTone]
     public let label: String?
 
@@ -335,49 +335,58 @@ public struct MysticMetricBar: View {
         self.label = label
     }
 
-    private var isCritical: Bool {
-        guard let criticalThreshold else { return false }
-        return clampedValue < criticalThreshold
+    var reading: WOMMetricReading { WOMMetricReading(value) }
+
+    var isCritical: Bool { reading.isBelow(criticalThreshold) }
+
+    private var clampedValue: Double { reading.geometryFraction }
+
+    var resolvedTone: MysticTone {
+        guard reading.fraction != nil else { return .neutral }
+        return isCritical ? .crimson : tone
     }
 
-    private var clampedValue: Double {
-        min(max(value, 0), 1)
-    }
-
-    private var resolvedTone: MysticTone {
-        isCritical ? .crimson : tone
+    // A decorative gradient must never override an actual critical reading.
+    var usesGradient: Bool {
+        reading.fraction != nil && !isCritical && gradientTones.count >= 2
     }
 
     public var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height / 2)
-                    .fill(Color.black.opacity(0.4))
+                    .fill(Color.Mystic.shadowBase.opacity(0.4))
 
-                RoundedRectangle(cornerRadius: height / 2)
-                    .fill(fillStyle)
-                    .frame(width: geo.size.width * clampedValue)
-                    .shadow(color: resolvedTone.accent.opacity(0.5), radius: isCritical ? 5 : 2)
+                if reading.fraction != nil {
+                    RoundedRectangle(cornerRadius: height / 2)
+                        .fill(fillStyle)
+                        .frame(width: geo.size.width * clampedValue)
+                        .shadow(color: resolvedTone.accent.opacity(0.5), radius: isCritical ? 5 : 2)
+                }
             }
         }
         .frame(height: height)
         .overlay {
             RoundedRectangle(cornerRadius: height / 2)
                 .stroke(
-                    isCritical ? resolvedTone.readableForeground.opacity(0.9) : Color.clear,
-                    style: StrokeStyle(
-                        lineWidth: DesignTokens.Borders.hairline,
-                        dash: differentiateWithoutColor && isCritical ? [4, 2] : []
-                    )
+                    reading.fraction == nil
+                        ? Color.Mystic.textTertiary
+                        : (isCritical ? resolvedTone.readableForeground.opacity(0.9) : Color.clear),
+                    style: reading.fraction == nil
+                        ? StrokeStyle(lineWidth: DesignTokens.Borders.hairline, dash: [2, 2])
+                        : StrokeStyle(
+                            lineWidth: DesignTokens.Borders.hairline,
+                            dash: differentiateWithoutColor && isCritical ? [4, 2] : []
+                        )
                 )
         }
         .animation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation, value: clampedValue)
         .accessibilityLabel(label ?? "\(resolvedTone.semanticLabel)读数")
-        .accessibilityValue("\(Int(clampedValue * 100))%")
+        .accessibilityValue(reading.percentText)
     }
 
     private var fillStyle: AnyShapeStyle {
-        guard gradientTones.count >= 2 else {
+        guard usesGradient else {
             return AnyShapeStyle(resolvedTone.accent)
         }
         return AnyShapeStyle(

@@ -18,7 +18,7 @@ public nonisolated enum WOMSystemIcon: String, CaseIterable, Sendable {
     case settings = "gearshape"
     case sidebarCollapse = "sidebar.left"
     case sidebarExpand = "sidebar.right"
-    case advice = "feather.pointed.fill"
+    case advice = "text.bubble"
     case voiceAdvice = "waveform.badge.mic"
     case audioReplay = "speaker.wave.2.fill"
 }

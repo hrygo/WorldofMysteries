@@ -66,7 +66,6 @@ public struct AdviceInputField: View {
                     onVoiceTapped?()
                 } label: {
                     WOMIcon(system: .voiceAdvice, size: .compact)
-                        .foregroundStyle(Color.Mystic.brassGoldPrimary)
                 }
                 .buttonStyle(WOMIconButtonStyle(.secondary))
                 .disabled(onVoiceTapped == nil)
