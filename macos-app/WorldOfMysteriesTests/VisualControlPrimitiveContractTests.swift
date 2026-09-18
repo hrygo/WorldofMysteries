@@ -94,6 +94,25 @@ struct VisualControlPrimitiveContractTests {
         #expect(picker.contains(".lineLimit(1)"))
     }
 
+    @Test("advice input reuses unified button primitives and exposes focus semantics")
+    func adviceInputUsesUnifiedControls() throws {
+        let source = try source("Components/AdviceInputField.swift")
+        #expect(source.contains(".buttonStyle(WOMIconButtonStyle(.secondary))"))
+        #expect(source.contains(".buttonStyle(WOMButtonStyle(.primary))"))
+        #expect(source.contains(".disabled(isSubmitDisabled)"))
+        #expect(source.contains("inputBorderColor"))
+        #expect(source.contains("colorSchemeContrast == .increased"))
+        #expect(!source.contains(".mysticPressable("))
+    }
+
+    @Test("sidebar status meter reuses semantic status and metric primitives")
+    func sidebarStatusUsesSharedPrimitives() throws {
+        let source = try source("Components/AppSidebarView.swift")
+        #expect(source.contains("MysticStatusDot(tone: .teal"))
+        #expect(source.contains("MysticMetricBar("))
+        #expect(source.contains("label: \"灵性储备\""))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

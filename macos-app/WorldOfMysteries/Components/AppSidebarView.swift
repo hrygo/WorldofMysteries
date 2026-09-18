@@ -346,11 +346,7 @@ public struct AppSidebarView: View {
 
                         VStack(alignment: .leading, spacing: 1) {
                             HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.Mystic.statusOnline)
-                                    .frame(width: 5, height: 5)
-                                    .shadow(color: Color.Mystic.statusOnline.opacity(0.72), radius: 2)
-                                    .accessibilityHidden(true)
+                                MysticStatusDot(tone: .teal, diameter: 5)
 
                                 Text("克莱恩 · 占卜家")
                                     .font(Font.Mystic.caption)
@@ -434,23 +430,12 @@ public struct AppSidebarView: View {
                     .foregroundStyle(Color.Mystic.textSecondary)
             }
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.Mystic.obsidianCard)
-
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.Mystic.spiritualBlue, Color.Mystic.spiritualGlow],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: proxy.size.width * 0.85)
-                }
-            }
-            .frame(height: 3)
+            MysticMetricBar(
+                value: 0.85,
+                tone: .azure,
+                height: 3,
+                label: "灵性储备"
+            )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("灵性储备")
