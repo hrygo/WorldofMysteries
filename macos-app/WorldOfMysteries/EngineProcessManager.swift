@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(OSLog)
+import OSLog
+#endif
 #if canImport(Darwin)
 import Darwin
 #else
@@ -21,6 +24,29 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     public static func bundled(in bundle: Bundle = .main) throws -> Self {
         guard let resources = bundle.resourceURL else { throw EngineConnectionError.runtimeUnavailable }
         let root = resources.appendingPathComponent("LocalEngine", isDirectory: true)
+        // Validate the small signed manifest before starting code. Whole-tree integrity
+        // is enforced by package verification/code signing, not a costly launch-time hash scan.
+        guard root.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(
+            bundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path + "/") else {
+            throw EngineConnectionError.runtimeUnavailable
+        }
+        let manifestURL = root.appendingPathComponent("runtime-manifest.json")
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: manifestURL.path),
+              let size = attributes[.size] as? NSNumber, size.intValue <= 8 * 1024 * 1024,
+              let data = try? Data(contentsOf: manifestURL), data.count <= 8 * 1024 * 1024,
+              let manifest = try? JSONDecoder().decode(BundledRuntimeManifest.self, from: data),
+              manifest.formatVersion == 1, manifest.pythonVersion == "3.14.7",
+              manifest.architecture == "arm64", manifest.gilEnabled,
+              manifest.protocolVersion == "1.0", manifest.agentscopeVersion == "2.0.8" else {
+            throw EngineConnectionError.runtimeUnavailable
+        }
+        let resolvedRoot = root.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        for relative in ["bin/python3", "engine/infrastructure/ipc_server.py", "runtime-manifest.json"] {
+            guard root.appendingPathComponent(relative).resolvingSymlinksInPath()
+                .standardizedFileURL.path.hasPrefix(resolvedRoot) else {
+                throw EngineConnectionError.runtimeUnavailable
+            }
+        }
         let configuration = Self(executableURL: root.appendingPathComponent("bin/python3"),
                                  moduleDirectory: root.appendingPathComponent("engine", isDirectory: true))
         try configuration.validate()
@@ -37,6 +63,21 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     }
 }
 
+/// Packaging metadata is not a new wire protocol or proof of distribution approval.
+private nonisolated struct BundledRuntimeManifest: Decodable {
+    let formatVersion: Int
+    let pythonVersion: String
+    let architecture: String
+    let gilEnabled: Bool
+    let protocolVersion: String
+    let agentscopeVersion: String
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version", pythonVersion = "python_version"
+        case architecture, gilEnabled = "gil_enabled", protocolVersion = "protocol_version"
+        case agentscopeVersion = "agentscope_version"
+    }
+}
+
 /// Memory-only credential. Diagnostic descriptions deliberately redact it.
 public nonisolated struct EngineLaunchSession: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
     public let identifier: UUID
@@ -47,29 +88,50 @@ public nonisolated struct EngineLaunchSession: Sendable, CustomStringConvertible
     public var debugDescription: String { description }
 }
 
-private nonisolated struct EngineRuntimeLease: Sendable {
+nonisolated struct EngineRuntimeLease: Sendable {
     let directory: URL
     let device: UInt64
     let inode: UInt64
-    var socketPath: String { directory.appendingPathComponent("engine.sock").path }
+    // Endpoint names are private launch metadata, not persisted world identifiers.
+    // A compact name leaves room for sandbox container prefixes in Darwin sun_path.
+    static let socketName = "s"
+    var socketPath: String { directory.appendingPathComponent(Self.socketName).path }
+
+    /// Fixed stage identifiers and numeric diagnostics only: never log runtime paths,
+    /// payloads, environment variables or launch credentials.
+    private static func rejected(_ stage: String, code: Int32 = 0) -> EngineConnectionError {
+        #if canImport(OSLog)
+        Logger(subsystem: "dev.worldofmysteries", category: "EngineRuntime")
+            .error("Runtime setup rejected at \(stage, privacy: .public); code \(code)")
+        #endif
+        return .invalidConfiguration
+    }
 
     static func create(root explicitRoot: URL?) throws -> Self {
         let files = FileManager.default
         let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("WorldofMysteries/Runtime", isDirectory: true)
+        let component = "wom-" + UUID().uuidString.prefix(8)
+        func endpointBytes(in root: URL) -> Int {
+            root.appendingPathComponent(component, isDirectory: true)
+                .appendingPathComponent(Self.socketName).path.utf8.count
+        }
         var root = explicitRoot ?? support ?? files.temporaryDirectory
-        // Darwin sun_path is only 104 bytes. Sandbox Application Support paths may
-        // exceed that; ONLY ephemeral sockets may fall back to the app's private temp.
-        if explicitRoot == nil, root.path.utf8.count + 31 >= 104 { root = files.temporaryDirectory }
-        guard root.isFileURL else { throw EngineConnectionError.invalidConfiguration }
+        // Account for the actual UTF-8 endpoint, not an estimated path suffix.
+        // Only ephemeral sockets fall back to the app's own temporary directory;
+        // never redirect user data or escape to a shared/global /tmp namespace.
+        if explicitRoot == nil, endpointBytes(in: root) >= 104 { root = files.temporaryDirectory }
+        guard root.isFileURL else { throw rejected("non-file-root") }
         do { try files.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
-        catch { throw EngineConnectionError.invalidConfiguration }
-        let directory = root.appendingPathComponent("wom-" + UUID().uuidString.prefix(8), isDirectory: true)
-        guard directory.appendingPathComponent("engine.sock").path.utf8.count < 104,
-              mkdir(directory.path, 0o700) == 0 else { throw EngineConnectionError.invalidConfiguration }
+        catch { throw rejected("create-runtime-root", code: Int32(truncatingIfNeeded: (error as NSError).code)) }
+        let directory = root.appendingPathComponent(component, isDirectory: true)
+        let socketBytes = endpointBytes(in: root)
+        guard socketBytes < 104 else { throw rejected("socket-path-budget", code: Int32(socketBytes)) }
+        guard mkdir(directory.path, 0o700) == 0 else { throw rejected("create-private-directory", code: errno) }
         var info = stat()
-        guard lstat(directory.path, &info) == 0, (info.st_mode & 0o170000) == 0o040000,
-              info.st_uid == getuid(), (info.st_mode & 0o077) == 0 else { throw EngineConnectionError.invalidConfiguration }
+        guard lstat(directory.path, &info) == 0 else { throw rejected("inspect-private-directory", code: errno) }
+        guard (info.st_mode & 0o170000) == 0o040000, info.st_uid == getuid(),
+              (info.st_mode & 0o077) == 0 else { throw rejected("private-directory-identity") }
         return Self(directory: directory, device: UInt64(info.st_dev), inode: UInt64(info.st_ino))
     }
 
@@ -151,7 +213,7 @@ public actor EngineProcessManager {
             try input.fileHandleForWriting.close()
             child.executableURL = config.executableURL
             child.currentDirectoryURL = config.moduleDirectory
-            child.arguments = ["-E", "-s", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
+            child.arguments = ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
                                "--token-fd", "0", "--parent-pid", String(ProcessInfo.processInfo.processIdentifier)]
             child.environment = ProcessInfo.processInfo.environment.filter {
                 !$0.key.hasPrefix("PYTHON") && !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("LD_") && $0.key != "VIRTUAL_ENV"

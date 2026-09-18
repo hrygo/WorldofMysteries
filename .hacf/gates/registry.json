@@ -1,13 +1,19 @@
 {
   "$comment": "受保护门禁档案摘要表。本文件定义于受保护 main 分支；CI 以目标分支版本为权威校验 PR 内的 profile 文件。",
   "registry_version": 1,
-  "generated_at": "2026-09-17T05:45:00.696792+00:00",
+  "generated_at": "2026-09-18T11:45:21.341555+00:00",
   "profiles": {
     "AI_GATEWAY_P0": {
       "file": ".hacf/gates/ai_gateway_p0.json",
       "sha256": "afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
       "risk_class": "high",
       "description": "AGT-AI 网关门禁：架构适应度 + Proposal/上下文授权单测（网关测试落地前缺口将被显式记录）"
+    },
+    "BUNDLED_RUNTIME_P0": {
+      "file": ".hacf/gates/bundled_runtime_p0.json",
+      "sha256": "ce354aa1b8a4ebd189e3e0823be2caa0480456d82ff225456ffbca36500a128e",
+      "risk_class": "high",
+      "description": "Additive ad-hoc Release bundle, native dependencies, relocation and sandbox process probes; not Developer ID/notarization or GATE-PACKAGE acceptance"
     },
     "DATA_KERNEL_P0": {
       "file": ".hacf/gates/data_kernel_p0.json",

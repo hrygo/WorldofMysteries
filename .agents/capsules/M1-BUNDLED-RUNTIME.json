@@ -1,0 +1,108 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-BUNDLED-RUNTIME",
+  "capsule_revision": 1,
+  "task_id": "M1-BUNDLED-RUNTIME",
+  "title": "Bundle a pinned local engine and verify relocatable macOS packaging",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T11:45:20.037076+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b6874c9bc4b753c3321fcce1d4be65a1b5bde514",
+    "target_sha": "b6874c9bc4b753c3321fcce1d4be65a1b5bde514",
+    "context_snapshot": "sha256:07b7b615373eb7fe4f462e1fec963075bfb5a7f53ad9afa2a41f212bc5e06a49"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "engine/",
+      "scripts/",
+      "contracts/",
+      "docs/",
+      ".hacf/",
+      ".github/"
+    ],
+    "write": [
+      "macos-app/Packaging/python-runtime.lock.json",
+      "macos-app/Packaging/App.entitlements",
+      "macos-app/Packaging/Engine.entitlements",
+      "macos-app/WorldOfMysteries/EngineProcessManager.swift",
+      "macos-app/WorldOfMysteriesTests/BundledRuntimeTests.swift",
+      "scripts/bundle_engine.py",
+      "scripts/build_macos_package.py",
+      "scripts/packaging/EnginePackageProbe.swift",
+      "engine/tests/test_bundle_engine.py",
+      "engine/tests/test_macos_packaging.py",
+      ".hacf/gates/bundled_runtime_p0.json",
+      ".hacf/gates/registry.json",
+      ".github/workflows/bundled-engine.yml",
+      "docs/07_工程启动/M1_Bundled_Runtime_Implementation.md",
+      ".agents/capsules/M1-BUNDLED-RUNTIME.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "contracts/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml",
+      "macos-app/Package.swift",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj"
+    ],
+    "privileged_grants": [
+      ".hacf/gates/bundled_runtime_p0.json",
+      ".hacf/gates/registry.json",
+      ".github/workflows/bundled-engine.yml"
+    ]
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "M1-APP-ENGINE-SESSION"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9,
+      10,
+      12
+    ],
+    "instructions": "Refs #53/#45. Bundle pinned CPython 3.14.7 GIL arm64 and locked dependencies; preserve sandbox, user data and zero-configuration semantics. Exact scoped packaging grants; unchanged existing gates. Ad-hoc build and sandbox probes are not Developer ID/notarization or installed-user acceptance. Preserve evidence and do not merge.",
+    "assertions": [
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-12"
+    ]
+  }
+}
