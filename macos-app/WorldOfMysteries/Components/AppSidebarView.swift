@@ -17,6 +17,13 @@ public enum NavigationSection: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 模块交付状态：只有 `.available` 的入口会渲染真实工作区，
+/// 其余入口进入「模块蓝图」页，不再用一张空白占位卡假装功能已经存在。
+public enum NavigationAvailability: Sendable {
+    case available
+    case planned
+}
+
 /// 9 栏一级体验定义对齐 `docs/05_UI/UI_交互基线_v1.0.md` 与全新组件画廊。
 public enum NavigationItem: String, CaseIterable, Identifiable, Sendable {
     case world = "World"
@@ -88,6 +95,22 @@ public enum NavigationItem: String, CaseIterable, Identifiable, Sendable {
         case .settings: "9"
         }
     }
+
+    /// 模块交付状态（诚实表达：规划中的入口必须能被用户识别）。
+    public var availability: NavigationAvailability {
+        switch self {
+        case .world, .fate, .gallery, .settings: .available
+        case .character, .storyBook, .cards, .worldline, .notes: .planned
+        }
+    }
+
+    public var isPlanned: Bool { availability == .planned }
+
+    /// 是否承载常驻建议台（Advice Console）。
+    ///
+    /// 建议干预是「向某个人物提供 Advice」的语境行为，只在命运干预工作区成立；
+    /// 把它常驻在设置、画廊与规划中页面上会让界面脱离上下文，也会压缩可滚动视口。
+    public var showsAdviceConsole: Bool { self == .fate }
 }
 
 /// 高保真维多利亚暗金侧边栏菜单组件（支持折叠/展开、徽标系统、快捷键提示与灵性微状态卡片）。
@@ -95,6 +118,8 @@ public struct AppSidebarView: View {
     @Binding public var selection: NavigationItem
     @Binding public var isCollapsed: Bool
     public var badgeCounts: [NavigationItem: Int]
+    /// 人物／灵性锚点的唯一事实源；接入 Engine 后替换为真实 Domain 快照。
+    public var snapshot: DemoWorldSnapshot
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredItem: NavigationItem?
@@ -102,11 +127,13 @@ public struct AppSidebarView: View {
     public init(
         selection: Binding<NavigationItem>,
         isCollapsed: Binding<Bool> = .constant(false),
-        badgeCounts: [NavigationItem: Int] = [.fate: 2, .worldline: 1]
+        badgeCounts: [NavigationItem: Int] = [:],
+        snapshot: DemoWorldSnapshot = .current
     ) {
         self._selection = selection
         self._isCollapsed = isCollapsed
         self.badgeCounts = badgeCounts
+        self.snapshot = snapshot
     }
 
     public var body: some View {
@@ -256,7 +283,9 @@ public struct AppSidebarView: View {
                         .foregroundStyle(
                             isSelected
                                 ? Color.Mystic.brassGoldPrimary
-                                : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+                                : (isHovered
+                                    ? Color.Mystic.textPrimary
+                                    : (item.isPlanned ? Color.Mystic.textTertiary : Color.Mystic.textSecondary))
                         )
                         .frame(width: 20, height: 20)
 
@@ -277,7 +306,9 @@ public struct AppSidebarView: View {
                         .foregroundStyle(
                             isSelected
                                 ? Color.Mystic.textPrimary
-                                : (isHovered ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+                                : (isHovered
+                                    ? Color.Mystic.textPrimary
+                                    : (item.isPlanned ? Color.Mystic.textTertiary : Color.Mystic.textSecondary))
                         )
 
                     Spacer()
@@ -288,17 +319,35 @@ public struct AppSidebarView: View {
                             .foregroundStyle(Color.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.Mystic.crimsonStar.opacity(0.84)))
+                            .background(Capsule().fill(Color.Mystic.crimsonBadge))
                             .shadow(color: Color.Mystic.crimsonGlow, radius: 3)
                     }
 
-                    Text("⌘\(item.shortcutNumber)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(
-                            isSelected
-                                ? Color.Mystic.brassGoldPrimary
-                                : Color.Mystic.textTertiary
-                        )
+                    if item.isPlanned {
+                        Text("规划中")
+                            .font(Font.Mystic.caption)
+                            .foregroundStyle(Color.Mystic.textTertiary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.Mystic.obsidianCard)
+                                    .overlay(
+                                        Capsule().stroke(
+                                            Color.Mystic.brassGoldBorder.opacity(0.8),
+                                            lineWidth: DesignTokens.Borders.hairline
+                                        )
+                                    )
+                            )
+                    } else {
+                        Text("⌘\(item.shortcutNumber)")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(
+                                isSelected
+                                    ? Color.Mystic.brassGoldPrimary
+                                    : Color.Mystic.textTertiary
+                            )
+                    }
                 }
             }
             .padding(.horizontal, isCollapsed ? 12 : DesignTokens.Spacing.sm)
@@ -315,8 +364,8 @@ public struct AppSidebarView: View {
                         RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
                             .stroke(
                                 isSelected
-                                    ? Color.Mystic.brassGoldBorder.opacity(0.72)
-                                    : (isHovered ? Color.Mystic.brassGoldBorder.opacity(0.28) : Color.clear),
+                                    ? Color.Mystic.brassGoldBoundary
+                                    : (isHovered ? Color.Mystic.brassGoldBoundary.opacity(0.9) : Color.clear),
                                 lineWidth: DesignTokens.Borders.hairline
                             )
                     )
@@ -327,7 +376,11 @@ public struct AppSidebarView: View {
             hoveredItem = hovering ? item : nil
         }
         .accessibilityLabel(item.localizedTitle)
-        .accessibilityValue(count > 0 ? "\(count) 个未处理项目" : "")
+        .accessibilityValue(
+            item.isPlanned
+                ? "规划中，尚未开放"
+                : (count > 0 ? "\(count) 个未处理项目" : "")
+        )
         .help("\(item.localizedTitle) (⌘\(item.shortcutNumber))")
     }
 
@@ -348,7 +401,7 @@ public struct AppSidebarView: View {
                             HStack(spacing: 4) {
                                 MysticStatusDot(tone: .teal, diameter: 5)
 
-                                Text("克莱恩 · 占卜家")
+                                Text(snapshot.characterShortName)
                                     .font(Font.Mystic.caption)
                                     .fontWeight(.medium)
                                     .foregroundStyle(Color.Mystic.brassGoldPrimary)
@@ -357,7 +410,7 @@ public struct AppSidebarView: View {
 
                         Spacer()
 
-                        Text("Seq 9")
+                        Text(snapshot.sequenceBadge)
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundStyle(Color.Mystic.parchmentInkSecondary)
                             .padding(.horizontal, 4)
@@ -425,13 +478,13 @@ public struct AppSidebarView: View {
 
                 Spacer()
 
-                Text("85%")
+                Text(snapshot.spiritualityPercentText)
                     .font(Font.Mystic.monoBadge)
                     .foregroundStyle(Color.Mystic.textSecondary)
             }
 
             MysticMetricBar(
-                value: 0.85,
+                value: snapshot.spirituality,
                 tone: .azure,
                 height: 3,
                 label: "灵性储备"
@@ -439,7 +492,7 @@ public struct AppSidebarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("灵性储备")
-        .accessibilityValue("85%")
+        .accessibilityValue(snapshot.spiritualityPercentText)
     }
 
     private var collapsedPortrait: some View {
@@ -457,7 +510,7 @@ public struct AppSidebarView: View {
                 .frame(width: 28, height: 28)
 
             Circle()
-                .trim(from: 0, to: 0.85)
+                .trim(from: 0, to: snapshot.spirituality)
                 .stroke(Color.Mystic.spiritualBlue, lineWidth: 2)
                 .frame(width: 28, height: 28)
                 .rotationEffect(.degrees(-90))
@@ -469,8 +522,10 @@ public struct AppSidebarView: View {
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("克莱恩·莫雷蒂，占卜家序列 9，灵性 85%")
-        .help("克莱恩·莫雷蒂 (占卜家 Seq 9 · 灵性 85%)")
+        .accessibilityLabel(
+            "\(snapshot.characterName)，\(snapshot.sequenceDescription)，灵性 \(snapshot.spiritualityPercentText)"
+        )
+        .help("\(snapshot.characterName) (\(snapshot.sequenceDescription) · 灵性 \(snapshot.spiritualityPercentText))")
     }
 }
 

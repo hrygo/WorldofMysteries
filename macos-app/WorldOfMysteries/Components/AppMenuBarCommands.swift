@@ -30,7 +30,8 @@ public struct AppMenuBarCommands: Commands {
                     currentNavigation = item
                 } label: {
                     Label {
-                        Text(item.localizedTitle)
+                        // 规划中的入口在菜单里同样必须自曝状态，避免用户以为它是已完成功能。
+                        Text(item.isPlanned ? "\(item.localizedTitle)（规划中）" : item.localizedTitle)
                     } icon: {
                         WOMIcon(source: item.iconSource, size: .compact)
                     }

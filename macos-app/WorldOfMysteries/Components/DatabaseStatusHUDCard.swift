@@ -1,10 +1,12 @@
 import SwiftUI
 
-public enum DatabaseRole: String, Sendable {
+public enum DatabaseRole: String, Sendable, CaseIterable, Identifiable {
     case canon = "canon.db"
     case world = "world.db"
     case retrieval = "retrieval.db"
     case runtime = "runtime.db"
+
+    public var id: String { rawValue }
     
     public var roleDescription: String {
         switch self {
@@ -20,36 +22,73 @@ public enum DatabaseRole: String, Sendable {
     }
 }
 
+/// 四库探针状态。
+///
+/// 界面不允许在没有任何探针数据时显示「健康 + 体积」——那会让用户以为系统已经接入了数据内核。
+/// 未接入时一律表达为 `notProbed`，并显式说明原因。
+public enum DatabaseProbeStatus: Sendable, Equatable {
+    case notProbed
+    case measured(sizeText: String, isHealthy: Bool)
+
+    public var isProbed: Bool {
+        if case .measured = self { return true }
+        return false
+    }
+}
+
 /// 四库物理隔离健康状态卡片
 public struct DatabaseStatusHUDCard: View {
     public let role: DatabaseRole
-    public let isHealthy: Bool
-    public let sizeText: String
+    public let status: DatabaseProbeStatus
     public var onRebuildTapped: (@MainActor () -> Void)?
     
     public init(
         role: DatabaseRole,
-        isHealthy: Bool = true,
-        sizeText: String = "24.5 MB",
+        status: DatabaseProbeStatus = .notProbed,
         onRebuildTapped: (@MainActor () -> Void)? = nil
     ) {
         self.role = role
-        self.isHealthy = isHealthy
-        self.sizeText = sizeText
+        self.status = status
         self.onRebuildTapped = onRebuildTapped
+    }
+
+    private var isHealthy: Bool {
+        if case .measured(_, let isHealthy) = status { return isHealthy }
+        return false
+    }
+
+    private var statusTone: MysticTone {
+        switch status {
+        case .notProbed: .neutral
+        case .measured(_, let isHealthy): isHealthy ? .teal : .crimson
+        }
+    }
+
+    private var sizeText: String {
+        if case .measured(let sizeText, _) = status { return sizeText }
+        return "—"
     }
     
     public var body: some View {
         VictorianCard(style: .obsidianGlass, cornerRadius: DesignTokens.Radii.md) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 HStack {
-                    MysticStatusDot(tone: isHealthy ? .teal : .crimson, isPulsing: !isHealthy)
+                    MysticStatusDot(tone: statusTone, isPulsing: status.isProbed && !isHealthy)
                     
                     Text(role.rawValue)
                         .font(Font.Mystic.titleSmall)
                         .foregroundStyle(Color.Mystic.textGoldAccent)
                     
-                    Spacer()
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+
+                    if role.isRebuildable, status.isProbed, let onRebuildTapped {
+                        MysticIconButton(
+                            systemIcon: .refresh,
+                            tone: .teal,
+                            helpText: "retrieval.db 为异步投影，删除后可 100% 幂等重建",
+                            action: onRebuildTapped
+                        )
+                    }
                     
                     Text(sizeText)
                         .font(Font.Mystic.monoBadge)
@@ -59,19 +98,14 @@ public struct DatabaseStatusHUDCard: View {
                 Text(role.roleDescription)
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
-                
-                if role.isRebuildable {
-                    MysticIconButton(
-                        systemIcon: .refresh,
-                        title: "100% 幂等重建索引",
-                        tone: .teal,
-                        helpText: "retrieval.db 为异步投影，删除后可 100% 幂等重建",
-                        action: { onRebuildTapped?() }
-                    )
-                    .disabled(onRebuildTapped == nil)
-                    .padding(.top, DesignTokens.Spacing.xxs)
+                if !status.isProbed {
+                    Text("尚未接入 Local Engine 探针，容量与健康度暂不可知。")
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -80,10 +114,10 @@ public struct DatabaseStatusHUDCard: View {
     ZStack {
         Color.Mystic.obsidianBase.ignoresSafeArea()
         VStack(spacing: DesignTokens.Spacing.md) {
-            DatabaseStatusHUDCard(role: .canon, isHealthy: true, sizeText: "38.2 MB")
-            DatabaseStatusHUDCard(role: .world, isHealthy: true, sizeText: "14.6 MB")
-            DatabaseStatusHUDCard(role: .retrieval, isHealthy: true, sizeText: "52.1 MB")
-            DatabaseStatusHUDCard(role: .runtime, isHealthy: true, sizeText: "4.8 MB")
+            DatabaseStatusHUDCard(role: .canon)
+            DatabaseStatusHUDCard(role: .world)
+            DatabaseStatusHUDCard(role: .retrieval)
+            DatabaseStatusHUDCard(role: .runtime)
         }
         .padding(DesignTokens.Spacing.xl)
         .frame(width: 360)
