@@ -71,7 +71,12 @@ def png_container_size(data: bytes) -> tuple[int, int]:
 def validate_manifest(manifest: dict, registry_text: str | None = None) -> None:
     require(manifest.get("schema_version") == 1, "Unsupported manifest schema")
     sources = manifest["sources"]
-    require(len(sources) == 6, "This approved intake must contain six sources")
+    # Legacy manifests implicitly contain six sources. New intake revisions declare
+    # their approved count; this does not relax approval, identity or shipping checks.
+    expected_count = manifest.get("approved_source_count", 6)
+    require(type(expected_count) is int and 1 <= expected_count <= 24,
+            "Invalid approved source count")
+    require(len(sources) == expected_count, "Approved source count mismatch")
     ids, filenames, hashes = set(), set(), set()
     for source in sources:
         sid = source["source_id"]
@@ -102,11 +107,19 @@ def validate_manifest(manifest: dict, registry_text: str | None = None) -> None:
     for target in targets:
         require(target["shipping_approved"] is False, "Intake cannot approve shipping")
     roles = {s["source_id"]: s["role"] for s in sources}
-    allowed_roles = {"W1": "world_hero", "W3": "ritual_altar_candidate", "W4": "codex_archive_candidate"}
+    allowed_roles = {
+        "W1": "world_hero", "W2": "gray_fog_interpretation",
+        "W3": "ritual_altar_candidate", "W4": "codex_archive_candidate",
+        "W5": "fate_worldline_candidate", "W6": "artifact_vault_candidate",
+    }
     for target in worlds:
         if target["source_id"] is not None:
             require(roles[target["source_id"]] == allowed_roles.get(target["task_id"]),
                     "Source scene semantics do not match the runtime target")
+    for target in artifacts:
+        if target["source_id"] is not None:
+            require(roles[target["source_id"]] == "artifact_object:" + target["artifact_id"],
+                    "Source object semantics do not match the Artifact target")
     require(worlds[0]["wide_anchor"] == "top", "W1 must preserve the crimson moon")
     if registry_text is not None:
         registry = dict(re.findall(r'case\s+(\w+)\s*=\s*"(wom\.art\.[^"]+)"', registry_text))
@@ -175,7 +188,8 @@ def main() -> int:
         print(json.dumps({"operation": args.operation, "result": "SOURCE_INTAKE_OK",
                           "source_count": len(manifest["sources"]), "shipping_approved": False,
                           "pending_world_generation": [w["task_id"] for w in manifest["world_targets"] if w["source_id"] is None],
-                          "pending_artifact_generation": len(manifest["artifact_targets"])}, indent=2))
+                          "pending_artifact_generation": sum(a["source_id"] is None for a in manifest["artifact_targets"]),
+                          "pending_world_shipping": sum(not w["shipping_approved"] for w in manifest["world_targets"])}, indent=2))
         return 0
     except (ValueError, KeyError, TypeError, OSError) as error:
         parser.exit(1, f"Source intake failed: {error}\n")

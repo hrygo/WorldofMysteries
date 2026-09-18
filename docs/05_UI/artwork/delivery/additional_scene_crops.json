@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-18",
+  "records": [
+    {
+      "task_id": "W2",
+      "source_id": "S07_GRAY_FOG",
+      "source_sha256": "97a8bcee9d1254c5a2c5413e79d4900f5e28edd9def9be0cc95850acd8badda1",
+      "source_crop_exclusive": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_size": [
+        1584,
+        990
+      ],
+      "source_crop_sha256": "f75616e26045fc6c1d36b86420890608c44e4d3a3a195b44ebf8df8d05b179ae",
+      "proposed_wide_anchor": "top",
+      "source_preview_crop_exclusive": [
+        0,
+        0,
+        1584,
+        594
+      ],
+      "source_preview_sha256": "3cb8010138167cf75ec377ad78b80c1c905e7f0d9147ab7dbd03babc0aabd3f1",
+      "master_crop_exclusive": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "review_status": "CROP_PROPOSAL_NOT_RUNTIME_APPROVAL",
+      "production_master_exists": false,
+      "g5_runtime_approved": false
+    },
+    {
+      "task_id": "W5",
+      "source_id": "S08_FATE_WORLDLINE",
+      "source_sha256": "7d06fda3b369700ca073d3f3c45f0dbf6caa39948016f20711b485e7ab7f5bdc",
+      "source_crop_exclusive": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_size": [
+        1584,
+        990
+      ],
+      "source_crop_sha256": "d879b9423fd06306c5d463f3f0f242817d15120da9e6e27808510cee500b68b7",
+      "proposed_wide_anchor": "top",
+      "source_preview_crop_exclusive": [
+        0,
+        0,
+        1584,
+        594
+      ],
+      "source_preview_sha256": "0b087644bfc4ae51f6c47c04f247a98e85a296e7f0dcf32da1a684cbdb7475f0",
+      "master_crop_exclusive": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "review_status": "CROP_PROPOSAL_NOT_RUNTIME_APPROVAL",
+      "production_master_exists": false,
+      "g5_runtime_approved": false
+    },
+    {
+      "task_id": "W6",
+      "source_id": "S09_ARTIFACT_VAULT",
+      "source_sha256": "5091f10d10a3799faff12ffa78361693ad40060004731f1c723caf971815df2c",
+      "source_crop_exclusive": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_size": [
+        1584,
+        990
+      ],
+      "source_crop_sha256": "d6eef9e28960533a36787157542750411996e0e56263826849048f3aacc18ed9",
+      "proposed_wide_anchor": "center",
+      "source_preview_crop_exclusive": [
+        0,
+        198,
+        1584,
+        792
+      ],
+      "source_preview_sha256": "6a7c96b057539e5117390229cc56d0c8debd93da1249d30026b7e5a5a7959389",
+      "master_crop_exclusive": [
+        0,
+        512,
+        4096,
+        2048
+      ],
+      "review_status": "CROP_PROPOSAL_NOT_RUNTIME_APPROVAL",
+      "production_master_exists": false,
+      "g5_runtime_approved": false
+    }
+  ]
+}

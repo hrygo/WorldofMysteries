@@ -37,8 +37,9 @@ class IntakeTests(unittest.TestCase):
         registry = root / self.manifest["registry_path"]
         intake.validate_manifest(self.manifest, registry.read_text())
 
-    def test_world_gaps_remain_explicit(self):
-        self.assertEqual([w["task_id"] for w in self.manifest["world_targets"] if w["source_id"] is None], ["W2", "W5", "W6"])
+    def test_world_sources_are_bound_but_shipping_remains_pending(self):
+        self.assertEqual([w["task_id"] for w in self.manifest["world_targets"] if w["source_id"] is None], [])
+        self.assertTrue(all(not w["shipping_approved"] for w in self.manifest["world_targets"]))
 
     def test_approval_is_not_shipping(self):
         self.manifest["sources"][0]["shipping_approved"] = True
@@ -142,7 +143,7 @@ class IntakeTests(unittest.TestCase):
             self.fixture_bundle(source)
             intake.stage_sources(self.manifest, source, dest)
             self.assertTrue((dest / "INTAKE_COMPLETE.json").exists())
-            self.assertEqual(len(intake.verify_sources(self.manifest, dest)), 6)
+            self.assertEqual(len(intake.verify_sources(self.manifest, dest)), self.manifest["approved_source_count"])
             with self.assertRaises(ValueError):
                 intake.stage_sources(self.manifest, source, dest)
             self.assertTrue((dest / "INTAKE_COMPLETE.json").exists())
