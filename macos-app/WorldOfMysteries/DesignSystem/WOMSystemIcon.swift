@@ -13,6 +13,7 @@ public nonisolated enum WOMSystemIcon: String, CaseIterable, Sendable {
     case favorite = "star"
     case more = "ellipsis"
     case refresh = "arrow.triangle.2.circlepath"
+    case retry = "arrow.counterclockwise"
     case gallery = "square.grid.2x2"
     case settings = "gearshape"
     case sidebarCollapse = "sidebar.left"

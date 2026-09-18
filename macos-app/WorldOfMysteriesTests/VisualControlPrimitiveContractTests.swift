@@ -157,6 +157,23 @@ struct VisualControlPrimitiveContractTests {
         #expect(!source.contains(".onTapGesture"))
     }
 
+    @Test("tarot card does not expose a no-op action and has explicit focus semantics")
+    func tarotCardInteractionContract() throws {
+        let source = try source("Components/TarotCardView.swift")
+        #expect(source.contains("@FocusState private var isCardFocused"))
+        #expect(source.contains(".disabled(onCardTapped == nil)"))
+        #expect(source.contains("isCardFocused && onCardTapped != nil ? 1 : 0"))
+        #expect(source.contains(".accessibilityValue(stageText)"))
+    }
+
+    @Test("pendulum standard actions use typed system icon sources")
+    func pendulumTypedActionIconContract() throws {
+        #expect(WOMSystemIcon.retry.rawValue == "arrow.counterclockwise")
+        let source = try source("Components/SpiritPendulumView.swift")
+        #expect(source.contains("WOMIcon(status: .active"))
+        #expect(source.contains("WOMIcon(system: .retry"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

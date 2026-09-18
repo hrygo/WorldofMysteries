@@ -11,6 +11,8 @@ public enum CardDiscoveryStage: String, Sendable {
 
 /// 塔罗秘纹序列卡牌组件（对应原型 05 卡牌详情与 06 卡牌馆）
 public struct TarotCardView: View {
+    @FocusState private var isCardFocused: Bool
+
     public let pathwayName: String
     public let sequenceNumber: Int
     public let sequenceTitle: String
@@ -97,9 +99,22 @@ public struct TarotCardView: View {
                         lineWidth: DesignTokens.Borders.standard
                     )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous)
+                    .stroke(
+                        Color.Mystic.textGoldAccent,
+                        lineWidth: DesignTokens.Accessibility.focusRingWidth
+                    )
+                    .padding(-DesignTokens.Accessibility.focusRingOffset)
+                    .opacity(isCardFocused && onCardTapped != nil ? 1 : 0)
+            )
             .shadow(color: pathwayColor.opacity(stage == .established ? 0.25 : 0.05), radius: 8)
         }
         .mysticPressable(scale: 0.98)
+        .focused($isCardFocused)
+        .disabled(onCardTapped == nil)
+        .accessibilityLabel("\(pathwayName)，序列 \(sequenceNumber) \(stage == .unknown ? "未知" : sequenceTitle)")
+        .accessibilityValue(stageText)
     }
     
     private var stageText: String {
