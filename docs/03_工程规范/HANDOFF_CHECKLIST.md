@@ -3,7 +3,7 @@
 > 任何人类或 Agent 在提交分支合并或任务交接前，必须严格完成以下逐项自检：
 
 ## 1. 基础信息
-- **执行角色**: [AGT-ARB / AGT-DOM / AGT-DAT / AGT-AI / AGT-VOX / AGT-MAC / AGT-QA / HUMAN]
+- **执行角色**: [AGT-ARB / AGT-DOM / AGT-DATA / AGT-AI / AGT-VOICE / AGT-MAC / AGT-QA / HUMAN]
 - **关联里程碑**: [M0 - M10]
 - **所属工作流 (Workstream)**: [WS-CONTRACT / WS-DATA / WS-AI / WS-DOMAIN / WS-PACKAGING / WS-VOICE 等]
 
@@ -22,7 +22,7 @@
 ## 4. 本机极速门禁自测证据
 请在提交前执行并在 PR 中附带以下命令的成功输出：
 ```bash
-./scripts/gate_runner.sh
+bash scripts/gate_runner.sh
 ```
 - [ ] `check_architecture_fitness.py` PASS
 - [ ] Python `pytest` PASS (0 errors)

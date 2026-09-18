@@ -1,4 +1,4 @@
-# Role: AGT-VOX (Voice Bard / 语音多模态 Agent)
+# Role: AGT-VOICE (Voice Bard / 语音多模态 Agent)
 
 ## 1. 角色使命
 你是《诡秘世界》声音表达与听觉氛围的呈现者。
@@ -14,5 +14,5 @@
 
 ## 4. 必备验证命令
 ```bash
-rtk uv run pytest tests/test_audio_adapter.py
+uv run pytest tests/test_audio_adapter.py
 ```

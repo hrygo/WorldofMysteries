@@ -17,9 +17,9 @@ description: >-
 
 | 用户意图 / 问询 | 执行动作 | 底层事实依据 | 输出规范 |
 |:---|:---|:---|:---|
-| **“当前项目状态和进展”** | `rtk python3 scripts/project_status.py status` | `docs/PROJECT_STATE.json` (`current_phase`, `gates_health`) | 呈现当前运行阶段、已完成里程碑、质量门禁现状（AST/Python/Swift） |
-| **“下一步应该推进的方向”** | `rtk python3 scripts/project_status.py next` | `docs/PROJECT_STATE.json` (`critical_path`) | 呈现下一推进目标、科学依赖论证、硬性交付物列表与预定专精角色 |
-| **“下面应该给谁派发任务”** | `rtk python3 scripts/project_status.py dispatch` | `docs/PROJECT_STATE.json` (`critical_path.dispatch`) | 呈现目标角色代号、授权目录、禁触红线及一键切片/隔离启动命令 |
+| **“当前项目状态和进展”** | `python3 scripts/project_status.py status` | `docs/PROJECT_STATE.json` (`current_phase`, `gates_health`) | 呈现当前运行阶段、已完成里程碑、质量门禁现状（AST/Python/Swift） |
+| **“下一步应该推进的方向”** | `python3 scripts/project_status.py next` | `docs/PROJECT_STATE.json` (`critical_path`) | 呈现下一推进目标、科学依赖论证、硬性交付物列表与预定专精角色 |
+| **“下面应该给谁派发任务”** | `python3 scripts/project_status.py dispatch` | `docs/PROJECT_STATE.json` (`critical_path.dispatch`) | 呈现目标角色代号、授权目录、禁触红线及一键切片/隔离启动命令 |
 
 ---
 
@@ -31,9 +31,9 @@ description: >-
    在 `docs/PROJECT_STATE.json` 中将已完成的 Milestone 标记为 `COMPLETED`，更新 `completed_phases` 与关键路径指针；
 2. **运行全量回归验证**：
    ```bash
-   rtk bash scripts/gate_runner.sh
+   bash scripts/gate_runner.sh
    ```
 3. **核查态势输出**：
    ```bash
-   rtk python3 scripts/project_status.py status
+   python3 scripts/project_status.py status
    ```

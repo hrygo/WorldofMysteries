@@ -172,8 +172,8 @@
         ".hacf/**",
         ".github/**"
       ],
-      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M1-ENGINE-IPC --title \"实现独立 Local Engine UDS 服务与生命周期\"",
-      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m1-engine-ipc --role AGT-DATA --task-id M1-ENGINE-IPC"
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M1-ENGINE-IPC --title \"实现独立 Local Engine UDS 服务与生命周期\"",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/m1-engine-ipc --role AGT-DATA --task-id M1-ENGINE-IPC"
     }
   },
   "historical_gate_reports": [

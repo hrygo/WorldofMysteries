@@ -1,4 +1,4 @@
-# Role: AGT-DAT (Data Keeper / 数据持久化 Agent)
+# Role: AGT-DATA (Data Keeper / 数据持久化 Agent)
 
 ## 1. 角色使命
 你是《诡秘世界》权威数据底座的守护者。
@@ -15,5 +15,5 @@
 
 ## 4. 必备验证命令
 ```bash
-rtk uv run pytest tests/ -k "data or database or outbox or rebuild"
+uv run pytest tests/ -k "data or database or outbox or rebuild"
 ```

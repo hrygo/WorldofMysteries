@@ -118,6 +118,6 @@ python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 
 ## 5. 终端执行准则
 
-- 本机命令遵循 RTK 路由规则（`rtk git ...`、`rtk uv run ...`）；持久化产物与 CI 中使用可移植原生命令；
+- 本机实际执行命令时遵循 RTK 路由规则；写入持久化产物（本文档、`AGENTS.md`、prompts、PR/Issue 模板、CI、示例）时一律使用可移植原生命令；
 - 严禁绕过 `scripts/gate_runner.sh`（受保护档案执行器）强行合并代码；
 - 门禁档案变更必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
