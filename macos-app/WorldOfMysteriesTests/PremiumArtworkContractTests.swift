@@ -71,19 +71,23 @@ struct PremiumArtworkContractTests {
         #expect(fate.contains("fallback: .systemImage(descriptor.systemIcon)"))
     }
 
-    @Test("W1 executable image contract stays aligned with typed runtime registry")
+    @Test("W1 selected-source contract stays aligned with typed runtime registry")
     func w1ExecutableImageContractAlignment() throws {
         let data = try Data(contentsOf: w1ContractURL)
         let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
 
+        #expect(json["contract_version"] as? Int == 3)
         #expect(json["artwork_id"] as? String == "W1_WORLD_HERO")
-        #expect(json["status"] as? String == "LOCKED_FOR_PRODUCTION")
+        #expect(json["status"] as? String == "LOCKED_SELECTED_SOURCE_FINISHING_PENDING")
 
         let generation = try #require(json["generation"] as? [String: Any])
-        let contextGate = try #require(generation["context_gate"] as? [String: Any])
-        #expect(contextGate["id"] as? String == "G-CTX")
-        #expect(contextGate["required"] as? Bool == true)
-        #expect(contextGate["control_probe_required"] as? Bool == true)
+        #expect(generation["selected_source_locked"] as? Bool == true)
+        #expect(nonEmptyString(generation["generation_id"]))
+        #expect(generation["no_more_composition_regeneration_required"] as? Bool == true)
+        #expect(
+            generation["historical_v2_context_gate"] as? String
+                == "superseded_by_art_direction_v3"
+        )
 
         let master = try #require(json["production_master"] as? [String: Any])
         #expect(master["target_width"] as? Int == 4096)
@@ -104,12 +108,25 @@ struct PremiumArtworkContractTests {
         let runtime = try #require(byName[runtimeName])
         #expect(runtime["width"] as? Int == 2560)
         #expect(runtime["height"] as? Int == 1600)
-        #expect(runtime["derivation"] as? String == "deterministic_from_master")
+        #expect(runtime["derivation"] as? String == "full_frame_downsample_from_master")
 
         let wide = try #require(byName[wideName])
         #expect(wide["width"] as? Int == 2400)
         #expect(wide["height"] as? Int == 900)
-        #expect(wide["derivation"] as? String == "semantic_crop_from_master")
+        #expect(
+            wide["derivation"] as? String
+                == "top_aligned_4096x1536_crop_from_master_then_downsample"
+        )
+        #expect(wide["crop_anchor"] as? String == "top")
+
+        let composition = try #require(json["composition"] as? [String: Any])
+        let wideCrop = try #require(composition["wide_crop"] as? [String: Any])
+        #expect(wideCrop["vertical_anchor"] as? String == "top")
+        #expect(wideCrop["master_crop_pixels"] as? [Int] == [0, 0, 4096, 1536])
+
+        let crimsonMoon = try #require(json["crimson_moon"] as? [String: Any])
+        #expect(crimsonMoon["required"] as? Bool == true)
+        #expect(crimsonMoon["must_survive_runtime_wide_crop"] as? Bool == true)
     }
 
     @Test("shipping W1 assets require complete QA and provenance evidence")
