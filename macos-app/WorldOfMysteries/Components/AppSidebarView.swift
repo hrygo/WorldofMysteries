@@ -176,19 +176,11 @@ public struct AppSidebarView: View {
     @ViewBuilder
     private var headerSection: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
-            WOMIcon(
-                .seal,
-                size: .prominent,
+            WOMBrandMark(
+                size: 32,
                 accessibilityLabel: isCollapsed ? "诡秘世界" : nil
             )
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [Color.Mystic.brassGoldPrimary, Color.Mystic.brassGoldHover],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .shadow(color: Color.Mystic.brassGoldPrimary.opacity(0.32), radius: 5)
+            .shadow(color: Color.black.opacity(0.28), radius: 4, x: 0, y: 2)
 
             if !isCollapsed {
                 VStack(alignment: .leading, spacing: 1) {

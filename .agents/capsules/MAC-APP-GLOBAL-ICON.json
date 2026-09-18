@@ -1,0 +1,96 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-APP-GLOBAL-ICON",
+  "capsule_revision": 1,
+  "task_id": "MAC-APP-GLOBAL-ICON",
+  "title": "Establish the app icon and global brand mark",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-18T06:00:00Z",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
+    "target_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
+    "context_snapshot": "sha256:e500856ca9003c6963c67c537e040164b48a7fafe1db0943f8a2a7957e8fe47b"
+  },
+  "scope": {
+    "read": [
+      "docs/05_UI/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "write": [
+      "docs/05_UI/visual-assets/",
+      "macos-app/WorldOfMysteries/Assets.xcassets/",
+      "macos-app/WorldOfMysteries/DesignSystem/",
+      "macos-app/WorldOfMysteries/Components/",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/schemas/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": [
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "AGENTS.md",
+      "docs/05_UI/Visual_Asset_System_v1.0.md",
+      "docs/05_UI/visual-assets/README.md",
+      "macos-app/WorldOfMysteries/Components/AppSidebarView.swift",
+      "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "macos_app_identity_assets_and_presentation",
+    "token_estimate": 4500,
+    "max_core_tokens": 9000,
+    "expansion_policy": "arbiter_approved",
+    "note": "User selected the first generated identity concept. The Xcode project setting is explicitly granted because AppIcon binding cannot be completed correctly through Asset Catalog files alone."
+  },
+  "impact": {
+    "symbols": [
+      "WOMBrandAsset",
+      "WOMBrandMark",
+      "AppSidebarView"
+    ],
+    "contracts": [
+      "Visual Asset System"
+    ],
+    "tests": [
+      "Asset Catalog compilation",
+      "MACOS_APP_P0"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "assertions": [
+      "The macOS target explicitly binds AppIcon as its application icon.",
+      "The selected icon is represented in the Asset Catalog at standard macOS sizes.",
+      "The in-app global brand mark uses the same selected identity artwork.",
+      "No domain, IPC, engine, Canon, or database behavior changes."
+    ],
+    "instructions": "Integrate the user-approved first icon as the macOS application icon and global in-app identity. Preserve native macOS behavior and accessibility."
+  }
+}
