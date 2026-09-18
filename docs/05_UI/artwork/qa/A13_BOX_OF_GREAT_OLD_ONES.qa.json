@@ -1,0 +1,264 @@
+{
+  "artwork_id": "A13_BOX_OF_GREAT_OLD_ONES",
+  "artifact_id": "boxOfGreatOldOnes",
+  "asset_name": "wom.art.artifact.box-of-great-old-ones",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A13_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A13_BOX_OF_GREAT_OLD_ONES",
+    "sha256": "1709b8ce53e266164182d1b5baef08962c9146f41e2105cb413e81c377fdd278",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "c2e5867a-5883-498a-988f-a86011db6394"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "an ornate three-tiered box whose glazed panels hold small landscapes, adrift in a star field",
+      "secondary_read": "a container that displaces what it holds; each tier is a separate world rather than one decorated face",
+      "generic_fantasy_read": "bounded Victorian occult still life",
+      "typography_detected": false,
+      "dominant_subject": "three-tiered box",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING_CANON_REVIEW",
+      "notes": [
+        "Visual approval is not Canon verification. This object has no verified primary form claim recorded in docs/05_UI/artwork/delivery/canon_evidence.json, so G1 stays open until the Canon review is recorded."
+      ],
+      "coverage_limit": null,
+      "canon_consistency_note": null,
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "af881af09ea3c191f4b51f2aaf18229a78045a0e770908746b2b83107d448698"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the three tiers, the corner filigree and the star field sit inside the frame.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "The three tiers read as three separate stacked bodies at 100%; corner filigree, glazing frames and the small landscapes stay legible.",
+      "detail_note": "The glazed panels keep distinct horizons at 200% and the filigree keeps open gaps instead of filling in.",
+      "seam_note": "No tile seam in the star field or on the metal frame.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%.",
+      "structural_repetition_check": "No repeated filigree or star pattern from the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.box-of-great-old-ones.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.box-of-great-old-ones.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.box-of-great-old-ones.detail": "c3b607b66ceaea0c34368f2217e3bf2d655165ea1a812cc5d55b53c4e0c0d88b",
+        "wom.art.artifact.box-of-great-old-ones.thumbnail": "a348c7e0b98134046905464322dee81e17ee2db698ae0b844f210195bc7566d1"
+      },
+      "asset_names": [
+        "wom.art.artifact.box-of-great-old-ones.detail",
+        "wom.art.artifact.box-of-great-old-ones.thumbnail"
+      ],
+      "master_sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.box-of-great-old-ones.detail",
+            "payload": "wom.art.artifact.box-of-great-old-ones.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "c3b607b66ceaea0c34368f2217e3bf2d655165ea1a812cc5d55b53c4e0c0d88b",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.box-of-great-old-ones.thumbnail",
+            "payload": "wom.art.artifact.box-of-great-old-ones.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "a348c7e0b98134046905464322dee81e17ee2db698ae0b844f210195bc7566d1",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G1_canon_atmosphere",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A13",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "pixel_sha256": "00940b36104f8b5440929c2e73840cc32e6f3dc3cb1944454c2f6fafbef51c17",
+      "photometry": {
+        "mean_luminance_0_255": 50.18,
+        "luminance_p05_0_255": 1.85,
+        "luminance_p50_0_255": 34.08,
+        "luminance_p95_0_255": 154.47,
+        "shadow_clip_pct": 8.083,
+        "highlight_clip_pct": 0.195
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "af881af09ea3c191f4b51f2aaf18229a78045a0e770908746b2b83107d448698",
+      "photometry": {
+        "mean_luminance_0_255": 46.64,
+        "luminance_p05_0_255": 0.93,
+        "luminance_p50_0_255": 32.83,
+        "luminance_p95_0_255": 138.41,
+        "shadow_clip_pct": 7.885,
+        "highlight_clip_pct": 0.032
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.014,
+      "luminance_correlation": 0.9876,
+      "edge_structure_correlation": 0.9701,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.box-of-great-old-ones.detail",
+          "payload": "wom.art.artifact.box-of-great-old-ones.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "c3b607b66ceaea0c34368f2217e3bf2d655165ea1a812cc5d55b53c4e0c0d88b",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.box-of-great-old-ones.thumbnail",
+          "payload": "wom.art.artifact.box-of-great-old-ones.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "a348c7e0b98134046905464322dee81e17ee2db698ae0b844f210195bc7566d1",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

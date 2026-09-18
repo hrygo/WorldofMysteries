@@ -4,7 +4,7 @@
 
 This is an executable source-intake checkpoint for Premium Art A1–A3, not a shipping completion record. The primary task remains [the implementation plan](../../Premium_World_Art_Artifact_Implementation_Plan_v1.0.md), [production manifest](../Premium_Art_Production_Manifest_v1.md), and the existing typed artwork registry. W1's approved v3 direction remains authoritative for W1. The subsequent explicit source-direction decision for W2/W5/W6 is recorded in [the approval update](World_Scene_Approval_Update_2026-09-18.md); it does not assert literal Canon architecture or force a crimson-moon theme onto every Artifact.
 
-Intake revision 2 preserves **nine independently approved originals**. No montage, labels, captions, watermark, UI chrome or explanatory text may be baked into artwork. Meaning belongs in composition, material, light and spatial relationships. Source-level approval is not G3–G5 or Canon approval.
+Intake revision 2 preserves **nine independently approved originals**; revision 3 adds the **15 approved Artifact object originals** handed over in `WorldofMysteries_Artifact_Selected_Source_Pack`, so the manifest now declares 24 approved sources. The revision-3 approval record is [the Artifact source approval update](Artifact_Source_Approval_Update_2026-09-18.md). No montage, labels, captions, watermark, UI chrome or explanatory text may be baked into artwork. Meaning belongs in composition, material, light and spatial relationships. Source-level approval is not G3–G5 or Canon approval.
 
 ## Correct runtime mapping
 
@@ -17,7 +17,9 @@ Intake revision 2 preserves **nine independently approved originals**. No montag
 | W5 Fate / Worldline | S08 fate observation | Source locked; mapping/crop/runtime QA pending |
 | W6 Artifact Vault / Evidence Room | S09 containment vault | Source locked; mapping/crop/runtime QA pending |
 
-S02 street, S05 harbor and S06 alley remain supplemental environments, not substitutes for Gray Fog, Fate or Vault. There are nine approved sources, six assigned scene candidates, three supplemental environments and zero finalized shipping assets in this intake. Existing `crop_review.json` records W1/W3/W4 proposals; `additional_scene_crops.json` adds W2/W5/W6. No crop record is a runtime approval.
+S02 street, S05 harbor and S06 alley remain supplemental environments, not substitutes for Gray Fog, Fate or Vault. Revision 3 therefore holds 24 approved sources: nine scene sources (six assigned candidates and three supplemental environments) plus 15 Artifact objects bound one-to-one to the 15 `artifact_targets`. No source in this intake is a shipping approval. Existing `crop_review.json` records W1/W3/W4 proposals; `additional_scene_crops.json` adds W2/W5/W6. No crop record is a runtime approval.
+
+The Artifact objects have since reached the macOS finishing checkpoint without becoming shipping approvals: see [the Artifact object finishing pipeline](../Artifact_Finishing_Pipeline_v1.0.md) for the 2048×2048 Master, the same-Master `detail` / `thumbnail` derivatives, the Asset Catalog payloads and the per-object QA / provenance records.
 
 ## Ordered delivery
 

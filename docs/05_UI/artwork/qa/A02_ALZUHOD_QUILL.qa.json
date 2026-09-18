@@ -1,0 +1,305 @@
+{
+  "artwork_id": "A02_ALZUHOD_QUILL",
+  "artifact_id": "alzuhodQuill",
+  "asset_name": "wom.art.artifact.alzuhod-quill",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A02_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A02_ALZUHOD_QUILL",
+    "sha256": "dd6c4cd3f43375314b5108f4b292724fcec3394fe736282c5e8ec42f34567509",
+    "native_size": [
+      1222,
+      1287
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "0c444aa0-cec3-4eab-a7e9-261b3646da78"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PENDING_MACOS_FINISHING",
+      "primary_read": "a pale feather quill writing by itself above a celestial chart, an eye-shaped mount at its nib",
+      "secondary_read": "an instrument that writes and edits without an ink supply",
+      "generic_fantasy_read": "bounded Victorian occult still life with readable Latin-script lettering",
+      "typography_detected": true,
+      "dominant_subject": "feather quill",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone.",
+        "Baked readable typography was detected in the approved source, so G0 stays open rather than passing. Product policy is text-free art; this needs an explicit user/art-direction decision (accept or re-generate the source)."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": [
+        {
+          "location": "background book spines, lower-left of the frame",
+          "text": "THE FOOL",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        },
+        {
+          "location": "background book spine below the first",
+          "text": "HISTORY MYSTERIES",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        }
+      ]
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED",
+      "status_basis": "PRIMARY_EVIDENCE_PLUS_FINISHED_MASTER_CONSISTENCY",
+      "canon_claim": "The object looks like an ordinary quill and writes without an ink supply.",
+      "evidence": {
+        "source_type": "official_original_book",
+        "chapter": 19,
+        "chapter_title": "Sealed Artifacts",
+        "coverage": "VISIBLE_PASSAGE_VERIFIED"
+      },
+      "not_verified": [
+        "precise feather color",
+        "exact silhouette proportions",
+        "additional ornament"
+      ],
+      "canon_consistency_note": "The finished object reads as an ordinary-looking quill that writes without an ink supply, matching the verified primary form claim. The background lettering is unrelated to the object itself.",
+      "evidence_reference": "docs/05_UI/artwork/delivery/canon_evidence.json",
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1222,
+        1287
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        32,
+        1222,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1222,
+        "height": 1222,
+        "sha256": "bc1fb260273b26d5861862d58aca0f17551a2bce63f2943a769190e496da911b"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The 1222x1287 source is cropped to the largest centred square, removing 32px top and 33px bottom. The feather, its mount, the parchment and the chart all survive; nothing is stretched.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [
+        "baked_readable_text_on_background_book_spines"
+      ],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that.",
+        "Defects were recorded, so G3 stays open rather than passing."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [
+        {
+          "location": "background book spines, lower-left of the frame",
+          "text": "THE FOOL",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        },
+        {
+          "location": "background book spine below the first",
+          "text": "HISTORY MYSTERIES",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        }
+      ],
+      "readability_note": "Quill barb separation and the gold nib mount stay readable at 100%.",
+      "detail_note": "The nib mount keeps its engraved facets at 200% without a plastic sheen.",
+      "seam_note": "No tile seam on the parchment gradient or along the feather edge.",
+      "text_like_glyph_check": "Baked readable lettering is present on the background book spines. This is a real defect against the text-free artwork policy and is recorded rather than waived.",
+      "structural_repetition_check": "No repeated ornament pattern from the upscale.",
+      "status": "PENDING_MACOS_FINISHING"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.alzuhod-quill.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.alzuhod-quill.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.alzuhod-quill.detail": "368af4f5bd8ead2d999088bc092609c1ba7e13b5d9b15315b1813379eb43e3ed",
+        "wom.art.artifact.alzuhod-quill.thumbnail": "9f775e9657a4b841e0c5b653206c9a7fbc94bbb2724b88a8135d70b2848c055b"
+      },
+      "asset_names": [
+        "wom.art.artifact.alzuhod-quill.detail",
+        "wom.art.artifact.alzuhod-quill.thumbnail"
+      ],
+      "master_sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.alzuhod-quill.detail",
+            "payload": "wom.art.artifact.alzuhod-quill.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "368af4f5bd8ead2d999088bc092609c1ba7e13b5d9b15315b1813379eb43e3ed",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.alzuhod-quill.thumbnail",
+            "payload": "wom.art.artifact.alzuhod-quill.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "9f775e9657a4b841e0c5b653206c9a7fbc94bbb2724b88a8135d70b2848c055b",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G0_semantic",
+    "G3_structure",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A02",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "pixel_sha256": "627f9df0c3b997cf4858e752d97d7008958ade512e50a59569bae28f69ec04f2",
+      "photometry": {
+        "mean_luminance_0_255": 71.23,
+        "luminance_p05_0_255": 12.71,
+        "luminance_p50_0_255": 47.99,
+        "luminance_p95_0_255": 200.62,
+        "shadow_clip_pct": 0.039,
+        "highlight_clip_pct": 0.074
+      }
+    },
+    "approved_source_crop": {
+      "width": 1222,
+      "height": 1222,
+      "sha256": "bc1fb260273b26d5861862d58aca0f17551a2bce63f2943a769190e496da911b",
+      "photometry": {
+        "mean_luminance_0_255": 65.3,
+        "luminance_p05_0_255": 10.64,
+        "luminance_p50_0_255": 42.08,
+        "luminance_p95_0_255": 192.26,
+        "shadow_clip_pct": 0.058,
+        "highlight_clip_pct": 0.028
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 6.859,
+      "luminance_correlation": 0.9959,
+      "edge_structure_correlation": 0.9657,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.alzuhod-quill.detail",
+          "payload": "wom.art.artifact.alzuhod-quill.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "368af4f5bd8ead2d999088bc092609c1ba7e13b5d9b15315b1813379eb43e3ed",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.alzuhod-quill.thumbnail",
+          "payload": "wom.art.artifact.alzuhod-quill.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "9f775e9657a4b841e0c5b653206c9a7fbc94bbb2724b88a8135d70b2848c055b",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

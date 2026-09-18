@@ -1,0 +1,273 @@
+{
+  "artwork_id": "A01_ARRODES_MIRROR",
+  "artifact_id": "arrodesMirror",
+  "asset_name": "wom.art.artifact.arrodes",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A01_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A01_ARRODES_MIRROR",
+    "sha256": "3a76a388e8316e61147ccb60711f90e9f1c701f31489cd4c2a1aa908f5db4c5b",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "37bba72e-e184-4bb0-856e-6369baf853d1"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "an ornate silver hand mirror standing on a dark wooden table, its glass holding a rippling half-seen scene",
+      "secondary_read": "an occult instrument that watches; the reflection is not a plain reflection of the room",
+      "generic_fantasy_read": "bounded Victorian occult still life; not generic fantasy ornament",
+      "typography_detected": false,
+      "dominant_subject": "silver mirror",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED",
+      "status_basis": "PRIMARY_EVIDENCE_PLUS_FINISHED_MASTER_CONSISTENCY",
+      "canon_claim": "Arrodes is presented through a silver mirror that displays a scene.",
+      "evidence": {
+        "source_type": "official_original_book",
+        "chapter": 417,
+        "chapter_title": "Arrodes",
+        "coverage": "PUBLIC_PREVIEW_CLAIM_VERIFIED"
+      },
+      "not_verified": [
+        "eye-shaped side ornaments",
+        "reverse ornamentation",
+        "exact frame shape"
+      ],
+      "canon_consistency_note": "The finished object reads as a silver mirror that displays a scene, which is the only form claim verified from a primary page for this object.",
+      "evidence_reference": "docs/05_UI/artwork/delivery/canon_evidence.json",
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "737dfbb50e7fbde38bc44e5550609b34d0e88b41b7d0ee57a98bb88914aea921"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the mirror frame, stand and table edge all sit inside the frame with margin.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "Frame filigree, the cast scroll feet and the reflected window mullions stay individually readable at 100%; the glass ripple reads as a surface rather than as blur.",
+      "detail_note": "The mirror glass keeps its gradient at 200% and does not posterize into bands; highlight clipping stays inside the recorded budget.",
+      "seam_note": "No super-resolution tile seam, halo or staircase artefact along the frame rim or the glass edge.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%.",
+      "structural_repetition_check": "No repeated tile or foliage pattern introduced by the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.arrodes.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.arrodes.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.arrodes.detail": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+        "wom.art.artifact.arrodes.thumbnail": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19"
+      },
+      "asset_names": [
+        "wom.art.artifact.arrodes.detail",
+        "wom.art.artifact.arrodes.thumbnail"
+      ],
+      "master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.arrodes.detail",
+            "payload": "wom.art.artifact.arrodes.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.arrodes.thumbnail",
+            "payload": "wom.art.artifact.arrodes.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A01",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "pixel_sha256": "d096d028fc6a1671c22971eb481f37341ac1e2abcceed7b73c74f96485f5aa23",
+      "photometry": {
+        "mean_luminance_0_255": 61.73,
+        "luminance_p05_0_255": 19.49,
+        "luminance_p50_0_255": 43.14,
+        "luminance_p95_0_255": 175.17,
+        "shadow_clip_pct": 0.005,
+        "highlight_clip_pct": 0.125
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "737dfbb50e7fbde38bc44e5550609b34d0e88b41b7d0ee57a98bb88914aea921",
+      "photometry": {
+        "mean_luminance_0_255": 55.44,
+        "luminance_p05_0_255": 15.27,
+        "luminance_p50_0_255": 38.02,
+        "luminance_p95_0_255": 162.69,
+        "shadow_clip_pct": 0.003,
+        "highlight_clip_pct": 0.034
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 6.825,
+      "luminance_correlation": 0.9955,
+      "edge_structure_correlation": 0.9778,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.arrodes.detail",
+          "payload": "wom.art.artifact.arrodes.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.arrodes.thumbnail",
+          "payload": "wom.art.artifact.arrodes.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}
