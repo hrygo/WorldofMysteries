@@ -23,12 +23,63 @@ public nonisolated enum WOMWorkspaceMetrics: Sendable {
     public static let standardGap: CGFloat = DesignTokens.Spacing.lg
     public static let compactGap: CGFloat = DesignTokens.Spacing.md
     public static let fateAnchorWidth: CGFloat = 280
+    /// 命运页局势卷宗的理想宽度：与 280pt 锚点并列时仍能容纳 3-4 行中文段落。
+    public static let fateSituationIdealWidth: CGFloat = 460
+    /// 世界首页左栏（世界脉动 + 可观察事件）的理想宽度。
+    public static let worldPulseIdealWidth: CGFloat = 460
+    /// 世界首页右栏（廷根市档案 + 观察者询问）的理想宽度。
+    public static let worldDossierIdealWidth: CGFloat = 380
+}
+
+/// Three-band workspace column: status bar, scrolling main surface, persistent bottom bar.
+///
+/// Layout contract — every band declares an explicit width, and the middle band absorbs the
+/// remaining height. Without those constraints SwiftUI hugs the scroll surface to its content and
+/// stretches the flexible bar backgrounds across the whole column, so translucent panels end up
+/// painting over the main content (readability collapse). Keep this container as the only
+/// supported way to compose the app's workspace column.
+public struct WOMWorkspaceColumn<Top: View, Main: View, Bottom: View>: View {
+    private let top: Top
+    private let main: Main
+    private let bottom: Bottom
+
+    public init(
+        @ViewBuilder top: () -> Top,
+        @ViewBuilder main: () -> Main,
+        @ViewBuilder bottom: () -> Bottom
+    ) {
+        self.top = top()
+        self.main = main()
+        self.bottom = bottom()
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            top
+                .frame(maxWidth: .infinity)
+
+            main
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            bottom
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
 /// Reusable two-pane composition that preserves a clear horizontal hierarchy when space allows
 /// and falls back to a vertical stack instead of compressing readable content.
 public struct WOMAdaptivePair<Primary: View, Secondary: View>: View {
     public let trailingIdealWidth: CGFloat
+    /// 主栏的理想宽度。
+    ///
+    /// `ViewThatFits` 依据候选布局的**理想尺寸**决定取舍：若主栏内容（长段落）的理想宽度不被钉住，
+    /// 它的理想尺寸会等于整段文字不换行的宽度，于是双栏候选永远「放不下」，
+    /// 在默认 1180×760 与最小 960×640 下都会退化成纵向堆叠。
+    /// 因此主栏显式声明理想宽度，双栏在内容宽度 ≥ `primaryIdealWidth + trailingIdealWidth + spacing`
+    /// 时才会出现，更窄时仍按契约回退为纵向堆叠而不是压缩文字。
+    public let primaryIdealWidth: CGFloat
     public let spacing: CGFloat
 
     private let primary: Primary
@@ -36,11 +87,13 @@ public struct WOMAdaptivePair<Primary: View, Secondary: View>: View {
 
     public init(
         trailingIdealWidth: CGFloat,
+        primaryIdealWidth: CGFloat = 420,
         spacing: CGFloat = WOMWorkspaceMetrics.standardGap,
         @ViewBuilder primary: () -> Primary,
         @ViewBuilder secondary: () -> Secondary
     ) {
         self.trailingIdealWidth = trailingIdealWidth
+        self.primaryIdealWidth = primaryIdealWidth
         self.spacing = spacing
         self.primary = primary()
         self.secondary = secondary()
@@ -50,7 +103,12 @@ public struct WOMAdaptivePair<Primary: View, Secondary: View>: View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: spacing) {
                 primary
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        minWidth: 0,
+                        idealWidth: primaryIdealWidth,
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
 
                 secondary
                     .frame(width: trailingIdealWidth, alignment: .topLeading)
