@@ -9,7 +9,6 @@ import SwiftUI
 ///   连接状态来自 `AppState.connectionState`，二者都不在视图内另行编造。
 public struct ContentView: View {
     @Environment(AppState.self) private var appState
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Binding public var currentNavigation: NavigationItem
     @Binding public var isSidebarCollapsed: Bool
@@ -17,8 +16,6 @@ public struct ContentView: View {
     /// 示例世界快照：侧边栏、状态条与工作区共用同一份事实。
     private let snapshot = DemoWorldSnapshot.current
 
-    @State private var ringState: ListeningRingState = .idle
-    @State private var worldListeningState: ListeningRingState = .idle
     @State private var adviceDraft: String = ""
 
     public init(
@@ -101,6 +98,12 @@ public struct ContentView: View {
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let serviceStatus = appState.serviceStatusText {
+                Text(serviceStatus)
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            }
+
             if appState.isShowingDemoData {
                 demoDataChip
             }
@@ -116,7 +119,7 @@ public struct ContentView: View {
             .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal)
             .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical)
             .background(Capsule().fill(Color.Mystic.parchmentCard))
-            .accessibilityLabel("当前界面展示的是示例数据，尚未接入本地引擎")
+            .accessibilityLabel("当前界面展示的是示例数据，不是已读取的世界状态")
     }
 
     private var connectionStatusText: String {
@@ -124,22 +127,24 @@ public struct ContentView: View {
         case .idle: "本地引擎未连接 · 正在准备"
         case .connecting: "正在连接本地引擎…"
         case .scaffoldPreview: "本地引擎未接入 · 界面为示例数据"
-        case .ready: "本地引擎已就绪 · IPC 活跃"
+        case .unavailable: "此构建未包含本地引擎 · 界面为示例数据"
+        case .transportReady: "本地引擎已连接 · 世界功能尚未开放"
+        case .ready: "本地引擎已连接 · 世界功能可用"
         case .failed(let message): "本地引擎连接失败：\(message)"
         }
     }
 
     private var connectionStatusIcon: WOMStatusIcon {
         switch appState.connectionState {
-        case .ready: .success
-        case .idle, .connecting, .scaffoldPreview, .failed: .warning
+        case .ready, .transportReady: .success
+        case .idle, .connecting, .scaffoldPreview, .unavailable, .failed: .warning
         }
     }
 
     private var connectionStatusColor: Color {
         switch appState.connectionState {
-        case .ready: Color.Mystic.statusOnline
-        case .scaffoldPreview, .idle, .connecting: Color.Mystic.statusWarning
+        case .ready, .transportReady: Color.Mystic.statusOnline
+        case .scaffoldPreview, .unavailable, .idle, .connecting: Color.Mystic.statusWarning
         case .failed: Color.Mystic.statusDanger
         }
     }
@@ -185,26 +190,19 @@ public struct ContentView: View {
 
     private var persistentAdviceBar: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
+            // No live story/voice handler has been delivered yet. Keep the draft
+            // editable, but never consume it or animate a fabricated accepted turn.
             AdviceInputField(
                 text: $adviceDraft,
                 targetCharacter: snapshot.characterName,
-                onVoiceTapped: {
-                    withAnimation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring) {
-                        ringState = ringState == .idle ? .listening : .idle
-                    }
-                },
-                onSubmitAdvice: { _ in
-                    withAnimation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring) {
-                        ringState = .deciding
-                    }
-                }
+                onVoiceTapped: nil,
+                onSubmitAdvice: nil
             )
-
-            ListeningRingView(state: ringState) {
-                withAnimation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring) {
-                    ringState = ringState == .idle ? .listening : .idle
-                }
-            }
+            Text("建议与语音功能尚未开放，输入内容不会提交。")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+            ListeningRingView(state: .idle)
+                .disabled(true)
         }
         .padding(.horizontal, DesignTokens.Spacing.xl)
         .padding(.top, DesignTokens.Spacing.md)
@@ -444,17 +442,14 @@ public struct ContentView: View {
                     .font(Font.Mystic.titleSmall)
                     .foregroundStyle(Color.Mystic.brassGoldPrimary)
 
-                Text("向世界发问，而不是向某个人物下令；回答只会使用可公开的观察事实。")
+                Text("世界询问与语音功能尚未开放；当前仅展示观察界面示例。")
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                ListeningRingView(state: worldListeningState) {
-                    withAnimation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring) {
-                        worldListeningState = worldListeningState == .idle ? .listening : .idle
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                ListeningRingView(state: .idle)
+                    .disabled(true)
+                    .frame(maxWidth: .infinity)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -557,11 +552,11 @@ public struct ContentView: View {
 
             VictorianCard(style: .brassFramed) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                    Text("当前可用")
+                    Text("当前可查看")
                         .font(Font.Mystic.titleSmall)
                         .foregroundStyle(Color.Mystic.brassGoldPrimary)
 
-                    Text("命运干预、世界观察与系统设置已经可用；在相邻模块落地前，这些入口承载真实交互。")
+                    Text("命运干预与世界观察当前展示示例内容；系统连接状态来自实际探测，业务功能尚未开放。")
                         .font(Font.Mystic.bodyMedium)
                         .foregroundStyle(Color.Mystic.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -586,7 +581,7 @@ enum ModuleBlueprintCatalog {
         case .cards: "卡牌是世界认知与遭遇记录，不是抽卡系统。"
         case .worldline: "1349 正典主轴与显式登记的世界线分叉。"
         case .notes: "管理非凡侦探线索、调查证据与灵摆占卜。"
-        case .world, .fate, .gallery, .settings: "该模块已交付可用。"
+        case .world, .fate, .gallery, .settings: "可查看界面与组件示例，业务能力以实际引擎状态为准。"
         }
     }
 
