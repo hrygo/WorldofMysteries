@@ -67,3 +67,12 @@ def test_probe_clears_build_tools_from_environment(monkeypatch):
     env=package.minimal_environment()
     assert '/opt/' not in env['PATH'] and 'DYLD_LIBRARY_PATH' not in env
     assert env['PYTHONHOME'].startswith('/nonexistent-')
+
+
+def test_dependency_probe_uses_the_locked_sdk_message_api():
+    source = (ROOT/'scripts/bundle_engine.py').read_text()
+    assert 'agentscope.init(' not in source
+    assert 'from agentscope.message import UserMsg' in source
+    assert "get_text_content() == 'offline'" in source
+    signing = (ROOT/'scripts/build_macos_package.py').read_text()
+    assert "['otool', '-arch', 'arm64', '-L'" in signing

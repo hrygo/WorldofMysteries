@@ -54,7 +54,7 @@ def sign_bundle(app: Path, logs: Path) -> None:
     interpreter = (app/'Contents/Resources/LocalEngine/bin/python3').resolve(strict=True)
     binaries = macho_files(app)
     for index, binary in enumerate(binaries):
-        loads = run(['otool', '-L', str(binary)], cwd=ROOT, log=logs/f'loads-{index}.log')
+        loads = run(['otool', '-arch', 'arm64', '-L', str(binary)], cwd=ROOT, log=logs/f'loads-{index}.log')
         validate_load_paths(loads)
         # Wheels may be universal2, but every native dependency must contain arm64.
         archs = run(['lipo', '-archs', str(binary)], cwd=ROOT, log=logs/f'arch-{index}.log')

@@ -187,10 +187,11 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
             target = modules / Path(name).relative_to('engine')
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-        # Run dependency imports/AgentScope initialization outside the application bundle.
+        # Exercise the installed AgentScope 2.x message API without creating services or calling a model.
         code = """import agentscope,aiosqlite,pydantic,pydantic_core,openai,jsonschema,sqlite3,ssl,ctypes,sys,json
 from importlib.metadata import distributions,version
-agentscope.init(project='WorldofMysteriesPackaging',name='offline-probe')
+from agentscope.message import UserMsg
+assert UserMsg(name='packaging-probe',content='offline').get_text_content() == 'offline'
 assert version('agentscope') == '2.0.8'
 class Result(pydantic.BaseModel):
     ok: bool
