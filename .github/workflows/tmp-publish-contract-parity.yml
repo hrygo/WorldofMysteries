@@ -35,7 +35,10 @@ jobs:
           git diff --cached --check
       - name: Verify parity and architecture before publication
         run: |
-          PYTHONPATH=engine python3 -m pytest -q engine/tests/test_contracts_schema.py engine/tests/test_contracts_pydantic.py contracts/tests/test_roundtrip.py contracts/tests/test_ipc_contract.py
+          (
+            cd engine
+            PYTHONPATH=. uv run --locked --extra dev pytest -q tests/test_contracts_schema.py tests/test_contracts_pydantic.py ../contracts/tests/test_roundtrip.py ../contracts/tests/test_ipc_contract.py
+          )
           python3 scripts/check_architecture_fitness.py
       - name: Commit and publish feature branch
         run: |
