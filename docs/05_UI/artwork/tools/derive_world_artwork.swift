@@ -11,10 +11,17 @@ private struct DerivativeError: Error, CustomStringConvertible {
     let description: String
 }
 
+private enum VerticalAnchor: String {
+    case top
+    case center
+    case bottom
+}
+
 private struct Options {
     var input: URL?
     var runtimeOutput: URL?
     var wideOutput: URL?
+    var wideAnchor: VerticalAnchor = .center
     var selfTest = false
 }
 
@@ -33,6 +40,7 @@ private struct Report: Codable {
     let input: OutputRecord
     let runtime: OutputRecord
     let wide: OutputRecord
+    let wideAnchor: String
     let colorSpace: String
     let interpolation: String
 }
@@ -59,6 +67,14 @@ private func parseArguments() throws -> Options {
             default: break
             }
             index += 2
+        case "--wide-anchor":
+            guard index + 1 < args.count,
+                  let anchor = VerticalAnchor(rawValue: args[index + 1])
+            else {
+                throw DerivativeError(description: "--wide-anchor must be top, center or bottom")
+            }
+            options.wideAnchor = anchor
+            index += 2
         case "--help", "-h":
             printUsage()
             exit(0)
@@ -76,15 +92,17 @@ private func printUsage() {
       xcrun swift derive_world_artwork.swift \
         --input <4096x2560-master.png> \
         --runtime-output <runtime-2560x1600.png> \
-        --wide-output <wide-2400x900.png>
+        --wide-output <wide-2400x900.png> \
+        [--wide-anchor top|center|bottom]
 
       xcrun swift derive_world_artwork.swift --self-test
 
     Contract:
       - input must be exactly 4096x2560
       - runtime is a full-frame 2560x1600 sRGB PNG
-      - wide uses the full horizontal field and a centered 4096x1536 semantic-safe crop,
-        then downsamples to 2400x900
+      - wide uses the full horizontal field and a 4096x1536 crop, then downsamples
+        to 2400x900; vertical anchor defaults to center and may be top/bottom when the
+        Image Contract requires preserving an upper/lower identity-bearing subject
       - no generative operation occurs in this tool
     """)
 }
@@ -93,14 +111,21 @@ private func cropRect(
     sourceWidth: Int,
     sourceHeight: Int,
     targetWidth: Int,
-    targetHeight: Int
+    targetHeight: Int,
+    verticalAnchor: VerticalAnchor = .center
 ) -> CGRect {
     let sourceAspect = Double(sourceWidth) / Double(sourceHeight)
     let targetAspect = Double(targetWidth) / Double(targetHeight)
 
     if sourceAspect < targetAspect {
         let cropHeight = Double(sourceWidth) / targetAspect
-        let y = (Double(sourceHeight) - cropHeight) / 2
+        let remaining = Double(sourceHeight) - cropHeight
+        let y: Double
+        switch verticalAnchor {
+        case .top: y = 0
+        case .center: y = remaining / 2
+        case .bottom: y = remaining
+        }
         return CGRect(x: 0, y: y, width: Double(sourceWidth), height: cropHeight).integral
     }
 
@@ -127,6 +152,38 @@ private func selfTest() throws {
           Int(wide.height) == 1536
     else {
         throw DerivativeError(description: "16:10 -> 8:3 crop math regression: \(wide)")
+    }
+
+    let topWide = cropRect(
+        sourceWidth: 4096,
+        sourceHeight: 2560,
+        targetWidth: 2400,
+        targetHeight: 900,
+        verticalAnchor: .top
+    )
+
+    guard Int(topWide.origin.x) == 0,
+          Int(topWide.origin.y) == 0,
+          Int(topWide.width) == 4096,
+          Int(topWide.height) == 1536
+    else {
+        throw DerivativeError(description: "top-anchored 16:10 -> 8:3 crop regression: \(topWide)")
+    }
+
+    let bottomWide = cropRect(
+        sourceWidth: 4096,
+        sourceHeight: 2560,
+        targetWidth: 2400,
+        targetHeight: 900,
+        verticalAnchor: .bottom
+    )
+
+    guard Int(bottomWide.origin.x) == 0,
+          Int(bottomWide.origin.y) == 1024,
+          Int(bottomWide.width) == 4096,
+          Int(bottomWide.height) == 1536
+    else {
+        throw DerivativeError(description: "bottom-anchored 16:10 -> 8:3 crop regression: \(bottomWide)")
     }
 
     let sameAspect = cropRect(
@@ -271,7 +328,8 @@ private func run() throws {
         sourceWidth: master.width,
         sourceHeight: master.height,
         targetWidth: 2400,
-        targetHeight: 900
+        targetHeight: 900,
+        verticalAnchor: options.wideAnchor
     )
     let croppedWide = try cropped(master, rect: wideCrop)
     let wide = try resized(croppedWide, width: 2400, height: 900)
@@ -285,6 +343,7 @@ private func run() throws {
         ),
         runtime: try record(runtimeOutput, image: runtime),
         wide: try record(wideOutput, image: wide),
+        wideAnchor: options.wideAnchor.rawValue,
         colorSpace: "sRGB",
         interpolation: "CoreGraphics.high / sRGB destination context"
     )
