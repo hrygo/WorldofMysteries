@@ -124,11 +124,13 @@ struct VisualControlPrimitiveContractTests {
         #expect(primitives.contains("systemIcon: systemIcon.rawValue"))
     }
 
-    @Test("database rebuild action cannot appear enabled without a handler")
+    @Test("database rebuild action cannot appear enabled without a probe reading and a handler")
     func databaseRebuildAvailabilityContract() throws {
         let source = try source("Components/DatabaseStatusHUDCard.swift")
         #expect(source.contains("systemIcon: .refresh"))
-        #expect(source.contains(".disabled(onRebuildTapped == nil)"))
+        // 比「渲染后禁用」更强：未探明或缺少回调时，重建控件根本不进入视图树。
+        #expect(source.contains("if role.isRebuildable, status.isProbed, let onRebuildTapped"))
+        #expect(!source.contains(".disabled(onRebuildTapped == nil)"))
     }
 
     @Test("component gallery carries compact-control stress specimens")

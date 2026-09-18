@@ -408,7 +408,11 @@ struct DesignSystemTests {
         _ = CluePinboardNodeView(title: "线索", note: "说明").body
         _ = NarrativeChronicleView(role: .narrator, content: "旁白文本").body
         _ = NarrativeChronicleView(role: .narrator, content: "").body
-        _ = DatabaseStatusHUDCard(role: .retrieval, isHealthy: true).body
+        _ = DatabaseStatusHUDCard(role: .retrieval).body
+        _ = DatabaseStatusHUDCard(
+            role: .retrieval,
+            status: .measured(sizeText: "52.1 MB", isHealthy: true)
+        ).body
         _ = AdviceInputField(text: .constant("建议"), targetCharacter: "克莱恩").body
         _ = CitrinePendulumArtwork(swingAngle: 6, artworkImage: nil).body
     }

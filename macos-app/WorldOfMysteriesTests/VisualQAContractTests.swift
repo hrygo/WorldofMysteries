@@ -38,7 +38,14 @@ struct VisualQAContractTests {
         #expect(!sidebar.contains(".font(.system(size: 9"))
         #expect(!sidebar.contains("Color.Mystic.textTertiary.opacity(0.6)"))
         #expect(sidebar.contains("Text(\"World of Mysteries\")\n                        .font(Font.Mystic.caption)"))
-        #expect(sidebar.contains("Text(\"85%\")\n                    .font(Font.Mystic.monoBadge)"))
+        // 灵性读数必须来自单一事实源快照，而不是视图内写死的字面量。
+        #expect(
+            sidebar.contains(
+                "Text(snapshot.spiritualityPercentText)\n                    .font(Font.Mystic.monoBadge)"
+            )
+        )
+        #expect(!sidebar.contains("Text(\"85%\")"))
+        #expect(!sidebar.contains("Text(\"Seq 9\")"))
     }
 
     @Test("content-heavy historical cards keep responsive fallback layouts")

@@ -16,10 +16,16 @@ struct VisualContrastContractTests {
             ("textSecondary", "obsidianCard", 7.0),
             ("textSecondary", "deepVoid", 4.5),
             ("textTertiary", "obsidianBase", 4.5),
-            ("textTertiary", "obsidianCard", 4.5),
+            // 10-11pt 元数据（快捷键提示、容量、时间戳）大量落在卡片面上，底线从 AA 提到 6:1。
+            ("textTertiary", "obsidianCard", 6.0),
             ("textGoldAccent", "obsidianCard", 7.0),
             ("textGoldAccent", "deepVoid", 7.0),
             ("brassGoldPrimary", "obsidianCard", 7.0),
+            // 元数据金色同样承担小字号文本，不再停留在「贴线通过」。
+            ("brassGoldMuted", "obsidianCard", 5.0),
+            // 可辨识边界（输入框轮廓、hover/选中描边）必须满足 1.4.11 的 3:1。
+            ("brassGoldBoundary", "obsidianBase", 3.0),
+            ("brassGoldBoundary", "obsidianCard", 3.0),
             ("spiritualBlue", "obsidianCard", 4.5),
             ("statusOnline", "obsidianCard", 4.5),
             ("statusWarning", "obsidianCard", 4.5),
@@ -59,6 +65,25 @@ struct VisualContrastContractTests {
         let background = try color(named: "crimsonThread", in: source)
 
         #expect(contrastRatio(foreground, background) >= 4.5)
+    }
+
+    @Test("count badge keeps white numerals readable on its own fill")
+    func countBadgePair() throws {
+        let source = try file("macos-app/WorldOfMysteries/DesignSystem/DesignTokens.swift")
+        let badgeFill = try color(named: "crimsonBadge", in: source)
+        // 徽标是 10pt 白字，必须用自己的实底承载，禁止直接用装饰性的 crimsonStar。
+        #expect(
+            contrastRatio(RGB(red: 1, green: 1, blue: 1), badgeFill) >= 4.5,
+            "crimsonBadge must carry white numerals at AA or better"
+        )
+    }
+
+    @Test("sidebar count badge uses the dedicated readable fill")
+    func sidebarBadgeUsesReadableFill() throws {
+        let sidebar = try source("macos-app/WorldOfMysteries/Components/AppSidebarView.swift")
+
+        #expect(sidebar.contains("Color.Mystic.crimsonBadge"))
+        #expect(!sidebar.contains("Capsule().fill(Color.Mystic.crimsonStar"))
     }
 
     @Test("parchment hierarchy keeps readable primary secondary and tertiary ink")
@@ -141,6 +166,10 @@ struct VisualContrastContractTests {
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
             encoding: .utf8
         )
+    }
+
+    private func source(_ relativePath: String) throws -> String {
+        try file(relativePath)
     }
 
     private var repositoryRoot: URL {
