@@ -27,7 +27,8 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = afdad649e07be3b01f54f1f53ba9a6651cda2d5f
           git checkout -B fix/domain-schema-parity origin/main
-          base64 --decode "$RUNNER_TEMP/patch.b64" | gunzip > "$RUNNER_TEMP/contract-parity.patch"
+          /usr/bin/base64 -D -i "$RUNNER_TEMP/patch.b64" -o "$RUNNER_TEMP/patch.gz"
+          gunzip -c "$RUNNER_TEMP/patch.gz" > "$RUNNER_TEMP/contract-parity.patch"
           git apply --index --check "$RUNNER_TEMP/contract-parity.patch"
           git apply --index "$RUNNER_TEMP/contract-parity.patch"
           test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = 3
