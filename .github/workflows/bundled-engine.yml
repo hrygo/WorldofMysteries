@@ -1,0 +1,80 @@
+name: Bundled Engine Engineering Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'macos-app/**'
+      - 'engine/**'
+      - 'scripts/bundle_engine.py'
+      - 'scripts/build_macos_package.py'
+      - 'scripts/packaging/**'
+      - '.hacf/gates/**'
+      - '.github/workflows/bundled-engine.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  package:
+    name: Relocatable sandboxed arm64 package
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Check target and protected registry
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_HEAD"
+          test "$(uname -m)" = arm64
+          sudo xcode-select -s /Applications/Xcode.app
+          python3 scripts/gate_profile.py check
+          mkdir -p .hacf/tmp/package-gate
+      - name: Execute additive packaging profile
+        run: |
+          python3 scripts/gate_profile.py run --profile BUNDLED_RUNTIME_P0 \
+            --log-dir .hacf/tmp/package-gate \
+            --json-out .hacf/tmp/package-gate/result.json
+      - name: Upload engineering package
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: WorldofMysteries-arm64-development-${{ env.SOURCE_HEAD }}
+          path: .hacf/artifacts/bundled-runtime/WorldofMysteries-arm64-development.zip
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload raw packaging evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundled-runtime-evidence-${{ env.SOURCE_HEAD }}
+          path: |
+            .hacf/artifacts/bundled-runtime/logs/
+            .hacf/artifacts/bundled-runtime/*manifest.json
+            .hacf/artifacts/bundled-runtime/package-evidence.json
+            .hacf/tmp/package-gate/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

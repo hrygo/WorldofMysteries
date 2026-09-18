@@ -1,0 +1,25 @@
+{
+  "gate_profile_id": "BUNDLED_RUNTIME_P0",
+  "description": "Additive ad-hoc Release bundle, native dependencies, relocation and sandbox process probes; not Developer ID/notarization or GATE-PACKAGE acceptance",
+  "risk_class": "high",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Bundled arm64 runtime engineering spike",
+      "cwd": ".",
+      "command": [
+        "python3",
+        "scripts/build_macos_package.py",
+        "--output",
+        ".hacf/artifacts/bundled-runtime"
+      ],
+      "expects": [
+        "scripts/build_macos_package.py",
+        "scripts/bundle_engine.py",
+        "scripts/packaging/EnginePackageProbe.swift",
+        "macos-app/Packaging/python-runtime.lock.json",
+        "engine/uv.lock"
+      ]
+    }
+  ]
+}

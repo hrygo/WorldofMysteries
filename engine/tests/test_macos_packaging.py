@@ -1,0 +1,69 @@
+"""Packaging checks supplement, never replace, existing FULL_P0 checks."""
+import json
+from pathlib import Path
+import plistlib
+import sys
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT/'scripts'))
+import build_macos_package as package
+
+
+@pytest.mark.parametrize('dependency',['@rpath/libpython3.14.dylib','@loader_path/../lib/libpython.dylib',
+    '@executable_path/../lib/libpython.dylib','/usr/lib/libSystem.B.dylib',
+    '/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation'])
+def test_only_relocatable_or_os_libraries_accepted(dependency):
+    package.validate_load_paths('binary:\n\t'+dependency+' (compatibility version 1.0.0)\n')
+
+
+@pytest.mark.parametrize('dependency',['/opt/homebrew/lib/python.dylib','/Library/Frameworks/Python.framework/Python',
+    '/tmp/build/libpython.dylib','../some/library.dylib','libpython.dylib'])
+def test_host_specific_dependencies_rejected(dependency):
+    with pytest.raises(package.BundleError): package.validate_load_paths('binary:\n\t'+dependency+' (compatibility version 1.0)\n')
+
+
+def test_macho_detection_ignores_symlinks(tmp_path):
+    (tmp_path/'exe').write_bytes(b'\xcf\xfa\xed\xfecontents')
+    (tmp_path/'data').write_text('not a binary')
+    (tmp_path/'link').symlink_to('exe')
+    assert package.macho_files(tmp_path) == [tmp_path/'exe']
+
+
+def test_entitlements_preserve_sandbox_and_do_not_disable_validation():
+    app=plistlib.loads((ROOT/'macos-app/Packaging/App.entitlements').read_bytes())
+    engine=plistlib.loads((ROOT/'macos-app/Packaging/Engine.entitlements').read_bytes())
+    assert app == {'com.apple.security.app-sandbox':True,'com.apple.security.network.client':True,
+                   'com.apple.security.files.user-selected.read-only':True}
+    assert engine == {'com.apple.security.app-sandbox':True,'com.apple.security.inherit':True}
+
+
+def test_runtime_launch_does_not_write_bytecode_or_use_host_environment():
+    source=(ROOT/'macos-app/WorldOfMysteries/EngineProcessManager.swift').read_text()
+    assert '["-E", "-s", "-B", "-X", "utf8", "-m"' in source
+    assert 'runtime-manifest.json' in source
+    assert '.resolvingSymlinksInPath()' in source
+
+
+def test_additive_packaging_gate_and_full_gate_are_separate():
+    full=json.loads((ROOT/'.hacf/gates/full_p0.json').read_text())
+    additional=json.loads((ROOT/'.hacf/gates/bundled_runtime_p0.json').read_text())
+    assert len(full['stages']) == 4
+    assert additional['gate_profile_id'] == 'BUNDLED_RUNTIME_P0'
+    assert additional['stages'][0]['command'] == ['python3','scripts/build_macos_package.py','--output','.hacf/artifacts/bundled-runtime']
+    assert 'not Developer ID' in additional['description']
+
+
+def test_non_macos_build_cannot_touch_output(tmp_path,monkeypatch):
+    monkeypatch.setattr(package.sys,'platform','linux')
+    with pytest.raises(package.BundleError): package.build(tmp_path/'out')
+    assert not (tmp_path/'out').exists()
+
+
+def test_probe_clears_build_tools_from_environment(monkeypatch):
+    monkeypatch.setenv('PATH','/opt/developer/bin')
+    monkeypatch.setenv('DYLD_LIBRARY_PATH','/bad-libraries')
+    env=package.minimal_environment()
+    assert '/opt/' not in env['PATH'] and 'DYLD_LIBRARY_PATH' not in env
+    assert env['PYTHONHOME'].startswith('/nonexistent-')

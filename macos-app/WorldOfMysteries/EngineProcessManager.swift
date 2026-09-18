@@ -21,6 +21,29 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     public static func bundled(in bundle: Bundle = .main) throws -> Self {
         guard let resources = bundle.resourceURL else { throw EngineConnectionError.runtimeUnavailable }
         let root = resources.appendingPathComponent("LocalEngine", isDirectory: true)
+        // Validate the small signed manifest before starting code. Whole-tree integrity
+        // is enforced by package verification/code signing, not a costly launch-time hash scan.
+        guard root.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(
+            bundle.bundleURL.resolvingSymlinksInPath().standardizedFileURL.path + "/") else {
+            throw EngineConnectionError.runtimeUnavailable
+        }
+        let manifestURL = root.appendingPathComponent("runtime-manifest.json")
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: manifestURL.path),
+              let size = attributes[.size] as? NSNumber, size.intValue <= 8 * 1024 * 1024,
+              let data = try? Data(contentsOf: manifestURL), data.count <= 8 * 1024 * 1024,
+              let manifest = try? JSONDecoder().decode(BundledRuntimeManifest.self, from: data),
+              manifest.formatVersion == 1, manifest.pythonVersion == "3.14.7",
+              manifest.architecture == "arm64", manifest.gilEnabled,
+              manifest.protocolVersion == "1.0", manifest.agentscopeVersion == "2.0.8" else {
+            throw EngineConnectionError.runtimeUnavailable
+        }
+        let resolvedRoot = root.resolvingSymlinksInPath().standardizedFileURL.path + "/"
+        for relative in ["bin/python3", "engine/infrastructure/ipc_server.py", "runtime-manifest.json"] {
+            guard root.appendingPathComponent(relative).resolvingSymlinksInPath()
+                .standardizedFileURL.path.hasPrefix(resolvedRoot) else {
+                throw EngineConnectionError.runtimeUnavailable
+            }
+        }
         let configuration = Self(executableURL: root.appendingPathComponent("bin/python3"),
                                  moduleDirectory: root.appendingPathComponent("engine", isDirectory: true))
         try configuration.validate()
@@ -34,6 +57,21 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
               files.fileExists(atPath: moduleDirectory.appendingPathComponent("infrastructure/ipc_server.py").path) else {
             throw EngineConnectionError.runtimeUnavailable
         }
+    }
+}
+
+/// Packaging metadata is not a new wire protocol or proof of distribution approval.
+private nonisolated struct BundledRuntimeManifest: Decodable {
+    let formatVersion: Int
+    let pythonVersion: String
+    let architecture: String
+    let gilEnabled: Bool
+    let protocolVersion: String
+    let agentscopeVersion: String
+    enum CodingKeys: String, CodingKey {
+        case formatVersion = "format_version", pythonVersion = "python_version"
+        case architecture, gilEnabled = "gil_enabled", protocolVersion = "protocol_version"
+        case agentscopeVersion = "agentscope_version"
     }
 }
 
@@ -151,7 +189,7 @@ public actor EngineProcessManager {
             try input.fileHandleForWriting.close()
             child.executableURL = config.executableURL
             child.currentDirectoryURL = config.moduleDirectory
-            child.arguments = ["-E", "-s", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
+            child.arguments = ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
                                "--token-fd", "0", "--parent-pid", String(ProcessInfo.processInfo.processIdentifier)]
             child.environment = ProcessInfo.processInfo.environment.filter {
                 !$0.key.hasPrefix("PYTHON") && !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("LD_") && $0.key != "VIRTUAL_ENV"
