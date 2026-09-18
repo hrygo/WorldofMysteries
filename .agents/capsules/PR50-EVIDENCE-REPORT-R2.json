@@ -1,0 +1,183 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PR50-EVIDENCE-REPORT",
+  "capsule_revision": 2,
+  "task_id": "PR50-EVIDENCE-REPORT",
+  "title": "Fix complete and honest PR50 evidence report rendering and publication",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T08:43:04.643732+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "f9f664adfdc4b55d5d501c3e12d7b751af18a76e",
+    "target_sha": "380cbb5523eeabf3af3fc22a4b2826cd8b3b4746",
+    "context_snapshot": "sha256:cd75a44705cd348baec9134851ed73cb394ab882ea056d64da7e9093d81dae35"
+  },
+  "scope": {
+    "read": [
+      "scripts/",
+      "engine/tests/",
+      "contracts/engineering/",
+      ".hacf/gates/",
+      ".agents/",
+      ".github/workflows/",
+      "docs/07_工程启动/",
+      "AGENTS.md",
+      "CONTRIBUTING.md"
+    ],
+    "write": [
+      "scripts/generate_pr_report.py",
+      "scripts/post_pr_report.cjs",
+      "engine/tests/test_pr_report.py",
+      "engine/tests/test_pr_report_publication.py",
+      ".github/workflows/pr-gate-reporter.yml",
+      "docs/07_工程启动/M1_Engine_IPC_Implementation.md",
+      ".agents/capsules/PR50-EVIDENCE-REPORT-R2.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/**",
+      "contracts/**",
+      ".hacf/gates/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml"
+    ],
+    "privileged_grants": [
+      ".github/workflows/pr-gate-reporter.yml"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_git_env@scripts/generate_pr_report.py:33",
+      "symbol:_run_git@scripts/generate_pr_report.py:45",
+      "symbol:detect_changed_files@scripts/generate_pr_report.py:56",
+      "symbol:_failure@scripts/generate_pr_report.py:102",
+      "symbol:_safe_path@scripts/generate_pr_report.py:107",
+      "symbol:_task_id@scripts/generate_pr_report.py:120",
+      "symbol:_unique_object@scripts/generate_pr_report.py:126",
+      "symbol:_reject_constant@scripts/generate_pr_report.py:135",
+      "symbol:_check_record@scripts/generate_pr_report.py:139",
+      "symbol:_load_record@scripts/generate_pr_report.py:174",
+      "symbol:load_capsules@scripts/generate_pr_report.py:195",
+      "symbol:load_changed_receipts@scripts/generate_pr_report.py:202",
+      "symbol:load_task_receipts@scripts/generate_pr_report.py:209",
+      "symbol:_merge_receipts@scripts/generate_pr_report.py:226",
+      "symbol:_cell@scripts/generate_pr_report.py:234",
+      "symbol:_table@scripts/generate_pr_report.py:246",
+      "symbol:_short@scripts/generate_pr_report.py:257",
+      "symbol:generate_report@scripts/generate_pr_report.py:270",
+      "symbol:validate_report_markdown@scripts/generate_pr_report.py:367",
+      "symbol:_merge_base@scripts/generate_pr_report.py:66",
+      "symbol:Tables@engine/tests/test_pr_report.py:22",
+      "symbol:rendered@engine/tests/test_pr_report.py:48",
+      "symbol:receipt_table@engine/tests/test_pr_report.py:55",
+      "symbol:records@engine/tests/test_pr_report.py:67",
+      "symbol:capsule@engine/tests/test_pr_report.py:85",
+      "symbol:receipt@engine/tests/test_pr_report.py:92",
+      "symbol:test_empty_receipts_keep_a_rendered_table@engine/tests/test_pr_report.py:98",
+      "symbol:test_receipts_with_and_without_capsules@engine/tests/test_pr_report.py:109",
+      "symbol:test_all_capsules_and_their_unchanged_receipts_are_reported@engine/tests/test_pr_report.py:117",
+      "symbol:test_receipts_are_deduplicated_by_path@engine/tests/test_pr_report.py:127"
+    ],
+    "related_contracts": [
+      "work_receipt.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 658,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_git_env",
+      "_run_git",
+      "detect_changed_files",
+      "_failure",
+      "_safe_path",
+      "_task_id",
+      "_unique_object",
+      "_reject_constant",
+      "_check_record",
+      "_load_record",
+      "load_capsules",
+      "load_changed_receipts",
+      "load_task_receipts",
+      "_merge_receipts",
+      "_cell",
+      "_table",
+      "_short",
+      "generate_report",
+      "validate_report_markdown",
+      "_merge_base",
+      "Tables",
+      "rendered",
+      "receipt_table",
+      "records",
+      "capsule",
+      "receipt",
+      "test_empty_receipts_keep_a_rendered_table",
+      "test_receipts_with_and_without_capsules",
+      "test_all_capsules_and_their_unchanged_receipts_are_reported",
+      "test_receipts_are_deduplicated_by_path"
+    ],
+    "contracts": [
+      "work_receipt.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "User explicitly requested fixing PR50 report generation at the root and appending the fix to the current PR, not a separate PR. This bounded report subtask authorizes generation, safe publication, rendered regression tests and the exact reporter workflow only. Keep existing IPC capsule immutable; aggregate capsule coverage follows existing audit semantics. No fake Work Receipt, no inferred CI success, no changed gate profiles, no merge authorization.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  },
+  "supersedes": "CAP-PR50-EVIDENCE-REPORT"
+}

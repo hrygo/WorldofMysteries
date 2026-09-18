@@ -14,7 +14,9 @@ HACF 2.0 曾在此处硬编码「✅ PASSED」，本版本移除该行为。
 
 from __future__ import annotations
 
+import html
 import json
+import re
 import os
 import subprocess
 import sys
@@ -97,189 +99,310 @@ def detect_changed_files() -> Tuple[List[str], List[str]]:
     return [], failures
 
 
-def load_capsules(changed: List[str]) -> List[Dict[str, Any]]:
-    """只认本 PR 变更面中的胶囊（仓库既有胶囊不属于本 PR 的契约证据）。"""
-    changed_capsules = [
-        REPO_ROOT / f for f in changed if f.startswith(".agents/capsules/") and f.endswith(".json")
-    ]
-
-    capsules: List[Dict[str, Any]] = []
-    for path in changed_capsules:
-        if not path.exists():
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        payload["_path"] = str(path.relative_to(REPO_ROOT))
-        try:
-            payload["_digest"] = policy.capsule_digest(path)
-        except OSError:
-            payload["_digest"] = ""
-        capsules.append(payload)
-    return capsules
+def _failure(failures: List[str] | None, path: str, reason: str) -> None:
+    if failures is not None:
+        failures.append(f"证据读取失败：{path}（{reason}）")
 
 
-def load_changed_receipts(changed: List[str]) -> List[Dict[str, Any]]:
-    """复述本 PR 变更面携带的全部凭单，与是否附带胶囊解耦。
+def _safe_path(rel: str) -> Path:
+    """Evidence is repository-local data, never a symlink or a traversable task ID."""
+    parts = Path(rel).parts
+    if not parts or Path(rel).is_absolute() or ".." in parts:
+        raise ValueError("非法证据路径")
+    path = REPO_ROOT
+    for part in parts:
+        path = path / part
+        if path.is_symlink():
+            raise ValueError("不读取符号链接证据")
+    return path
 
-    没有业务胶囊的 PR 依然可能携带已验收的 `Work Receipt`；把「无胶囊」
-    等同于「无证据」会让证据卡片漏报。
+
+def _task_id(value: Any) -> bool:
+    return (isinstance(value, str) and bool(value.strip()) and value not in (".", "..")
+            and not any(c in value for c in "/\\")
+            and all(ord(c) >= 32 and ord(c) != 127 for c in value))
+
+
+def _unique_object(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("重复 JSON 字段")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    raise ValueError("非有限 JSON 常量")
+
+
+def _check_record(record: Any, kind: str) -> None:
+    """Check readable shape, NOT authenticity or the authoritative gate verdict.
+
+    Older records may omit optional display fields. Render them as unknown, not
+    zero/success. The full engineering-schema/digest audit remains Capsule Gate's
+    responsibility; this stdlib-only reporter must not become a second gate.
     """
-    receipts: List[Dict[str, Any]] = []
-    prefix = f"{policy.RECEIPTS_DIR}/"
-    for rel in sorted(changed):
-        if not rel.startswith(prefix) or not rel.endswith(".json"):
-            continue
-        path = REPO_ROOT / rel
-        if not path.exists():
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
+    if not isinstance(record, dict) or not _task_id(record.get("task_id")):
+        raise ValueError("需要对象及安全的 task_id")
+    if kind == "capsule":
+        for key in ("base", "gates"):
+            if key in record and not isinstance(record[key], dict):
+                raise ValueError(f"{key} 不是对象")
+        for key in ("capsule_id", "title", "assigned_role", "risk_class"):
+            if key in record and not isinstance(record[key], str):
+                raise ValueError(f"{key} 不是字符串")
+        revision = record.get("capsule_revision", 1)
+        if type(revision) is not int or revision < 1:
+            raise ValueError("非法 capsule_revision")
+    else:
+        if record.get("receipt_type") not in ("work", "integration"):
+            raise ValueError("非法 receipt_type")
+        if record.get("verdict") not in ("passed", "failed"):
+            raise ValueError("非法 verdict")
+        if not isinstance(record.get("head_commit"), str) or not record["head_commit"]:
+            raise ValueError("缺少 head_commit")
+        if "coverage_gaps" in record:
+            gaps = record["coverage_gaps"]
+            if not isinstance(gaps, list) or not all(isinstance(gap, str) for gap in gaps):
+                raise ValueError("coverage_gaps 不是字符串列表")
+        digest = record.get("gate_profile_digest")
+        if digest is not None and not isinstance(digest, str):
+            raise ValueError("非法 gate_profile_digest")
+
+
+def _load_record(rel: str, kind: str, failures: List[str] | None) -> Dict[str, Any] | None:
+    try:
+        path = _safe_path(rel)
+        if not os.path.lexists(path):
+            return None  # A deleted evidence file is not current evidence.
+        payload = json.loads(path.read_text(encoding="utf-8"),
+                             object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+        _check_record(payload, kind)
+        if kind == "receipt" and path.parent.name != payload["task_id"]:
+            raise ValueError("凭单 task_id 与任务目录不一致")
         payload["_path"] = rel
-        receipts.append(payload)
-    return receipts
+        if kind == "capsule":
+            payload["_digest"] = policy.capsule_digest(path)
+        return payload
+    except (OSError, UnicodeError, ValueError, RecursionError) as exc:
+        # Do not echo exception messages: parsers/OS errors can contain payloads
+        # or absolute host paths. The relative source and error class suffice.
+        _failure(failures, rel, type(exc).__name__)
+        return None
 
 
-def load_task_receipts(task_id: str) -> List[Dict[str, Any]]:
-    """读取某任务在仓库内已落盘的全部凭单（含先前提交的历史凭单）。"""
-    receipts: List[Dict[str, Any]] = []
-    directory = REPO_ROOT / policy.RECEIPTS_DIR / task_id
-    if not directory.exists():
-        return receipts
-    for path in sorted(directory.glob("*.json")):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            continue
-        payload["_path"] = str(path.relative_to(REPO_ROOT))
-        receipts.append(payload)
-    return receipts
+def load_capsules(changed: List[str], failures: List[str] | None = None) -> List[Dict[str, Any]]:
+    """Load ALL changed capsules; malformed evidence is explicit in the report."""
+    return [record for rel in sorted(set(changed))
+            if rel.startswith(".agents/capsules/") and rel.endswith(".json")
+            if (record := _load_record(rel, "capsule", failures)) is not None]
+
+
+def load_changed_receipts(changed: List[str], failures: List[str] | None = None) -> List[Dict[str, Any]]:
+    """Receipt-only PRs remain visible, independent of capsule presence."""
+    return [record for rel in sorted(set(changed))
+            if rel.startswith(f"{policy.RECEIPTS_DIR}/") and rel.endswith(".json")
+            if (record := _load_record(rel, "receipt", failures)) is not None]
+
+
+def load_task_receipts(task_id: str, failures: List[str] | None = None) -> List[Dict[str, Any]]:
+    """Include task history, without presenting it as current-head verification."""
+    rel = f"{policy.RECEIPTS_DIR}/{task_id}"
+    try:
+        if not _task_id(task_id):
+            raise ValueError("非法任务 ID")
+        directory = _safe_path(rel)
+        if not os.path.lexists(directory):
+            return []
+        paths = sorted(directory.iterdir())
+    except (OSError, ValueError) as exc:
+        _failure(failures, rel, type(exc).__name__)
+        return []
+    return [record for path in paths if path.suffix == ".json"
+            if (record := _load_record(str(path.relative_to(REPO_ROOT)), "receipt", failures)) is not None]
 
 
 def _merge_receipts(*groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """按凭单路径去重合并（同一凭单同时出现在变更面与任务目录时只留一份）。"""
     merged: Dict[str, Dict[str, Any]] = {}
     for group in groups:
         for receipt in group:
-            merged.setdefault(str(receipt.get("_path")), receipt)
+            merged.setdefault(receipt["_path"], receipt)
     return [merged[key] for key in sorted(merged)]
 
 
-def _verdict_badge(verdict: str) -> str:
-    return {"passed": "✅ passed", "failed": "❌ failed"}.get(verdict, f"⚠️ {verdict}")
+def _cell(value: Any) -> str:
+    """Encode data, never interpolate data as Markdown/table/HTML syntax."""
+    text = "未记录" if value is None else str(value)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = "".join(c if (ord(c) >= 32 or c in "\n\t") and not 0xD800 <= ord(c) <= 0xDFFF
+                   else "\ufffd" for c in text)
+    text = html.escape(text, quote=True)
+    for c in "\\|`*_[]":
+        text = text.replace(c, f"&#{ord(c)};")
+    return text.replace("\n", "<br>").replace("\t", "    ")
+
+
+def _table(headers: List[str], rows: List[List[Any]]) -> str:
+    """One constructor owns headers/delimiters for every nonempty/empty/error state."""
+    if not rows or any(len(row) != len(headers) for row in rows):
+        raise ValueError("Report table rows must match the header width")
+    return "\n".join([
+        "| " + " | ".join(_cell(h) for h in headers) + " |",
+        "|" + ":---|" * len(headers),
+        *("| " + " | ".join(_cell(c) for c in row) + " |" for row in rows),
+    ])
+
+
+def _short(value: Any, width: int = 20) -> str:
+    if value is None or value == "":
+        return "未记录"
+    text = str(value)
+    return text if len(text) <= width else text[:width] + "…"
+
+
+REPORT_MARKER = "<!-- wom-evidence-summary:v1 -->"
+REPORT_TITLE = "## 🛡️ 《诡秘世界》协同证据摘要 (Evidence Summary)"
+RECEIPT_HEADING = "### 本 PR 携带的凭单 (Receipts)"
+RECEIPT_HEADERS = ["任务 / 类型", "凭单位置", "head_commit", "记录的 verdict", "门禁档案摘要", "覆盖缺口"]
 
 
 def generate_report() -> str:
     actor = os.getenv("GITHUB_ACTOR", "")
     head_ref = os.getenv("GITHUB_HEAD_REF", "")
     is_maintenance = "dependabot" in actor.lower() or head_ref.startswith("dependabot/")
-
     changed, detection_failures = detect_changed_files()
-    capsules = load_capsules(changed)
-
+    capsule_failures: List[str] = []
+    receipt_failures: List[str] = []
+    capsules = load_capsules(changed, capsule_failures)
+    receipts = _merge_receipts(load_changed_receipts(changed, receipt_failures), *(
+        load_task_receipts(task, receipt_failures)
+        for task in sorted({capsule["task_id"] for capsule in capsules})
+    ))
+    head = os.getenv("WOM_REPORT_HEAD_SHA", "")
+    base = os.getenv("WOM_REPORT_BASE_SHA", "")
+    for value in (head, base):
+        if value and not re.fullmatch(r"[0-9a-f]{40}", value):
+            raise ValueError("Invalid report revision metadata")
+    lines = [REPORT_MARKER]
+    if head:
+        lines.append(f"<!-- wom-evidence-head:{head} -->")
+    lines.extend([REPORT_TITLE, "", "### 报告快照与验证边界", "", _table(
+        ["项目", "值", "说明"], [
+            ["PR head", head or "未提供（本地生成）", "来自 PR 事件，不使用胶囊旧基线冒充当前提交"],
+            ["目标分支 SHA", base or "未提供（本地生成）", "本次报告生成时的 PR base"],
+            ["CI required checks", "本卡片不查询、不推断", "以 GitHub Checks 为准；报告发布成功不等于测试通过"],
+            ["产品验收", "本卡片不判定", "工程 CI、Work Receipt、用户体验验收是独立证据"],
+        ]), "", "### 本 PR 携带的任务胶囊 (Capsules)", ""])
     if capsules:
-        capsule = capsules[0]
-        receipts = _merge_receipts(
-            load_changed_receipts(changed),
-            load_task_receipts(str(capsule.get("task_id"))),
-        )
-        capsule_rows = [
-            f"| **任务胶囊 (Capsule)** | `{capsule.get('capsule_id')}` rev{capsule.get('capsule_revision', 1)} | {capsule.get('title')} |",
-            f"| **契约位置 (Path)** | `{capsule.get('_path')}` | 不可变契约，verify 不回写 |",
-            f"| **执行角色 (Role)** | `{capsule.get('assigned_role')}` | risk_class=`{capsule.get('risk_class')}` |",
-            f"| **胶囊摘要 (Digest)** | `sha256:{str(capsule.get('_digest'))[:16]}…` | 变更后需重新验收 |",
-            f"| **基线 (Base)** | `{str(capsule.get('base', {}).get('target_sha'))[:12]}` | target=`{capsule.get('base', {}).get('target_ref')}` |",
-            f"| **门禁档案 (Gate Profile)** | `{capsule.get('gates', {}).get('profile')}` | `{str(capsule.get('gates', {}).get('profile_digest'))[:20]}…` |",
-        ]
-        capsule_block = "\n".join(capsule_rows)
-    elif is_maintenance:
-        capsule_block = "| **PR 类型** | 🤖 自动化维护 / 依赖升级 PR (Dependabot / Maintenance) | 本 PR 免除业务任务胶囊，由 CI 3-Stage 门禁独立质检 |"
-        receipts = load_changed_receipts(changed)
-    elif detection_failures:
-        capsule_block = (
-            "| **任务胶囊 (Capsule)** | 变更面判定失败，无法判定 | "
-            "`git diff` 未能在当前工作区解析出本 PR 变更面（见「检测诊断」） |"
-        )
-        receipts = load_changed_receipts(changed)
+        for capsule in capsules:
+            lines.extend([_table(["项目", "值", "说明"], [
+                ["任务胶囊 (Capsule)", f"{capsule.get('capsule_id', '未记录')} rev{capsule.get('capsule_revision', '未记录')}", capsule.get("title")],
+                ["契约位置 (Path)", capsule["_path"], "不可变契约，verify 不回写"],
+                ["执行角色 (Role)", capsule.get("assigned_role"), capsule.get("risk_class")],
+                ["胶囊摘要 (Digest)", _short("sha256:" + capsule["_digest"], 23), "变更后需重新验收"],
+                ["胶囊基线 (Base)", _short(capsule.get("base", {}).get("target_sha"), 12), capsule.get("base", {}).get("target_ref")],
+                ["门禁档案 (Gate Profile)", capsule.get("gates", {}).get("profile"), _short(capsule.get("gates", {}).get("profile_digest"))],
+            ]), ""])
     else:
-        capsule_block = "| **任务胶囊 (Capsule)** | ℹ️ 未附带业务胶囊 | 本 PR 未引入 `.agents/capsules/*.json` 变更 |"
-        receipts = load_changed_receipts(changed)
+        if detection_failures:
+            status = "变更面判定失败，无法判定"
+        elif capsule_failures:
+            status = "胶囊读取失败，无法完整判定"
+        elif is_maintenance:
+            status = "自动化维护 PR（未附带业务胶囊）"
+        else:
+            status = "未附带业务胶囊"
+        lines.extend([_table(["项目", "值", "说明"], [["任务胶囊", status, "见检测诊断；不推断凭单或 CI 结果"]]), ""])
 
-    if receipts:
-        receipt_rows = [
-            "| 类型 | head_commit | verdict | 门禁档案摘要 | 覆盖缺口 |",
-            "|:---|:---|:---:|:---|:---:|",
-        ]
-        for receipt in receipts:
-            receipt_rows.append(
-                f"| `{receipt.get('receipt_type')}` | `{str(receipt.get('head_commit'))[:12]}` "
-                f"| {_verdict_badge(str(receipt.get('verdict')))} "
-                f"| `{str(receipt.get('gate_profile_digest'))[:20]}…` "
-                f"| {len(receipt.get('coverage_gaps', []))} |"
-            )
-        receipt_block = "\n".join(receipt_rows)
-        gap_lines: List[str] = []
-        for receipt in receipts:
-            for gap in receipt.get("coverage_gaps", []):
-                gap_lines.append(f"- `{receipt.get('head_commit', '')[:12]}` {gap}")
-        gap_block = "\n".join(gap_lines) if gap_lines else "无覆盖缺口记录。"
+    rows: List[List[Any]] = []
+    for receipt in receipts:
+        rows.append([
+            f"{receipt['task_id']} / {receipt['receipt_type']}", receipt["_path"],
+            _short(receipt["head_commit"], 12), receipt["verdict"],
+            _short(receipt.get("gate_profile_digest")),
+            len(receipt["coverage_gaps"]) if "coverage_gaps" in receipt else "未记录",
+        ])
+    if not rows:
+        status = "读取失败 / 无法确认" if receipt_failures or capsule_failures or detection_failures else "未找到凭单"
+        rows = [[status, "—", "—", "未判定", "未记录", "未知"]]
+    lines.extend([RECEIPT_HEADING, "", _table(RECEIPT_HEADERS, rows), "",
+                  "verdict 是凭单原始记录，未在本卡片中复核。任务历史凭单不自动覆盖当前 PR head；",
+                  "摘要绑定、变更集覆盖与当前门禁结果由 Capsule Gate / GitHub Checks 判定。", "",
+                  "### 覆盖缺口 (Coverage Gaps)", ""])
+    gaps: List[str] = []
+    if detection_failures or capsule_failures or receipt_failures:
+        gaps.append("证据读取或检测不完整，无法确认完整覆盖；不得将未知当作零缺口。")
+    if not receipts:
+        gaps.append("本次仓库快照未找到可读取凭单，不等于未执行测试，也不等于 CI 失败。")
+    for task in sorted({capsule["task_id"] for capsule in capsules}):
+        if not any(r["task_id"] == task and r["receipt_type"] == "work" for r in receipts):
+            gaps.append(f"{task}：未找到可读取的 Work Receipt；若检测/读取失败，应先修复诊断项。")
+    for receipt in receipts:
+        if receipt["verdict"] == "failed":
+            gaps.append(f"{receipt['_path']}：凭单记录 verdict=failed，不因覆盖缺口列表为空而视为通过。")
+        if "coverage_gaps" not in receipt:
+            gaps.append(f"{receipt['_path']}：coverage_gaps 未记录，数量未知。")
+        for gap in receipt.get("coverage_gaps", []):
+            gaps.append(f"{receipt['_path']}：{gap}")
+    if gaps:
+        lines.extend("- " + _cell(gap) for gap in gaps)
     else:
-        receipt_block = "| ⚠️ 未找到凭单 | — | — | — | — |"
-        gap_block = (
-            "变更面判定失败，无法确认本 PR 是否携带凭单；请先修复检测链路。"
-            if detection_failures
-            else "尚未生成 `Work Receipt`：请在工作区执行 `python3 scripts/agent_capsule.py verify --capsule <capsule>`。"
-        )
+        lines.append("所列凭单的 coverage_gaps 均为空；不代表当前 PR 无缺口。")
+    if capsules and not receipts and not (detection_failures or capsule_failures or receipt_failures):
+        lines.extend(["", "凭单需由实际验证生成并提交；不能将 CI 状态手工填写成 Work Receipt。"])
 
-    base_ref_label = os.getenv("GITHUB_BASE_REF", "main")
-    if detection_failures:
-        diagnosis_block = "\n".join(f"- {item}" for item in detection_failures)
+    lines.extend(["", "### 检测诊断 (Detection Diagnostics)", ""])
+    diagnostics = detection_failures + capsule_failures + receipt_failures
+    if diagnostics:
+        lines.extend("- " + _cell(item) for item in dict.fromkeys(diagnostics))
     else:
-        diagnosis_block = (
-            f"变更面判定正常：相对 `origin/{base_ref_label}` 解析到 {len(changed)} 个变更文件。"
-        )
+        base_ref = _cell(os.getenv("GITHUB_BASE_REF", "main"))
+        lines.append(f"变更面判定正常：相对 origin/{base_ref} 解析到 {len(changed)} 个变更文件；证据读取无错误。")
+    lines.extend(["", "> 本卡片只复述仓库内凭单的真实记录，**不代表测试通过**。",
+                  "> 门禁权威结论以 CI required checks 为准；sha256 是内容摘要，不是密码学签名。", ""])
+    return "\n".join(lines)
 
-    return f"""## 🛡️ 《诡秘世界》协同证据摘要 (Evidence Summary)
 
-| 项目 | 值 | 说明 |
-|:---|:---|:---|
-{capsule_block}
+def validate_report_markdown(text: str) -> None:
+    """Fail before publishing a structurally broken report (stdlib-only guard).
 
-### 本 PR 携带的凭单 (Receipts)
-
-{receipt_block}
-
-### 覆盖缺口 (Coverage Gaps)
-
-{gap_block}
-
-### 检测诊断 (Detection Diagnostics)
-
-{diagnosis_block}
-
-> 本卡片只复述仓库内凭单的真实记录，**不代表测试通过**。
-> 门禁权威结论以 CI required checks（`ci.yml` 三阶段 + `capsule-audit.yml` 证据审计）为准；
-> 摘要为 sha256 内容摘要，不是密码学签名，抗伪造由受保护分支与 CODEOWNERS 评审承担。
-"""
+    Real Markdown-to-HTML rendering assertions live in the existing Python test
+    suite. This guard checks the restricted table format our constructor emits.
+    """
+    if not text.startswith(REPORT_MARKER + "\n") or REPORT_TITLE not in text:
+        raise ValueError("Missing report identity")
+    if text.count(RECEIPT_HEADING) != 1:
+        raise ValueError("Missing or duplicate receipt section")
+    blocks: List[List[str]] = []
+    current: List[str] = []
+    for line in [*text.splitlines(), ""]:
+        if line.startswith("|"):
+            current.append(line)
+        elif current:
+            blocks.append(current)
+            current = []
+    for block in blocks:
+        width = block[0].count("|") - 1
+        if (len(block) < 3 or width < 1
+                or not re.fullmatch(r"\|(?::---\|)+", block[1])
+                or any(line.count("|") - 1 != width for line in block)):
+            raise ValueError("Invalid report table header/delimiter/row width")
+    section = text.split(RECEIPT_HEADING, 1)[1].split("\n### ", 1)[0]
+    expected_header = "| " + " | ".join(_cell(h) for h in RECEIPT_HEADERS) + " |"
+    if expected_header not in section or len(blocks) < 3:
+        raise ValueError("Receipt table missing or incomplete")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="PR 质量卡片生成器 (HACF 2.1)")
-    parser.add_argument(
-        "--output",
-        "-o",
-        type=Path,
-        default=REPO_ROOT / ".hacf" / "tmp" / "pr_report.md",
-        help="报告输出文件路径（默认：.hacf/tmp/pr_report.md）",
-    )
+    parser.add_argument("--output", "-o", type=Path,
+                        default=REPO_ROOT / ".hacf" / "tmp" / "pr_report.md")
     args = parser.parse_args()
-
     report_text = generate_report()
+    validate_report_markdown(report_text)
     out_file = args.output.resolve()
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(report_text, encoding="utf-8")

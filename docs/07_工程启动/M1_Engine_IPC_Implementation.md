@@ -38,3 +38,35 @@ The user approved strict contract unification and a dedicated parent-child crede
 ### Remaining product integration
 
 App lifecycle integration, signed bundled Python, automatic first-run/reconnect on the target Mac, real story handlers and persistence remain subsequent tasks. No new user operations are added by the internal design, but end-user-invisible startup/performance has not been accepted. Keep #43–#45 open. No merge is authorized.
+
+## PR #50 · 报告证据链修复增量（2026-09-18）
+
+用户要求将自动报告的根因修复追加到同一个 PR。本增量基于已合入计划主线的
+`f9f664adfdc4b55d5d501c3e12d7b751af18a76e`，不覆盖原有 IPC 实现或历史胶囊。
+限定报告子任务使用 [PR50-EVIDENCE-REPORT 胶囊](../../.agents/capsules/PR50-EVIDENCE-REPORT-R2.json)，
+按现有覆盖式范围审计与原 IPC 胶囊共同约束 PR；受保护门禁与产品契约保持不变。
+
+### 根因与修复
+
+- 凭单表格的表头/分隔行原来只在“有凭单”分支生成。改为统一表格构造器，
+  非空、空、读取失败三个状态均输出完整表格；发布前执行结构校验。
+- JSON 损坏曾被静默丢弃；非法结构、编码、文件读取和目录遍历错误现在保留相对来源与
+  安全诊断，不再冒充“未生成凭单”或“零缺口”，也不回显原始敏感载荷与主机路径。
+- 动态数据中的竖线、换行、反引号、链接/HTML 语法按文本编码，不能破坏行列或注入内容。
+- 展示本 PR 全部任务胶囊，按路径去重汇总每个任务的凭单；单个任务已有凭单不能掩盖另一任务缺证。
+- 报告快照使用 PR 事件的 head/base SHA，和胶囊创建时基线分开展示。
+- 自动评论使用固定标记、完整分页和机器人身份匹配；更新前复核 PR head/base 与开启状态，
+  避免旧运行覆盖新报告，或误改人工评论。旧版机器人评论原位升级，不以新增评论掩盖问题。
+
+### 测试与证据边界
+
+渲染回归位于 [test_pr_report.py](../../engine/tests/test_pr_report.py)，通过锁定依赖图中已有的
+Markdown 解析器生成真实 HTML 并检查表头、数据行与单元格。发布回归位于
+[test_pr_report_publication.py](../../engine/tests/test_pr_report_publication.py)，运行实际 Node 发布模块，
+以 API 替身覆盖分页、所有权、旧 head/base、关闭状态和写入前状态变化；测试不写 GitHub。
+两份测试均由既有 Python 门禁收集，不跳过、不放宽原有测试。
+
+报告只进行可读取形状检查和排版，不取代完整工程 Schema、摘要绑定或 Capsule Gate。
+凭单原始 `verdict`、CI required checks、产品验收继续分开。没有凭单只表示当前检索范围内缺少
+可读取记录，不代表没有运行过测试，更不能通过手写 `passed` 补齐。
+真实 Work Receipt 仍必须由受保护验证流程生成；本增量不伪造 IPC 或产品验收凭单。

@@ -2,7 +2,7 @@ name: PR Gate Reporter & Sticky Comment
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, edited]
     branches: [main]
 
 permissions:
@@ -38,6 +38,9 @@ jobs:
           python-version: "3.14"
 
       - name: Generate PR Markdown Report
+        env:
+          WOM_REPORT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WOM_REPORT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           python3 scripts/generate_pr_report.py
 
@@ -45,34 +48,4 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
-            const reportPath = path.join('.hacf', 'tmp', 'pr_report.md');
-            const reportBody = fs.readFileSync(reportPath, 'utf8');
-            const commentHeader = '## 🛡️ 《诡秘世界》协同证据摘要';
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const botComment = comments.find(c => c.body.includes(commentHeader));
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: reportBody
-              });
-              console.log('Updated existing PR quality gate report comment.');
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: reportBody
-              });
-              console.log('Created new PR quality gate report comment.');
-            }
+            await require('./scripts/post_pr_report.cjs')({github, context, core});
