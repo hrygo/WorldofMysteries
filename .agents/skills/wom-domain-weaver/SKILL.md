@@ -54,10 +54,10 @@ def resolve(
    ```
 2. **验证契约单测**：
    ```bash
-   rtk uv run --directory engine pytest tests/test_contracts_pydantic.py -v
-   rtk uv run --directory engine pytest tests/test_scaffolding.py -v
+   uv run --directory engine pytest tests/test_contracts_pydantic.py -v
+   uv run --directory engine pytest tests/test_scaffolding.py -v
    ```
 3. **架构适应度自检**：
    ```bash
-   rtk python3 scripts/check_architecture_fitness.py
+   python3 scripts/check_architecture_fitness.py
    ```

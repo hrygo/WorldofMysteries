@@ -22,6 +22,6 @@ call_mcp_tool(ServerName="codebase-memory-mcp", ToolName="trace_path", Arguments
 
 ## 5. 必备验证命令
 ```bash
-rtk python3 scripts/check_architecture_fitness.py
-rtk uv run pytest tests/ -k "domain or resolver"
+python3 scripts/check_architecture_fitness.py
+uv run pytest tests/ -k "domain or resolver"
 ```

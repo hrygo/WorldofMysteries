@@ -17,6 +17,6 @@
 
 ## 4. 必备验证命令 (Mandatory Verification)
 ```bash
-rtk python3 scripts/check_architecture_fitness.py
-rtk uv run pytest contracts/tests/test_roundtrip.py tests/test_contracts_schema.py
+python3 scripts/check_architecture_fitness.py
+uv run pytest contracts/tests/test_roundtrip.py tests/test_contracts_schema.py
 ```

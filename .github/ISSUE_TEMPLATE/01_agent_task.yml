@@ -79,5 +79,5 @@ body:
       label: 专精测试与验证命令 (Verification Commands)
       description: 该任务执行完毕后必须通过的命令
       value: |
-        rtk python3 scripts/check_architecture_fitness.py
-        rtk uv run --directory engine pytest tests/
+        python3 scripts/check_architecture_fitness.py
+        uv run --directory engine pytest tests/

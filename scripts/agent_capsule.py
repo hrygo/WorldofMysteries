@@ -175,21 +175,33 @@ def rank_symbols(
     return (focused + rest)[:limit], "focus-ranked"
 
 
-def _detect_target_ref() -> str:
-    """目标分支引用；detached HEAD（CI 拉取 PR merge ref / 定点检出）时回退查找默认分支。
+# 合入目标候选：胶囊的 `target_ref` 必须指向**受保护的合入目标**（默认 main），
+# 而不是 pack 时所在的特性分支。
+#
+# 历史缺陷：`start --role --task-id` 会在新建的 worktree 内自动 pack，此时 HEAD 是特性分支，
+# 于是胶囊把特性分支记为目标 —— 结果提交自己的改动就触发 `stale_context`，verify 永远拒绝
+# 签发凭单；而按直觉在提交前验收，`changes_digest(base_sha...HEAD)` 又是空 diff（凭单绑空值）。
+# 目标 ref 只在**合入目标前进**时才应判定上下文陈旧。
+DEFAULT_TARGET_CANDIDATES = ("origin/main", "main", "origin/master", "master")
 
-    否则 `pack` 会在 CI 里因为拿不到本地 `main` 而直接崩溃。
+
+def _detect_target_ref(explicit: Optional[str] = None) -> str:
+    """解析胶囊的合入目标 ref。
+
+    优先级：显式 `--target-ref` > 可解析的默认分支（`origin/main` / `main` / …）> 当前分支。
+    detached HEAD（CI 拉取 PR merge ref、定点检出）同样落到默认分支候选，因此 pack 在 CI
+    里不会因为拿不到本地 `main` 而崩溃。
     """
-    ref = policy.run_git(["rev-parse", "--abbrev-ref", "HEAD"])
-    if ref != "HEAD":
-        return ref
-    for candidate in ("origin/main", "main", "origin/master", "master"):
+    if explicit:
+        return explicit
+    for candidate in DEFAULT_TARGET_CANDIDATES:
         try:
             policy.run_git(["rev-parse", "--verify", f"{candidate}^{{commit}}"])
             return candidate
         except policy.PolicyError:
             continue
-    return "HEAD"
+    ref = policy.run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+    return ref if ref != "HEAD" else "HEAD"
 
 
 def pack_capsule(
@@ -203,18 +215,19 @@ def pack_capsule(
     depends_on: Optional[List[str]] = None,
     conflicts_with: Optional[List[str]] = None,
     supersedes: Optional[str] = None,
+    target_ref: Optional[str] = None,
 ) -> Path:
     """生成自包含任务胶囊（不可变契约）。"""
     if role not in ROLE_DEFAULTS:
         raise ValueError(f"Unknown role '{role}'. Choose from {list(ROLE_DEFAULTS.keys())}")
 
     defaults = ROLE_DEFAULTS[role]
-    target_ref = _detect_target_ref()
+    resolved_target_ref = _detect_target_ref(target_ref)
     base_sha = policy.run_git(["rev-parse", "HEAD"])
     # target_sha 必须与 verify 的复核口径一致：verify 用 `rev-parse <target_ref>` 判定
     # 目标是否前进；因此这里记录 target_ref 自身的 sha，而不是硬取 main 的 sha。
     try:
-        target_sha = policy.run_git(["rev-parse", target_ref])
+        target_sha = policy.run_git(["rev-parse", resolved_target_ref])
     except policy.PolicyError:
         target_sha = base_sha
 
@@ -247,7 +260,7 @@ def pack_capsule(
         "created_at": policy.now_iso(),
         "risk_class": risk_class or defaults["risk_class"],
         "base": {
-            "target_ref": target_ref,
+            "target_ref": resolved_target_ref,
             "base_sha": base_sha,
             "target_sha": target_sha,
             "context_snapshot": f"sha256:{context_snapshot}",
@@ -350,7 +363,11 @@ def verify_capsule(
             )
 
     # 2. 范围裁决
-    files = policy.changed_files(cwd=cwd)
+    #
+    # 审计面取 `base_sha → 当前工作树` 的完整范围，而不是只取工作树（`git diff HEAD`）：
+    # 验收流程要求「先提交、再 verify」（否则 changes_digest 是空 diff），若只看工作树，
+    # 此时提交干净的工作区会让审计恒为空集，本地范围裁决静默失效、只剩 CI 一道防线。
+    files = policy.changed_files(cwd=cwd, base_commit=base_commit)
     audit = policy.audit_scope(capsule, files)
     print(f"\n️  Scope audit · changed files: {len(files)}")
     for violation in audit["violations"]:
@@ -562,6 +579,10 @@ def main() -> int:
     pack_parser.add_argument("--depends-on", help="逗号分隔的前置任务")
     pack_parser.add_argument("--conflicts-with", help="逗号分隔的互斥任务")
     pack_parser.add_argument("--supersedes", help="被本修订版取代的取消胶囊 id")
+    pack_parser.add_argument(
+        "--target-ref",
+        help="合入目标 ref（默认 origin/main / main）；仅在目标分支非默认命名时显式指定",
+    )
 
     verify_parser = subparsers.add_parser("verify", help="范围裁决 + 门禁执行 + 签发 Work Receipt")
     verify_parser.add_argument("--capsule", required=True)
@@ -588,6 +609,7 @@ def main() -> int:
                 depends_on=args.depends_on.split(",") if args.depends_on else None,
                 conflicts_with=args.conflicts_with.split(",") if args.conflicts_with else None,
                 supersedes=args.supersedes,
+                target_ref=args.target_ref,
             )
             return 0
         if args.command == "verify":

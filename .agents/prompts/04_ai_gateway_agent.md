@@ -15,6 +15,6 @@
 
 ## 4. 必备验证命令
 ```bash
-rtk python3 scripts/check_architecture_fitness.py
-rtk uv run pytest tests/ -k "ai or gateway or proposal"
+python3 scripts/check_architecture_fitness.py
+uv run pytest tests/ -k "ai or gateway or proposal"
 ```

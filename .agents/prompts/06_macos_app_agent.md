@@ -14,5 +14,5 @@
 
 ## 4. 必备验证命令
 ```bash
-rtk swift test
+swift test
 ```
