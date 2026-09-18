@@ -1,0 +1,50 @@
+{
+  "source_transport": [
+    {
+      "source_id": "S01_WORLD_HERO",
+      "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S02_STREET",
+      "sha256": "74e6e508939a40f8790ddc7b2f729563682e721ec0a3dc1530830e26dee6ee03",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S03_CODEX_LIBRARY",
+      "sha256": "f6a1f1db7f2ec25edf4a3378f63faac305926623dcaba9d7398a416444403131",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S04_RITUAL_TEMPLE",
+      "sha256": "2fe4de72830401540e1dc48c8424e4762601191abee9d53e8e8d3af5f947bd25",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S05_HARBOR",
+      "sha256": "0c608ffba6143241558bdf5f406b4b428a5833b031bb53bc7c141bd04f56508a",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S06_ALLEY",
+      "sha256": "08f2ec45b3f6eac248cf7157e32fd7caf3b9d1be782641922a1859feca42b8d7",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S07_GRAY_FOG",
+      "sha256": "97a8bcee9d1254c5a2c5413e79d4900f5e28edd9def9be0cc95850acd8badda1",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S08_FATE_WORLDLINE",
+      "sha256": "7d06fda3b369700ca073d3f3c45f0dbf6caa39948016f20711b485e7ab7f5bdc",
+      "transport_verified": true
+    },
+    {
+      "source_id": "S09_ARTIFACT_VAULT",
+      "sha256": "5091f10d10a3799faff12ffa78361693ad40060004731f1c723caf971815df2c",
+      "transport_verified": true
+    }
+  ],
+  "shipping_approved": false
+}
