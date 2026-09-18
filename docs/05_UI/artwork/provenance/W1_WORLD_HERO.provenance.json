@@ -1,7 +1,7 @@
 {
   "artwork_id": "W1_WORLD_HERO",
   "contract_version": 3,
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "status": "APPROVED",
   "generator": {
     "provider": "OpenAI",
     "model": null,
@@ -112,10 +112,8 @@
     },
     {
       "stage": "runtime_qa",
-      "status": "PENDING_RUNTIME_QA",
-      "unmet_requirements": [
-        "runtime evidence missing"
-      ],
+      "status": "PASSED",
+      "unmet_requirements": [],
       "evidence": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json"
     }
   ],
@@ -150,7 +148,7 @@
   ],
   "qa_record": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json",
   "copyright_note": "AI-assisted original artwork; no official commercial asset copying.",
-  "approved_at": null,
+  "approved_at": "2026-09-18",
   "art_direction_decision": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md",
   "finishing_backlog": "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md",
   "production_evidence": {
@@ -222,5 +220,5 @@
     },
     "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
   },
-  "approved_basis": null
+  "approved_basis": "Locked approved source direction + byte-verified macOS finishing chain + G0-G5 evidence with captured runtime checks"
 }

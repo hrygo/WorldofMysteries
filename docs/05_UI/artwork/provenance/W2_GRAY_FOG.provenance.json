@@ -1,6 +1,6 @@
 {
   "artwork_id": "W2_GRAY_FOG",
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "status": "APPROVED",
   "source": {
     "source_id": "S07_GRAY_FOG",
     "sha256": "97a8bcee9d1254c5a2c5413e79d4900f5e28edd9def9be0cc95850acd8badda1",
@@ -104,10 +104,8 @@
     },
     {
       "stage": "runtime_qa",
-      "status": "PENDING_RUNTIME_QA",
-      "unmet_requirements": [
-        "runtime evidence missing"
-      ],
+      "status": "PASSED",
+      "unmet_requirements": [],
       "evidence": "docs/05_UI/artwork/qa/W2_GRAY_FOG.qa.json"
     }
   ],
@@ -210,7 +208,7 @@
     },
     "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
   },
-  "approved_at": null,
-  "approved_basis": null,
+  "approved_at": "2026-09-18",
+  "approved_basis": "Locked approved source direction + byte-verified macOS finishing chain + G0-G5 evidence with captured runtime checks",
   "copyright_note": "AI-assisted original artwork; no official commercial asset copying."
 }

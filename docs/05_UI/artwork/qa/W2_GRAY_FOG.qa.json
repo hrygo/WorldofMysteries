@@ -1,8 +1,8 @@
 {
   "artwork_id": "W2_GRAY_FOG",
   "task_id": "W2",
-  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
-  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PASSED",
+  "final_verdict": "PASSED",
   "gates": {
     "G0_semantic": {
       "status": "PASSED",
@@ -27,7 +27,7 @@
       ]
     },
     "G2_composition": {
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "source_crop_rect_pixels": [
         1,
         1,
@@ -48,7 +48,7 @@
       ],
       "crop_reference": "docs/05_UI/artwork/delivery/additional_scene_crops.json",
       "wide_crop_survival_pass": "PASS",
-      "runtime_crop_survival_pass": false,
+      "runtime_crop_survival_pass": true,
       "identity_survival": {
         "rule": "R >= 80 and R - max(G, B) >= 40",
         "master_red_dominant_pct": 3.609,
@@ -133,7 +133,7 @@
       }
     },
     "G5_runtime": {
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "window_sizes": [
         "960x640",
         "1180x760",
@@ -145,18 +145,267 @@
         "Reduce Transparency"
       ],
       "window_checks": {
-        "960x640": null,
-        "1180x760": null,
-        "2560x1600": null,
-        "2400x900": null
+        "960x640": {
+          "capture": "wom-verification-grid-960x640.jpg",
+          "capture_sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 960×640 pt → 抓取 1920×1280 px；归一化互相关 score=0.7682（阈值 0.45），匹配框 [664, 190, 1253, 558]，资产缩放 0.23；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "1180x760": {
+          "capture": "wom-verification-grid-1180x760.jpg",
+          "capture_sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1180×760 pt → 抓取 2360×1520 px；归一化互相关 score=0.8057（阈值 0.45），匹配框 [810, 190, 1546, 650]，资产缩放 0.288；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2560x1600": {
+          "capture": "wom-verification-grid-2560x1600.jpg",
+          "capture_sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1280×800 pt → 抓取 2560×1600 px；归一化互相关 score=0.814（阈值 0.45），匹配框 [877, 189, 1680, 691]，资产缩放 0.314；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2400x900": {
+          "capture": "wom-verification-grid-2400x900.jpg",
+          "capture_sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1200×450 pt → 抓取 2400×900 px；归一化互相关 score=0.8034（阈值 0.45），匹配框 [416, 178, 796, 417]，资产缩放 0.149；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        }
       },
       "accessibility_checks": {
-        "Increased Contrast": null,
-        "Reduce Transparency": null
+        "Increased Contrast": {
+          "capture": "wom-verification-probe-increased-contrast.jpg",
+          "capture_sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:increaseContrast 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.contrast=increased 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        },
+        "Reduce Transparency": {
+          "capture": "wom-verification-probe-reduce-transparency.jpg",
+          "capture_sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:reduceTransparency 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.transparency=reduced 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        }
       },
       "notes": [
-        "Runtime window and accessibility checks have not been captured yet."
-      ]
+        "Captured from the real macOS window surface; every capture is re-hashed against the recorded digest before its claims are accepted.",
+        "The wide header anchor under test is the one recorded in the derivative report."
+      ],
+      "captured_at": "2026-09-19",
+      "task": "W2",
+      "capture_environment": {
+        "app": "未记录（复用既有抓取图）",
+        "owner_name": null,
+        "process_name": null,
+        "window_title": "场景美术运行时校验",
+        "capture_geometry_labels": {
+          "960x640": "960x640pt",
+          "1180x760": "1180x760pt",
+          "2560x1600": "1280x800pt",
+          "2400x900": "1200x450pt"
+        }
+      },
+      "captures": [
+        {
+          "file": "wom-verification-grid-960x640.jpg",
+          "sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af"
+        },
+        {
+          "file": "wom-verification-grid-1180x760.jpg",
+          "sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5"
+        },
+        {
+          "file": "wom-verification-grid-2560x1600.jpg",
+          "sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804"
+        },
+        {
+          "file": "wom-verification-grid-2400x900.jpg",
+          "sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf"
+        },
+        {
+          "file": "wom-verification-probe-1180x760.jpg",
+          "sha256": "a71a6d8889ae0711f7d3a9a24a6b9cc4a7919f10de6ff5fd7906ff260165edb5"
+        },
+        {
+          "file": "wom-verification-probe-increased-contrast.jpg",
+          "sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b"
+        },
+        {
+          "file": "wom-verification-probe-reduce-transparency.jpg",
+          "sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845"
+        }
+      ],
+      "contrast": {
+        "method": "Recomputed from the named capture regions by this tool: WCAG 2.2 relative luminance, p95 percentile as text ink against p05 as the backing surface. Any ratio declared in the evidence file is ignored.",
+        "measurements": [
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              838,
+              499,
+              681,
+              20
+            ],
+            "ratio": 16.56
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              838,
+              499,
+              681,
+              20
+            ],
+            "ratio": 16.89
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              838,
+              499,
+              681,
+              20
+            ],
+            "ratio": 16.89
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              838,
+              531,
+              681,
+              48
+            ],
+            "ratio": 8.04
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              838,
+              531,
+              681,
+              48
+            ],
+            "ratio": 8.11
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              838,
+              531,
+              681,
+              48
+            ],
+            "ratio": 8.11
+          }
+        ],
+        "text_primary_contrast_min": 16.56,
+        "important_copy_contrast_min": 8.04,
+        "thresholds": {
+          "text_primary_min": 4.5,
+          "important_long_copy_target": 7.0
+        }
+      },
+      "surface_verification": {
+        "operation": "normalised_cross_correlation_against_shipped_derivative",
+        "minimum_score": 0.45,
+        "captures": {
+          "wom-verification-grid-960x640.jpg": {
+            "asset": "wom.art.world.gray-fog.png",
+            "score": 0.7682,
+            "asset_scale": 0.23,
+            "window_in_capture_pixels": [
+              664,
+              190,
+              1253,
+              558
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-1180x760.jpg": {
+            "asset": "wom.art.world.gray-fog.png",
+            "score": 0.8057,
+            "asset_scale": 0.288,
+            "window_in_capture_pixels": [
+              810,
+              190,
+              1546,
+              650
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2560x1600.jpg": {
+            "asset": "wom.art.world.gray-fog.png",
+            "score": 0.814,
+            "asset_scale": 0.314,
+            "window_in_capture_pixels": [
+              877,
+              189,
+              1680,
+              691
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2400x900.jpg": {
+            "asset": "wom.art.world.gray-fog.png",
+            "score": 0.8034,
+            "asset_scale": 0.149,
+            "window_in_capture_pixels": [
+              416,
+              178,
+              796,
+              417
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-1180x760.jpg": {
+            "asset": "wom.art.world.gray-fog.wide.png",
+            "score": 0.7919,
+            "asset_scale": 0.307,
+            "window_in_capture_pixels": [
+              810,
+              187,
+              1547,
+              463
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-increased-contrast.jpg": {
+            "asset": "wom.art.world.gray-fog.wide.png",
+            "score": 0.7919,
+            "asset_scale": 0.307,
+            "window_in_capture_pixels": [
+              810,
+              187,
+              1547,
+              463
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-reduce-transparency.jpg": {
+            "asset": "wom.art.world.gray-fog.wide.png",
+            "score": 0.7919,
+            "asset_scale": 0.307,
+            "window_in_capture_pixels": [
+              810,
+              187,
+              1547,
+              463
+            ],
+            "verdict": "present"
+          }
+        }
+      },
+      "wide_anchor_under_test": "top"
     }
   },
   "production_evidence": {

@@ -47,5 +47,16 @@ struct WorldOfMysteriesApp: App {
                 }
             )
         }
+
+        // 场景美术运行时证据采集面（G5）：产品表面用 `.fill` 裁切并叠加 scrim 与透明度，
+        // 无法证明「出厂的派生图确实被渲染出来」。该窗口只做未裁切渲染与发布态叠加探针，
+        // 供 `docs/05_UI/artwork/tools/` 下的抓取脚本采集可复算的运行时证据。
+        Window("场景美术运行时校验", id: SceneArtworkRuntimeVerificationView.windowID) {
+            SceneArtworkRuntimeVerificationView()
+        }
+        .defaultSize(
+            width: WOMWindowMetrics.defaultWidth,
+            height: WOMWindowMetrics.defaultHeight
+        )
     }
 }
