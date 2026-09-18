@@ -38,12 +38,12 @@ jobs:
           ref: ${{ env.SOURCE_HEAD }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14.7'
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
-          enable-cache: true
+          enable-cache: auto
           cache-dependency-glob: engine/uv.lock
       - name: Check target and protected registry
         run: |

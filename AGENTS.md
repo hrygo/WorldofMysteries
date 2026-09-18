@@ -235,7 +235,8 @@ repo/
 ```
 
 ### GitHub Actions 现代工程基线准则
-- **官方 Actions 运行时**：必须基于 Node 24 运行时（现行基线：`actions/checkout@v7`、`actions/cache@v6`、`astral-sh/setup-uv@v7`、`actions/github-script@v9`、`actions/upload-artifact@v7`；`actions/setup-python@v5` 是仅存的 Node 20 例外，待其新主版本落地后消除）；
+- **官方 Actions 运行时**：必须基于 Node 24 运行时（现行基线：`actions/checkout@v7`、`actions/setup-python@v7`、`actions/cache@v6`、`astral-sh/setup-uv@v10.1.0`、`actions/github-script@v9`、`actions/upload-artifact@v7`；Node 20 时代的旧主版本已全部淘汰）；
+  `astral-sh/setup-uv` 自 v8 起**不再发布大版本标签**（供应链加固），必须锁不可变全版本标签；写 `@v10` 会解析失败，依赖 Dependabot 自动跟进补丁版本；
 - **最小权限原则**：工作流顶层默认强制配置 `permissions: contents: read`；
 - **强制超时熔断**：所有 Job 显式声明 `timeout-minutes: 5 ~ 25`，杜绝 Runner 卡顿消耗；
 - **平台基线对齐**：目标平台与构建环境严格对齐 **macOS 26+ (Apple Silicon arm64)**，采用最新的 Apple Silicon macOS Runner 环境（`macos-latest` / `macos-15+`）；
