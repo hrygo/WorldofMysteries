@@ -51,6 +51,7 @@ public struct VictorianCard<Content: View>: View {
                         .opacity(0.88)
                 }
             }
+            .compositingGroup()
         case .brassFramed:
             Color.Mystic.obsidianCard
         }

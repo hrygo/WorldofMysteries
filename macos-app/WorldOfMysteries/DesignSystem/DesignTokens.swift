@@ -242,8 +242,14 @@ public extension Color {
         // Victorian Brass & Gold
         public static let brassGoldPrimary = Color(red: 201/255, green: 165/255, blue: 94/255) // #C9A55E (7.8:1 AAA vs #0D0F12)
         public static let brassGoldHover = Color(red: 218/255, green: 185/255, blue: 118/255) // #DAB976
-        public static let brassGoldMuted = Color(red: 158/255, green: 131/255, blue: 75/255)  // #9E834B (4.7:1 AA vs #0D0F12)
-        public static let brassGoldBorder = Color(red: 74/255, green: 62/255, blue: 37/255)   // #4A3E25
+        public static let brassGoldMuted = Color(red: 178/255, green: 150/255, blue: 90/255)  // #B2965A (5.8:1 AA vs #1B2026 卡片面)
+        public static let brassGoldBorder = Color(red: 74/255, green: 62/255, blue: 37/255)   // #4A3E25 仅装饰描边（不承担可辨识边界职责）
+        /// 承担「可辨识边界」职责的边框：输入框轮廓、hover/选中态描边等。
+        ///
+        /// 装饰性发丝线继续使用 `brassGoldBorder`（约 1.6:1，仅作氛围）。
+        /// 本令牌对 obsidianCard 达 3.6:1、对 obsidianBase 达 4.2:1，满足 WCAG 1.4.11 的非文本对比度底线；
+        /// 使用时不得低于 0.9 不透明度，否则边界会重新跌回不可辨识区间。
+        public static let brassGoldBoundary = Color(red: 138/255, green: 114/255, blue: 72/255) // #8A7248
         public static let brassGoldGlow = Color(red: 201/255, green: 165/255, blue: 94/255).opacity(0.3)
         
         // Spirituality & Void
@@ -253,9 +259,12 @@ public extension Color {
         public static let spiritWall = Color(red: 128/255, green: 216/255, blue: 255/255).opacity(0.25) // #80D8FF
         
         // Crimson Astral & Threads
-        public static let crimsonStar = Color(red: 230/255, green: 57/255, blue: 70/255)       // #E63946
+        public static let crimsonStar = Color(red: 230/255, green: 57/255, blue: 70/255)       // #E63946 装饰语义（光晕、星点）
         public static let crimsonThread = Color(red: 183/255, green: 28/255, blue: 28/255)    // #B71C1C
         public static let crimsonGlow = Color(red: 230/255, green: 57/255, blue: 70/255).opacity(0.4)
+        /// 承载文字的徽标底色：白字对其达 5.8:1，满足 10pt 小字的 AA 底线。
+        /// `crimsonStar` 作为文字底色仅 4.2:1，因此禁止直接用于计数徽标。
+        public static let crimsonBadge = Color(red: 193/255, green: 39/255, blue: 45/255)     // #C1272D (5.8:1 AA with #FFFFFF)
         
         // Parchment & Ink (WCAG Compliant)
         public static let parchmentBase = Color(red: 234/255, green: 219/255, blue: 182/255)   // #EADBB6
@@ -269,7 +278,7 @@ public extension Color {
         // Text (WCAG Compliant Hierarchy)
         public static let textPrimary = Color(red: 245/255, green: 246/255, blue: 248/255)     // #F5F6F8 (17.2:1 AAA vs #0D0F12)
         public static let textSecondary = Color(red: 162/255, green: 171/255, blue: 185/255)  // #A2ABB9 (8.1:1 AAA vs #0D0F12)
-        public static let textTertiary = Color(red: 126/255, green: 139/255, blue: 155/255)   // #7E8B9B (4.9:1 AA vs #0D0F12)
+        public static let textTertiary = Color(red: 147/255, green: 161/255, blue: 178/255)   // #93A1B2 (6.2:1 AA vs #1B2026 卡片面，覆盖 10-11pt 元数据)
         public static let textGoldAccent = Color(red: 230/255, green: 202/255, blue: 141/255) // #E6CA8D (11.4:1 AAA vs #0D0F12)
         
         // Status Indicators

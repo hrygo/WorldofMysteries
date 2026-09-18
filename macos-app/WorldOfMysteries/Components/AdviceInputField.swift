@@ -112,7 +112,9 @@ public struct AdviceInputField: View {
         if colorSchemeContrast == .increased {
             return isTextFieldFocused ? Color.Mystic.textPrimary : Color.Mystic.textGoldAccent
         }
-        return isTextFieldFocused ? Color.Mystic.brassGoldPrimary : Color.Mystic.brassGoldBorder
+        // 静息态必须承担 1.4.11 的非文本边界职责，因此用 brassGoldBoundary（>=3:1）；
+        // brassGoldBorder 只是装饰发丝线，低于可辨识下限。
+        return isTextFieldFocused ? Color.Mystic.brassGoldPrimary : Color.Mystic.brassGoldBoundary
     }
 
     private var inputBorderWidth: CGFloat {
