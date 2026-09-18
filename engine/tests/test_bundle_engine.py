@@ -126,3 +126,114 @@ def test_lock_root_must_be_an_object(tmp_path, value):
     path.write_text(json.dumps(value))
     with pytest.raises(bundler.BundleError):
         bundler.read_lock(path)
+
+
+class DownloadResponse(io.BytesIO):
+    def geturl(self):
+        return 'https://release-assets.githubusercontent.com/pinned-asset'
+
+
+def download_case(tmp_path, monkeypatch, outcomes):
+    body = b'pinned runtime archive'
+    lock = {'url': 'https://github.com/pinned-asset', 'size': len(body),
+            'sha256': hashlib.sha256(body).hexdigest()}
+    calls, sleeps = [], []
+    def open_response(request, timeout):
+        calls.append((request.full_url, timeout))
+        outcome = outcomes[min(len(calls)-1, len(outcomes)-1)]
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome() if callable(outcome) else DownloadResponse(outcome)
+    monkeypatch.setattr(bundler.urllib.request, 'urlopen', open_response)
+    monkeypatch.setattr(bundler.time, 'sleep', sleeps.append)
+    return lock, tmp_path/'runtime.tar.gz', body, calls, sleeps
+
+
+def test_transient_download_retries_same_pin_and_publishes_only_verified_archive(tmp_path, monkeypatch):
+    error = bundler.urllib.error.HTTPError('https://private-url',504,'gateway',{},io.BytesIO(b'secret body'))
+    body = b'pinned runtime archive'
+    lock,target,_,calls,sleeps = download_case(tmp_path,monkeypatch,[error,body])
+    bundler.download_runtime(lock,target)
+    assert target.read_bytes() == body
+    assert calls == [(lock['url'],60)]*2 and sleeps == [1]
+    assert list(tmp_path.iterdir()) == [target]
+    assert error.fp.closed
+
+
+@pytest.mark.parametrize('failure', [TimeoutError(), ConnectionResetError(),
+    bundler.urllib.error.URLError(TimeoutError())])
+def test_partial_download_is_removed_before_retry(tmp_path,monkeypatch,failure):
+    class Interrupted(DownloadResponse):
+        def read(self, size=-1):
+            if self.tell(): raise failure
+            return super().read(3)
+    body = b'pinned runtime archive'
+    lock,target,_,calls,_ = download_case(tmp_path,monkeypatch,[lambda:Interrupted(body),body])
+    bundler.download_runtime(lock,target)
+    assert target.read_bytes() == body and len(calls) == 2
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_truncated_response_is_retried_without_retaining_partial_bytes(tmp_path,monkeypatch):
+    body = b'pinned runtime archive'
+    lock,target,_,calls,_ = download_case(tmp_path,monkeypatch,[body[:3],body])
+    bundler.download_runtime(lock,target)
+    assert target.read_bytes() == body and len(calls) == 2
+    assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize('status', [408,429,500,502,503,504])
+def test_retry_exhaustion_is_bounded_and_leaves_no_archive(tmp_path,monkeypatch,status):
+    def failure():
+        raise bundler.urllib.error.HTTPError('https://private-url',status,'secret',{},None)
+    lock,target,_,calls,sleeps = download_case(tmp_path,monkeypatch,[failure])
+    with pytest.raises(bundler.BundleError,match='exhausted 3 attempts') as error:
+        bundler.download_runtime(lock,target)
+    assert len(calls) == 3 and sleeps == [1,2]
+    assert not list(tmp_path.iterdir())
+    assert 'private-url' not in str(error.value) and 'secret' not in str(error.value)
+
+
+@pytest.mark.parametrize('failure', [
+    bundler.urllib.error.HTTPError('https://private-url',404,'secret',{},None),
+    bundler.urllib.error.HTTPError('https://private-url',403,'secret',{},None),
+    bundler.urllib.error.URLError('certificate validation failed')])
+def test_permanent_download_failures_are_not_retried(tmp_path,monkeypatch,failure):
+    lock,target,_,calls,sleeps = download_case(tmp_path,monkeypatch,[failure])
+    with pytest.raises(bundler.BundleError): bundler.download_runtime(lock,target)
+    assert len(calls) == 1 and not sleeps and not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize('variant', ['digest','oversize','insecure-redirect'])
+def test_download_integrity_failure_never_retries_or_publishes(tmp_path,monkeypatch,variant):
+    body = b'pinned runtime archive'
+    class Insecure(DownloadResponse):
+        def geturl(self): return 'http://insecure.invalid'
+    outcome = body + b'extra' if variant == 'oversize' else body
+    if variant == 'insecure-redirect': outcome = lambda:Insecure(body)
+    lock,target,_,calls,sleeps = download_case(tmp_path,monkeypatch,[outcome])
+    if variant == 'digest': lock['sha256'] = '0'*64
+    with pytest.raises(bundler.BundleError): bundler.download_runtime(lock,target)
+    assert len(calls) == 1 and not sleeps and not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize('symlink', [False, True])
+def test_download_preserves_existing_output_without_network(tmp_path,monkeypatch,symlink):
+    lock,target,_,calls,_ = download_case(tmp_path,monkeypatch,[b'ignored'])
+    if symlink: target.symlink_to('missing')
+    else: target.write_bytes(b'keep')
+    with pytest.raises(bundler.BundleError): bundler.download_runtime(lock,target)
+    assert not calls
+    assert target.is_symlink() if symlink else target.read_bytes() == b'keep'
+
+
+def test_download_publish_race_cannot_overwrite_another_builder(tmp_path,monkeypatch):
+    body = b'pinned runtime archive'
+    target = tmp_path/'runtime.tar.gz'
+    def competing_response():
+        target.write_bytes(b'other builder')
+        return DownloadResponse(body)
+    lock,target,_,calls,_ = download_case(tmp_path,monkeypatch,[competing_response])
+    with pytest.raises(FileExistsError): bundler.download_runtime(lock,target)
+    assert target.read_bytes() == b'other builder'
+    assert list(tmp_path.iterdir()) == [target] and len(calls) == 1

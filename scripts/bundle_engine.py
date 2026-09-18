@@ -8,6 +8,7 @@ signature; distribution signing is owned by build_macos_package.py.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -18,6 +19,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -68,18 +71,62 @@ def validate_archive(path: Path, lock: dict) -> None:
         raise BundleError('Runtime archive digest mismatch')
 
 
+DOWNLOAD_ATTEMPTS = 3
+RETRYABLE_HTTP_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+
+
 def download_runtime(lock: dict, target: Path) -> None:
+    """Retry only transient transport failures; never publish unverified bytes.
+
+    Each attempt owns a new temporary file. Atomic no-clobber publication protects
+    existing outputs (including symlinks) and concurrent builders. Integrity,
+    TLS and permission failures never trigger a weaker source or validation path.
+    """
+    if target.exists() or target.is_symlink():
+        raise BundleError('Refusing to replace an existing runtime archive')
     req = urllib.request.Request(lock['url'], headers={'User-Agent': 'WorldofMysteries-bundler'})
-    with urllib.request.urlopen(req, timeout=60) as response, target.open('xb') as output:
-        if urllib.parse.urlsplit(response.geturl()).scheme != 'https':
-            raise BundleError('Insecure runtime download redirect')
-        total = 0
-        while block := response.read(1024 * 1024):
-            total += len(block)
-            if total > lock['size']:
-                raise BundleError('Runtime download exceeds pinned size')
-            output.write(block)
-    validate_archive(target, lock)
+    for attempt in range(DOWNLOAD_ATTEMPTS):
+        fd, name = tempfile.mkstemp(prefix='.runtime-download-', dir=target.parent)
+        partial = Path(name)
+        failure = ''
+        try:
+            with os.fdopen(fd, 'wb') as output:
+                try:
+                    with urllib.request.urlopen(req, timeout=60) as response:
+                        if urllib.parse.urlsplit(response.geturl()).scheme != 'https':
+                            raise BundleError('Insecure runtime download redirect')
+                        total = 0
+                        while block := response.read(1024 * 1024):
+                            total += len(block)
+                            if total > lock['size']:
+                                raise BundleError('Runtime download exceeds pinned size')
+                            output.write(block)
+                        if total != lock['size']:
+                            raise http.client.IncompleteRead(b'', lock['size'] - total)
+                except urllib.error.HTTPError as exc:
+                    code = exc.code
+                    exc.close()
+                    if code not in RETRYABLE_HTTP_STATUS:
+                        raise BundleError(f'Runtime download rejected (HTTP {code})') from None
+                    failure = f'HTTP {code}'
+                except urllib.error.URLError as exc:
+                    if not isinstance(exc.reason, (TimeoutError, ConnectionError)):
+                        raise BundleError('Runtime download connection or TLS validation failed') from None
+                    failure = 'connection interrupted'
+                except (TimeoutError, ConnectionError, http.client.IncompleteRead):
+                    failure = 'connection interrupted'
+            if not failure:
+                validate_archive(partial, lock)
+                # Hard-link creation is atomic and fails if any target already exists.
+                os.link(partial, target)
+                return
+        finally:
+            partial.unlink(missing_ok=True)
+        if attempt + 1 == DOWNLOAD_ATTEMPTS:
+            raise BundleError(f'Runtime download exhausted {DOWNLOAD_ATTEMPTS} attempts ({failure})')
+        print(f'Runtime download attempt {attempt + 1}/{DOWNLOAD_ATTEMPTS} failed ({failure}); retrying pinned asset',
+              file=sys.stderr)
+        time.sleep(2 ** attempt)
 
 
 def validate_links(root: Path) -> None:

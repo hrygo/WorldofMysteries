@@ -149,3 +149,89 @@ def test_failed_diagnostic_collection_cannot_hide_app_failure(tmp_path, monkeypa
     with pytest.raises(package.BundleError, match='original launch failure'):
         package.release_app_probe(tmp_path/'App.app', tmp_path)
     assert app.stopped
+
+
+def test_process_ancestry_never_parses_display_escaped_arguments(monkeypatch):
+    calls = []
+    def read(command, **kwargs):
+        calls.append(command)
+        return '   201  100\n  202 201\n 203 100\n'
+    monkeypatch.setattr(package.subprocess, 'check_output', read)
+    assert package.children(100) == [201, 203]
+    assert calls == [['/bin/ps', '-axo', 'pid=,ppid=']]
+
+
+@pytest.mark.parametrize('raw', ['123 invalid', '123 4 extra', 'oops', '123 -1'])
+def test_invalid_ancestry_is_not_treated_as_no_engine(raw, monkeypatch):
+    monkeypatch.setattr(package.subprocess, 'check_output', lambda *a, **kw: raw)
+    with pytest.raises(package.BundleError, match='ancestry'):
+        package.children(4)
+
+
+def test_executable_identity_accepts_unicode_paths_and_aliases(tmp_path, monkeypatch):
+    app = tmp_path/'安装 空格'/'诡秘世界.app'
+    binary = app/'Contents/Resources/LocalEngine/bin/python3'
+    binary.parent.mkdir(parents=True)
+    real = binary.with_name('python3.14'); real.write_bytes(b'owned executable')
+    binary.symlink_to('python3.14')
+    alias = tmp_path/'alias'; alias.symlink_to(app, target_is_directory=True)
+    monkeypatch.setattr(package, 'process_executable', lambda pid: alias/'Contents/Resources/LocalEngine/bin/python3.14')
+    assert package.is_bundled_engine(123, app)
+    unrelated = tmp_path/'another-python'; unrelated.write_bytes(real.read_bytes())
+    monkeypatch.setattr(package, 'process_executable', lambda pid: unrelated)
+    assert not package.is_bundled_engine(123, app)
+    monkeypatch.setattr(package, 'process_executable', lambda pid: None)
+    assert not package.is_bundled_engine(123, app)
+
+
+def test_kernel_process_path_returns_unescaped_filesystem_bytes(tmp_path, monkeypatch):
+    raw = bytes(tmp_path/'诡秘 空格.app'/'python3')
+    def kernel(pid, buffer, size):
+        assert pid == 123 and size == 4096
+        buffer.value = raw
+        return len(raw)
+    monkeypatch.setattr(package, '_process_path_function', lambda: kernel)
+    assert package.process_executable(123) == Path(raw.decode())
+
+
+@pytest.mark.parametrize('gone', [True, False])
+def test_kernel_path_failure_distinguishes_exit_and_missing_access(gone, monkeypatch):
+    def kernel(*args):
+        package.ctypes.set_errno(package.errno.EPERM)
+        return 0
+    monkeypatch.setattr(package, '_process_path_function', lambda: kernel)
+    monkeypatch.setattr(package, 'process_exists', lambda pid: not gone)
+    if gone:
+        assert package.process_executable(123) is None
+    else:
+        with pytest.raises(package.BundleError, match='identity unavailable'):
+            package.process_executable(123)
+
+
+@pytest.mark.parametrize('value,length', [(b'', 1), (b'relative', 8), (b'/truncated', 4096)])
+def test_invalid_kernel_path_is_rejected(value, length, monkeypatch):
+    def kernel(pid, buffer, size):
+        buffer.value = value
+        return length
+    monkeypatch.setattr(package, '_process_path_function', lambda: kernel)
+    with pytest.raises(package.BundleError, match='Invalid kernel'):
+        package.process_executable(123)
+
+
+def test_await_engine_requires_direct_parent_and_exact_executable(tmp_path, monkeypatch):
+    class App:
+        pid = 100
+        def poll(self): return None
+    monkeypatch.setattr(package, 'children', lambda pid: [101, 102])
+    monkeypatch.setattr(package, 'is_bundled_engine', lambda pid, app: pid == 102)
+    assert package.await_engine(App(), tmp_path) == 102
+    monkeypatch.setattr(package, 'is_bundled_engine', lambda pid, app: True)
+    assert package.await_engine(App(), tmp_path, previous=101) == 102
+    with pytest.raises(package.BundleError, match='duplicate'):
+        package.await_engine(App(), tmp_path)
+
+
+@pytest.mark.skipif(sys.platform != 'darwin', reason='Darwin kernel process identity')
+def test_actual_macos_kernel_executable_identity():
+    import os
+    assert package.process_executable(os.getpid()).samefile(sys.executable)

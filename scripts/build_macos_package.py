@@ -9,6 +9,9 @@ hosts a probe built from the same production Swift process/transport sources.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
+from functools import lru_cache
 import json
 import os
 from pathlib import Path
@@ -99,14 +102,56 @@ def minimal_environment() -> dict[str, str]:
     return keep
 
 
-def children(pid: int) -> list[tuple[int, str]]:
-    raw = subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,command='],text=True)
+def children(pid: int) -> list[int]:
+    # ps command/args are display-escaped (strvis on Darwin), not filesystem
+    # paths. Read only numeric ancestry here; executable identity comes from
+    # the kernel. Neither user arguments nor environment are collected.
+    raw = subprocess.check_output(['/bin/ps', '-axo', 'pid=,ppid='], text=True, timeout=5)
     result = []
     for line in raw.splitlines():
-        parts = line.strip().split(None, 2)
-        if len(parts) == 3 and parts[1] == str(pid):
-            result.append((int(parts[0]), parts[2]))
+        parts = line.split()
+        if len(parts) != 2 or not all(item.isdecimal() for item in parts):
+            raise BundleError('Invalid numeric process ancestry response')
+        if int(parts[1]) == pid:
+            result.append(int(parts[0]))
     return result
+
+
+@lru_cache(maxsize=1)
+def _process_path_function():
+    if sys.platform != 'darwin':
+        raise BundleError('Kernel process identity requires macOS')
+    function = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True).proc_pidpath
+    function.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+    function.restype = ctypes.c_int
+    return function
+
+
+def process_executable(pid: int) -> Path | None:
+    # PROC_PIDPATHINFO_MAXSIZE is four MAXPATHLEN blocks on Darwin. This is
+    # build-host observation only; no private API is linked into the App.
+    buffer = ctypes.create_string_buffer(4096)
+    ctypes.set_errno(0)
+    length = _process_path_function()(pid, buffer, len(buffer))
+    if length <= 0:
+        code = ctypes.get_errno()
+        if code == errno.ESRCH or not process_exists(pid):
+            return None  # The child exited between ancestry and path reads.
+        raise BundleError(f'Kernel executable identity unavailable (code {code})')
+    value = buffer.value
+    if length >= len(buffer) or not value or not value.startswith(b'/'):
+        raise BundleError('Invalid kernel executable identity')
+    return Path(os.fsdecode(value))
+
+
+def is_bundled_engine(pid: int, bundle: Path) -> bool:
+    executable = process_executable(pid)
+    if executable is None:
+        return False
+    try:
+        return executable.samefile(bundle/'Contents/Resources/LocalEngine/bin/python3')
+    except FileNotFoundError:
+        return False
 
 
 def await_engine(app: subprocess.Popen, bundle: Path, *, previous: int | None = None) -> int:
@@ -114,10 +159,10 @@ def await_engine(app: subprocess.Popen, bundle: Path, *, previous: int | None = 
     while time.monotonic() < end:
         if app.poll() is not None:
             raise BundleError('Release App exited before Engine startup')
-        candidates = [(pid, command) for pid, command in children(app.pid)
-                      if str(bundle/'Contents/Resources/LocalEngine/bin/') in command and pid != previous]
+        candidates = [pid for pid in children(app.pid)
+                      if pid != previous and is_bundled_engine(pid, bundle)]
         if len(candidates) == 1:
-            return candidates[0][0]
+            return candidates[0]
         if len(candidates) > 1:
             raise BundleError('Release App launched duplicate engines')
         time.sleep(0.1)
@@ -146,6 +191,8 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
             time.sleep(2)
             if not process_exists(first):
                 raise BundleError('Bundled Engine exited after spawn')
+            if first not in children(app.pid) or not is_bundled_engine(first, bundle):
+                raise BundleError('Engine identity changed before crash probe')
             os.kill(first, signal.SIGKILL)
             second = await_engine(app, bundle, previous=first)
             known_children.append(second)
@@ -161,6 +208,7 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
                 raise BundleError('Engine outlived the force-quit Release App')
             return {'release_app_started': True, 'engine_spawn_ms': spawned_ms,
                     'engine_crash_recovered': True, 'app_force_quit_cleaned_engine': True,
+                    'process_identity': 'kernel executable file identity and direct parent',
                     'ui_interactive_acceptance': 'not-tested'}
         except Exception:
             # Bounded public stage/code diagnostics only; do not dump process
@@ -178,7 +226,8 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
             for pid in known_children:
                 # Only children spawned by this probe are eligible for cleanup.
                 try:
-                    os.kill(pid, signal.SIGKILL)
+                    if is_bundled_engine(pid, bundle):
+                        os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
 
