@@ -143,15 +143,15 @@ public struct WOMLoadingState: View {
             ProgressView()
                 .controlSize(.small)
                 .tint(accentColor)
-                .accessibilityLabel("正在加载")
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(title)
+                Text(presentation.title)
                     .font(Font.Mystic.titleSmall)
                     .foregroundStyle(Color.Mystic.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let message {
+                if let message = presentation.message {
                     Text(message)
                         .font(Font.Mystic.caption)
                         .foregroundStyle(Color.Mystic.textSecondary)
@@ -170,8 +170,12 @@ public struct WOMLoadingState: View {
                 textureOpacity: 0.018
             )
         )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(tone.semanticLabel)：\(title)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("正在加载：\(presentation.accessibilitySummary)")
+    }
+
+    private var presentation: WOMFeedbackPresentation {
+        WOMFeedbackPresentation(title: title, message: message, fallbackTitle: "准备中")
     }
 
     private var accentColor: Color {
@@ -209,26 +213,9 @@ public struct WOMEmptyState: View {
 
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.sm) {
-            WOMIcon(
-                source: source,
-                size: .large,
-                accessibilityLabel: nil
-            )
-            .foregroundStyle(accentColor.opacity(0.82))
+            descriptionContent
 
-            Text(title)
-                .font(Font.Mystic.titleSmall)
-                .foregroundStyle(Color.Mystic.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text(message)
-                .font(Font.Mystic.caption)
-                .foregroundStyle(Color.Mystic.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(DesignTokens.TypographyMetrics.compactLineSpacing)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let actionTitle, let onAction {
+            if let actionTitle = presentation.actionTitle, let onAction {
                 Button(actionTitle, action: onAction)
                     .buttonStyle(WOMButtonStyle(.secondary))
                     .padding(.top, DesignTokens.Spacing.xxs)
@@ -245,7 +232,39 @@ public struct WOMEmptyState: View {
             )
         )
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(tone.semanticLabel)：\(title)")
+    }
+
+    private var descriptionContent: some View {
+        VStack(spacing: DesignTokens.Spacing.sm) {
+            WOMIcon(source: source, size: .large, accessibilityLabel: nil)
+                .foregroundStyle(accentColor.opacity(0.82))
+
+            Text(presentation.title)
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let message = presentation.message {
+                Text(message)
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(DesignTokens.TypographyMetrics.compactLineSpacing)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(tone.semanticLabel)：\(presentation.accessibilitySummary)")
+    }
+
+    private var presentation: WOMFeedbackPresentation {
+        WOMFeedbackPresentation(
+            title: title,
+            message: message,
+            fallbackTitle: "暂无内容",
+            actionTitle: actionTitle,
+            hasAction: onAction != nil
+        )
     }
 
     private var accentColor: Color {
@@ -285,6 +304,7 @@ public struct WOMStatusBanner: View {
                 Spacer(minLength: DesignTokens.Spacing.sm)
                 actionButton
             }
+            .fixedSize(horizontal: true, vertical: false)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 statusIdentity
@@ -320,7 +340,6 @@ public struct WOMStatusBanner: View {
                 )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(tone.semanticLabel)：\(title)")
     }
 
     private var statusIdentity: some View {
@@ -334,13 +353,13 @@ public struct WOMStatusBanner: View {
             .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                Text(title)
+                Text(presentation.title)
                     .font(Font.Mystic.bodyMedium)
                     .fontWeight(.semibold)
                     .foregroundStyle(Color.Mystic.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let message {
+                if let message = presentation.message {
                     Text(message)
                         .font(Font.Mystic.caption)
                         .foregroundStyle(Color.Mystic.textSecondary)
@@ -349,14 +368,26 @@ public struct WOMStatusBanner: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(tone.semanticLabel)：\(presentation.accessibilitySummary)")
     }
 
     @ViewBuilder
     private var actionButton: some View {
-        if let actionTitle, let onAction {
+        if let actionTitle = presentation.actionTitle, let onAction {
             Button(actionTitle, action: onAction)
                 .buttonStyle(WOMButtonStyle(.tertiary))
         }
+    }
+
+    private var presentation: WOMFeedbackPresentation {
+        WOMFeedbackPresentation(
+            title: title,
+            message: message,
+            fallbackTitle: tone.semanticLabel,
+            actionTitle: actionTitle,
+            hasAction: onAction != nil
+        )
     }
 
     private var accentColor: Color {

@@ -14,6 +14,7 @@ public struct ComponentGalleryView: View {
                 ComponentGalleryInteractionGroup()
                 ComponentGalleryWorldGroup()
                 ComponentGalleryDesignSystemGroup()
+                ControlRecoveryGallerySection()
                 ComponentGalleryArtifactGroup()
             }
             .padding(DesignTokens.Spacing.xxl)
