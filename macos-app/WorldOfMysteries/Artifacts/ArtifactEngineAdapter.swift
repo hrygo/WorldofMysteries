@@ -182,7 +182,8 @@ public enum ArtifactIPCMethod {
 
 // MARK: - Payload Codec
 
-private enum ArtifactIPCCodec {
+// Module-internal so tests can exercise the production decoder without a fake connection.
+enum ArtifactIPCCodec {
   static func payload<T: Encodable>(from value: T) throws -> [String: AnyCodableValue] {
     let data = try JSONEncoder().encode(value)
     return try JSONDecoder().decode([String: AnyCodableValue].self, from: data)

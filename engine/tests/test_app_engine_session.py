@@ -160,7 +160,7 @@ def test_production_client_rejects_bad_peers(app_driver, variant):
             thread = threading.Thread(target=serve, daemon=True)
             thread.start()
             expected = 'ok' if variant == 'fragmented' else 'error'
-            result = subprocess.run([str(app_driver), 'peer', path, expected],
+            result = subprocess.run([str(app_driver), 'peer', path, expected, variant],
                                     capture_output=True, text=True, timeout=8)
             thread.join(timeout=4)
             assert not thread.is_alive(), 'Peer fixture did not stop'

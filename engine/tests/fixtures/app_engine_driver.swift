@@ -12,20 +12,32 @@ struct AppEngineDriver {
         let args = CommandLine.arguments
         let mode = args[1]
         if mode == "peer" {
-            let client = EngineIPCClient(requestTimeout: 0.3)
-            defer { /* Each scenario explicitly disconnects before returning. */ }
+            let variant = args[4]
+            // Fragment reassembly is not a 300ms latency benchmark. Deliberate
+            // per-fragment sleeps accumulate differently across target schedulers.
+            // Only the dedicated deadline case uses the short timeout; production
+            // defaults and its half-frame deadline remain unchanged.
+            let client = EngineIPCClient(requestTimeout: variant == "timeout" ? 0.3 : 5)
+            try await client.connect(socketPath: args[2])
+            try await client.performHandshake(sessionToken: String(repeating: "a", count: 64))
             do {
-                try await client.connect(socketPath: args[2])
-                try await client.performHandshake(sessionToken: String(repeating: "a", count: 64))
                 _ = try await client.health()
                 guard args[3] == "ok" else { fatalError("Malformed peer was accepted") }
             } catch {
-                guard args[3] == "error" else { throw error }
+                guard args[3] == "error", let failure = error as? EngineConnectionError else { throw error }
+                let expected: EngineConnectionError
+                switch variant {
+                case "timeout": expected = .timedOut
+                case "wrong-trace", "wrong-request": expected = .correlationMismatch
+                default: expected = .invalidFrame
+                }
+                guard failure == expected else { throw error }
             }
             await client.disconnect()
             print("PASS peer \(args[3])")
             return
         }
+
         let manager = EngineProcessManager(configuration: EngineLaunchConfiguration(
             executableURL: URL(fileURLWithPath: args[2]), moduleDirectory: URL(fileURLWithPath: args[3]),
             runtimeRoot: URL(fileURLWithPath: args[4])))

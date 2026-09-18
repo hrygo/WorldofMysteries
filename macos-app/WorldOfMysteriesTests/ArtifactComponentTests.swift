@@ -147,34 +147,50 @@ struct ArtifactIPCIntegrationTests {
         == "artifact.death_knell.fire")
   }
 
-  @Test("Production adapter does not invent an engine payload")
-  func adapterFailsClosedWhenEngineHasNoTypedPayload() async throws {
+  @Test("Production adapter refuses an unauthenticated connection")
+  func disconnectedAdapterFailsClosed() async throws {
     let client = EngineIPCClient()
-    try await client.connect(socketPath: "/tmp/world_of_mysteries_test.sock")
     let resolver = EngineArtifactActionResolver(client: client)
     let context = ArtifactContext(worldID: "world", worldlineID: "main", storyRevision: 1)
-
     do {
       _ = try await resolver.resolve(
-        .init(
-          artifactID: .arrodesMirror,
-          action: .ask,
-          context: context,
-          input: "这里发生过什么？"
-        )
-      )
-      Issue.record("Expected the production adapter to fail closed without a typed engine payload")
-    } catch let error as ArtifactIPCError {
-      switch error {
-      case .missingPayload:
-        break
-      case .engine:
-        Issue.record("Expected missingPayload, got engine error: \(error)")
-      }
+        .init(artifactID: .arrodesMirror, action: .ask, context: context, input: "这里发生过什么？"))
+      Issue.record("An unauthenticated adapter produced a business result")
+    } catch EngineConnectionError.notConnected {
+      #expect(await !client.isConnected)
     }
-
     await client.disconnect()
   }
+
+  @Test("Production decoder still rejects empty, malformed and error business results")
+  func adapterFailsClosedWhenEngineHasNoTypedPayload() throws {
+    // The former test relied on a nonexistent socket returning a scaffold echo.
+    // Exercise the SAME decoder used by all production resolvers, not a test copy.
+    let empty = IPCEnvelope(kind: "response", traceId: "trace", requestId: "request",
+                            status: "ok", payload: [:])
+    do {
+      let _: ArtifactActionResolution = try ArtifactIPCCodec.decodeResponse(empty, as: ArtifactActionResolution.self)
+      Issue.record("Empty payload fabricated an Artifact resolution")
+    } catch let error as ArtifactIPCError {
+      guard case .missingPayload = error else { throw error }
+    }
+
+    let malformed = IPCEnvelope(kind: "response", traceId: "trace", requestId: "request",
+                                status: "ok", payload: ["unexpected": .bool(true)])
+    #expect(throws: DecodingError.self) {
+      try ArtifactIPCCodec.decodeResponse(malformed, as: ArtifactActionResolution.self)
+    }
+    let denied = IPCEnvelope(kind: "response", traceId: "trace", requestId: "request",
+      status: "error", error: IPCErrorPayload(code: "authorization_denied", message: "Denied", retryable: false))
+    do {
+      let _: ArtifactActionResolution = try ArtifactIPCCodec.decodeResponse(denied, as: ArtifactActionResolution.self)
+      Issue.record("Engine error was treated as a successful resolution")
+    } catch let error as ArtifactIPCError {
+      guard case .engine(let code, _) = error else { throw error }
+      #expect(code == "authorization_denied")
+    }
+  }
+
 }
 
 @Suite("Artifact Fate Surface Runtime")
