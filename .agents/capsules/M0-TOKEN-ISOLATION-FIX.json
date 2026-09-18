@@ -57,7 +57,7 @@
   },
   "gates": {
     "profile": "MACOS_APP_P0",
-    "profile_digest": "sha256:a1fad8ce6a88513c6a34e5c3de294dbac298973f48d7004d3aa196c2a1f40a40",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
     "profile_file": ".hacf/gates/macos_app_p0.json",
     "risk_class": "medium"
   },
