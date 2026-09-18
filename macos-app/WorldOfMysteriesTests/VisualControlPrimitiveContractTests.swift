@@ -53,6 +53,23 @@ struct VisualControlPrimitiveContractTests {
         #expect(primitives.contains(".accessibilityLabel(Text(accessibilityText))"))
     }
 
+    @Test("legacy semantic badges expose non-color differentiation hooks")
+    func badgeDifferentiationContract() throws {
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains("@Environment(\\.accessibilityDifferentiateWithoutColor)"))
+        #expect(primitives.contains("badgeBorderDash"))
+        #expect(primitives.contains("colorSchemeContrast == .increased"))
+    }
+
+    @Test("legacy icon command supports focus disabled and reduced-motion states")
+    func legacyIconCommandInteractionContract() throws {
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains("@Environment(\\.isFocused)"))
+        #expect(primitives.contains(".opacity(isEnabled ? 1 : 0.48)"))
+        #expect(primitives.contains("isFocused && isEnabled ? 1 : 0"))
+        #expect(primitives.contains("withAnimation(reduceMotion ? nil"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

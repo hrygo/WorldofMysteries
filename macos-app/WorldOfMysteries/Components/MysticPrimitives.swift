@@ -72,6 +72,9 @@ public enum MysticBadgeVariant: Sendable {
 
 /// 通用状态徽章：统一「图标 + 文本 + 语义色 + 边距」的呈现方式
 public struct MysticBadge: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     public let text: String
     public let tone: MysticTone
     public let variant: MysticBadgeVariant
@@ -96,6 +99,7 @@ public struct MysticBadge: View {
         HStack(spacing: DesignTokens.Spacing.xxs) {
             if let systemIcon {
                 Image(systemName: systemIcon)
+                    .symbolRenderingMode(.monochrome)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(tone.readableForeground)
             }
@@ -150,9 +154,48 @@ public struct MysticBadge: View {
 
     @ViewBuilder
     private var border: some View {
-        if variant == .panel {
-            RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
-                .stroke(tone.accent.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
+        if variant != .plain {
+            shape.stroke(
+                badgeBorderColor,
+                style: StrokeStyle(
+                    lineWidth: badgeBorderWidth,
+                    lineCap: .round,
+                    lineJoin: .round,
+                    dash: badgeBorderDash
+                )
+            )
+        }
+    }
+
+    private var badgeBorderColor: Color {
+        if colorSchemeContrast == .increased {
+            return tone.readableForeground.opacity(0.95)
+        }
+        if differentiateWithoutColor {
+            return tone.readableForeground.opacity(0.72)
+        }
+        return variant == .panel ? tone.accent.opacity(0.45) : tone.accent.opacity(0.22)
+    }
+
+    private var badgeBorderWidth: CGFloat {
+        colorSchemeContrast == .increased
+            ? DesignTokens.Borders.standard
+            : DesignTokens.Borders.hairline
+    }
+
+    private var badgeBorderDash: [CGFloat] {
+        guard differentiateWithoutColor else { return [] }
+        switch tone {
+        case .gold, .teal:
+            return []
+        case .azure:
+            return [1, 2]
+        case .amber:
+            return [4, 2]
+        case .crimson:
+            return [2, 2, 6, 2]
+        case .neutral:
+            return [2, 3]
         }
     }
 }
@@ -548,6 +591,11 @@ public struct MysticEmptyState: View {
 
 /// 通用图标命令按钮：统一图标、可选标题、悬停微光与按压反馈
 public struct MysticIconButton: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+
     public let systemIcon: String
     public let title: String?
     public let tone: MysticTone
@@ -586,7 +634,11 @@ public struct MysticIconButton: View {
                         .fontWeight(.medium)
                 }
             }
-            .foregroundStyle(isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
+            .foregroundStyle(
+                isEnabled
+                    ? (isHovered ? tone.readableForeground : Color.Mystic.textSecondary)
+                    : Color.Mystic.textTertiary
+            )
             .padding(.horizontal, title == nil ? DesignTokens.Spacing.sm : DesignTokens.Spacing.md)
             .frame(minWidth: title == nil ? 32 : nil, minHeight: 32, alignment: .center)
             .background(
@@ -600,10 +652,22 @@ public struct MysticIconButton: View {
                         lineWidth: DesignTokens.Borders.hairline
                     )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radii.xs, style: .continuous)
+                    .stroke(
+                        colorSchemeContrast == .increased
+                            ? Color.Mystic.textPrimary
+                            : tone.readableForeground,
+                        lineWidth: DesignTokens.Accessibility.focusRingWidth
+                    )
+                    .padding(-DesignTokens.Accessibility.focusRingOffset)
+                    .opacity(isFocused && isEnabled ? 1 : 0)
+            )
         }
         .mysticPressable(scale: 0.97)
+        .opacity(isEnabled ? 1 : 0.48)
         .onHover { hovering in
-            withAnimation(DesignTokens.Interaction.hoverAnimation) {
+            withAnimation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering
             }
         }
