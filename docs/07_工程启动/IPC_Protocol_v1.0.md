@@ -7,6 +7,10 @@
 
 ---
 
+> **唯一机器可读事实源**：[contracts/protocol/engine_ipc.schema.json](../../contracts/protocol/engine_ipc.schema.json)。
+> `protocol/engine_ipc.schema.json` 仅保留本地 `$ref`，不再独立维护第二套协议。
+> 原骨架的宽松解码不是兼容保证；随包 App/Engine 配套更新，不要求用户配置或迁移存档。
+
 ## 1. 设计目标
 
 协议必须：
@@ -38,12 +42,13 @@ App 建立 UDS 后第一个消息必须是：
   "payload": {
     "app_version": "0.1.0",
     "app_build": "100",
-    "supported_protocols": ["1.0"]
+    "supported_protocols": ["1.0"],
+    "session_token": "<64 lowercase hex characters supplied by the parent process>"
   }
 }
 ```
 
-Engine 返回：
+Engine 返回（能力列表是示例；只能声明本实例实际实现的能力）：
 
 ```json
 {
@@ -55,7 +60,7 @@ Engine 返回：
   "payload": {
     "engine_version": "0.1.0",
     "engine_build": "100",
-    "python_version": "3.11.x",
+    "python_version": "<actual runtime version>",
     "protocol_version": "1.0",
     "capabilities": [
       "world.open",
@@ -284,7 +289,11 @@ cancelled
 - 权限只允许当前用户。
 - 不监听外部 TCP。
 - Engine 验证 App 启动会话 token。
-- token 每次 Engine launch 生成，只存在内存/受保护启动参数或父子进程 channel。
+- token 每次 Engine launch 由 App 生成：32 随机字节编码为 64 位小写十六进制。
+- App 使用专用父子进程 pipe 传入 token；启动参数仅含 pipe 的文件描述符编号，绝不含 token 本身。
+- Engine 读取后关闭 pipe，首次 UDS `system.handshake` 验证 `payload.session_token`；凭据不写日志、普通命令行或持久文件。
+- 每次新连接必须重新握手；进程重启旧 token 失效。鉴权失败不开放其他方法。
+- 正常路径不增加最终用户操作、账号、费用、权限步骤或网络依赖。实际启动/恢复体验仍需目标 Mac 验证。
 - IPC payload 不默认写入普通日志。
 
 ---
