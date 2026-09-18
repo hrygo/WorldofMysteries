@@ -57,6 +57,13 @@ class EngineIPCEnvelope(BaseModel):
             raise ValueError("Missing or forbidden IPC fields for message kind")
         if any(v is None for v in value.values()):
             raise ValueError("Omit optional IPC fields instead of sending null")
+        # JSON Schema integers include numerically integral JSON numbers (e.g. 1.0).
+        # Match Swift's Int decoder without accepting booleans or numeric strings.
+        value = dict(value)
+        for name in ("sequence", "story_revision"):
+            number = value.get(name)
+            if isinstance(number, float) and number.is_integer():
+                value[name] = int(number)
         return value
 
     @model_validator(mode="after")
@@ -81,7 +88,7 @@ class HandshakeRequest(BaseModel):
     app_version: str = Field(min_length=1)
     app_build: str = Field(min_length=1)
     supported_protocols: list[str] = Field(min_length=1)
-    session_token: str = Field(pattern=r"^[0-9a-f]{64}$", repr=False)
+    session_token: str = Field(pattern=r"^[0-9a-f]{64}$", min_length=64, max_length=64, repr=False)
 
     @model_validator(mode="after")
     def protocols_are_nonempty(self) -> Self:
@@ -98,3 +105,9 @@ class HandshakeResponse(BaseModel):
     python_version: str = Field(min_length=1)
     protocol_version: Literal["1.0"]
     capabilities: list[str]
+
+    @model_validator(mode="after")
+    def unique_capabilities(self) -> Self:
+        if any(not item for item in self.capabilities) or len(set(self.capabilities)) != len(self.capabilities):
+            raise ValueError("Capabilities must be unique nonempty method names")
+        return self

@@ -235,7 +235,9 @@
         "session_token": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Per-launch credential, never log or persist."
+          "description": "Per-launch credential, never log or persist.",
+          "minLength": 64,
+          "maxLength": 64
         }
       }
     },
@@ -263,8 +265,7 @@
           "minLength": 1
         },
         "protocol_version": {
-          "type": "string",
-          "minLength": 1
+          "const": "1.0"
         },
         "capabilities": {
           "type": "array",

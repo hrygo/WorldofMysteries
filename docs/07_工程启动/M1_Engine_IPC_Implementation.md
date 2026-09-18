@@ -21,6 +21,20 @@ The user approved strict contract unification and a dedicated parent-child crede
 - Architecture static checks and capsule schema passed.
 - This does not claim full SwiftUI/Xcode tests, target Mac performance, packaging, real service implementation, Golden 001 or database persistence.
 
-## Remaining increment
+## Increment 2 — real system transport
 
-Implement and test the real UDS process, private bootstrap pipe, authenticated system methods, bounded framing, connection handling and safe socket lifecycle. App lifecycle integration, signed bundled Python, real story handlers and persistence remain subsequent tasks. Keep #43–#45 open.
+- Added a real independent UDS server, private bootstrap pipe and per-connection authentication.
+- System health reports transport readiness separately from unavailable world/model/voice capability; unknown methods fail closed.
+- Bounded framing, strict JSON, fragmented/coalesced input, correlated FIFO replies and concurrent clients.
+- Private runtime/socket permissions, exclusive startup lease, confirmed stale-socket recovery and inode-checked cleanup.
+- Normal shutdown, signal shutdown with active/partial clients, crash/restart and old-token rejection have actual subprocess tests.
+- Aligned integral JSON numbers and handshake constraints across the contract models. The shared corpus now has 94 cases; numeric wire spellings are tested without pre-normalization.
+- Initial macOS CI found an empty-payload compatibility regression in the existing Artifact adapter test. Empty objects now remain absent typed business results; malformed nonempty payloads still fail. The existing test is unchanged and a focused regression test was added.
+
+### Local evidence
+
+189 focused Python/contract/transport assertions passed on Python 3.13.5/Linux, including real independent-process tests. The 94-case production Swift codec/reverse roundtrip and the empty-payload regression probe passed with Swift 6.2.1/Linux. These are not the pinned full runtime or target App acceptance. The initial commit's Capsule Gate and Python CI passed; its Swift test failure motivated the compatibility fix. New-head CI must be read separately.
+
+### Remaining product integration
+
+App lifecycle integration, signed bundled Python, automatic first-run/reconnect on the target Mac, real story handlers and persistence remain subsequent tasks. No new user operations are added by the internal design, but end-user-invisible startup/performance has not been accepted. Keep #43–#45 open. No merge is authorized.

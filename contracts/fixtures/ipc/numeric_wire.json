@@ -1,0 +1,30 @@
+[
+  {
+    "id": "event-sequence-integral",
+    "valid": true,
+    "envelope": {
+      "kind": "event",
+      "protocol_version": "1.0",
+      "trace_id": "trace_1",
+      "stream_id": "stream_1",
+      "sequence": 1.0,
+      "event": "turn.committed",
+      "payload": {}
+    },
+    "rawWire": "{\"kind\":\"event\",\"protocol_version\":\"1.0\",\"trace_id\":\"trace_1\",\"stream_id\":\"stream_1\",\"sequence\":1.0,\"event\":\"turn.committed\",\"payload\":{}}"
+  },
+  {
+    "id": "event-sequence-fractional-recheck",
+    "valid": false,
+    "envelope": {
+      "kind": "event",
+      "protocol_version": "1.0",
+      "trace_id": "trace_1",
+      "stream_id": "stream_1",
+      "sequence": 1.5,
+      "event": "turn.committed",
+      "payload": {}
+    },
+    "rawWire": "{\"kind\":\"event\",\"protocol_version\":\"1.0\",\"trace_id\":\"trace_1\",\"stream_id\":\"stream_1\",\"sequence\":1.5,\"event\":\"turn.committed\",\"payload\":{}}"
+  }
+]

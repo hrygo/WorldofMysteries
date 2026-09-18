@@ -251,7 +251,9 @@ public nonisolated struct IPCEnvelope: Codable, Sendable {
     }
 
     public func decodePayload<T: Decodable>(as type: T.Type, using decoder: JSONDecoder = JSONDecoder()) throws -> T? {
-        guard let payload else { return nil }
+        // An empty wire object carries no typed business result. Preserve fail-closed
+        // callers; nonempty malformed payloads still throw rather than fabricate data.
+        guard let payload, !payload.isEmpty else { return nil }
         return try decoder.decode(type, from: JSONEncoder().encode(payload))
     }
 }

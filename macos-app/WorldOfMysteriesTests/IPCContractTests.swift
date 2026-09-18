@@ -8,11 +8,13 @@ struct IPCContractTests {
     func testCanonicalCorpus() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-        let url = root.appendingPathComponent("contracts/fixtures/ipc/envelopes.json")
-        let cases = try JSONDecoder().decode([IPCFixtureCase].self, from: Data(contentsOf: url))
+        let cases = try ["envelopes", "numeric_wire"].flatMap { name in
+            let url = root.appendingPathComponent("contracts/fixtures/ipc/\(name).json")
+            return try JSONDecoder().decode([IPCFixtureCase].self, from: Data(contentsOf: url))
+        }
         #expect(cases.count >= 80)
         for sample in cases {
-            let bytes = try JSONEncoder().encode(sample.envelope)
+            let bytes = try sample.rawWire.map { Data($0.utf8) } ?? JSONEncoder().encode(sample.envelope)
             do {
                 let envelope = try JSONDecoder().decode(IPCEnvelope.self, from: bytes)
                 #expect(sample.valid, "Unexpected acceptance: \(sample.id)")
@@ -26,6 +28,16 @@ struct IPCContractTests {
         }
     }
 
+    @Test("Empty business payload stays absent and malformed nonempty payload still fails")
+    func testMissingBusinessPayload() throws {
+        struct BusinessResult: Decodable { let requestID: String }
+        let empty = IPCEnvelope(kind: "response", traceId: "trace", requestId: "req", status: "ok")
+        #expect(try empty.decodePayload(as: BusinessResult.self) == nil)
+        let malformed = IPCEnvelope(kind: "response", traceId: "trace", requestId: "req",
+                                    status: "ok", payload: ["wrongKey": .string("value")])
+        #expect(throws: (any Error).self) { try malformed.decodePayload(as: BusinessResult.self) }
+    }
+
     @Test("A constructed invalid envelope cannot be serialized")
     func testInvalidConstructedEnvelope() {
         let invalid = IPCEnvelope(kind: "request", traceId: "trace", method: "system.health")
@@ -37,4 +49,5 @@ private struct IPCFixtureCase: Decodable {
     let id: String
     let valid: Bool
     let envelope: AnyCodableValue
+    let rawWire: String?
 }
