@@ -1,0 +1,127 @@
+{
+  "receipt_id": "RCP-WORK-M2-SQLITE-3534-RUNTIME-b19091543d2e",
+  "receipt_type": "work",
+  "task_id": "M2-SQLITE-3534-RUNTIME",
+  "capsule_id": "CAP-M2-SQLITE-3534-RUNTIME",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d61a5cc43bf48fd2f5246b3d722e4d2233d056f99274fa3285a6e137f296555f",
+  "diff_digest": "sha256:e39969b7653cd590bd8592c4a4814fdacf758a745f54683bbbccafa8f49d8309",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "high",
+  "base_commit": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+  "head_commit": "b19091543d2ec5b30509e16e93a35b8e930b2c46",
+  "target_ref": "origin/main",
+  "target_sha": "a44665acbde40561f10edd1ed7b67eaad0a98d4c",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:29:41.770270+00:00",
+      "finished_at": "2026-09-18T22:29:41.818570+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:29:41.818863+00:00",
+      "finished_at": "2026-09-18T22:30:19.707734+00:00",
+      "raw_log_digest": "sha256:41a43f746297cd3610357a3d8bb970b9cd7f3a1a1ba2afecbbdfb6ef6b3cd518",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/runner/work/_temp/pr63-spm"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:30:19.708184+00:00",
+      "finished_at": "2026-09-18T22:31:55.265756+00:00",
+      "raw_log_digest": "sha256:864750aadf812f629218915d46eac69c465a413383d5b254253fcbe8d443919c",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-18T22:31:55.266485+00:00",
+      "finished_at": "2026-09-18T22:32:48.297126+00:00",
+      "raw_log_digest": "sha256:c5778e4d1c6771c291cf2961a40a8aa19160514755ed34caa3da5c150d3ac150",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (635500036 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "iad20-eo1211-4b0ff93e-54c0-4dec-8957-6cad43aff88c-DA6033D45756.local",
+    "user": "runner",
+    "role": "AGT-ARB",
+    "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries"
+  },
+  "started_at": "2026-09-18T22:29:41.013028+00:00",
+  "finished_at": "2026-09-18T22:32:51.701390+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
