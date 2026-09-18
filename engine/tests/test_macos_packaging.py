@@ -96,3 +96,29 @@ def test_mismatching_native_identity_fails_closed():
     with pytest.raises(package.BundleError):
         package.validate_load_paths('binary:\n/opt/homebrew/bad.dylib (compatibility version 1.0)\n',
             identification='binary:\nlibself.dylib\n')
+
+
+def test_signing_preserves_helper_entitlements_through_parent_path_alias(tmp_path, monkeypatch):
+    actual = tmp_path/'actual'; actual.mkdir()
+    alias = tmp_path/'alias'; alias.symlink_to(actual, target_is_directory=True)
+    app = alias/'Example.app'
+    interpreter = app/'Contents/Resources/LocalEngine/bin/python3'
+    interpreter.parent.mkdir(parents=True)
+    interpreter.write_bytes(b'\xcf\xfa\xed\xfecontents')
+    calls = []
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[0] == 'otool':
+            return 'binary:\n' + ('\t/usr/lib/libSystem.B.dylib (compatibility version 1.0)\n' if '-L' in command else '')
+        if command[0] == 'lipo': return 'arm64'
+        if '-dvv' in command: return 'flags=0x10000(runtime)'
+        if '-d' in command and '--entitlements' in command:
+            name = 'Engine.entitlements' if Path(command[-1]).is_file() else 'App.entitlements'
+            return (ROOT/'macos-app/Packaging'/name).read_text()
+        return ''
+    monkeypatch.setattr(package, 'run', fake_run)
+    package.sign_bundle(app, tmp_path/'logs')
+    signs = [c for c in calls if c[0]=='codesign' and '--force' in c and Path(c[-1]).is_file()]
+    assert len(signs) == 1
+    assert '--entitlements' in signs[0]
+    assert signs[0][signs[0].index('--entitlements')+1].endswith('/Engine.entitlements')

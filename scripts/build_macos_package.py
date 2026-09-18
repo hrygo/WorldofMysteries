@@ -70,7 +70,7 @@ def sign_bundle(app: Path, logs: Path) -> None:
         archs = run(['lipo', '-archs', str(binary)], cwd=ROOT, log=logs/f'arch-{index}.log')
         if 'arm64' not in archs.split():
             raise BundleError('Native dependency lacks arm64')
-        options = ['--entitlements', str(ROOT/'macos-app/Packaging/Engine.entitlements')] if binary == interpreter else []
+        options = ['--entitlements', str(ROOT/'macos-app/Packaging/Engine.entitlements')] if binary.resolve(strict=True) == interpreter else []
         run(['codesign', '--force', '--sign', '-', '--options', 'runtime', *options, str(binary)],
             cwd=ROOT, log=logs/f'sign-{index}.log')
     run(['codesign', '--force', '--sign', '-', '--options', 'runtime', '--entitlements',
@@ -208,7 +208,7 @@ def build(output: Path) -> None:
     logs = output/'logs'
     logs.mkdir()
     with tempfile.TemporaryDirectory(prefix='wom-package-') as temporary:
-        work = Path(temporary)
+        work = Path(temporary).resolve()
         run(['xcodebuild','-project','macos-app/WorldOfMysteries.xcodeproj','-scheme','WorldOfMysteries',
              '-configuration','Release','-destination','platform=macOS,arch=arm64',
              '-derivedDataPath',str(work/'derived'),'CODE_SIGNING_ALLOWED=NO','build'],
