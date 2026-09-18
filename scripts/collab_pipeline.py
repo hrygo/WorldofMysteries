@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -32,6 +33,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKTREE_BASE = REPO_ROOT.parent / "wom-worktrees"
 INTEGRATION_PROFILE = "FULL_P0"
 
+# macOS 的 AF_UNIX `sun_path` 上限为 104 字节（含结尾 NUL）。Worktree 目录本身可能已有
+# 60+ 字符（`~/Documents/wom-worktrees/<branch>`），若把 TMPDIR / IPC socket 放在
+# `<worktree>/.hacf/` 下，测试进程在其下再嵌套临时目录并 bind socket 时会直接
+# `AF_UNIX path too long` —— 表现为 IPC 测试整片红，而 CI 侧没有 `.hacf/workspace.json`
+# 租约、TMPDIR 保持系统默认，反而恒绿。因此 AF_UNIX 相关资源统一走短路径命名空间；
+# 构建产物与日志仍留在工作区内，便于取证。
+AF_UNIX_PATH_MAX = 104
+# socket 尾部预留：`wom-ipc-XXXXXXXX/engine.sock` 这类「临时子目录 + 文件名」的嵌套余量。
+AF_UNIX_SOCKET_RESERVE = 48
+SHORT_RUNTIME_BASE = Path("/tmp")
+
 
 def run_cmd(cmd: str, cwd: Path = REPO_ROOT, check: bool = True) -> subprocess.CompletedProcess:
     res = subprocess.run(cmd, shell=True, cwd=cwd, text=True, capture_output=True)
@@ -46,28 +58,83 @@ def get_worktree_dir(branch: str) -> Path:
     return WORKTREE_BASE / branch.replace("/", "-").replace(":", "-")
 
 
+def _workspace_id(branch: str) -> str:
+    return f"WS-{hashlib.sha256(branch.encode('utf-8')).hexdigest()[:8]}"
+
+
+def short_runtime_root(branch: str) -> Path:
+    """AF_UNIX 相关资源（TMPDIR / socket）的短路径根目录。
+
+    目录名由分支名确定性派生：同一工作区在 `start` / `status` / `abort` 之间稳定复用同一
+    命名空间，不同分支派生出不同目录，隔离性不变。可用 `WOM_WORKSPACE_RUNTIME_BASE`
+    覆盖父目录（例如落到更短的卷或在容器内改到别处）。
+    """
+    base = os.environ.get("WOM_WORKSPACE_RUNTIME_BASE", "").strip()
+    parent = Path(base) if base else SHORT_RUNTIME_BASE
+    workspace = _workspace_id(branch).removeprefix("WS-").lower()
+    return parent / f"wom-ws-{workspace}"
+
+
+def _assert_af_unix_paths_fit(lease: Dict[str, str]) -> None:
+    """`tmpdir` / `ipc_socket` 必须为 socket 尾部嵌套留出余量。
+
+    响亮失败优于把问题留到几十个 socket 断言里：超限时给出字节数与可执行的处置建议。
+    """
+    budget = AF_UNIX_PATH_MAX - AF_UNIX_SOCKET_RESERVE
+    for key in ("tmpdir", "ipc_socket"):
+        value = lease.get(key, "")
+        length = len(value.encode("utf-8"))
+        if length > budget:
+            raise RuntimeError(
+                f"租约字段 '{key}' 路径过长（{length} > {budget} 字节）："
+                f"macOS 的 AF_UNIX sun_path 上限为 {AF_UNIX_PATH_MAX} 字节（含结尾 NUL），"
+                "测试与引擎会在该目录下继续嵌套临时目录再创建 socket，超限即 'path too long'。"
+                "请缩短 WORKTREE_BASE，或用 WOM_WORKSPACE_RUNTIME_BASE 指向更短的路径。"
+                f"当前值：{value}"
+            )
+
+
 def _lease_for(branch: str, worktree: Path) -> Dict[str, str]:
     """按分支名确定性分配资源命名空间，避免多工作区抢占同一端口段/临时目录。"""
     digest = hashlib.sha256(branch.encode("utf-8")).hexdigest()
     port_base = 51000 + (int(digest[:4], 16) % 400) * 10
     runtime = worktree / ".hacf"
-    return {
-        "workspace_id": f"WS-{digest[:8]}",
+    short_runtime = short_runtime_root(branch)
+    lease = {
+        "workspace_id": _workspace_id(branch),
         "branch": branch,
         "worktree_path": str(worktree),
-        "tmpdir": str(runtime / "tmp"),
+        # AF_UNIX 相关资源走短路径命名空间；构建产物、测试库与日志留在工作区内便于取证。
+        "tmpdir": str(short_runtime / "tmp"),
         "spm_scratch": str(runtime / "spm-scratch"),
         "test_db_dir": str(runtime / "testdb"),
-        "ipc_socket": str(runtime / "run" / "engine.sock"),
+        "ipc_socket": str(short_runtime / "run" / "engine.sock"),
         "log_dir": str(runtime / "logs"),
         "port_range": f"{port_base}-{port_base + 9}",
         "created_at": policy.now_iso(),
         "note": "Git Worktree 提供源码隔离；本租约提供运行时资源隔离，两者缺一不可。",
     }
+    _assert_af_unix_paths_fit(lease)
+    return lease
+
+
+def _cleanup_short_runtime(branch: str) -> None:
+    """回收短路径运行时命名空间。
+
+    它不在 worktree 目录内，不会随 worktree 删除而消失，必须显式回收，否则 /tmp 里会留下垃圾。
+    """
+    root = short_runtime_root(branch)
+    if root.exists():
+        shutil.rmtree(root, ignore_errors=True)
+        print(f"🧹 已回收 AF_UNIX 短路径命名空间：{root}")
 
 
 def _provision_workspace(branch: str, worktree: Path, skip_venv: bool) -> None:
     lease = _lease_for(branch, worktree)
+    # /tmp 是共享可写目录：短命名空间目录收紧到 0700，仅本用户可读写。
+    short_root = short_runtime_root(branch)
+    short_root.mkdir(parents=True, exist_ok=True)
+    os.chmod(short_root, 0o700)
     for key in ("tmpdir", "spm_scratch", "test_db_dir", "log_dir"):
         Path(lease[key]).mkdir(parents=True, exist_ok=True)
     Path(lease["ipc_socket"]).parent.mkdir(parents=True, exist_ok=True)
@@ -325,6 +392,7 @@ def integrate_pipeline(
             target_venv.unlink()
         run_cmd(f"git worktree remove --force \"{target_dir}\"", cwd=REPO_ROOT)
         run_cmd(f"git branch -D {branch}", cwd=REPO_ROOT, check=False)
+        _cleanup_short_runtime(branch)
         print("✅ Worktree（含独立 .venv 与资源租约目录）与分支已清理。")
 
 
@@ -389,6 +457,7 @@ def abort_pipeline(branch: str) -> None:
     print(f" Removing worktree at: {target_dir}")
     run_cmd(f"git worktree remove --force \"{target_dir}\"", cwd=REPO_ROOT)
     run_cmd(f"git branch -D {branch}", cwd=REPO_ROOT, check=False)
+    _cleanup_short_runtime(branch)
     print(f"✅ Aborted and cleaned worktree for branch '{branch}'.")
 
 

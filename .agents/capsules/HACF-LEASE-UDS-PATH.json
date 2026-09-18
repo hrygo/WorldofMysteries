@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-HACF-LEASE-UDS-PATH",
+  "capsule_revision": 1,
+  "task_id": "HACF-LEASE-UDS-PATH",
+  "title": "Fix worktree runtime lease to respect the macOS AF_UNIX socket path limit",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T15:45:47.286651+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "8ff231a0c04edbaf8baa6406d87565611fb88ab6",
+    "target_sha": "8ff231a0c04edbaf8baa6406d87565611fb88ab6",
+    "context_snapshot": "sha256:0df6585fa9330fd9b0b183fffa865aa531fc51e136292cba95951ff7ec04773b"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:test_no_local_absolute_paths_in_delivery_markdown@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:74",
+      "symbol:test_unsafe_paths@docs/05_UI/artwork/delivery/tests/test_intake.py:94",
+      "symbol:test_tracked_records_contain_no_absolute_paths@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:406",
+      "symbol:validate_load_paths@scripts/build_macos_package.py:44",
+      "symbol:_process_path_function@scripts/build_macos_package.py:121",
+      "symbol:release_app_probe@scripts/build_macos_package.py:180",
+      "symbol:_lease_for@scripts/collab_pipeline.py:49",
+      "symbol:_changed_paths@scripts/collab_pipeline.py:172",
+      "symbol:load_workspace_lease_defaults@scripts/gate_profile.py:121",
+      "symbol:_is_meta_path@scripts/gate_profile.py:355",
+      "symbol:_safe_path@scripts/generate_pr_report.py:107",
+      "symbol:PolicyError@scripts/hacf_policy.py:91",
+      "symbol:now_iso@scripts/hacf_policy.py:95",
+      "symbol:sha256_bytes@scripts/hacf_policy.py:99",
+      "symbol:sha256_file@scripts/hacf_policy.py:103",
+      "symbol:canonical_json_digest@scripts/hacf_policy.py:107",
+      "symbol:matches_any@scripts/hacf_policy.py:113",
+      "symbol:run_git@scripts/hacf_policy.py:140",
+      "symbol:run_git_bytes@scripts/hacf_policy.py:149",
+      "symbol:split_nul@scripts/hacf_policy.py:156",
+      "symbol:changed_files@scripts/hacf_policy.py:165",
+      "symbol:capsule_digest@scripts/hacf_policy.py:182",
+      "symbol:gate_profile_evolution@scripts/hacf_policy.py:186",
+      "symbol:changes_digest@scripts/hacf_policy.py:257",
+      "symbol:load_capsule@scripts/hacf_policy.py:289",
+      "symbol:path_verdict@scripts/hacf_policy.py:304",
+      "symbol:touches_high_risk@scripts/hacf_policy.py:346",
+      "symbol:audit_scope@scripts/hacf_policy.py:351"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 649,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "safe_path",
+      "source_path_key",
+      "test_no_local_absolute_paths_in_delivery_markdown",
+      "test_unsafe_paths",
+      "test_tracked_records_contain_no_absolute_paths",
+      "validate_load_paths",
+      "_process_path_function",
+      "release_app_probe",
+      "_lease_for",
+      "_changed_paths",
+      "load_workspace_lease_defaults",
+      "_is_meta_path",
+      "_safe_path",
+      "PolicyError",
+      "now_iso",
+      "sha256_bytes",
+      "sha256_file",
+      "canonical_json_digest",
+      "matches_any",
+      "run_git",
+      "run_git_bytes",
+      "split_nul",
+      "changed_files",
+      "capsule_digest",
+      "gate_profile_evolution",
+      "changes_digest",
+      "load_capsule",
+      "path_verdict",
+      "touches_high_risk",
+      "audit_scope"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
