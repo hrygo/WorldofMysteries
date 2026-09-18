@@ -450,3 +450,28 @@ async def test_database_non_string_json_keys_are_not_coerced(database):
     with pytest.raises(StorageError, match='keys'):
         await database.commit_resolved(request(operation={1:'coerced'}))
     assert await counts(database) == [0,0,0]
+
+
+def test_database_shared_runtime_initializes_once_under_concurrent_open(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import closing
+    from engine.infrastructure.database_schema import connect, initialize, APPLICATION_IDS
+
+    path = tmp_path/'shared-runtime.db'
+    both_ready = threading.Barrier(2)
+
+    def initialize_one():
+        with closing(connect(path)) as conn:
+            # The old implementation read an empty schema before this barrier,
+            # then its second caller blindly attempted the same CREATE TABLE.
+            conn.set_trace_callback(lambda sql: both_ready.wait(timeout=5)
+                                    if sql == 'BEGIN IMMEDIATE' else None)
+            initialize(conn, 'runtime')
+            return conn.execute('PRAGMA application_id').fetchone()[0]
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        futures = [workers.submit(initialize_one) for _ in range(2)]
+        assert [future.result(timeout=10) for future in futures] == [APPLICATION_IDS['runtime']]*2
+    with closing(sqlite3.connect(path)) as conn:
+        assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        assert conn.execute("SELECT count(*) FROM sqlite_schema WHERE name='runtime_metadata'").fetchone()[0] == 1

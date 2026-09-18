@@ -67,25 +67,27 @@ def statements(text: str):
 
 def initialize(conn: sqlite3.Connection, role: str) -> None:
     expected_id = APPLICATION_IDS[role]
-    identity = conn.execute('PRAGMA application_id').fetchone()[0]
-    version = conn.execute('PRAGMA user_version').fetchone()[0]
-    existing = conn.execute("SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'").fetchone()[0]
-    if (identity, version) != (expected_id, SCHEMA_VERSION):
-        if identity != 0 or version != 0 or existing:
-            raise StorageError('Unrecognized database schema; migration is required')
-        # Only brand-new files are initialized. No existing world upgrade is implied.
-        conn.execute('BEGIN IMMEDIATE')
-        try:
+    # Inspect AND initialize under the same write lock. runtime.db is shared
+    # by distinct worlds; an earlier empty-schema observation can become stale.
+    conn.execute('BEGIN IMMEDIATE')
+    try:
+        identity = conn.execute('PRAGMA application_id').fetchone()[0]
+        version = conn.execute('PRAGMA user_version').fetchone()[0]
+        existing = conn.execute("SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'").fetchone()[0]
+        if (identity, version) != (expected_id, SCHEMA_VERSION):
+            if identity != 0 or version != 0 or existing:
+                raise StorageError('Unrecognized database schema; migration is required')
+            # Only brand-new files are initialized. No existing world upgrade is implied.
             script = Path(__file__).with_name('migrations') / f'001_{role}.sql'
             for statement in statements(script.read_text(encoding='utf-8')):
                 conn.execute(statement)
             conn.execute(f'PRAGMA application_id={expected_id}')
             conn.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
-            conn.execute('COMMIT')
-        except BaseException:
-            if conn.in_transaction:
-                conn.execute('ROLLBACK')
-            raise
+        conn.execute('COMMIT')
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute('ROLLBACK')
+        raise
     if conn.execute('PRAGMA journal_mode=WAL').fetchone()[0] != 'wal':
         raise StorageError('WAL mode is required')
     conn.execute('PRAGMA synchronous=FULL')
