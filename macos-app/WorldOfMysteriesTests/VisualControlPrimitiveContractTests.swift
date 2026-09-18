@@ -129,6 +129,16 @@ struct VisualControlPrimitiveContractTests {
         #expect(source.contains(".disabled(onRebuildTapped == nil)"))
     }
 
+    @Test("component gallery carries compact-control stress specimens")
+    func galleryCompactControlStressSpecimen() throws {
+        let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")
+        #expect(gallery.contains("compactControlStressSpecimen"))
+        #expect(gallery.contains("提交给当前世界线中的角色进行独立判断"))
+        #expect(gallery.contains("Review the full intervention evidence before continuing"))
+        #expect(gallery.contains("MysticMetricBar("))
+        #expect(gallery.contains("criticalThreshold: 0.25"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

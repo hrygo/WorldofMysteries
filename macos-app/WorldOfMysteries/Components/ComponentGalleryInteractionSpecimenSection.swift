@@ -9,6 +9,7 @@ struct InteractionAndTypographyGallerySection: View {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
                 interactionStates
                 controlAndIconSpecimen
+                compactControlStressSpecimen
                 typographySpecimen
             }
         }
@@ -141,6 +142,72 @@ struct InteractionAndTypographyGallerySection: View {
                 .help("设置")
             }
         }
+    }
+
+    private var compactControlStressSpecimen: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            Text("紧凑控件压力样例 (Compact Control Stress)：")
+                .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    specimenButton(
+                        "提交给当前世界线中的角色进行独立判断",
+                        icon: .add,
+                        variant: .primary
+                    )
+                    specimenButton(
+                        "Review the full intervention evidence before continuing",
+                        icon: .search,
+                        variant: .secondary
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    specimenButton(
+                        "提交给当前世界线中的角色进行独立判断",
+                        icon: .add,
+                        variant: .primary
+                    )
+                    specimenButton(
+                        "Review the full intervention evidence before continuing",
+                        icon: .search,
+                        variant: .secondary
+                    )
+                }
+            }
+
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                MysticBadge("正典锁定", tone: .gold, systemIcon: "lock.fill")
+                MysticBadge(
+                    "高风险",
+                    tone: .crimson,
+                    variant: .panel,
+                    systemIcon: "exclamationmark.octagon.fill",
+                    isEmphasized: true
+                )
+                MysticStatusDot(tone: .amber, isPulsing: true, label: "等待确认")
+            }
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                Text("临界状态计量条")
+                    .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+                MysticMetricBar(
+                    value: 0.18,
+                    tone: .teal,
+                    criticalThreshold: 0.25,
+                    label: "灵性安全阈值"
+                )
+            }
+            .frame(maxWidth: 360)
+        }
+        .padding(DesignTokens.LayoutInsets.compactCardPadding)
+        .background(Color.Mystic.obsidianElevated)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+                .stroke(Color.Mystic.brassGoldBorder.opacity(0.45), lineWidth: DesignTokens.Borders.hairline)
+        )
     }
 
     private func specimenButton(
