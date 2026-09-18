@@ -66,4 +66,48 @@ struct BundledRuntimeTests {
             #expect(throws: EngineConnectionError.runtimeUnavailable) { try EngineLaunchConfiguration.bundled(in: bundle) }
         }
     }
+
+    @Test("Sandbox-length runtime roots use a compact private endpoint")
+    func sandboxPathBudget() throws {
+        let files = FileManager.default
+        let parent = files.temporaryDirectory
+        let unique = UUID().uuidString.prefix(12)
+        let padding = max(0, 83 - parent.path.utf8.count - 1 - unique.utf8.count)
+        let root = parent.appendingPathComponent(String(unique) + String(repeating: "x", count: padding))
+        defer { try? files.removeItem(at: root) }
+        // Exercise the 107-byte old endpoint that failed in the real signed GUI.
+        #expect(root.appendingPathComponent("wom-12345678/engine.sock").path.utf8.count >= 104)
+        let lease = try EngineRuntimeLease.create(root: root)
+        defer { lease.clean() }
+        #expect(lease.socketPath.utf8.count < 104)
+        #expect(URL(fileURLWithPath: lease.socketPath).lastPathComponent == "s")
+        let attributes = try files.attributesOfItem(atPath: lease.directory.path)
+        #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+        #expect(lease.directory.deletingLastPathComponent().path == root.path)
+        lease.clean()
+        #expect(!files.fileExists(atPath: lease.directory.path))
+        #expect(files.fileExists(atPath: root.path))
+    }
+
+    @Test("An impossible explicit socket root stays rejected; no global fallback")
+    func impossibleBudget() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + String(repeating: "x", count: 104))
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(throws: EngineConnectionError.invalidConfiguration) {
+            try EngineRuntimeLease.create(root: root)
+        }
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: root.path)) == [])
+    }
+
+    @Test("Endpoint budget counts UTF-8 bytes rather than characters")
+    func unicodeBudget() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + String(repeating: "界", count: 30))
+        defer { try? FileManager.default.removeItem(at: root) }
+        #expect(root.path.utf8.count >= 104)
+        #expect(throws: EngineConnectionError.invalidConfiguration) {
+            try EngineRuntimeLease.create(root: root)
+        }
+    }
 }
