@@ -571,7 +571,7 @@ struct VisualSystemGallerySection: View {
             Color.Mystic.statusOnline
         case .danger:
             Color.Mystic.statusDanger
-        case .locked:
+        case .locked, .unknown, .concealed:
             Color.Mystic.textSecondary
         case .active:
             Color.Mystic.brassGoldPrimary
