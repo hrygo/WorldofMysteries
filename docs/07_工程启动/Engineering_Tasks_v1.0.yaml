@@ -1,4 +1,7 @@
 baseline_version: '1.0'
+execution_revision: '2026-09-18'
+execution_plan: docs/06_实施基线/Persistent_World_Alpha_Plan_v1.0.md
+tracking_issue: 43
 workstreams:
 - id: WS-CONTRACT
   priority: P0
@@ -53,6 +56,9 @@ workstreams:
 - id: WS-AI
   priority: P0
   owner_role: AI/Engine
+  execution_note: 接口与版本固定可提前准备；真实模型端到端集成在确定性 Golden Mock 通过后验收
+  live_integration_after:
+  - WS-GOLDEN
   depends_on:
   - WS-CONTRACT
   tasks:
@@ -74,9 +80,10 @@ workstreams:
 - id: WS-DOMAIN
   priority: P0
   owner_role: Engine/Domain
+  execution_note: 固定模型输出驱动真实 Domain 与 Application；真实 LLM 接入不作为确定性回归前置
   depends_on:
   - WS-DATA
-  - WS-AI
+  - WS-CONTRACT
   tasks:
   - id: T-DOM-001
     title: Implement World/Character repositories
@@ -90,12 +97,22 @@ workstreams:
   - id: T-DOM-004
     title: Implement deterministic Outcome Resolver
     acceptance: Golden expected deltas pass
+- id: WS-GOLDEN-PREP
+  priority: P0
+  owner_role: QA/Engine
+  tracking_issue: 47
+  depends_on: []
+  tasks:
+  - id: T-GLD-PREP-001
+    title: Prepare fixed five-turn and failure-checkpoint assertions before live AI
+    acceptance: assertions map to existing fixtures; preparation is not GATE-GOLDEN-MOCK pass
 - id: WS-GOLDEN
   priority: P0
   owner_role: QA/Engine
   depends_on:
   - WS-DOMAIN
   - WS-PACKAGING
+  - WS-GOLDEN-PREP
   tasks:
   - id: T-GLD-001
     title: Run Golden 001 with Mock Runtime

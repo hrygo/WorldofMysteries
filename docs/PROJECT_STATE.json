@@ -1,19 +1,20 @@
 {
   "project_name": "World of Mysteries",
   "version": "0.1.0",
-  "last_updated": "2026-09-16",
+  "last_updated": "2026-09-18",
   "current_phase": {
     "phase_id": "Phase 1",
-    "phase_name": "引擎部署与数据内核 (Engine Deployment & Data Kernel)",
+    "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
     "status": "IN_PROGRESS",
-    "progress_summary": "Phase 0 基础设施与契约 100% 验收通过；Phase 1 数据内核与 IPC 通路正式就绪启动"
+    "progress_summary": "界面与契约已形成工程基线；真实 IPC、持久提交、Golden 001 与重启连续性仍待实现和验收。下一步推进 M1，与 M2 和 Golden 测试准备并行；不将来源图批准或历史 CI 结果视为产品可用。"
   },
   "gates_health": {
-    "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
-    "schemas_integrity": "PASSED (28/28 product+protocol schemas + 3 engineering contracts)",
-    "python_tests": "PASSED (38/38 passed in <1s, incl. 13 HACF governance tests)",
-    "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
-    "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
+    "ast_fitness": "SOURCE_CHECK_PASSED: 2026-09-18 对 c0c18ae 源码快照及本次元数据改动执行静态架构检查；不代表运行时通过",
+    "schemas_integrity": "NOT_REVALIDATED: 保留既有契约；当前提交需由实际门禁复核",
+    "python_tests": "BLOCKED_ENV: 本次 Linux 工作区无 Python >=3.14，未执行当前引擎测试套件；历史 38 项记录不代表真实 Golden 五轮通过",
+    "swift_tests": "BLOCKED_ENV: 本次 Linux 工作区缺少 SwiftUI 与 Xcode，未完成当前候选 macOS 验收；历史 8 项记录不作为本次证据",
+    "ci_cd_readiness": "CONFIGURED_NOT_ACCEPTED: required checks 保留，当前候选 SHA 须单独核验",
+    "golden_001_runtime": "NOT_VERIFIED: 五轮、原子结算、故障恢复及 App 重启连续性均未在本次规划中执行"
   },
   "completed_phases": [
     {
@@ -52,7 +53,8 @@
         "docs/05_UI/assets/12_仪式魔法_概念参考.png",
         "docs/05_UI/UI_交互基线_v1.0.md",
         "docs/03_工程规范/macOS_App_高保真视觉与交互设计规范_v1.0.md"
-      ]
+      ],
+      "completion_scope": "仅设计基线完成，不等同于 App 真实运行、正式美术入库或产品体验完成。"
     },
     {
       "id": "M1",
@@ -60,7 +62,11 @@
       "phase": "Phase 1",
       "status": "READY",
       "lead_role": "AGT-ARB",
-      "description": "实现独立 Python 3.14.7 守护进程生命周期管理与 UDS IPC NDJSON 传输通道"
+      "description": "真实独立 Engine、UDS 通路与 App 生命周期；服务端 #44、客户端 #45 分角色交付，未实现业务保持 fail-closed。",
+      "tracking_issues": [
+        44,
+        45
+      ]
     },
     {
       "id": "M2",
@@ -68,71 +74,151 @@
       "phase": "Phase 1",
       "status": "READY",
       "lead_role": "AGT-DATA",
-      "description": "落地 canon.db, world.db, retrieval.db, runtime.db 物理隔离、DDL 迁移与 Outbox 异步事件"
+      "description": "落地 canon.db 只读隔离、world.db 权威强事务、retrieval.db 可重建投影、runtime.db 非领域缓存、Outbox 与故障恢复。",
+      "tracking_issues": [
+        46
+      ]
+    },
+    {
+      "id": "M5-PREP",
+      "name": "Golden 001 断言与故障恢复测试准备",
+      "phase": "Phase 1",
+      "status": "READY",
+      "depends_on": [],
+      "lead_role": "AGT-QA",
+      "tracking_issues": [
+        47
+      ],
+      "description": "立即对齐固定五轮、G001–G012、八个故障点与重启断言；不等待真实 LLM，不以 fixture 存在、skip 或骨架检查冒充完整回归通过。"
     },
     {
       "id": "M3",
       "name": "确定性 Outcome Resolver 与状态机实现",
       "phase": "Phase 2",
       "status": "BLOCKED",
-      "depends_on": ["M2"],
+      "depends_on": [
+        "M2"
+      ],
       "lead_role": "AGT-DOM",
-      "description": "纯函数 Reducer 模式、State Delta 折叠与 Golden 001 5 轮状态比对"
+      "description": "以固定模型输出驱动真实确定性 Resolver、Validators 与状态机；Application 编排由 AGT-AI 分角色协作，真实 LLM 不作为本阶段前置。"
     },
     {
       "id": "M4",
       "name": "AgentScope 2.0.8 适配与 Proposal 网关",
       "phase": "Phase 2",
       "status": "BLOCKED",
-      "depends_on": ["M3"],
+      "depends_on": [
+        "M5"
+      ],
       "lead_role": "AGT-AI",
-      "description": "Bounded Tools 限制、Prompt 注册表与零写库 Proposal 输出"
+      "description": "在确定性 Golden Mock 闭环通过后进行真实模型端到端接入；版本固定、接口与离线适配准备可并行，不延后知识授权边界。"
     },
     {
       "id": "M5",
       "name": "Golden 001 端到端 5 轮状态全景回归",
       "phase": "Phase 3",
       "status": "BLOCKED",
-      "depends_on": ["M4"],
+      "depends_on": [
+        "M1",
+        "M2",
+        "M3",
+        "M5-PREP"
+      ],
       "lead_role": "AGT-QA",
-      "description": "全链路端到端 Golden Scenario 自动化回归审计"
+      "description": "只替代模型输出的真实五轮运行：编排、裁决、事务、Outbox、Finalization、恢复与记忆回访都执行真实代码。准备完成不等于本里程碑通过。",
+      "tracking_issues": [
+        47
+      ]
     },
     {
       "id": "M6",
       "name": "macOS App 语音流式交互与发布门禁",
       "phase": "Phase 3",
       "status": "BLOCKED",
-      "depends_on": ["M5"],
+      "depends_on": [
+        "M4",
+        "M5"
+      ],
       "lead_role": "AGT-VOICE",
-      "description": "SpeechRail 实时低延迟流式对接与 SwiftUI 响应式渲染"
+      "description": "真实模型/基础语音、Story Book 历史回放、核心路径可独立使用及目标 Mac 发布验证；TTS 失败不改变已提交事实。"
     }
   ],
   "critical_path": {
-    "next_milestone_id": "M0-UI-SPEC",
-    "next_milestone_name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
-    "strategic_rationale": "通过高保真视觉与交互心智模型（以终为始），直观锁定克莱恩在廷根市的叙事卷宗呈现、理智值波动、实时语音波形与 Advice 启示输入面板，反向精确裁决 DTO 与 IPC 流式协议字段。",
+    "next_milestone_id": "M1",
+    "next_milestone_name": "Local Engine 运行守护与 UDS IPC 双向通路",
+    "strategic_rationale": "先建立 App 与独立 Engine 的真实通路，再让第一轮 Advice 通过真实裁决和持久事务返回；M2 数据内核和 M5-PREP 同步准备。确定性五轮/恢复先于真实模型端到端接入，保留已完成 UI 基线及 #40/#41 美术任务。",
     "target_deliverables": [
-      "高保真画面 1: 主应用沉浸主界面 (三栏叙事卷宗、实体状态盘与 Advice 网关)",
-      "高保真画面 2: 秘祈与语音交互中枢 (命运丝线波形微光与建议动机评估浮层)",
-      "高保真画面 3: 灰雾之上·青铜长桌神殿全景 (全局宇宙宏观态势与二十二塔罗席位)",
-      "macOS SwiftUI 高保真组件与 Xcode Previews 资产准备"
+      "真实 Engine UDS 服务与进程启动、停止、异常恢复证据（#44）",
+      "App 真实 socket 与握手；业务未实现时明确不可用，不能使用本地回显制造 ready（#45）",
+      "与 M2（#46）和 Domain/Application 角色贯通第一轮真实 Commit，而不只完成传输演示",
+      "Golden 断言准备（#47）：先一轮再五轮，覆盖结算、幂等、故障点与关闭重开",
+      "目标 Mac 验收证据与当前 SHA 绑定；Linux/开发态验证不替代随包分发与 macOS 验收"
     ],
     "dispatch": {
-      "assigned_role": "AGT-MAC",
-      "role_title": "macOS App 极客 (SwiftUI & UX Specialist)",
-      "task_id": "M0-UI-SPEC",
-      "task_title": "macOS 原生客户端高保真设计与视觉资产落地",
+      "assigned_role": "AGT-DATA",
+      "role_title": "Engine 基础设施实现（服务端切片）",
+      "task_id": "M1-ENGINE-IPC",
+      "task_title": "实现独立 Local Engine UDS 服务与生命周期",
+      "issue": 44,
       "authorized_scope": [
-        "macos-app/WorldOfMysteries/**",
-        "docs/03_工程规范/macOS_App*"
+        "engine/infrastructure/",
+        "engine/tests/"
       ],
       "forbidden_patterns": [
+        "macos-app/**",
         "engine/domain/**",
-        "engine/infrastructure/**",
-        "engine/ai/**"
+        "engine/ai/**",
+        "contracts/**",
+        ".hacf/**",
+        ".github/**"
       ],
-      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-MAC --task-id M0-UI-SPEC --title \"macOS 原生客户端高保真设计与视觉资产落地\"",
-      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m0-ui-spec --role AGT-MAC --task-id M0-UI-SPEC"
+      "pack_command": "rtk python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M1-ENGINE-IPC --title \"实现独立 Local Engine UDS 服务与生命周期\"",
+      "worktree_command": "rtk python3 scripts/collab_pipeline.py start --branch feat/m1-engine-ipc --role AGT-DATA --task-id M1-ENGINE-IPC"
     }
+  },
+  "historical_gate_reports": [
+    {
+      "reported_as_of": "2026-09-16",
+      "verified_head_sha": null,
+      "scope_note": "保留原状态文件的历史报告，不补造其绑定 SHA；这些数据不构成当前提交或产品可用性的证据。",
+      "gates_health": {
+        "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
+        "schemas_integrity": "PASSED (28/28 product+protocol schemas + 3 engineering contracts)",
+        "python_tests": "PASSED (38/38 passed in <1s, incl. 13 HACF governance tests)",
+        "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
+        "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
+      }
+    }
+  ],
+  "execution_focus": {
+    "plan_path": "docs/06_实施基线/Persistent_World_Alpha_Plan_v1.0.md",
+    "tracking_issue": 43,
+    "current_stage": "A",
+    "source_review_base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
+    "decision": "先真实一轮，再五轮与重启恢复，再真实模型/基础语音，最后独立用户体验；不重开已批准美术构图。",
+    "evidence_boundary": "本次仅更新推进计划和元数据。READY 表示可开始，不表示已实现、已集成、已验证或可供用户使用。",
+    "parallel_ready": [
+      {
+        "task_id": "M1-ENGINE-IPC",
+        "lead_role": "AGT-DATA",
+        "issue": 44
+      },
+      {
+        "task_id": "M1-APP-IPC",
+        "lead_role": "AGT-MAC",
+        "issue": 45
+      },
+      {
+        "task_id": "M2-DATA-KERNEL",
+        "lead_role": "AGT-DATA",
+        "issue": 46
+      },
+      {
+        "task_id": "M5-GOLDEN-MOCK",
+        "lead_role": "AGT-QA",
+        "issue": 47,
+        "scope": "仅测试准备可立即开始；完整回归仍受实现依赖约束"
+      }
+    ]
   }
 }
