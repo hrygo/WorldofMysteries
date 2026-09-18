@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-18",
+  "review_scope": "target-match screening only",
+  "attempts": [
+    {"generation_id":"d81fc770-ece3-4683-bba6-7d73534c321e","original_filename":"a_moody_cinematic_high_detail_fantasy_still_life.png","sha256":"af1a57440b36ef3867146051679f1b2498a6fc77db8524d401caf831b0fb8a91","byte_size":2293687,"native_size":[1585,992],"requested_target":"W2_GRAY_FOG_SEFIRAH","result":"REJECTED_TARGET_MISMATCH","assigned_runtime_asset":null,"user_approval":null,"effective_generator_prompt_available":false,"binary_committed":false},
+    {"generation_id":"ad6eb035-1ca4-46ac-98b5-538cac9f1773","original_filename":"a_dramatic_moody_cinematic_still_life_scene_in_a.png","sha256":"ff7f8b1caa3ba52a903465f3dbcdd21423b03ea3ada1f1f3705085dcb8251302","byte_size":2095834,"native_size":[1535,1024],"requested_target":"W2_GRAY_FOG_SEFIRAH","result":"REJECTED_TARGET_MISMATCH","assigned_runtime_asset":null,"user_approval":null,"effective_generator_prompt_available":false,"binary_committed":false}
+  ],
+  "next_action": "Do not repeat this failed request path or fill a registry slot with an unrelated candidate. Resume with a controllable single-scene generation context or an authorized external provider.",
+  "shipping_approved": false
+}
