@@ -1,173 +1,158 @@
 {
-  "contract_version": 2,
+  "contract_version": 3,
   "artwork_id": "W1_WORLD_HERO",
   "role": "world_hero",
-  "status": "LOCKED_FOR_PRODUCTION",
-  "visual_thesis": "industrial-age reality first; hidden occult order is perceptible; overt anomaly remains local and restrained",
+  "status": "LOCKED_SELECTED_SOURCE_FINISHING_PENDING",
+  "visual_thesis": "stylized premium-game late-Victorian occult metropolis; strong mystery atmosphere and Evernight crimson moon identity; physical city logic anchors the supernatural rather than photorealism",
   "semantic": {
-    "primary_read": "late_victorian_early_industrial_european_city",
-    "secondary_read": "hidden_occult_order_beneath_ordinary_city_life",
-    "generic_fantasy_allowed": false,
+    "primary_read": "stylized_late_victorian_occult_metropolis",
+    "secondary_read": "evernight_crimson_moon_over_hidden_supernatural_order",
+    "premium_game_illustration_required": true,
+    "photorealism_required": false,
+    "generic_high_fantasy_allowed": false,
     "named_canonical_landmark_required": false
   },
   "scene_truth": {
     "era": "late_victorian_early_industrial",
     "environment": [
-      "dense_european_urban_blocks",
+      "dense_victorian_industrial_metropolis",
       "wet_dark_stone_streets",
       "soot_aged_brick_and_masonry",
-      "blackened_iron",
-      "oxidized_brass",
-      "slate_roofs_and_chimneys",
-      "practical_gas_lamps",
-      "restrained_warm_window_light",
-      "blue_gray_overcast_atmosphere"
+      "blackened_iron_and_ornate_railings",
+      "oxidized_brass_and_astronomical_instruments",
+      "slate_roofs_chimneys_bridges_and_river_depth",
+      "practical_gas_lamps_and_warm_window_light",
+      "fog_smoke_and_storm_cloud_layers"
     ],
     "human_scale": "small_environmental_presence_only",
     "dominant_character": false
   },
   "occult_pressure": {
     "required": true,
+    "intensity": "strong_visible_but_world_coherent",
     "expression": [
-      "church_secret_society_divination_and_ritual_are_implied_not_announced",
-      "subtle_sense_of_observation_or_hidden_order",
-      "archival_mysticism_through_material_and_atmosphere",
-      "supernatural_evidence_must_not_replace_physical_reality"
+      "Evernight_crimson_moon_as_major_sky_identity",
+      "non_textual_occult_banners_and_astronomical_geometry_allowed",
+      "hooded_or_watchful_environmental_figures_allowed_at_small_scale",
+      "Gothic_inflected_institutional_silhouettes_allowed",
+      "fog_smoke_gaslight_and_secret_order_atmosphere"
     ],
-    "overt_magic": false
+    "readable_occult_slogans_allowed": false,
+    "spell_effect_spectacle_allowed": false
   },
   "controlled_anomaly": {
-    "count_min": 1,
-    "count_max": 2,
+    "primary_anomaly": "Evernight_crimson_moon",
+    "additional_local_anomaly_count_max": 2,
     "allowed": [
-      "cold_silver_blue_reflection_without_visible_source",
-      "localized_mist_moving_slightly_against_wind",
-      "distant_light_with_impossible_depth",
+      "subtle_unmatched_reflection",
+      "localized_counterflow_mist",
+      "slightly_impossible_distant_depth",
       "subtle_window_or_reflection_mismatch"
     ],
-    "must_be_local": true,
-    "must_not_dominate": true
+    "must_not_become_spell_fx": true
   },
   "composition": {
     "working_aspect_ratio": "16:10",
-    "quiet_zone": {
-      "x_min": 0,
-      "x_max": 0.35,
-      "target_detail": "low_frequency_dark_mid",
-      "forbidden": [
-        "face_or_critical_subject",
-        "bright_lamp_cluster",
-        "dense_signage",
-        "high_frequency_symbol_pattern"
-      ]
+    "source_lock": {
+      "native_width": 1586,
+      "native_height": 992,
+      "native_sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+      "exact_crop_rect_pixels": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "cropped_width": 1584,
+      "cropped_height": 990,
+      "cropped_sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454"
     },
-    "focal_zone": {
-      "x_min": 0.55,
+    "text_safe_zone": {
+      "x_min": 0,
+      "x_max": 0.3,
+      "strategy": "runtime_leading_scrim_assisted; empty quiet zone is not required"
+    },
+    "street_depth_zone": {
+      "x_min": 0.42,
       "x_max": 0.78,
       "y_min": 0.28,
-      "y_max": 0.72,
-      "identity": "layered_street_depth_roofs_towers_practical_light_cluster_plus_local_anomaly"
+      "y_max": 0.92
     },
-    "outer_semantic_reserve": 0.08,
-    "primary_subject_edge_reserve": 0.12,
+    "sky_identity_zone": {
+      "x_min": 0.55,
+      "x_max": 0.78,
+      "y_min": 0,
+      "y_max": 0.26,
+      "identity": "crimson_moon"
+    },
+    "outer_semantic_reserve": 0.04,
+    "primary_subject_edge_reserve": 0.06,
     "minimum_runtime_crop": "960x640",
-    "default_runtime_layout": "1180x760"
+    "default_runtime_layout": "1180x760",
+    "wide_crop": {
+      "aspect_ratio": "8:3",
+      "vertical_anchor": "top",
+      "master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "reason": "preserve crimson moon and skyline identity"
+    }
   },
   "palette": {
     "dominant": [
       "blue_gray_slate",
       "charcoal",
       "wet_stone",
-      "desaturated_brown_dark_timber"
+      "storm_cloud",
+      "crimson_moon"
     ],
     "secondary": [
       "aged_brass",
-      "muted_gaslight_amber",
-      "cold_silver_blue"
+      "gaslight_amber",
+      "warm_window_light",
+      "muted_burgundy"
     ],
     "forbidden_dominant": [
-      "saturated_purple",
       "cyan_magenta_neon",
-      "orange_gold_fantasy_glow"
+      "rainbow_magic_glow",
+      "flat_monochrome_red_wash"
     ]
   },
   "forbidden": {
     "typography_or_ui": true,
     "fake_readable_signage": true,
-    "fantasy_castle": true,
     "floating_island": true,
-    "giant_magic_circle_or_runes": true,
-    "giant_moon_or_sigil": true,
-    "tentacle_wallpaper": true,
+    "impossible_fantasy_geography": true,
+    "giant_spell_circle_or_laser_magic": true,
     "heroic_party_or_character_poster": true,
     "modern_skyscraper": true,
     "steampunk_gear_collage": true,
     "copied_commercial_composition": true
   },
   "generation": {
-    "candidate_count_min": 4,
-    "candidate_count_max": 6,
-    "context_isolation": {
-      "exclude_product_terms_from_scene_prompt": [
-        "World of Mysteries",
-        "W1",
-        "hero asset",
-        "Asset Catalog",
-        "SwiftUI"
-      ],
-      "retain_lord_of_mysteries_visual_intent_as_physical_visual_language": true
-    },
-    "prompt_layers": [
-      "scene_truth",
-      "occult_pressure",
-      "controlled_anomaly"
-    ],
-    "negative_prompt_classes": [
-      "no typography",
-      "no fantasy architecture",
-      "no dominant hero character",
-      "no overt magical spectacle"
-    ],
-    "blind_semantic_qa_required": true,
-    "context_gate": {
-      "id": "G-CTX",
-      "required": true,
-      "clean_context_requirements": [
-        "single_artwork_contract_only",
-        "single_generation_pack_only",
-        "no_prior_candidate_images",
-        "no_other_world_or_artifact_generation_context",
-        "no_pr_github_swiftui_asset_catalog_discussion",
-        "no_rejected_fantasy_outputs"
-      ],
-      "control_probe_required": true,
-      "reject_context_if_control_probe_contains_two_or_more": [
-        "monumental_fantasy_cathedral_or_castle",
-        "readable_slogan_or_invented_organization_text",
-        "occult_banner_or_sigil",
-        "celestial_halo_portal_or_impossible_moon",
-        "floating_architecture_or_fantasy_landscape",
-        "promotional_key_art_composition"
-      ]
-    }
+    "selected_source_locked": true,
+    "generation_id": "76a170ac-75e0-4013-9749-7f819fc1de0a",
+    "selection_basis": "explicit interactive art-direction approval",
+    "historical_v2_context_gate": "superseded_by_art_direction_v3",
+    "no_more_composition_regeneration_required": true
   },
   "postprocess": {
     "order": [
-      "semantic_selection",
-      "aspect_ratio_crop_or_outpaint",
-      "composition_qa",
-      "local_structural_repair",
-      "structural_qa",
-      "primary_super_resolution",
-      "material_detail_restoration",
-      "color_grade",
-      "oversample_downsample",
+      "exact_16_10_source_crop",
+      "local_structural_repair_on_macos",
+      "primary_super_resolution_on_macos",
+      "material_detail_restoration_on_macos",
+      "color_luminance_grade_on_macos",
+      "oversample_downsample_to_4096x2560_master",
       "deterministic_derivatives",
       "runtime_qa"
     ],
-    "wrong_world_direction_action": "regenerate_not_inpaint",
-    "local_geometry_error_action": "masked_inpaint",
-    "native_resolution_shortfall_action": "super_resolution",
+    "wrong_world_direction_action": "return_to_art_direction_review_not_inpaint",
+    "local_geometry_error_action": "masked_local_repair_on_macos",
+    "native_resolution_shortfall_action": "single_high_quality_super_resolution_on_macos",
     "generative_upscale_max_passes": 1
   },
   "production_master": {
@@ -182,13 +167,14 @@
       "asset_name": "wom.art.world.hero",
       "width": 2560,
       "height": 1600,
-      "derivation": "deterministic_from_master"
+      "derivation": "full_frame_downsample_from_master"
     },
     {
       "asset_name": "wom.art.world.hero.wide",
       "width": 2400,
       "height": 900,
-      "derivation": "semantic_crop_from_master"
+      "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
+      "crop_anchor": "top"
     }
   ],
   "runtime_presentation": {
@@ -200,18 +186,22 @@
   "qa": {
     "g0_semantic": {
       "required": true,
-      "primary_read_must_match": "industrial_city_before_supernatural"
+      "primary_read_must_match": "stylized_occult_victorian_metropolis",
+      "crimson_moon_required": true,
+      "dominant_hero_character_forbidden": true
     },
     "g1_canon_atmosphere": {
-      "era_credibility_min_5": 4,
-      "occult_mystery_atmosphere_min_5": 4,
-      "generic_fantasy_max_5": 1,
+      "era_credibility_min_5": 3,
+      "occult_mystery_atmosphere_min_5": 5,
+      "generic_high_fantasy_max_5": 2,
       "world_contradictions_max": 0
     },
     "g2_composition": {
-      "quiet_zone_required": true,
-      "focus_zone_required": true,
-      "wide_crop_survival_required": true
+      "full_frame_16_10_required": true,
+      "scrim_assisted_text_zone_required": true,
+      "street_depth_required": true,
+      "crimson_moon_wide_crop_survival_required": true,
+      "wide_crop_anchor": "top"
     },
     "g3_structure": {
       "inspect_scales_percent": [
@@ -220,13 +210,15 @@
         200
       ],
       "reject_ai_gibberish": true,
-      "reject_structural_repetition": true
+      "reject_structural_repetition": true,
+      "macos_finishing_required": true
     },
     "g4_production": {
       "verify_dimensions": true,
       "verify_asset_name": true,
       "verify_sha256": true,
-      "verify_color_profile": true
+      "verify_color_profile": true,
+      "master_requires_macos_finishing": true
     },
     "g5_runtime": {
       "window_sizes": [
@@ -238,12 +230,22 @@
       "accessibility_states": [
         "Increased Contrast",
         "Reduce Transparency"
-      ]
+      ],
+      "crimson_moon_visible_in_wide": true
     }
   },
   "references": [
+    "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md",
+    "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md",
     "docs/05_UI/artwork/W1_World_Hero_Production_Brief.md",
     "docs/05_UI/artwork/Premium_Art_Production_Pipeline_v2.0.md",
     "docs/05_UI/visual-assets/Visual_QA_Contract_v1.0.md"
-  ]
+  ],
+  "crimson_moon": {
+    "required": true,
+    "role": "major_sky_identity_motif",
+    "must_survive_runtime_wide_crop": true,
+    "color_family": "crimson_red",
+    "must_not_clip_to_flat_red_disk": true
+  }
 }

@@ -1,8 +1,8 @@
 {
   "artwork_id": "W1_WORLD_HERO",
-  "contract_version": 2,
-  "status": "GENERATION_CONTEXT_REJECTED",
-  "selected_candidate_id": null,
+  "contract_version": 3,
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "selected_candidate_id": "W1_SELECTED_CRIMSON_MOON",
   "candidates": [
     {
       "id": "A",
@@ -97,36 +97,65 @@
         "monumental_cathedral",
         "fantasy_key_art"
       ]
+    },
+    {
+      "id": "W1_SELECTED_CRIMSON_MOON",
+      "generation_id": "76a170ac-75e0-4013-9749-7f819fc1de0a",
+      "status": "SELECTED_ART_DIRECTION_APPROVED",
+      "native_size": [
+        1586,
+        992
+      ],
+      "native_sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+      "exact_16_10_crop_size": [
+        1584,
+        990
+      ],
+      "exact_16_10_crop_sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
+      "reasons": [
+        "explicit_human_art_direction_approval",
+        "strong_occult_game_atmosphere",
+        "crimson_moon_identity",
+        "victorian_industrial_city_depth",
+        "readable_gaslight_and_wet_stone_midtones"
+      ]
     }
   ],
   "gates": {
     "G0_semantic": {
-      "status": "PENDING",
-      "primary_read": null,
-      "secondary_read": null,
-      "generic_fantasy_read": null,
-      "typography_detected": null,
-      "dominant_subject": null,
-      "notes": []
+      "status": "PASSED_V3",
+      "primary_read": "stylized late-Victorian occult metropolis",
+      "secondary_read": "Evernight crimson moon and hidden supernatural order",
+      "generic_fantasy_read": "bounded stylized dark fantasy; not generic high-fantasy geography",
+      "typography_detected": false,
+      "dominant_subject": "cityscape + crimson moon",
+      "notes": [
+        "Art direction explicitly approved after v3 direction change."
+      ]
     },
     "G1_canon_atmosphere": {
-      "status": "PENDING",
-      "era_credibility_5": null,
-      "occult_mystery_atmosphere_5": null,
-      "generic_fantasy_5": null,
+      "status": "PASSED_V3_ART_DIRECTION",
+      "era_credibility_5": 4,
+      "occult_mystery_atmosphere_5": 5,
+      "generic_fantasy_5": 2,
       "world_contradictions": [],
-      "notes": []
+      "notes": [
+        "Stylization and overt crimson moon are intentional v3 requirements rather than v2 defects."
+      ]
     },
     "G2_composition": {
-      "status": "PENDING",
-      "quiet_zone_pass": null,
-      "focal_zone_pass": null,
-      "wide_crop_survival_pass": null,
-      "runtime_crop_survival_pass": null,
-      "notes": []
+      "status": "SOURCE_PASS_MASTER_PENDING",
+      "exact_16_10_source_crop_pass": true,
+      "scrim_assisted_text_zone_pass": true,
+      "street_depth_pass": true,
+      "wide_crop_survival_pass": "PASS_WITH_TOP_ANCHOR",
+      "runtime_crop_survival_pass": true,
+      "notes": [
+        "Centered 8:3 crop is invalid for v3 because it removes the crimson moon; top-aligned wide crop is required."
+      ]
     },
     "G3_structure": {
-      "status": "PENDING",
+      "status": "PENDING_MACOS_FINISHING",
       "inspection_scales_percent": [
         25,
         100,
@@ -136,20 +165,24 @@
       "repetition_errors": [],
       "gibberish_or_fake_text": [],
       "human_or_vehicle_errors": [],
-      "notes": []
+      "notes": [
+        "Deferred to F1 structural repair and 100–200% inspection on macOS."
+      ]
     },
     "G4_production": {
-      "status": "PENDING",
+      "status": "PENDING_MACOS_FINISHING",
       "master_dimensions": null,
       "runtime_dimensions": {},
       "color_profile": null,
       "format": null,
       "sha256": {},
       "asset_names": [],
-      "notes": []
+      "notes": [
+        "4096×2560 Master is intentionally not manufactured by low-quality server upscaling."
+      ]
     },
     "G5_runtime": {
-      "status": "PENDING",
+      "status": "PENDING_MASTER_DERIVATIVES",
       "window_checks": {
         "960x640": null,
         "1180x760": null,
@@ -162,18 +195,21 @@
       },
       "text_primary_contrast_min": null,
       "important_copy_contrast_min": null,
-      "notes": []
+      "notes": [
+        "Run only after macOS-finished Master and deterministic runtime/wide derivatives exist."
+      ]
     }
   },
-  "final_verdict": "PENDING",
-  "reviewers": [],
-  "reviewed_at": null,
+  "final_verdict": "MACOS_FINISHING_PENDING",
+  "reviewers": [
+    "interactive_art_direction_approval"
+  ],
+  "reviewed_at": "2026-09-18",
   "generation_context": {
-    "gate": "G-CTX",
-    "status": "FAILED",
-    "reason": "Control candidate without occult semantics still produced readable slogans, occult banners, monumental Gothic architecture and fantasy key-art treatment; long-lived conversation context is contaminating generation.",
-    "experiment_report": "docs/05_UI/artwork/W1_Generation_Method_Validation_2026-09-18.md",
-    "next_action": "Restart production generation in a clean W1-only context and require control probe pass before G0."
+    "gate": "G-CTX-v2",
+    "status": "SUPERSEDED_BY_V3_ART_DIRECTION",
+    "reason": "The v2 realism-heavy context gate no longer represents the approved product direction. The selected v3 source was explicitly approved during iterative art direction and is tracked as a new contract decision rather than falsely claiming a v2 G-CTX pass.",
+    "decision_record": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md"
   },
   "edit_experiment": {
     "source_candidate": "A",
