@@ -28,10 +28,13 @@ struct GaugeScaleReviewTests {
             for band in WOMGaugeBand.allCases {
                 let fraction = (band.fractions.lowerBound + band.fractions.upperBound) / 2
                 let actual = try scalePixel(at: fraction, in: bitmap)
-                let expected = try #require(NSColor(band.color).usingColorSpace(.sRGB))
-                #expect(abs(actual.redComponent - expected.redComponent) < 0.08)
-                #expect(abs(actual.greenComponent - expected.greenComponent) < 0.08)
-                #expect(abs(actual.blueComponent - expected.blueComponent) < 0.08)
+                // Sample a flat semantic swatch through the same native render pipeline.
+                // Bridging a Color directly into NSColor can resolve a different working gamut.
+                let expected = try referenceColor(band.color)
+                print("GAUGE_SAMPLE value=\(value) band=\(band) actual=\(actual) reference=\(expected)")
+                #expect(abs(actual.redComponent - expected.redComponent) < 0.02)
+                #expect(abs(actual.greenComponent - expected.greenComponent) < 0.02)
+                #expect(abs(actual.blueComponent - expected.blueComponent) < 0.02)
             }
         }
     }
@@ -59,7 +62,24 @@ struct GaugeScaleReviewTests {
             .transaction { $0.disablesAnimations = true }
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
-        return NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
+        let bitmap = NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
+        if let output = ProcessInfo.processInfo.environment["WOM_VISUAL_QA_OUTPUT"] {
+            let directory = URL(fileURLWithPath: output)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let name = value.isFinite ? "gauge-\(value).png" : "gauge-unavailable.png"
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: directory.appendingPathComponent(name))
+        }
+        return bitmap
+    }
+
+    @MainActor
+    private func referenceColor(_ color: Color) throws -> NSColor {
+        let renderer = ImageRenderer(content: color.frame(width: 8, height: 8)
+            .environment(\.colorScheme, .dark))
+        renderer.scale = 2
+        let bitmap = NSBitmapImageRep(cgImage: try #require(renderer.cgImage))
+        return try #require(bitmap.colorAt(x: 8, y: 8)?.usingColorSpace(.sRGB))
     }
 
     @MainActor
