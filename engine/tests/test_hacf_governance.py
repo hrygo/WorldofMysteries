@@ -27,6 +27,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 import generate_pr_report as reporter  # noqa: E402
 import agent_capsule  # noqa: E402
+import collab_pipeline  # noqa: E402
 import gate_profile  # noqa: E402
 import hacf_policy  # noqa: E402
 
@@ -564,3 +565,41 @@ def test_verify_rejects_gate_evolution_without_registry_sync(tmp_path, monkeypat
     )
     assert receipt["verdict"] == "failed"
     assert "gate profile digest mismatch" in receipt["coverage_gaps"]
+
+
+def test_workspace_lease_keeps_af_unix_paths_short(tmp_path, monkeypatch):
+    """回归：worktree 路径再长，租约里的 TMPDIR 与 socket 也必须满足 macOS AF_UNIX 上限。
+
+    真实故障形态：worktree 位于 `~/Documents/wom-worktrees/<branch>`（60+ 字符），租约把
+    TMPDIR 放在 `<worktree>/.hacf/tmp` 下，`test_ipc_server.py` 的 runtime fixture 在其中
+    再嵌套 `tempfile.TemporaryDirectory(prefix="wom-ipc-")` 后 bind，直接触发
+    `AF_UNIX path too long`，IPC 测试整片红；而 CI 侧没有 `.hacf/workspace.json`（TMPDIR
+    保持系统默认）反而恒绿 —— 这种「本地假红」会持续消耗排障时间。
+    """
+    monkeypatch.delenv("WOM_WORKSPACE_RUNTIME_BASE", raising=False)
+    long_worktree = tmp_path / ("deep-worktree-segment-" * 6)
+    branch = "fix/a-deliberately-long-branch-name"
+
+    lease = collab_pipeline._lease_for(branch, long_worktree)
+
+    assert str(long_worktree) not in lease["tmpdir"]
+    assert str(long_worktree) not in lease["ipc_socket"]
+
+    # sockaddr_un 的 sun_path 上限含结尾 NUL，可用字节数为 103。
+    assert len(lease["tmpdir"].encode("utf-8")) <= 103
+    assert len(lease["ipc_socket"].encode("utf-8")) <= 103
+    # 复刻最坏嵌套：TMPDIR / <临时子目录> / engine.sock
+    worst_case = Path(lease["tmpdir"]) / "wom-ipc-abcdefgh" / "engine.sock"
+    assert len(str(worst_case).encode("utf-8")) <= 103
+
+    # 同一分支必须稳定复用同一命名空间（start / status / abort 之间不漂移）。
+    assert collab_pipeline._lease_for(branch, long_worktree)["tmpdir"] == lease["tmpdir"]
+    # 不同分支互不干扰。
+    assert collab_pipeline._lease_for("fix/other", long_worktree)["tmpdir"] != lease["tmpdir"]
+
+
+def test_workspace_lease_rejects_unusably_long_short_base(monkeypatch):
+    """短路径根目录被配置得过长时，必须在 start 阶段响亮失败，而不是留到 socket 断言里。"""
+    monkeypatch.setenv("WOM_WORKSPACE_RUNTIME_BASE", "/tmp/" + "x" * 120)
+    with pytest.raises(RuntimeError, match="AF_UNIX"):
+        collab_pipeline._lease_for("fix/whatever", Path("/tmp/any-worktree"))
