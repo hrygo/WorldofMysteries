@@ -48,6 +48,14 @@ Every image must pass both art-direction and product-use tests:
 9. runtime-size derivative exists;
 10. minimum-window composition remains viable.
 
+## W1 macOS finishing deferment
+
+The selected W1 source may advance through server-side engineering preparation, but final image restoration is intentionally deferred to the Apple Silicon macOS workstation when the server lacks the preferred high-quality SR / local-repair stack.
+
+Authoritative backlog: `docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md`.
+
+Until that backlog completes F1–F7, W1 is **art direction approved / selected source locked / macOS finishing pending**, not shipping-art complete. This keeps engineering throughput high without lowering G3–G5 image-quality requirements.
+
 ## Milestone before CI review
 
 Routine commits continue without waiting on Actions. Review CI only after a meaningful milestone, preferably:
