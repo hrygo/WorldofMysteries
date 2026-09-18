@@ -139,3 +139,17 @@ D：Domain 授权/检索与 Golden Mock 就绪后，接入真实业务 Orchestra
 - [DeepSeek Context caching](https://api-docs.deepseek.com/guides/kv_cache/)
 
 厂商参数和计费可变化，实施时以实际 endpoint / 固定 SDK 的契约测试和 usage 为准。
+
+## 11. Gameplay-aware 扩展（v1.1 增量）
+
+玩法到缓存寿命、Domain Facet 与 no-model bypass 的完整矩阵见
+[Gameplay Context & Cache Strategy](Gameplay_Context_Cache_Strategy_v1.0.md)。
+
+新增规则：
+
+1. 页面/回放类确定性体验默认不调用模型；
+2. Domain Facet 检索收到 `EligibilityTicket` 后才能执行，包括 FTS/vector；
+3. 最终 Evidence 再以完整 fingerprint 授权，并由 Context Compiler 做模型边界复核；
+4. Epoch 使用内容包、Character Core、StorySeed、checkpoint、scene 等稳定维度，而不是每轮增长的全局 revision；
+5. 显式 Provider 缓存由玩法复用度决定；低频 World Pulse / Time Skip / Memory Distillation 默认不请求付费显式写入；
+6. 禁止为保活缓存发后台模型请求。

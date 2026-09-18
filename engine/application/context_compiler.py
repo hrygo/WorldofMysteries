@@ -12,17 +12,29 @@ from .context_plan import (
 # Only a fresh exact-content grant from the Domain-owned issuer grants visibility.
 _ALLOWED_KINDS = {
     "character_reasoner": frozenset({"canon_known", "character_core", "knowledge",
-        "belief", "memory", "observation", "capability", "relationship", "checkpoint"}),
+        "belief", "memory", "observation", "capability", "relationship", "checkpoint",
+        "narrative_dna"}),
     "story_director": frozenset({"canon", "world_truth", "commitment", "story_state",
-        "action_intent", "pressure", "secret", "checkpoint", "observation"}),
+        "action_intent", "pressure", "secret", "checkpoint", "observation",
+        "narrative_dna", "worldline_context", "open_thread", "ongoing_goal", "mystery"}),
     "narrative_compiler": frozenset({"disclosed_fact", "committed_delta", "beat_plan",
-        "speaker_intent", "disclosure_policy", "checkpoint"}),
-    "advice_interpreter": frozenset({"observation", "available_target"}),
-    "memory_distiller": frozenset({"committed_episode", "memory", "knowledge",
-        "belief", "relationship"}),
-    "story_genesis": frozenset({"canon", "world_truth", "open_thread", "observation"}),
-    "world_pulse_planner": frozenset({"world_truth", "open_thread", "pressure"}),
+        "speaker_intent", "disclosure_policy", "checkpoint", "narrative_dna",
+        "voice_persona", "scene_style"}),
+    "advice_interpreter": frozenset({"observation", "available_target", "current_goal", "pressure"}),
+    "memory_distiller": frozenset({"committed_episode", "committed_delta", "memory", "knowledge",
+        "belief", "relationship", "character_core"}),
+    "story_genesis": frozenset({"canon", "world_truth", "open_thread", "observation",
+        "character_core", "relationship", "memory", "narrative_dna", "sequence_profile",
+        "worldline_context"}),
+    "world_pulse_planner": frozenset({"world_truth", "open_thread", "pressure", "ongoing_goal",
+        "mystery", "worldline_context", "canon"}),
+    "observation_narrator": frozenset({"observation", "disclosed_fact", "location_context",
+        "relationship_public", "checkpoint", "canon_known"}),
+    "character_genesis": frozenset({"canon", "world_truth", "observation", "sequence_profile",
+        "narrative_dna", "worldline_context"}),
 }
+
+_STATE_OPTIONAL_CONSUMERS = frozenset({"memory_distiller"})
 
 
 class ContextCompilerProtocol(Protocol):
@@ -81,7 +93,8 @@ class CacheAwareContextCompiler:
                 if item.sequence in sequences:
                     raise ContextError("duplicate_history_sequence")
                 sequences.add(item.sequence)  # type: ignore[arg-type]
-        if not any(e.layer == Layer.STATE for e in request.evidence):
+        if (profile.consumer not in _STATE_OPTIONAL_CONSUMERS
+                and not any(e.layer == Layer.STATE for e in request.evidence)):
             raise ContextError("missing_current_state")
         # Retrieval ranking selects evidence upstream; only its presentation order
         # is canonicalized here. Arrays inside evidence retain their semantic order.

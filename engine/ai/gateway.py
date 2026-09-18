@@ -81,7 +81,9 @@ class AttemptObservation:
 
 class AIGatewayProtocol(Protocol):
     async def execute(self, request: ContextInput, profile: WorkerProfile,
-                      target: ProviderProfile, budget: ExecutionBudget) -> ProposalResult: ...
+                      target: ProviderProfile, budget: ExecutionBudget,
+                      authorize: Callable[[ContextInput], Awaitable[AuthorizationView]] | None = None
+                      ) -> ProposalResult: ...
 
 
 class CacheAwareGateway:
@@ -106,11 +108,14 @@ class CacheAwareGateway:
         self.observe_attempt = observe_attempt
 
     async def execute(self, request: ContextInput, profile: WorkerProfile,
-                      target: ProviderProfile, budget: ExecutionBudget) -> ProposalResult:
+                      target: ProviderProfile, budget: ExecutionBudget,
+                      authorize: Callable[[ContextInput], Awaitable[AuthorizationView]] | None = None
+                      ) -> ProposalResult:
         started = monotonic()
+        authorizer = authorize or self.authorize
         try:
             async with asyncio.timeout(budget.timeout_seconds):
-                return await self._execute(request, profile, target, budget, started)
+                return await self._execute(request, profile, target, budget, started, authorizer)
         except TimeoutError:
             raise ContextError("model_stage_timeout") from None
         except ContextError:
@@ -120,7 +125,8 @@ class CacheAwareGateway:
             raise ContextError("model_stage_failed") from None
 
     async def _execute(self, request: ContextInput, profile: WorkerProfile,
-                       target: ProviderProfile, budget: ExecutionBudget, started: float) -> ProposalResult:
+                       target: ProviderProfile, budget: ExecutionBudget, started: float,
+                       authorizer: Callable[[ContextInput], Awaitable[AuthorizationView]]) -> ProposalResult:
         try:
             schema = parse_json(profile.schema_json)
             Draft202012Validator.check_schema(schema)
@@ -138,7 +144,7 @@ class CacheAwareGateway:
                     no_refs(value)
         no_refs(schema)
         validator = Draft202012Validator(schema)
-        plan = self.compiler.compile(request, await self.authorize(request), profile)
+        plan = self.compiler.compile(request, await authorizer(request), profile)
         self.epochs.observe(plan)
         prompt = self.renderer.render(plan)
         usage: list[CacheUsage] = []
@@ -159,12 +165,12 @@ class CacheAwareGateway:
                     raise ContextError("context_budget_exceeded")
                 # The counter may await a service; reauthorize immediately before
                 # sending. Provider usage is observed even if the result is stale.
-                self.compiler.compile(request, await self.authorize(request), profile)
+                self.compiler.compile(request, await authorizer(request), profile)
                 reply = await self.transport.send(wire)
                 observed = normalize_usage(reply.usage, target.usage_format)
                 usage.append(observed)
                 status = "freshness_rejected"
-                self.compiler.compile(request, await self.authorize(request), profile)
+                self.compiler.compile(request, await authorizer(request), profile)
                 if not isinstance(reply.text, str) or len(reply.text.encode("utf-8")) > budget.max_reply_bytes:
                     status = "reply_size_rejected"
                     raise ContextError("reply_size_exceeded")

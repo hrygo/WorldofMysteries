@@ -85,6 +85,8 @@ def render_wire(prompt: RenderedPrompt, target: ProviderProfile, output_tokens: 
     # Provider/model/render dialect are part of cache identity, never only the text.
     binding = canonical_json({"key": prompt.cache_key, "endpoint": target.endpoint_id,
                               "model": target.model, "protocol": target.protocol.value,
+                              "cache_mode": target.mode.value, "ttl": target.ttl,
+                              "routing_key_supported": target.routing_key_supported,
                               "capability_revision": target.revision})
     key = hashlib.sha256(binding.encode()).hexdigest()
     body: dict[str, Any] = {"model": target.model}

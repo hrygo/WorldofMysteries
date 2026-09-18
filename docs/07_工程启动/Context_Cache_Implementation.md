@@ -102,3 +102,32 @@ Schema 目前作为固定执行提示并由 JSON Schema 在本地验证，不冒
 `pack_capsule(..., target_ref="origin/main", supersedes=...)` 创建 R2：
 `.agents/capsules/AI-CACHE-AWARE-CONTEXT-R2.json`。范围及受保护档案保持原样，R1 不回写。
 必须在新已提交 head 上重新执行 verifier；未使用 `--allow-stale`。
+
+## 玩法感知接线增量（2026-09-19）
+
+第二阶段在不修改 Domain/SQLite/App/公共 Schema 的前提下新增：
+
+- `engine/application/gameplay_context.py`：玩法配方、no-model 判定、一致性 Snapshot、五类 Domain Facet Port、两阶段授权、确定性 Epoch 维度、并发 Facet 加载；
+- `engine/ai/gameplay_cache.py`：按预期复用度选择显式缓存，禁止网络预热，并桥接 `GameplayContextCoordinator` 与通用 `CacheAwareGateway`；
+- `SessionOrchestratorProtocol` 新增 `prepare_ai_context` 接线面；具体 Orchestrator 尚未实现，不在 AI 层伪造事务编排；
+- Context Compiler 新增 observation narrator / character genesis 与 Narrative DNA 等防御性 kind 白名单；Memory Distiller 不再被迫伪造 current state；
+- Gateway 支持每次 gameplay 调用传入专属 freshness authorizer，使发送前后仍执行 Domain re-authorization；
+- Provider cache identity 增加 cache mode / TTL / routing capability，避免相同逻辑文本在不同 wire 模式下误共用应用路由键。
+
+### 已有模块如何接
+
+| 领域 | 直接接口 | 期望实现 |
+|---|---|---|
+| Lore Engine | `LoreContextPort` | Canon/time/spoiler eligible content + Narrative DNA |
+| World Engine | `WorldContextPort` | World Truth 或 Observation（依 Consumer），Worldline/threads/pressure |
+| Character Engine | `CharacterContextPort` | Core/current capability/goal/relationship projection |
+| Story Engine | `StoryContextPort` | Seed/commitment/story state/committed history/beat/delta |
+| Memory & Knowledge | `MemoryContextPort` | 在 eligibility 后执行 structured/graph/FTS/vector recall |
+| Session Orchestrator | `GameplayContextPort` | 在相应 AI stage 调 `prepare`，Commit 权仍由 Orchestrator 持有 |
+
+这些 Port 是只读接线契约。当前领域文件仍主要是 Protocol/规范而非可调用 Service 的位置，不允许 AI 层为了“直接接上”越层访问数据库。
+
+### 第二阶段本地证据
+
+新增玩法/接线/缓存经济性回归与原上下文测试合计 **92 passed**（Linux/Python 3.13.5 辅助环境）。
+该数字不是目标 macOS Work Receipt；提交后仍需在最新目标基线上执行原始 `AI_GATEWAY_P0` verifier 与正常 PR CI。
