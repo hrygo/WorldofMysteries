@@ -28,6 +28,7 @@ public struct ListeningRingView: View {
     public var onRingTapped: (@MainActor () -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var isRingFocused: Bool
     @State private var isBreathing: Bool = false
     @State private var rotationAngle: Double = 0
     @State private var rippleScale: CGFloat = 1.0
@@ -44,56 +45,18 @@ public struct ListeningRingView: View {
 
     public var body: some View {
         VStack(spacing: DesignTokens.Spacing.xs) {
-            ZStack {
-                Circle()
-                    .stroke(
-                        state == .listening ? Color.Mystic.spiritualGlow : Color.Mystic.brassGoldGlow,
-                        lineWidth: DesignTokens.Borders.heavy
-                    )
-                    .frame(
-                        width: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault,
-                        height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
-                    )
-                    .scaleEffect(resolvedRingScale)
-                    .opacity(reduceMotion ? 0.62 : (isBreathing ? 0.9 : 0.4))
-
-                Circle()
-                    .stroke(
-                        Color.Mystic.brassGoldBorder,
-                        lineWidth: DesignTokens.Borders.standard
-                    )
-                    .frame(width: 46, height: 46)
-
-                Circle()
-                    .fill(Color.Mystic.obsidianCard)
-                    .frame(width: 38, height: 38)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
-                    )
-                    .shadow(
-                        color: Color.Mystic.brassGoldPrimary.opacity(reduceMotion ? 0.2 : 0.35),
-                        radius: reduceMotion ? 3 : (state == .idle ? 4 : 8)
-                    )
-
-                Image(systemName: iconName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                    .rotationEffect(.degrees(reduceMotion ? 0 : (state == .deciding ? rotationAngle : 0)))
-            }
-            .contentShape(Circle())
-            .onTapGesture {
-                onRingTapped?()
-            }
+            interactiveRing
 
             Text(state.promptText)
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .animation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring, value: state)
+                .accessibilityHidden(onRingTapped != nil)
         }
         .onAppear {
             startAnimations()
+            handleStateChange(state)
         }
         .onChange(of: state) { _, newState in
             handleStateChange(newState)
@@ -106,8 +69,77 @@ public struct ListeningRingView: View {
                 handleStateChange(state)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(state.promptText)
+    }
+
+    @ViewBuilder
+    private var interactiveRing: some View {
+        if let onRingTapped {
+            Button(action: onRingTapped) {
+                ringVisual
+            }
+            .buttonStyle(MysticPressableButtonStyle(scale: 0.98, pressedOpacity: 0.92))
+            .focused($isRingFocused)
+            .accessibilityLabel(state.promptText)
+            .accessibilityHint("激活以切换语音 Advice 交互状态")
+        } else {
+            ringVisual
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var ringVisual: some View {
+        ZStack {
+            Circle()
+                .stroke(
+                    state == .listening ? Color.Mystic.spiritualGlow : Color.Mystic.brassGoldGlow,
+                    lineWidth: DesignTokens.Borders.heavy
+                )
+                .frame(
+                    width: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault,
+                    height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
+                )
+                .scaleEffect(resolvedRingScale)
+                .opacity(reduceMotion ? 0.62 : (isBreathing ? 0.9 : 0.4))
+
+            Circle()
+                .stroke(
+                    Color.Mystic.brassGoldBorder,
+                    lineWidth: DesignTokens.Borders.standard
+                )
+                .frame(width: 46, height: 46)
+
+            Circle()
+                .fill(Color.Mystic.obsidianCard)
+                .frame(width: 38, height: 38)
+                .overlay(
+                    Circle()
+                        .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
+                )
+                .shadow(
+                    color: Color.Mystic.brassGoldPrimary.opacity(reduceMotion ? 0.2 : 0.35),
+                    radius: reduceMotion ? 3 : (state == .idle ? 4 : 8)
+                )
+
+            Image(systemName: iconName)
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .rotationEffect(.degrees(reduceMotion ? 0 : (state == .deciding ? rotationAngle : 0)))
+
+            Circle()
+                .stroke(
+                    Color.Mystic.textGoldAccent,
+                    lineWidth: DesignTokens.Accessibility.focusRingWidth
+                )
+                .frame(
+                    width: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
+                        + DesignTokens.Accessibility.focusRingOffset * 2,
+                    height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
+                        + DesignTokens.Accessibility.focusRingOffset * 2
+                )
+                .opacity(isRingFocused ? 1 : 0)
+        }
+        .contentShape(Circle())
     }
 
     private var resolvedRingScale: CGFloat {

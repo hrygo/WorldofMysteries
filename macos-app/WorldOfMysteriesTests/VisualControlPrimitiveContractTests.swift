@@ -139,6 +139,24 @@ struct VisualControlPrimitiveContractTests {
         #expect(gallery.contains("criticalThreshold: 0.25"))
     }
 
+    @Test("spirituality gauge respects reduced motion")
+    func spiritualityGaugeReduceMotionContract() throws {
+        let source = try source("Components/SpiritualityGaugeView.swift")
+        #expect(source.contains("@Environment(\\.accessibilityReduceMotion)"))
+        #expect(source.contains(".animation(reduceMotion ? nil"))
+    }
+
+    @Test("listening ring is keyboard-focusable and no longer tap-gesture only")
+    func listeningRingInteractionContract() throws {
+        let source = try source("Components/ListeningRingView.swift")
+        #expect(source.contains("@FocusState private var isRingFocused"))
+        #expect(source.contains("Button(action: onRingTapped)"))
+        #expect(source.contains(".focused($isRingFocused)"))
+        #expect(source.contains(".accessibilityHint("))
+        #expect(source.contains("handleStateChange(state)"))
+        #expect(!source.contains(".onTapGesture"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")

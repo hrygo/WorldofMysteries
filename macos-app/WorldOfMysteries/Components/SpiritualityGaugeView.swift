@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 维多利亚复古黄铜灵性与理智仪表盘 (Spirituality & Sanity Gauge)
 public struct SpiritualityGaugeView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public let title: String
     /// 灵性值：0.0 (枯竭/失控) ~ 1.0 (充盈稳固)
     public let value: Double
@@ -53,7 +55,7 @@ public struct SpiritualityGaugeView: View {
                     .frame(width: 2, height: 26)
                     .offset(y: -13)
                     .rotationEffect(.degrees(gaugeAngle))
-                    .animation(DesignTokens.Motion.smoothSpring, value: value)
+                    .animation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring, value: value)
 
                 Circle()
                     .fill(Color.Mystic.brassGoldPrimary)
