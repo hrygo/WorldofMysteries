@@ -105,8 +105,11 @@ From the approved Master only, run:
 xcrun swift docs/05_UI/artwork/tools/derive_world_artwork.swift \
   --input W1_WORLD_HERO_MASTER_4096x2560.png \
   --runtime-output wom.art.world.hero.png \
-  --wide-output wom.art.world.hero.wide.png
+  --wide-output wom.art.world.hero.wide.png \
+  --wide-anchor top
 ```
+
+W1 v3 requires `--wide-anchor top`. Omitting it selects the tool's centered default and can remove the identity-bearing crimson moon. Verify `wideAnchor: top` in the derivative report; do not treat a successful export with the wrong crop as approval.
 
 Expected outputs:
 
