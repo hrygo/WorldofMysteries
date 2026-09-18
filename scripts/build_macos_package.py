@@ -162,6 +162,16 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
             return {'release_app_started': True, 'engine_spawn_ms': spawned_ms,
                     'engine_crash_recovered': True, 'app_force_quit_cleaned_engine': True,
                     'ui_interactive_acceptance': 'not-tested'}
+        except Exception:
+            # Bounded public stage/code diagnostics only; do not dump process
+            # environments, payloads or private system logs into build artifacts.
+            try:
+                run(['/usr/bin/log', 'show', '--last', '1m', '--style', 'compact',
+                     '--predicate', 'subsystem == "dev.worldofmysteries"'], cwd=ROOT,
+                    log=logs/'release-runtime-diagnostic.log', timeout=10)
+            except (BundleError, OSError):
+                pass  # The original launch failure remains authoritative.
+            raise
         finally:
             if app.poll() is None:
                 app.kill(); app.wait(timeout=5)

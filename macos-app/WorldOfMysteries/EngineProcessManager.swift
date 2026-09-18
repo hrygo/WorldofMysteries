@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(OSLog)
+import OSLog
+#endif
 #if canImport(Darwin)
 import Darwin
 #else
@@ -91,6 +94,16 @@ private nonisolated struct EngineRuntimeLease: Sendable {
     let inode: UInt64
     var socketPath: String { directory.appendingPathComponent("engine.sock").path }
 
+    /// Fixed stage identifiers and numeric diagnostics only: never log runtime paths,
+    /// payloads, environment variables or launch credentials.
+    private static func rejected(_ stage: String, code: Int32 = 0) -> EngineConnectionError {
+        #if canImport(OSLog)
+        Logger(subsystem: "dev.worldofmysteries", category: "EngineRuntime")
+            .error("Runtime setup rejected at \(stage, privacy: .public); code \(code)")
+        #endif
+        return .invalidConfiguration
+    }
+
     static func create(root explicitRoot: URL?) throws -> Self {
         let files = FileManager.default
         let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -99,15 +112,17 @@ private nonisolated struct EngineRuntimeLease: Sendable {
         // Darwin sun_path is only 104 bytes. Sandbox Application Support paths may
         // exceed that; ONLY ephemeral sockets may fall back to the app's private temp.
         if explicitRoot == nil, root.path.utf8.count + 31 >= 104 { root = files.temporaryDirectory }
-        guard root.isFileURL else { throw EngineConnectionError.invalidConfiguration }
+        guard root.isFileURL else { throw rejected("non-file-root") }
         do { try files.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
-        catch { throw EngineConnectionError.invalidConfiguration }
+        catch { throw rejected("create-runtime-root", code: Int32(truncatingIfNeeded: (error as NSError).code)) }
         let directory = root.appendingPathComponent("wom-" + UUID().uuidString.prefix(8), isDirectory: true)
-        guard directory.appendingPathComponent("engine.sock").path.utf8.count < 104,
-              mkdir(directory.path, 0o700) == 0 else { throw EngineConnectionError.invalidConfiguration }
+        let socketBytes = directory.appendingPathComponent("engine.sock").path.utf8.count
+        guard socketBytes < 104 else { throw rejected("socket-path-budget", code: Int32(socketBytes)) }
+        guard mkdir(directory.path, 0o700) == 0 else { throw rejected("create-private-directory", code: errno) }
         var info = stat()
-        guard lstat(directory.path, &info) == 0, (info.st_mode & 0o170000) == 0o040000,
-              info.st_uid == getuid(), (info.st_mode & 0o077) == 0 else { throw EngineConnectionError.invalidConfiguration }
+        guard lstat(directory.path, &info) == 0 else { throw rejected("inspect-private-directory", code: errno) }
+        guard (info.st_mode & 0o170000) == 0o040000, info.st_uid == getuid(),
+              (info.st_mode & 0o077) == 0 else { throw rejected("private-directory-identity") }
         return Self(directory: directory, device: UInt64(info.st_dev), inode: UInt64(info.st_ino))
     }
 

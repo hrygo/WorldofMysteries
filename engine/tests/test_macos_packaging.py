@@ -122,3 +122,30 @@ def test_signing_preserves_helper_entitlements_through_parent_path_alias(tmp_pat
     assert len(signs) == 1
     assert '--entitlements' in signs[0]
     assert signs[0][signs[0].index('--entitlements')+1].endswith('/Engine.entitlements')
+
+
+def test_runtime_setup_diagnostics_preserve_user_safe_errors():
+    source = (ROOT/'macos-app/WorldOfMysteries/EngineProcessManager.swift').read_text()
+    assert 'Logger(subsystem: "dev.worldofmysteries", category: "EngineRuntime")' in source
+    assert 'throw rejected("socket-path-budget", code: Int32(socketBytes))' in source
+    logging = source.split('private static func rejected(', 1)[1].split('static func create(', 1)[0]
+    assert 'return .invalidConfiguration' in logging
+    assert 'token' not in logging and 'directory.path' not in logging and 'environment' not in logging
+
+
+def test_failed_diagnostic_collection_cannot_hide_app_failure(tmp_path, monkeypatch):
+    class App:
+        pid = 123
+        def __init__(self): self.stopped = False
+        def poll(self): return -9 if self.stopped else None
+        def kill(self): self.stopped = True
+        def wait(self, **kwargs): return -9
+    app = App()
+    monkeypatch.setattr(package.subprocess, 'Popen', lambda *a, **k: app)
+    def original_failure(*a, **k): raise package.BundleError('original launch failure')
+    monkeypatch.setattr(package, 'await_engine', original_failure)
+    def diagnostics_fail(*a, **k): raise package.BundleError('diagnostic unavailable')
+    monkeypatch.setattr(package, 'run', diagnostics_fail)
+    with pytest.raises(package.BundleError, match='original launch failure'):
+        package.release_app_probe(tmp_path/'App.app', tmp_path)
+    assert app.stopped
