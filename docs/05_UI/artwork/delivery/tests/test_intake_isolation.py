@@ -100,7 +100,10 @@ class IntakeIsolationTests(unittest.TestCase):
         alias = self.root / "alias"
         alias.symlink_to(normal, target_is_directory=True)
         intake.stage_sources(self.manifest, self.source, alias / "staged")
-        self.assertEqual(len(intake.verify_sources(self.manifest, normal / "staged")), 9)
+        self.assertEqual(
+            len(intake.verify_sources(self.manifest, normal / "staged")),
+            len(self.manifest["sources"]),
+        )
 
     def test_metadata_is_explicit_utf8(self):
         original = Path.write_text
@@ -150,15 +153,41 @@ class IntakeIsolationTests(unittest.TestCase):
         for target in self.manifest["world_targets"]:
             if target["task_id"] in ("W2", "W5", "W6"):
                 target["source_id"] = None
+        for target in self.manifest["artifact_targets"]:
+            target["source_id"] = None
+            target["status"] = "CANON_BRIEF_AND_GENERATION_PENDING"
         intake.validate_manifest(self.manifest)
         intake.stage_sources(self.manifest, self.source, self.destination)
         self.assertEqual(len(intake.verify_sources(self.manifest, self.destination)), 6)
+
+    def test_only_stages_a_declared_subset_as_a_partial_bundle(self):
+        subset = ["A01_ARRODES_MIRROR", "A02_ALZUHOD_QUILL"]
+        intake.stage_sources(self.manifest, self.source, self.destination, subset)
+        selected = intake.select_sources(self.manifest, subset)
+        self.assertEqual(
+            len(intake.verify_sources(self.manifest, self.destination, selected)), len(subset)
+        )
+        receipt = json.loads((self.destination / "INTAKE_COMPLETE.json").read_text(encoding="utf-8"))
+        self.assertEqual(receipt["staged_source_ids"], subset)
+        self.assertEqual(receipt["manifest_source_count"], 24)
+        self.assertTrue(receipt["partial_bundle"])
+        staged = sorted(path.parent.name for path in (self.destination / "sources").glob("*/source.png"))
+        self.assertEqual(staged, subset)
+
+    def test_only_refuses_unknown_or_duplicate_source_ids(self):
+        for only in (["A99_MISSING"], ["A01_ARRODES_MIRROR", "A01_ARRODES_MIRROR"]):
+            with self.subTest(only=only), self.assertRaises(ValueError):
+                intake.stage_sources(self.manifest, self.source, self.root / "never", only)
+        self.assertFalse((self.root / "never").exists())
 
     def test_intake_does_not_change_approval_or_originals(self):
         before = copy.deepcopy(self.manifest)
         intake.stage_sources(self.manifest, self.source, self.destination)
         self.assertEqual(self.manifest, before)
-        self.assertEqual(len(intake.verify_sources(self.manifest, self.source)), 9)
+        self.assertEqual(
+            len(intake.verify_sources(self.manifest, self.source)),
+            len(self.manifest["sources"]),
+        )
         receipt = json.loads((self.destination / "INTAKE_COMPLETE.json").read_text(encoding="utf-8"))
         self.assertIs(receipt["shipping_approved"], False)
 

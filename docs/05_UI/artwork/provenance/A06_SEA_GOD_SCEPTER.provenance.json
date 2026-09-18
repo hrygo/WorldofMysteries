@@ -1,0 +1,163 @@
+{
+  "artwork_id": "A06_SEA_GOD_SCEPTER",
+  "artifact_id": "seaGodScepter",
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "source": {
+    "source_id": "A06_SEA_GOD_SCEPTER",
+    "sha256": "f187e331d0c1d6cf62af686c5da8500a89db918179d0815cc8254a5db5ae21b9",
+    "native_width": 1254,
+    "native_height": 1254,
+    "generation_id": "46c32ae3-2b0a-4da6-aa5f-4b75813f7151",
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md"
+  },
+  "postprocess": [
+    {
+      "stage": "macos_square_safety_crop",
+      "operation": "deterministic_centred_square_safety_crop",
+      "generative": false,
+      "rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "removed_pixels": {
+        "left": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0
+      },
+      "output_width": 1254,
+      "output_height": 1254,
+      "sha256": "945cfd238eac0f7fbbced23c4512e208cc742dc389b85fed5966b41a480d9e67",
+      "pixel_sha256": "12ef5735158d02e256ee5c1abeac5447464422c42a0df75062bf0da11952fcc2",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing.",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "NOT_REQUIRED",
+      "basis": "No masked local repair was applied. The approved sources arrive without local damage, the finishing order contains no generative step beyond one super-resolution pass, and every stage output is derivable from the locked source and the recorded grade parameters.",
+      "generative_operations": false
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "4096x4096",
+      "output_width": 5016,
+      "output_height": 5016,
+      "sha256": "eca322d9d18a1e5bf255c199bef2fc7b0a42ef469cc617eec8ab92935cb4c6a1",
+      "passes": 1
+    },
+    {
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 5016,
+      "output_height": 5016,
+      "sha256": "219389f5f09f84fb43bb8a5c5dca8760da573535c4b09ea86450770bc8e3a3ec"
+    },
+    {
+      "stage": "oversample_downsample_to_2048x2048_artifact_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_artifact_master",
+      "resample": "Lanczos",
+      "output_width": 2048,
+      "output_height": 2048,
+      "sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "pixel_sha256": "4df14cf3b3cd422c1fa2b1e1099b00dac5844a0972749973e6867c6faefc69c0",
+      "master_is_native_generation": false,
+      "master_quality_note": "Finished / super-resolved Master. The approved source is smaller than the 2048x2048 baseline, so this is not a native 2048x2048 generation."
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "independent_regeneration": false,
+      "derivatives": [
+        {
+          "asset_name": "wom.art.artifact.sea-god-scepter.detail",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "c4bb9ea3707f2f90aa72130b20739ceb2c9fd9521906fc028d72940fbeed9906",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.artifact.sea-god-scepter.thumbnail",
+          "width": 512,
+          "height": 512,
+          "sha256": "185288ec2ecca4943787b165a122218fcb983232d4ea3f792ac4524d2c73abab",
+          "derivation": "full_frame_downsample_from_master"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PENDING_RUNTIME_QA",
+      "unmet_requirements": [
+        "runtime evidence missing"
+      ],
+      "evidence": "docs/05_UI/artwork/qa/A06_SEA_GOD_SCEPTER.qa.json"
+    }
+  ],
+  "master": {
+    "path": "A06_MASTER_2048x2048.png",
+    "width": 2048,
+    "height": 2048,
+    "format": "PNG",
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "runtime_loadable": false,
+    "sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+    "pixel_sha256": "4df14cf3b3cd422c1fa2b1e1099b00dac5844a0972749973e6867c6faefc69c0",
+    "storage": "not committed; masters stay out of the Asset Catalog and out of git"
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.artifact.sea-god-scepter.detail",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "c4bb9ea3707f2f90aa72130b20739ceb2c9fd9521906fc028d72940fbeed9906",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    },
+    {
+      "asset_name": "wom.art.artifact.sea-god-scepter.thumbnail",
+      "width": 512,
+      "height": 512,
+      "sha256": "185288ec2ecca4943787b165a122218fcb983232d4ea3f792ac4524d2c73abab",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    }
+  ],
+  "gates": {
+    "G0_semantic": "PASSED",
+    "G1_canon_atmosphere": "PENDING_CANON_REVIEW",
+    "G2_composition": "PASSED",
+    "G3_structure": "PASSED",
+    "G4_production": "PASSED",
+    "G5_runtime": "PENDING_RUNTIME_QA"
+  },
+  "shipping_approved": false
+}

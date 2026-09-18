@@ -1,0 +1,163 @@
+{
+  "artwork_id": "A12_STAFF_OF_STARS",
+  "artifact_id": "staffOfStars",
+  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "source": {
+    "source_id": "A12_STAFF_OF_STARS",
+    "sha256": "619916562293b9c3d66940b6ef48039b0f2bfbe89d86f8deddb4d53c32f1b55f",
+    "native_width": 1371,
+    "native_height": 1148,
+    "generation_id": "0d65604b-573e-464b-be6e-5e0a804fa645",
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md"
+  },
+  "postprocess": [
+    {
+      "stage": "macos_square_safety_crop",
+      "operation": "deterministic_centred_square_safety_crop",
+      "generative": false,
+      "rect_pixels": [
+        111,
+        0,
+        1259,
+        1148
+      ],
+      "removed_pixels": {
+        "left": 111,
+        "top": 0,
+        "right": 112,
+        "bottom": 0
+      },
+      "output_width": 1148,
+      "output_height": 1148,
+      "sha256": "732a006c85db3006745418cb95eac7a957855dacc396f138c5c9315e7f28b92c",
+      "pixel_sha256": "133baeb3e66f8fd497c4c4564a42dc49671571c1e12b2ac385a280723c114943",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing.",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "NOT_REQUIRED",
+      "basis": "No masked local repair was applied. The approved sources arrive without local damage, the finishing order contains no generative step beyond one super-resolution pass, and every stage output is derivable from the locked source and the recorded grade parameters.",
+      "generative_operations": false
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "4096x4096",
+      "output_width": 4592,
+      "output_height": 4592,
+      "sha256": "8586fbdb1ba9ec9a72831fc2ade5961be47aab3929fc3f2a2b9c0aca0235321c",
+      "passes": 1
+    },
+    {
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 4592,
+      "output_height": 4592,
+      "sha256": "25e25a2b0a9f9a73153c4f103f2bcb51536146d6f40ad980e357da5e3db1e1f1"
+    },
+    {
+      "stage": "oversample_downsample_to_2048x2048_artifact_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_artifact_master",
+      "resample": "Lanczos",
+      "output_width": 2048,
+      "output_height": 2048,
+      "sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "pixel_sha256": "abeea293467b98e5da2bf57a10c386e84708f377866f6b11c120993fda434512",
+      "master_is_native_generation": false,
+      "master_quality_note": "Finished / super-resolved Master. The approved source is smaller than the 2048x2048 baseline, so this is not a native 2048x2048 generation."
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "independent_regeneration": false,
+      "derivatives": [
+        {
+          "asset_name": "wom.art.artifact.staff-of-stars.detail",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.artifact.staff-of-stars.thumbnail",
+          "width": 512,
+          "height": 512,
+          "sha256": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e",
+          "derivation": "full_frame_downsample_from_master"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PENDING_RUNTIME_QA",
+      "unmet_requirements": [
+        "runtime evidence missing"
+      ],
+      "evidence": "docs/05_UI/artwork/qa/A12_STAFF_OF_STARS.qa.json"
+    }
+  ],
+  "master": {
+    "path": "A12_MASTER_2048x2048.png",
+    "width": 2048,
+    "height": 2048,
+    "format": "PNG",
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "runtime_loadable": false,
+    "sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+    "pixel_sha256": "abeea293467b98e5da2bf57a10c386e84708f377866f6b11c120993fda434512",
+    "storage": "not committed; masters stay out of the Asset Catalog and out of git"
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.artifact.staff-of-stars.detail",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    },
+    {
+      "asset_name": "wom.art.artifact.staff-of-stars.thumbnail",
+      "width": 512,
+      "height": 512,
+      "sha256": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    }
+  ],
+  "gates": {
+    "G0_semantic": "PASSED",
+    "G1_canon_atmosphere": "PENDING_CANON_REVIEW",
+    "G2_composition": "PASSED",
+    "G3_structure": "PASSED",
+    "G4_production": "PASSED",
+    "G5_runtime": "PENDING_RUNTIME_QA"
+  },
+  "shipping_approved": false
+}

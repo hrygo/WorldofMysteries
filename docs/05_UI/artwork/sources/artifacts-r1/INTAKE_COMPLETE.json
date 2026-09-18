@@ -1,0 +1,100 @@
+{
+  "source_transport": [
+    {
+      "source_id": "A01_ARRODES_MIRROR",
+      "sha256": "3a76a388e8316e61147ccb60711f90e9f1c701f31489cd4c2a1aa908f5db4c5b",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A02_ALZUHOD_QUILL",
+      "sha256": "dd6c4cd3f43375314b5108f4b292724fcec3394fe736282c5e8ec42f34567509",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A03_TRUNSOEST_BRASS_BOOK",
+      "sha256": "490a4c74d2364e26093830f941701c1917545d497569df660521ff5fa8590fe2",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A04_MAGIC_WISHING_LAMP",
+      "sha256": "3df7eb7bb25374594132656dc05715f72da447538b15abd102c2228b1ceab82b",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A05_CREEPING_HUNGER",
+      "sha256": "519a611c80f6ac276b14e1fb3b0922cb92066bac486aa48171658cf4c82d3dae",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A06_SEA_GOD_SCEPTER",
+      "sha256": "f187e331d0c1d6cf62af686c5da8500a89db918179d0815cc8254a5db5ae21b9",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A07_PROBABILITY_DIE",
+      "sha256": "29fc341d9631f373be536c59291156f3528e241ba96b3ad89add4602b9fa1c36",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A08_LEYMANO_TRAVELS",
+      "sha256": "c74b5f7edb5689d086c532e9e127b56295607e44020d5bfc5fac121b724b8747",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A09_GROSELLE_TRAVELS",
+      "sha256": "c337775c93719c2496e6f5fc8bbb05014be7922f98f074724905f49067fd064b",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A10_AZIK_COPPER_WHISTLE",
+      "sha256": "eb9476e227fa7f19e7cb2b0e2bdd8cb4bad755887687b43b78e5a363305e9dc2",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A11_CARDS_OF_BLASPHEMY",
+      "sha256": "621c2c1ddce3e85d2fb83f3ee20c6817846bc858eca72b03108451bfcbbb095c",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A12_STAFF_OF_STARS",
+      "sha256": "619916562293b9c3d66940b6ef48039b0f2bfbe89d86f8deddb4d53c32f1b55f",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A13_BOX_OF_GREAT_OLD_ONES",
+      "sha256": "1709b8ce53e266164182d1b5baef08962c9146f41e2105cb413e81c377fdd278",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A14_DEATH_KNELL",
+      "sha256": "f65337a5e6bcde3da7c3d5c5d52b8477d312d78865a312ac231f3f784ffc20a4",
+      "transport_verified": true
+    },
+    {
+      "source_id": "A15_UNSHADOWED_CRUCIFIX",
+      "sha256": "25813960f9e0ffb821eacea2f055ebf6983d6ac8b0b8a9a2ac02c194edd115a5",
+      "transport_verified": true
+    }
+  ],
+  "shipping_approved": false,
+  "manifest_source_count": 24,
+  "staged_source_count": 15,
+  "staged_source_ids": [
+    "A01_ARRODES_MIRROR",
+    "A02_ALZUHOD_QUILL",
+    "A03_TRUNSOEST_BRASS_BOOK",
+    "A04_MAGIC_WISHING_LAMP",
+    "A05_CREEPING_HUNGER",
+    "A06_SEA_GOD_SCEPTER",
+    "A07_PROBABILITY_DIE",
+    "A08_LEYMANO_TRAVELS",
+    "A09_GROSELLE_TRAVELS",
+    "A10_AZIK_COPPER_WHISTLE",
+    "A11_CARDS_OF_BLASPHEMY",
+    "A12_STAFF_OF_STARS",
+    "A13_BOX_OF_GREAT_OLD_ONES",
+    "A14_DEATH_KNELL",
+    "A15_UNSHADOWED_CRUCIFIX"
+  ],
+  "partial_bundle": true
+}
