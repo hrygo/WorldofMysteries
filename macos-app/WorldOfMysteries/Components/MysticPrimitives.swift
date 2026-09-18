@@ -710,13 +710,13 @@ public struct MysticIconButton: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.xs, style: .continuous)
+                    .inset(by: -DesignTokens.Accessibility.focusRingOffset)
                     .stroke(
                         colorSchemeContrast == .increased
                             ? Color.Mystic.textPrimary
                             : tone.readableForeground,
                         lineWidth: DesignTokens.Accessibility.focusRingWidth
                     )
-                    .padding(-DesignTokens.Accessibility.focusRingOffset)
                     .opacity(isFocused && isEnabled ? 1 : 0)
             )
         }
