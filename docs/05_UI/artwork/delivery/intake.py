@@ -160,10 +160,19 @@ def validate_manifest(manifest: dict, registry_text: str | None = None) -> None:
         require(actual == registry, "Manifest differs from the real typed artwork registry")
 
 
-def verify_sources(manifest: dict, source_dir: Path) -> list[dict]:
+def verify_sources(
+    manifest: dict, source_dir: Path, selected: list[dict] | None = None
+) -> list[dict]:
+    """Verify approved source bytes. ``selected`` verifies a declared subset of the same manifest.
+
+    The manifest itself is always validated in full first, so a subset can never smuggle in an
+    entry that the whole-manifest rules would reject.
+    """
+
     validate_manifest(manifest)
+    sources = manifest["sources"] if selected is None else selected
     records = []
-    for source in manifest["sources"]:
+    for source in sources:
         path = safe_path(source_dir, source["filename"])
         require(path.is_file(), f"Missing original source: {source['source_id']}")
         require(path.stat().st_size == source["byte_size"], f"Byte size mismatch: {source['source_id']}")
@@ -175,9 +184,31 @@ def verify_sources(manifest: dict, source_dir: Path) -> list[dict]:
     return records
 
 
-def stage_sources(manifest: dict, source_dir: Path, destination: Path) -> None:
+def select_sources(manifest: dict, only: list[str] | None) -> list[dict]:
+    """Stage the whole manifest by default, or an explicitly named subset of its sources.
+
+    A separate handoff bundle may cover only part of the approved set (for example one Artifact
+    batch). Selecting a subset never relaxes approval: every staged byte is still verified
+    against the same manifest entry, and the subset is recorded in the staging receipt so a
+    partial bundle cannot be mistaken for a complete source import.
+    """
+
+    if not only:
+        return list(manifest["sources"])
+    require(len(set(only)) == len(only), "Duplicate --only source ID")
+    known = {source["source_id"] for source in manifest["sources"]}
+    unknown = sorted(set(only) - known)
+    require(not unknown, f"--only names sources that are not in the manifest: {unknown}")
+    requested = set(only)
+    return [source for source in manifest["sources"] if source["source_id"] in requested]
+
+
+def stage_sources(
+    manifest: dict, source_dir: Path, destination: Path, only: list[str] | None = None
+) -> None:
     destination = staging_destination(destination)
-    verify_sources(manifest, source_dir)
+    selected = select_sources(manifest, only)
+    verify_sources(manifest, source_dir, selected)
     destination.parent.mkdir(parents=True, exist_ok=True)
     lock = destination.parent / (destination.name + ".intake.lock")
     with lock.open("x"):
@@ -186,13 +217,24 @@ def stage_sources(manifest: dict, source_dir: Path, destination: Path) -> None:
             with tempfile.TemporaryDirectory(prefix=".art-intake-", dir=destination.parent) as temp:
                 staged = Path(temp) / "bundle"
                 staged.mkdir()
-                for source in manifest["sources"]:
+                for source in selected:
                     target = safe_path(staged, source["filename"])
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(safe_path(source_dir, source["filename"]), target)
-                records = verify_sources(manifest, staged)
+                records = verify_sources(manifest, staged, selected)
                 (staged / "approved_sources.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-                (staged / "INTAKE_COMPLETE.json").write_text(json.dumps({"source_transport": records, "shipping_approved": False}, indent=2) + "\n", encoding="utf-8")
+                (staged / "INTAKE_COMPLETE.json").write_text(json.dumps(
+                    {
+                        "source_transport": records,
+                        "shipping_approved": False,
+                        "manifest_source_count": len(manifest["sources"]),
+                        "staged_source_count": len(selected),
+                        "staged_source_ids": [source["source_id"] for source in selected],
+                        "partial_bundle": len(selected) != len(manifest["sources"]),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ) + "\n", encoding="utf-8")
                 require(not destination.exists(), "Destination appeared during intake")
                 os.rename(staged, destination)
         finally:
@@ -206,6 +248,9 @@ def main() -> int:
     parser.add_argument("--registry", type=Path)
     parser.add_argument("--source-dir", type=Path)
     parser.add_argument("--stage-dir", type=Path)
+    parser.add_argument("--only", action="append", default=None,
+                        help="stage only these source IDs (repeatable); staging still verifies "
+                             "each copied byte against the manifest")
     args = parser.parse_args()
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -214,7 +259,7 @@ def main() -> int:
             require(args.source_dir is not None, "--source-dir is required")
         if args.operation == "stage":
             require(args.stage_dir is not None, "--stage-dir is required")
-            stage_sources(manifest, args.source_dir, args.stage_dir)
+            stage_sources(manifest, args.source_dir, args.stage_dir, args.only)
         elif args.operation == "verify":
             verify_sources(manifest, args.source_dir)
         print(json.dumps({"operation": args.operation, "result": "SOURCE_INTAKE_OK",

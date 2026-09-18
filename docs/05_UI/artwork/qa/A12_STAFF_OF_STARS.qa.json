@@ -1,0 +1,264 @@
+{
+  "artwork_id": "A12_STAFF_OF_STARS",
+  "artifact_id": "staffOfStars",
+  "asset_name": "wom.art.artifact.staff-of-stars",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A12_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A12_STAFF_OF_STARS",
+    "sha256": "619916562293b9c3d66940b6ef48039b0f2bfbe89d86f8deddb4d53c32f1b55f",
+    "native_size": [
+      1371,
+      1148
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "0d65604b-573e-464b-be6e-5e0a804fa645"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "a gem-set dark cane grasped by a gloved hand beside a cracked, luminous spatial rift",
+      "secondary_read": "an object that understands and projects; the space around the cane is already displaced",
+      "generic_fantasy_read": "bounded Victorian occult close-up",
+      "typography_detected": false,
+      "dominant_subject": "dark cane",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING_CANON_REVIEW",
+      "notes": [
+        "Visual approval is not Canon verification. This object has no verified primary form claim recorded in docs/05_UI/artwork/delivery/canon_evidence.json, so G1 stays open until the Canon review is recorded."
+      ],
+      "coverage_limit": null,
+      "canon_consistency_note": null,
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1371,
+        1148
+      ],
+      "source_crop_rect_pixels": [
+        111,
+        0,
+        1259,
+        1148
+      ],
+      "source_crop_output": {
+        "width": 1148,
+        "height": 1148,
+        "sha256": "732a006c85db3006745418cb95eac7a957855dacc396f138c5c9315e7f28b92c"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The 1371x1148 source is cropped to the largest centred square, removing 111px left and 112px right. The cane, the hand, the gem settings and the rift survive; nothing is stretched.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "The cane head, the interlaced ring settings, the gems and the gloved fingers stay individually readable at 100%.",
+      "detail_note": "The rift keeps branching structure at 200% instead of a flat glow, and the gems keep separate colours.",
+      "seam_note": "No tile seam on the cane shaft or across the rift.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%.",
+      "structural_repetition_check": "No repeated setting or rift pattern from the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.staff-of-stars.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.staff-of-stars.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.staff-of-stars.detail": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+        "wom.art.artifact.staff-of-stars.thumbnail": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e"
+      },
+      "asset_names": [
+        "wom.art.artifact.staff-of-stars.detail",
+        "wom.art.artifact.staff-of-stars.thumbnail"
+      ],
+      "master_sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.staff-of-stars.detail",
+            "payload": "wom.art.artifact.staff-of-stars.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.staff-of-stars.thumbnail",
+            "payload": "wom.art.artifact.staff-of-stars.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G1_canon_atmosphere",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A12",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "pixel_sha256": "abeea293467b98e5da2bf57a10c386e84708f377866f6b11c120993fda434512",
+      "photometry": {
+        "mean_luminance_0_255": 57.06,
+        "luminance_p05_0_255": 2.28,
+        "luminance_p50_0_255": 40.8,
+        "luminance_p95_0_255": 174.9,
+        "shadow_clip_pct": 3.643,
+        "highlight_clip_pct": 0.065
+      }
+    },
+    "approved_source_crop": {
+      "width": 1148,
+      "height": 1148,
+      "sha256": "732a006c85db3006745418cb95eac7a957855dacc396f138c5c9315e7f28b92c",
+      "photometry": {
+        "mean_luminance_0_255": 50.98,
+        "luminance_p05_0_255": 2.0,
+        "luminance_p50_0_255": 35.77,
+        "luminance_p95_0_255": 158.96,
+        "shadow_clip_pct": 5.053,
+        "highlight_clip_pct": 0.009
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 6.954,
+      "luminance_correlation": 0.9943,
+      "edge_structure_correlation": 0.9764,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.staff-of-stars.detail",
+          "payload": "wom.art.artifact.staff-of-stars.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.staff-of-stars.thumbnail",
+          "payload": "wom.art.artifact.staff-of-stars.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

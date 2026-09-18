@@ -1,0 +1,301 @@
+{
+  "artwork_id": "A03_TRUNSOEST_BRASS_BOOK",
+  "artifact_id": "trunsoestBrassBook",
+  "asset_name": "wom.art.artifact.trunsoest-brass-book",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A03_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A03_TRUNSOEST_BRASS_BOOK",
+    "sha256": "490a4c74d2364e26093830f941701c1917545d497569df660521ff5fa8590fe2",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "cb422644-ee2e-4863-a8aa-ee7183c7027a"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PENDING_MACOS_FINISHING",
+      "primary_read": "a heavy brass-bound codex whose cover is engraved with scales, a sword and a classical temple",
+      "secondary_read": "a mechanical legal codex that declares and constrains",
+      "generic_fantasy_read": "bounded Victorian occult tome with readable Latin lettering",
+      "typography_detected": true,
+      "dominant_subject": "brass codex",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone.",
+        "Baked readable typography was detected in the approved source, so G0 stays open rather than passing. Product policy is text-free art; this needs an explicit user/art-direction decision (accept or re-generate the source)."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": [
+        {
+          "location": "engraved panel on the brass cover, right of the scales emblem",
+          "text": "FIAT IUSTITIA ET PEREAT ET MUNDUS",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        },
+        {
+          "location": "engraved band on the lower cover edge",
+          "text": "ORDO LEX ...",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        }
+      ]
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING_CANON_REVIEW",
+      "notes": [
+        "Visual approval is not Canon verification. This object has no verified primary form claim recorded in docs/05_UI/artwork/delivery/canon_evidence.json, so G1 stays open until the Canon review is recorded."
+      ],
+      "coverage_limit": {
+        "artifact_id": "trunsoestBrassBook",
+        "chapter": 1286,
+        "url": "https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/new-applications-of-old-methods_45129713366134340",
+        "result": "PUBLIC_PREVIEW_DOES_NOT_VERIFY_OBJECT_FORM"
+      },
+      "canon_consistency_note": null,
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "44bb12a8a5294ebcfa3b58462547ad78457d4d733a0d91d6ca895bd9d9ba65c9"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the book, the candle and the clasp all sit inside the frame.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [
+        "baked_readable_text_on_brass_cover"
+      ],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that.",
+        "Defects were recorded, so G3 stays open rather than passing."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [
+        {
+          "location": "engraved panel on the brass cover, right of the scales emblem",
+          "text": "FIAT IUSTITIA ET PEREAT ET MUNDUS",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        },
+        {
+          "location": "engraved band on the lower cover edge",
+          "text": "ORDO LEX ...",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        }
+      ],
+      "readability_note": "The scales, sword, sunburst and temple relief stay individually readable at 100%; the brass sheet edges and the clasp read as separate materials.",
+      "detail_note": "Engraved line work keeps its depth at 200% and the brass does not flatten into a single gold tone.",
+      "seam_note": "No tile seam across the large brass sheet or along the engraved sunburst.",
+      "text_like_glyph_check": "Baked readable Latin lettering is engraved into the cover. Recorded as a defect against the text-free artwork policy, not as decoration.",
+      "structural_repetition_check": "No repeated engraving band from the upscale.",
+      "status": "PENDING_MACOS_FINISHING"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.trunsoest-brass-book.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.trunsoest-brass-book.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.trunsoest-brass-book.detail": "8dee78c720a3adc5d2d72185c6cfbf2241f309c9b39d1ac59ba31c8176adcba6",
+        "wom.art.artifact.trunsoest-brass-book.thumbnail": "ad4d64591eb00796bc106f7fe6140d0ac3de3ee35aa6879d18b30ff3d9634d0b"
+      },
+      "asset_names": [
+        "wom.art.artifact.trunsoest-brass-book.detail",
+        "wom.art.artifact.trunsoest-brass-book.thumbnail"
+      ],
+      "master_sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.trunsoest-brass-book.detail",
+            "payload": "wom.art.artifact.trunsoest-brass-book.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "8dee78c720a3adc5d2d72185c6cfbf2241f309c9b39d1ac59ba31c8176adcba6",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.trunsoest-brass-book.thumbnail",
+            "payload": "wom.art.artifact.trunsoest-brass-book.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "ad4d64591eb00796bc106f7fe6140d0ac3de3ee35aa6879d18b30ff3d9634d0b",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G0_semantic",
+    "G1_canon_atmosphere",
+    "G3_structure",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A03",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "pixel_sha256": "307e18f5b5b1a96d103836ae5ca2e4b23ff24f4dbfd81283661bcb1eb08e7a2a",
+      "photometry": {
+        "mean_luminance_0_255": 60.4,
+        "luminance_p05_0_255": 4.77,
+        "luminance_p50_0_255": 42.94,
+        "luminance_p95_0_255": 169.24,
+        "shadow_clip_pct": 2.083,
+        "highlight_clip_pct": 0.017
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "44bb12a8a5294ebcfa3b58462547ad78457d4d733a0d91d6ca895bd9d9ba65c9",
+      "photometry": {
+        "mean_luminance_0_255": 55.61,
+        "luminance_p05_0_255": 4.28,
+        "luminance_p50_0_255": 39.44,
+        "luminance_p95_0_255": 156.19,
+        "shadow_clip_pct": 2.933,
+        "highlight_clip_pct": 0.049
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 6.444,
+      "luminance_correlation": 0.9932,
+      "edge_structure_correlation": 0.9702,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.trunsoest-brass-book.detail",
+          "payload": "wom.art.artifact.trunsoest-brass-book.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "8dee78c720a3adc5d2d72185c6cfbf2241f309c9b39d1ac59ba31c8176adcba6",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.trunsoest-brass-book.thumbnail",
+          "payload": "wom.art.artifact.trunsoest-brass-book.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "ad4d64591eb00796bc106f7fe6140d0ac3de3ee35aa6879d18b30ff3d9634d0b",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

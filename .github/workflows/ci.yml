@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -73,9 +73,12 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install uv with Cache Enabled
-        uses: astral-sh/setup-uv@v7
+        # setup-uv 自 v8 起不再发布大版本标签（供应链加固），必须锁不可变全版本标签。
+        uses: astral-sh/setup-uv@v10.1.0
         with:
-          enable-cache: true
+          # v10 起 `auto` 会对 pull_request_target / workflow_run / release 自动禁用缓存，
+          # 避免缓存投毒；本工作流当前事件仍正常缓存，保留安全默认以便触发面变更后不被绕过。
+          enable-cache: auto
           cache-dependency-glob: "engine/uv.lock"
 
       - name: Run Python Pytest Suite

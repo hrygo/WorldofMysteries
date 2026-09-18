@@ -1,0 +1,269 @@
+{
+  "artwork_id": "A05_CREEPING_HUNGER",
+  "artifact_id": "creepingHunger",
+  "asset_name": "wom.art.artifact.creeping-hunger",
+  "contract_version": 1,
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "selected_candidate_id": "A05_SELECTED_SOURCE",
+  "source": {
+    "source_id": "A05_CREEPING_HUNGER",
+    "sha256": "519a611c80f6ac276b14e1fb3b0922cb92066bac486aa48171658cf4c82d3dae",
+    "native_size": [
+      1254,
+      1254
+    ],
+    "visual_approval": "USER_APPROVED",
+    "approval_record": "Artifact_Source_Approval_Update_2026-09-18.md",
+    "generation_id": "7df486a9-2e8d-4f0b-b432-c406db157ea0"
+  },
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "primary_read": "a pallid, veined hand raised with ringed fingers, faint threads trailing from it, a lit city behind",
+      "secondary_read": "a worn glove that consumes and borrows; the surface reads as hide rather than as a clean gauntlet",
+      "generic_fantasy_read": "bounded Victorian occult close-up",
+      "typography_detected": false,
+      "dominant_subject": "gloved hand",
+      "notes": [
+        "Read from the finished 2048x2048 master, not from the source file alone."
+      ],
+      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
+      "baked_text_findings": []
+    },
+    "G1_canon_atmosphere": {
+      "status": "PENDING_CANON_REVIEW",
+      "notes": [
+        "Visual approval is not Canon verification. This object has no verified primary form claim recorded in docs/05_UI/artwork/delivery/canon_evidence.json, so G1 stays open until the Canon review is recorded."
+      ],
+      "coverage_limit": {
+        "artifact_id": "creepingHunger",
+        "chapter": 146,
+        "url": "https://www.webnovel.com/book/lord-of-mysteries_11022733006234505/creeping-hunger_33158606018898116",
+        "result": "PUBLIC_PREVIEW_DOES_NOT_VERIFY_OBJECT_FORM"
+      },
+      "canon_consistency_note": null,
+      "shipping_approved": false
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "aspect_ratio": "1:1",
+      "source_native_size": [
+        1254,
+        1254
+      ],
+      "source_crop_rect_pixels": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "source_crop_output": {
+        "width": 1254,
+        "height": 1254,
+        "sha256": "ec8ac963d8a3765bf348c1fb20c172b044eda68f3e9a5fe075f6dbd26269f776"
+      },
+      "crop_rule": "deterministic_centred_maximal_square",
+      "upscale": false,
+      "crop_safety_note": "The approved source is already 1254x1254, so the 1:1 crop removes no pixels; the fingers, the wrist cuff and the background skyline all sit inside the frame.",
+      "notes": [
+        "Non-square sources are cropped to the largest centred square; nothing is stretched and no canvas is invented."
+      ]
+    },
+    "G3_structure": {
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of each finished 2048x2048 Artifact Master, a full-size 100% pass over the object and its immediate surroundings, and 200-300% re-checks on the highest-risk areas per object (engraved lettering, engraved numerals, quill barb and spine detail, mirror filigree, die pips, whistle tracery, card faces, revolver scroll engraving, crucifix relief and rays). Texture, seam and clipping checks were run on the same master.",
+      "defects_found": [],
+      "inspected_at": "2026-09-19",
+      "notes": [
+        "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "baked_text_findings": [],
+      "readability_note": "Skin texture, the ring settings and the trailing threads stay individually readable at 100%.",
+      "detail_note": "The threads do not merge into a haze at 200% and the skin keeps irregular, non-repeating texture.",
+      "seam_note": "No tile seam across the skin or the night sky.",
+      "text_like_glyph_check": "No letter, numeral or pseudo-writing is legible at 100% or 200%.",
+      "structural_repetition_check": "No repeated skin or thread pattern from the upscale.",
+      "status": "PASSED"
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 2048,
+        "height": 2048
+      },
+      "runtime_dimensions": {
+        "wom.art.artifact.creeping-hunger.detail": {
+          "width": 1024,
+          "height": 1024
+        },
+        "wom.art.artifact.creeping-hunger.thumbnail": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.artifact.creeping-hunger.detail": "10999830802ef2c0fc28b09e08258cd534f07bc5129b34936cf6e9f92ffebbbc",
+        "wom.art.artifact.creeping-hunger.thumbnail": "36894193edd51e5d83c45677147f950bdded168713bb94b42110aee960ed9ccf"
+      },
+      "asset_names": [
+        "wom.art.artifact.creeping-hunger.detail",
+        "wom.art.artifact.creeping-hunger.thumbnail"
+      ],
+      "master_sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "derivative_tool": "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.artifact.creeping-hunger.detail",
+            "payload": "wom.art.artifact.creeping-hunger.detail.png",
+            "width": 1024,
+            "height": 1024,
+            "sha256": "10999830802ef2c0fc28b09e08258cd534f07bc5129b34936cf6e9f92ffebbbc",
+            "icc_profile": "sRGB IEC61966-2.1"
+          },
+          {
+            "asset_name": "wom.art.artifact.creeping-hunger.thumbnail",
+            "payload": "wom.art.artifact.creeping-hunger.thumbnail.png",
+            "width": 512,
+            "height": 512,
+            "sha256": "36894193edd51e5d83c45677147f950bdded168713bb94b42110aee960ed9ccf",
+            "icc_profile": "sRGB IEC61966-2.1"
+          }
+        ],
+        "matches_derivatives": true
+      },
+      "notes": [
+        "The 2048x2048 master is a finished / super-resolved master; the largest approved source is smaller than the master baseline.",
+        "Runtime payloads are the contract 1024x1024 detail and 512x512 thumbnail derived from that one master."
+      ],
+      "checks": {
+        "master_dimensions": true,
+        "derivatives_from_same_master": true,
+        "derivative_dimensions": true,
+        "fidelity_passed": true,
+        "catalog_matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PENDING_RUNTIME_QA",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "notes": [
+        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+      ]
+    }
+  },
+  "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
+  "pending_gates": [
+    "G1_canon_atmosphere",
+    "G5_runtime"
+  ],
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_artifact_artwork.py"
+  ],
+  "reviewed_at": "2026-09-19",
+  "production_contract": {
+    "artifact_master_baseline": [
+      2048,
+      2048
+    ],
+    "artifact_detail": [
+      1024,
+      1024
+    ],
+    "artifact_thumbnail": [
+      512,
+      512
+    ],
+    "one_source_per_image": true,
+    "baked_text_allowed": false,
+    "independent_derivative_generation_allowed": false,
+    "macos_finishing_required": true
+  },
+  "task_id": "A05",
+  "production_evidence": {
+    "master": {
+      "width": 2048,
+      "height": 2048,
+      "sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "pixel_sha256": "07216eb9a1b8ca36592fc9a98a9cc72a46c7e9500041c5f135c0aebd4710fd0d",
+      "photometry": {
+        "mean_luminance_0_255": 70.27,
+        "luminance_p05_0_255": 2.49,
+        "luminance_p50_0_255": 64.56,
+        "luminance_p95_0_255": 174.24,
+        "shadow_clip_pct": 3.863,
+        "highlight_clip_pct": 0.032
+      }
+    },
+    "approved_source_crop": {
+      "width": 1254,
+      "height": 1254,
+      "sha256": "ec8ac963d8a3765bf348c1fb20c172b044eda68f3e9a5fe075f6dbd26269f776",
+      "photometry": {
+        "mean_luminance_0_255": 63.5,
+        "luminance_p05_0_255": 2.14,
+        "luminance_p50_0_255": 56.52,
+        "luminance_p95_0_255": 160.47,
+        "shadow_clip_pct": 4.86,
+        "highlight_clip_pct": 0.001
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.593,
+      "luminance_correlation": 0.9943,
+      "edge_structure_correlation": 0.9714,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.artifact.creeping-hunger.detail",
+          "payload": "wom.art.artifact.creeping-hunger.detail.png",
+          "width": 1024,
+          "height": 1024,
+          "sha256": "10999830802ef2c0fc28b09e08258cd534f07bc5129b34936cf6e9f92ffebbbc",
+          "icc_profile": "sRGB IEC61966-2.1"
+        },
+        {
+          "asset_name": "wom.art.artifact.creeping-hunger.thumbnail",
+          "payload": "wom.art.artifact.creeping-hunger.thumbnail.png",
+          "width": 512,
+          "height": 512,
+          "sha256": "36894193edd51e5d83c45677147f950bdded168713bb94b42110aee960ed9ccf",
+          "icc_profile": "sRGB IEC61966-2.1"
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
+    "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+    "independent_derivative_generation": false
+  }
+}

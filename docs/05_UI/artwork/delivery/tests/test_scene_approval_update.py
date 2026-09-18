@@ -1,5 +1,6 @@
-"""Approved source intake revision 2: integrity, distinct roles and no shipping claims."""
+"""Approved source intake revision 3: integrity, distinct roles and no shipping claims."""
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -10,16 +11,26 @@ spec = importlib.util.spec_from_file_location("intake_update", HERE / "intake.py
 intake = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(intake)
 MANIFEST = json.loads((HERE / "approved_sources.json").read_text())
+ARTIFACT_BUNDLE = HERE.parent / "sources/artifacts-r1"
+ARTIFACT_SOURCE_IDS = [
+    "A01_ARRODES_MIRROR", "A02_ALZUHOD_QUILL", "A03_TRUNSOEST_BRASS_BOOK",
+    "A04_MAGIC_WISHING_LAMP", "A05_CREEPING_HUNGER", "A06_SEA_GOD_SCEPTER",
+    "A07_PROBABILITY_DIE", "A08_LEYMANO_TRAVELS", "A09_GROSELLE_TRAVELS",
+    "A10_AZIK_COPPER_WHISTLE", "A11_CARDS_OF_BLASPHEMY", "A12_STAFF_OF_STARS",
+    "A13_BOX_OF_GREAT_OLD_ONES", "A14_DEATH_KNELL", "A15_UNSHADOWED_CRUCIFIX",
+]
 
 
 class SceneApprovalUpdateTests(unittest.TestCase):
     def setUp(self):
         self.m = copy.deepcopy(MANIFEST)
 
-    def test_nine_independent_user_approved_sources(self):
-        self.assertEqual(self.m["approved_source_count"], 9)
-        self.assertEqual(len(self.m["sources"]), 9)
-        self.assertEqual(len({s["sha256"] for s in self.m["sources"]}), 9)
+    def test_twenty_four_independent_user_approved_sources(self):
+        self.assertEqual(self.m["source_manifest_revision"], 3)
+        self.assertEqual(self.m["approved_source_count"], 24)
+        self.assertEqual(len(self.m["sources"]), 24)
+        self.assertEqual(len({s["sha256"] for s in self.m["sources"]}), 24)
+        self.assertEqual([s["source_id"] for s in self.m["sources"][9:]], ARTIFACT_SOURCE_IDS)
         intake.validate_manifest(self.m)
 
     def test_original_six_not_replaced(self):
@@ -38,7 +49,7 @@ class SceneApprovalUpdateTests(unittest.TestCase):
         self.assertEqual(self.m["supplemental_sources"], ["S02_STREET", "S05_HARBOR", "S06_ALLEY"])
 
     def test_source_count_drift_fails(self):
-        for count in (6, 8, 10, 25, True):
+        for count in (6, 8, 9, 23, 25, True):
             with self.subTest(count=count), self.assertRaises(ValueError):
                 m = copy.deepcopy(self.m); m["approved_source_count"] = count
                 intake.validate_manifest(m)
@@ -68,6 +79,9 @@ class SceneApprovalUpdateTests(unittest.TestCase):
         self.m["sources"] = self.m["sources"][:6]
         for w in self.m["world_targets"]:
             if w["task_id"] in ("W2", "W5", "W6"): w["source_id"] = None
+        for a in self.m["artifact_targets"]:
+            a["source_id"] = None
+            a["status"] = "CANON_BRIEF_AND_GENERATION_PENDING"
         intake.validate_manifest(self.m)
 
     def test_new_crop_geometry_and_source_hash_binding(self):
@@ -84,11 +98,33 @@ class SceneApprovalUpdateTests(unittest.TestCase):
             self.assertFalse(row["g5_runtime_approved"])
 
     def test_artifact_objects_not_faked_by_scene_sources(self):
-        self.assertEqual(len(self.m["artifact_targets"]), 15)
-        self.assertTrue(all(a["source_id"] is None for a in self.m["artifact_targets"]))
         self.m["artifact_targets"][0]["source_id"] = "S02_STREET"
         self.m["supplemental_sources"].remove("S02_STREET")
         with self.assertRaises(ValueError): intake.validate_manifest(self.m)
+
+    def test_artifact_source_cannot_fill_a_scene_target(self):
+        self.m["world_targets"][1]["source_id"] = "A01_ARRODES_MIRROR"
+        with self.assertRaises(ValueError): intake.validate_manifest(self.m)
+
+    def test_every_artifact_object_binds_its_own_approved_source(self):
+        self.assertEqual(len(self.m["artifact_targets"]), 15)
+        self.assertEqual([a["source_id"] for a in self.m["artifact_targets"]], ARTIFACT_SOURCE_IDS)
+        for target in self.m["artifact_targets"]:
+            self.assertEqual(target["status"], "SOURCE_LOCKED_FINISHING_PENDING")
+            self.assertFalse(target["shipping_approved"])
+            self.assertTrue((HERE / target["approval_record"]).is_file())
+
+    def test_staged_artifact_bundle_matches_the_manifest(self):
+        self.assertTrue(ARTIFACT_BUNDLE.is_dir(), "the artifact source bundle must be committed")
+        receipt = json.loads((ARTIFACT_BUNDLE / "INTAKE_COMPLETE.json").read_text(encoding="utf-8"))
+        self.assertIs(receipt["shipping_approved"], False)
+        self.assertTrue(receipt["partial_bundle"])
+        self.assertEqual(receipt["staged_source_ids"], ARTIFACT_SOURCE_IDS)
+        by_id = {s["source_id"]: s for s in self.m["sources"]}
+        for source_id in ARTIFACT_SOURCE_IDS:
+            data = (ARTIFACT_BUNDLE / "sources" / source_id / "source.png").read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), by_id[source_id]["sha256"])
+            self.assertEqual(len(data), by_id[source_id]["byte_size"])
 
     def test_approved_direction_is_explicit_not_literal_canon(self):
         text = (HERE / "World_Scene_Approval_Update_2026-09-18.md").read_text()

@@ -55,8 +55,18 @@ class DeliveryRecordsTests(unittest.TestCase):
     def test_primary_evidence_has_explicit_limits(self):
         evidence = json.loads((ROOT / "canon_evidence.json").read_text())
         self.assertFalse(evidence["full_p0_canon_review_complete"])
-        self.assertEqual(evidence["artifact_source_images_approved"], 0)
+        # Revision 3 approves 15 Artifact source images. That count must track the manifest
+        # bindings, and the record must still say out loud that a visual approval is not a Canon
+        # verification of the object's form.
+        bound = [row for row in MANIFEST["artifact_targets"] if row["source_id"]]
+        self.assertEqual(evidence["artifact_source_images_approved"], len(bound))
+        self.assertIn("not Canon verification", evidence["artifact_source_images_approved_note"])
+        verified = {row["artifact_id"] for row in evidence["claims"]}
+        limits = {row["artifact_id"] for row in evidence["coverage_limits"]}
         p0_ids = {row["artifact_id"] for row in MANIFEST["artifact_targets"] if row["phase"] == "P0"}
+        self.assertTrue(verified < p0_ids, "not every P0 object may claim verified primary form")
+        self.assertTrue(verified.isdisjoint(limits))
+        self.assertTrue(verified | limits <= p0_ids)
         for row in evidence["claims"]:
             self.assertIn(row["artifact_id"], p0_ids)
             self.assertIn("lord-of-mysteries_11022733006234505", row["url"])

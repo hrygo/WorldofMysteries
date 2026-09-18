@@ -134,7 +134,7 @@
   },
   "gates": {
     "profile": "FULL_P0",
-    "profile_digest": "sha256:16a04203cdd161c5e8b9848cdef656d0072197b87b713aa236d27b1ede9dd8ad",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
     "profile_file": ".hacf/gates/full_p0.json",
     "risk_class": "high"
   },
