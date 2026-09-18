@@ -1,0 +1,122 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M2-DATA-KERNEL-FOUNDATION",
+  "capsule_revision": 2,
+  "task_id": "M2-DATA-KERNEL-FOUNDATION",
+  "title": "Persist authoritative commits and recover isolated outbox projections",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T14:47:18.164911+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "c219b460c3943d7f68f84b49d1a979dd257e5a33",
+    "target_sha": "c219b460c3943d7f68f84b49d1a979dd257e5a33",
+    "context_snapshot": "sha256:b71af85f0f8e055a7d85b83456d0b4a170a4fd3061a066b018bbe21eeb392584"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "contracts/",
+      "docs/",
+      ".agents/",
+      ".hacf/",
+      "scripts/"
+    ],
+    "write": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/outbox.py",
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql",
+      "engine/tests/test_database_manager.py",
+      "engine/tests/test_outbox.py",
+      "docs/07_工程启动/M2_Data_Kernel_Foundation.md",
+      ".agents/capsules/M2-DATA-KERNEL-FOUNDATION.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "engine/infrastructure/ipc*",
+      "engine/infrastructure/audio/**",
+      "contracts/**",
+      "engine/uv.lock",
+      "engine/pyproject.toml",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "AGENTS.md",
+      "docs/03_工程规范/Data_Architecture_v1.0.md",
+      ".agents/skills/wom-data-steward/SKILL.md",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/outbox.py",
+      "engine/infrastructure/database_schema.py"
+    ],
+    "related_contracts": [
+      "contracts/schemas/world_event.schema.json",
+      "contracts/schemas/state_delta.schema.json",
+      "contracts/engineering/task_capsule.schema.json"
+    ],
+    "slice_strategy": "arbiter-reviewed-explicit-files",
+    "token_estimate": 1700,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 2 supersedes the unpublished revision 1 draft: bind verification to origin/main, not the moving feature branch; focus scope/context on persistence. Original draft retained in local task evidence. No published capsule or receipt is rewritten."
+  },
+  "impact": {
+    "symbols": [
+      "DatabaseManager",
+      "DomainTransaction",
+      "OutboxProjector"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_database_manager.py",
+      "engine/tests/test_outbox.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/001_world.sql",
+      "engine/infrastructure/migrations/001_retrieval.sql",
+      "engine/infrastructure/migrations/001_runtime.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Refs #46/#43. Limited infrastructure foundation only: four physically isolated SQLite roles, default production SQLite 3.53.4 pin, FULL/WAL, one bounded Domain Writer, atomic commit/event/outbox, idempotent replay, durable rebuildable event projection, disk/process crash evidence. No SQL exposed to AI/App; no Domain rules, IPC activation, gameplay, full episode finalization, branch lineage or user data migration. Preserve #55 independently. No merge authorization.",
+    "assertions": [
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-M2-DATA-KERNEL-FOUNDATION"
+}
