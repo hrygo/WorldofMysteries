@@ -11,6 +11,7 @@ import re
 import shutil
 import struct
 import tempfile
+import unicodedata
 import zlib
 
 MAX_SOURCE_BYTES = 64 * 1024 * 1024
@@ -35,6 +36,38 @@ def safe_path(root: Path, name: str) -> Path:
         cursor /= part
         require(not cursor.is_symlink(), f"Symlink refused: {name}")
     return result
+
+
+def contains_asset_catalog(parts: tuple[str, ...]) -> bool:
+    return any(part.casefold().endswith((".xcassets", ".imageset")) for part in parts)
+
+
+def source_path_key(name: str) -> str:
+    """Reserve bundle metadata names and reject aliases on macOS filesystems."""
+    require(isinstance(name, str) and bool(name), "Empty/non-string source path")
+    relative = PurePosixPath(name)
+    require(not relative.is_absolute() and ".." not in relative.parts
+            and "\\" not in name and ":" not in name and "\x00" not in name,
+            f"Unsafe relative path: {name}")
+    require(name == relative.as_posix(), f"Noncanonical source path: {name}")
+    require(len(relative.parts) >= 2 and relative.parts[0] == "sources"
+            and relative.suffix.casefold() == ".png",
+            "Source payloads must be PNGs below sources/; intake metadata is reserved")
+    require(not contains_asset_catalog(relative.parts),
+            "Source intake must not create an Asset Catalog")
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+def staging_destination(destination: Path) -> Path:
+    """Check both caller spelling and physical location before creating anything."""
+    require(not destination.is_symlink() and not destination.exists(),
+            "Destination exists; refusing overwrite")
+    resolved = destination.resolve()
+    require(not contains_asset_catalog(destination.absolute().parts)
+            and not contains_asset_catalog(resolved.parts),
+            "Source intake must not write an Asset Catalog")
+    # Keep legitimate macOS directory aliases working, but pin the resolved target.
+    return resolved
 
 
 def png_container_size(data: bytes) -> tuple[int, int]:
@@ -81,9 +114,9 @@ def validate_manifest(manifest: dict, registry_text: str | None = None) -> None:
     for source in sources:
         sid = source["source_id"]
         require(sid not in ids, "Duplicate source ID")
-        require(source["filename"] not in filenames, "Duplicate source path")
+        path_key = source_path_key(source["filename"])
+        require(path_key not in filenames, "Duplicate or filesystem-aliased source path")
         require(source["sha256"] not in hashes, "Duplicate source image")
-        safe_path(Path.cwd(), source["filename"])
         require(re.fullmatch(r"[0-9a-f]{64}", source["sha256"]) is not None, "Invalid SHA256")
         require(type(source["byte_size"]) is int
                 and 0 < source["byte_size"] <= MAX_SOURCE_BYTES, "Invalid byte size")
@@ -91,7 +124,7 @@ def validate_manifest(manifest: dict, registry_text: str | None = None) -> None:
                     for k in ("width", "height")), "Invalid dimensions")
         require(source["visual_approval"] == "USER_APPROVED", "Missing visual approval")
         require(source["shipping_approved"] is False, "Source approval cannot approve shipping")
-        ids.add(sid); filenames.add(source["filename"]); hashes.add(source["sha256"])
+        ids.add(sid); filenames.add(path_key); hashes.add(source["sha256"])
     worlds, artifacts = manifest["world_targets"], manifest["artifact_targets"]
     require(len(worlds) == 6 and len(artifacts) == 15, "Expected 6 world and 15 Artifact targets")
     require([w["task_id"] for w in worlds] == [f"W{i}" for i in range(1, 7)], "World task IDs drifted")
@@ -143,10 +176,8 @@ def verify_sources(manifest: dict, source_dir: Path) -> list[dict]:
 
 
 def stage_sources(manifest: dict, source_dir: Path, destination: Path) -> None:
+    destination = staging_destination(destination)
     verify_sources(manifest, source_dir)
-    require(not destination.is_symlink() and not destination.exists(), "Destination exists; refusing overwrite")
-    require(not any(p.endswith(".xcassets") or p.endswith(".imageset") for p in destination.parts),
-            "Source intake must not write an Asset Catalog")
     destination.parent.mkdir(parents=True, exist_ok=True)
     lock = destination.parent / (destination.name + ".intake.lock")
     with lock.open("x"):
@@ -160,8 +191,8 @@ def stage_sources(manifest: dict, source_dir: Path, destination: Path) -> None:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(safe_path(source_dir, source["filename"]), target)
                 records = verify_sources(manifest, staged)
-                (staged / "approved_sources.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-                (staged / "INTAKE_COMPLETE.json").write_text(json.dumps({"source_transport": records, "shipping_approved": False}, indent=2) + "\n")
+                (staged / "approved_sources.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                (staged / "INTAKE_COMPLETE.json").write_text(json.dumps({"source_transport": records, "shipping_approved": False}, indent=2) + "\n", encoding="utf-8")
                 require(not destination.exists(), "Destination appeared during intake")
                 os.rename(staged, destination)
         finally:
@@ -177,14 +208,15 @@ def main() -> int:
     parser.add_argument("--stage-dir", type=Path)
     args = parser.parse_args()
     try:
-        manifest = json.loads(args.manifest.read_text())
-        validate_manifest(manifest, args.registry.read_text() if args.registry else None)
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        validate_manifest(manifest, args.registry.read_text(encoding="utf-8") if args.registry else None)
         if args.operation != "manifest":
             require(args.source_dir is not None, "--source-dir is required")
-            verify_sources(manifest, args.source_dir)
         if args.operation == "stage":
             require(args.stage_dir is not None, "--stage-dir is required")
             stage_sources(manifest, args.source_dir, args.stage_dir)
+        elif args.operation == "verify":
+            verify_sources(manifest, args.source_dir)
         print(json.dumps({"operation": args.operation, "result": "SOURCE_INTAKE_OK",
                           "source_count": len(manifest["sources"]), "shipping_approved": False,
                           "pending_world_generation": [w["task_id"] for w in manifest["world_targets"] if w["source_id"] is None],

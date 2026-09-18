@@ -53,3 +53,30 @@ python3 -m unittest discover -s docs/05_UI/artwork/delivery/tests -v
 ```
 
 Tests cover registry consistency, P0/P1 ordering, original integrity, supplemental-scene misclassification, source-versus-shipping approval, unsafe paths, symlinks, damaged PNG containers, no-overwrite staging and Asset Catalog exclusion. PNG container validation is not pixel-level structural review. Local Python tests and source intake are not the protected macOS gate or a Work Receipt.
+
+## Source staging isolation and scan cost
+
+Source filenames must be canonical relative PNG paths below `sources/`. Bundle-root
+`approved_sources.json` and `INTAKE_COMPLETE.json` are reserved for metadata, never
+source payloads. Case-folded / Unicode-normalized duplicate paths are refused so a
+bundle that is distinct on Linux cannot silently collide on a macOS filesystem.
+Neither source paths nor staging destinations may contain `.xcassets` / `.imageset`
+components, regardless of case. Destination checks include the absolute caller path
+and its resolved location: a relative invocation inside a catalog or a directory
+alias pointing into one cannot bypass the boundary. Ordinary aliases outside catalogs
+remain supported. These checks assume a stable workspace, not a hostile process
+concurrently replacing ancestor directories.
+
+Metadata uses explicit UTF-8. The `stage` command verifies originals once and copied
+bytes once; it no longer performs an extra full source scan in its CLI wrapper.
+Copied-byte verification, atomic directory publication, failure cleanup, approval
+flags and existing six-source compatibility remain intact.
+
+Focused regression command (not the full project or macOS gate):
+
+```sh
+python3 -m unittest discover -s docs/05_UI/artwork/delivery/tests -p 'test_intake*.py' -v
+```
+
+Local recovery/staging still does not mean the original PNGs have reached GitHub.
+Source-byte publication remains tracked in #41 until the remote files are verified.
