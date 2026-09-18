@@ -106,6 +106,9 @@ public struct WorldlineNodeView: View {
             .shadow(color: Color.black.opacity(0.3), radius: 6, y: 2)
         }
         .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
+        .disabled(onSelect == nil)
+        .accessibilityLabel(title)
+        .accessibilityValue(causeSummary)
         .onHover { hovering in
             withAnimation(DesignTokens.Interaction.hoverAnimation) {
                 isHovered = hovering

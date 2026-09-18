@@ -79,6 +79,9 @@ public struct CluePinboardNodeView: View {
             .shadow(color: Color.black.opacity(0.2), radius: 6, y: 3)
         }
         .mysticPressable(scale: 0.99, pressedOpacity: 0.94)
+        .disabled(onNodeTapped == nil)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(note)，\(dateText)")
     }
 }
 

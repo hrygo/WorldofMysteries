@@ -6,6 +6,7 @@ import SwiftUI
 /// 实现轻微内缩 (Scale 0.98) 与平滑阻尼回弹，杜绝生硬跳变
 public struct MysticPressableButtonStyle: ButtonStyle, Sendable {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
 
     public let scale: CGFloat
     public let pressedOpacity: Double
@@ -23,8 +24,12 @@ public struct MysticPressableButtonStyle: ButtonStyle, Sendable {
     
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1.0)
-            .opacity(configuration.isPressed ? pressedOpacity : 1.0)
+            .scaleEffect(configuration.isPressed && isEnabled && !reduceMotion ? scale : 1.0)
+            .opacity(
+                isEnabled
+                    ? (configuration.isPressed ? pressedOpacity : 1.0)
+                    : 0.48
+            )
             .animation(reduceMotion ? nil : animation, value: configuration.isPressed)
     }
 }

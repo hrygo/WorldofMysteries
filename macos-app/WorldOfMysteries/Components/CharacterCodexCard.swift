@@ -244,6 +244,7 @@ public struct CharacterCodexCard: View {
             }
         }
         .buttonStyle(WOMButtonStyle(.secondary))
+        .disabled(onVoiceAdviceTapped == nil)
         .accessibilityLabel("向 \(characterName) 发起 Advice")
     }
 }

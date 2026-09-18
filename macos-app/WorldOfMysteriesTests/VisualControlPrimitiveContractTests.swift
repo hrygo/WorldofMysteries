@@ -174,6 +174,23 @@ struct VisualControlPrimitiveContractTests {
         #expect(source.contains("WOMIcon(system: .retry"))
     }
 
+    @Test("pressable style and optional-action components fail closed when disabled")
+    func optionalActionFailClosedContract() throws {
+        let interaction = try source("DesignSystem/InteractionStyles.swift")
+        #expect(interaction.contains("@Environment(\\.isEnabled)"))
+        #expect(interaction.contains("configuration.isPressed && isEnabled"))
+        #expect(interaction.contains(": 0.48"))
+
+        let clue = try source("Components/CluePinboardNodeView.swift")
+        #expect(clue.contains(".disabled(onNodeTapped == nil)"))
+
+        let worldline = try source("Components/WorldlineNodeView.swift")
+        #expect(worldline.contains(".disabled(onSelect == nil)"))
+
+        let codex = try source("Components/CharacterCodexCard.swift")
+        #expect(codex.contains(".disabled(onVoiceAdviceTapped == nil)"))
+    }
+
     @Test("component gallery exposes real button and icon specimens")
     func galleryControlSpecimen() throws {
         let gallery = try source("Components/ComponentGalleryInteractionSpecimenSection.swift")
