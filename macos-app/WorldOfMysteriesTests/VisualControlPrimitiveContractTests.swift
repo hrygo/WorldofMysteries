@@ -49,7 +49,7 @@ struct VisualControlPrimitiveContractTests {
     @Test("icon-only command primitive has explicit minimum geometry and accessibility label")
     func iconCommandAccessibilityContract() throws {
         let primitives = try source("Components/MysticPrimitives.swift")
-        #expect(primitives.contains("minWidth: title == nil ? 32 : nil"))
+        #expect(primitives.contains("minWidth: title == nil ? WOMButtonDensity.icon.minWidth : nil"))
         #expect(primitives.contains(".accessibilityLabel(Text(accessibilityText))"))
     }
 
@@ -64,8 +64,10 @@ struct VisualControlPrimitiveContractTests {
     @Test("legacy icon command supports focus disabled and reduced-motion states")
     func legacyIconCommandInteractionContract() throws {
         let primitives = try source("Components/MysticPrimitives.swift")
-        #expect(primitives.contains("@Environment(\\.isFocused)"))
-        #expect(primitives.contains(".opacity(isEnabled ? 1 : 0.48)"))
+        #expect(primitives.contains("@FocusState private var isFocused: Bool"))
+        #expect(primitives.contains(".focused($isFocused)"))
+        #expect(!primitives.contains(".opacity(isEnabled ? 1 : 0.48)"))
+        #expect(primitives.contains("isHovered = isEnabled && hovering"))
         #expect(primitives.contains("isFocused && isEnabled ? 1 : 0"))
         #expect(primitives.contains("withAnimation(reduceMotion ? nil"))
     }
@@ -163,7 +165,7 @@ struct VisualControlPrimitiveContractTests {
         #expect(source.contains("@FocusState private var isCardFocused"))
         #expect(source.contains(".disabled(onCardTapped == nil)"))
         #expect(source.contains("isCardFocused && onCardTapped != nil ? 1 : 0"))
-        #expect(source.contains(".accessibilityValue(stageText)"))
+        #expect(source.contains(".accessibilityValue(discovery.stageText)"))
     }
 
     @Test("pendulum standard actions use typed system icon sources")
@@ -189,6 +191,37 @@ struct VisualControlPrimitiveContractTests {
 
         let codex = try source("Components/CharacterCodexCard.swift")
         #expect(codex.contains(".disabled(onVoiceAdviceTapped == nil)"))
+    }
+
+    @Test("Advice input uses the same delivery policy for button and Return-key submission")
+    func adviceInputDeliveryBoundary() throws {
+        let advice = try source("Components/AdviceInputField.swift")
+        #expect(advice.contains("AdviceDraftSubmission.payload("))
+        #expect(advice.contains("AdviceDraftSubmission.submit("))
+        #expect(advice.contains("hasHandler: onSubmitAdvice != nil"))
+        #expect(advice.contains("isEnabled: isEnabled"))
+        #expect(advice.contains("WOMIcon(system: .advice"))
+        #expect(!advice.contains("onSubmitAdvice?(trimmed)"))
+    }
+
+    @Test("Card face, assistive copy and pathway styling use the same discovery projection")
+    func tarotDiscoveryProjectionBoundary() throws {
+        let card = try source("Components/TarotCardView.swift")
+        #expect(card.contains("Text(discovery.sequenceLabel)"))
+        #expect(card.contains("Text(discovery.pathwayLabel)"))
+        #expect(card.contains("Text(discovery.title)"))
+        #expect(card.contains(".accessibilityElement(children: .ignore)"))
+        #expect(card.contains(".accessibilityLabel(discovery.accessibilityLabel)"))
+        #expect(card.contains("discovery.revealsIdentity ? pathwayColor : Color.Mystic.textTertiary"))
+        #expect(!card.contains("Text(pathwayName)"))
+        #expect(!card.contains("Text(sequenceTitle)"))
+    }
+
+    @Test("status pulse follows live semantic changes, not only view appearance")
+    func statusPulseFollowsSemanticChanges() throws {
+        let primitives = try source("Components/MysticPrimitives.swift")
+        #expect(primitives.contains(".onChange(of: isPulsing)"))
+        #expect(primitives.contains("isPulsing && !reduceMotion && !differentiateWithoutColor"))
     }
 
     @Test("component gallery exposes real button and icon specimens")

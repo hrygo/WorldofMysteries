@@ -248,6 +248,9 @@ public struct MysticStatusDot: View {
                 .onChange(of: differentiateWithoutColor) { _, _ in
                     updatePulseState()
                 }
+                .onChange(of: isPulsing) { _, _ in
+                    updatePulseState()
+                }
 
             if let label {
                 Text(label)
@@ -634,7 +637,7 @@ public struct MysticIconButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.isFocused) private var isFocused
+    @FocusState private var isFocused: Bool
 
     public let systemIcon: String
     public let title: String?
@@ -681,8 +684,8 @@ public struct MysticIconButton: View {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 Image(systemName: systemIcon)
                     .symbolRenderingMode(.monochrome)
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 16, height: 16, alignment: .center)
+                    .font(.system(size: WOMIconSize.compact.points, weight: WOMIconSize.compact.symbolWeight))
+                    .frame(width: WOMIconSize.compact.points, height: WOMIconSize.compact.points, alignment: .center)
 
                 if let title {
                     Text(title)
@@ -696,7 +699,11 @@ public struct MysticIconButton: View {
                     : Color.Mystic.textTertiary
             )
             .padding(.horizontal, title == nil ? DesignTokens.Spacing.sm : DesignTokens.Spacing.md)
-            .frame(minWidth: title == nil ? 32 : nil, minHeight: 32, alignment: .center)
+            .frame(
+                minWidth: title == nil ? WOMButtonDensity.icon.minWidth : nil,
+                minHeight: WOMButtonDensity.icon.minHeight,
+                alignment: .center
+            )
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.xs)
                     .fill(tone.accent.opacity(isHovered ? DesignTokens.Interaction.hoverBackgroundOpacity : 0.06))
@@ -720,12 +727,16 @@ public struct MysticIconButton: View {
                     .opacity(isFocused && isEnabled ? 1 : 0)
             )
         }
-        .mysticPressable(scale: 0.97)
-        .opacity(isEnabled ? 1 : 0.48)
+        // The shared style owns disabled opacity; a second dimming layer hides the glyph.
+        .mysticPressable()
+        .focused($isFocused)
         .onHover { hovering in
             withAnimation(reduceMotion ? nil : DesignTokens.Interaction.hoverAnimation) {
-                isHovered = hovering
+                isHovered = isEnabled && hovering
             }
+        }
+        .onChange(of: isEnabled) { _, enabled in
+            if !enabled { isHovered = false }
         }
         .help(helpText ?? title ?? systemIcon)
         .accessibilityLabel(Text(accessibilityText))

@@ -20,6 +20,7 @@ public struct AdviceInputField: View {
 
     @Environment(\.adviceFocusRequestID) private var adviceFocusRequestID
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isEnabled) private var isEnabled
     @FocusState private var isTextFieldFocused: Bool
     
     public init(
@@ -38,8 +39,7 @@ public struct AdviceInputField: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             // 语义提示：Advice ≠ Command
             HStack(spacing: DesignTokens.Spacing.xs) {
-                Image(systemName: "feather.pointed.fill")
-                    .font(.system(size: 11))
+                WOMIcon(system: .advice, size: .compact)
                     .foregroundStyle(Color.Mystic.brassGoldPrimary)
                 
                 Text("建议干预（Advice to \(targetCharacter) · 决策权归人物所有）")
@@ -102,7 +102,11 @@ public struct AdviceInputField: View {
     }
     
     private var isSubmitDisabled: Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        AdviceDraftSubmission.payload(
+            from: text,
+            isEnabled: isEnabled,
+            hasHandler: onSubmitAdvice != nil
+        ) == nil
     }
 
     private var inputBorderColor: Color {
@@ -119,10 +123,12 @@ public struct AdviceInputField: View {
     }
 
     private func submit() {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onSubmitAdvice?(trimmed)
-        text = ""
+        AdviceDraftSubmission.submit(
+            readDraft: { text },
+            writeDraft: { text = $0 },
+            isEnabled: isEnabled,
+            handler: onSubmitAdvice
+        )
     }
 }
 
