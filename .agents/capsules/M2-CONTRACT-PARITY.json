@@ -1,0 +1,76 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M2-CONTRACT-PARITY",
+  "capsule_revision": 1,
+  "task_id": "M2-CONTRACT-PARITY",
+  "title": "Restore canonical Schema and Pydantic domain contract parity",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T23:20:30+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "target_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "context_snapshot": "sha256:185691707b7741635767603d8b0beaae26bb2f048e16042c512dbca19b8f6b5a"
+  },
+  "scope": {
+    "read": ["contracts/", "engine/contracts/", "engine/tests/", "fixtures/golden_001/", "docs/07_工程启动/golden_001_runtime/", ".agents/", ".hacf/"],
+    "write": [
+      "engine/contracts/models.py",
+      "engine/tests/test_contracts_pydantic.py",
+      ".agents/capsules/M2-CONTRACT-PARITY.json"
+    ],
+    "forbidden": [
+      "contracts/schemas/**",
+      "contracts/protocol/**",
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "contracts/schemas/character.schema.json",
+      "contracts/schemas/world_snapshot.schema.json",
+      "contracts/schemas/player_advice.schema.json",
+      "contracts/schemas/action_intent.schema.json",
+      "contracts/schemas/beat_plan.schema.json",
+      "contracts/schemas/narrative_block.schema.json",
+      "contracts/schemas/state_delta.schema.json",
+      "contracts/schemas/episode.schema.json",
+      "contracts/schemas/character_knowledge.schema.json",
+      "engine/contracts/models.py",
+      "engine/tests/test_contracts_pydantic.py"
+    ],
+    "related_contracts": ["contracts/engineering/task_capsule.schema.json"],
+    "slice_strategy": "canonical-schema-parity",
+    "token_estimate": 2100,
+    "max_core_tokens": 4000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Refs #66/#43/#47. Canonical JSON Schemas are unchanged. Remove superseded Python field shapes, enforce required/nullability/enum/extra-field and unique-item semantics, and add Schema-Pydantic positive/negative parity tests. Swift DTO parity remains a separate task before App world methods are opened."
+  },
+  "impact": {
+    "symbols": ["Character", "WorldSnapshot", "PlayerAdvice", "ActionIntent", "BeatPlan", "NarrativeBlock", "StateDelta", "Episode", "CharacterKnowledge"],
+    "contracts": [],
+    "tests": ["engine/tests/test_contracts_pydantic.py"],
+    "migrations": []
+  },
+  "dependencies": {"depends_on": [], "conflicts_with": []},
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [5, 6, 7, 9, 12],
+    "instructions": "Refs #66/#43/#47. Do not change canonical JSON Schema semantics. Pydantic domain models must accept canonical Golden fixtures, reject superseded shapes/unknown fields/missing required/invalid types, and serialize back to Schema-valid JSON. IPC envelope is unchanged. No Domain, persistence, App, or merge authorization.",
+    "assertions": ["INV-05", "INV-06", "INV-07", "INV-09", "INV-12"]
+  }
+}
