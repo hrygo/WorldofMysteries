@@ -58,19 +58,19 @@ public struct TarotCardView: View {
                 ZStack {
                     Circle()
                         .stroke(pathwayColor.opacity(0.4), lineWidth: DesignTokens.Borders.standard)
-                        .frame(width: 64, height: 64)
+                        .frame(
+                            width: DesignTokens.ComponentMetrics.TarotCard.emblemDiameter,
+                            height: DesignTokens.ComponentMetrics.TarotCard.emblemDiameter
+                        )
                     
                     if stage == .unknown {
-                        Image(systemName: "questionmark")
-                            .font(.system(size: 28, weight: .bold))
+                        WOMIcon(status: .unknown, size: .prominent)
                             .foregroundStyle(Color.Mystic.textTertiary)
                     } else if stage == .silhouette {
-                        Image(systemName: "eye.slash.fill")
-                            .font(.system(size: 26))
+                        WOMIcon(status: .concealed, size: .prominent)
                             .foregroundStyle(pathwayColor.opacity(0.6))
                     } else {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 28))
+                        WOMIcon(status: .active, size: .prominent)
                             .foregroundStyle(Color.Mystic.brassGoldPrimary)
                     }
                 }
@@ -89,7 +89,11 @@ public struct TarotCardView: View {
                 }
             }
             .padding(DesignTokens.Spacing.md)
-            .frame(width: 140, height: 140 * DesignTokens.ComponentMetrics.TarotCard.aspectRatio)
+            .frame(
+                width: DesignTokens.ComponentMetrics.TarotCard.width,
+                height: DesignTokens.ComponentMetrics.TarotCard.width
+                    * DesignTokens.ComponentMetrics.TarotCard.aspectRatio
+            )
             .background(Color.Mystic.obsidianCard)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
             .overlay(
@@ -111,9 +115,16 @@ public struct TarotCardView: View {
                 )
                 .opacity(isCardFocused && onCardTapped != nil ? 1 : 0)
             )
-            .shadow(color: pathwayColor.opacity(stage == .established ? 0.25 : 0.05), radius: 8)
+            .shadow(
+                color: pathwayColor.opacity(
+                    stage == .established
+                        ? DesignTokens.ComponentMetrics.TarotCard.establishedShadowOpacity
+                        : DesignTokens.ComponentMetrics.TarotCard.restingShadowOpacity
+                ),
+                radius: DesignTokens.ComponentMetrics.TarotCard.shadowRadius
+            )
         }
-        .mysticPressable(scale: 0.98)
+        .mysticPressable()
         .focused($isCardFocused)
         .disabled(onCardTapped == nil)
         .accessibilityLabel("\(pathwayName)，序列 \(sequenceNumber) \(stage == .unknown ? "未知" : sequenceTitle)")

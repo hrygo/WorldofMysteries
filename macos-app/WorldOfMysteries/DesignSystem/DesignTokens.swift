@@ -68,8 +68,19 @@ public nonisolated enum DesignTokens: Sendable {
         public enum ListeningRing: Sendable {
             public static let diameterDefault: CGFloat = 58
             public static let diameterCompact: CGFloat = 42
+            public static let middleRingDiameter: CGFloat = 46
             public static let innerCircleDiameter: CGFloat = 38
             public static let pulseScaleMax: CGFloat = 1.25
+            public static let audioScaleGain: CGFloat = 0.30
+            public static let breathingScaleMax: CGFloat = 1.08
+            public static let breathingScaleMin: CGFloat = 0.96
+            public static let reducedMotionOpacity: Double = 0.62
+            public static let breathingOpacityMax: Double = 0.90
+            public static let breathingOpacityMin: Double = 0.40
+            public static let reducedMotionShadowRadius: CGFloat = 3
+            public static let idleShadowRadius: CGFloat = 4
+            public static let activeShadowRadius: CGFloat = 8
+            public static let fullRotationDegrees: Double = 360
         }
         
         public enum Sidebar: Sendable {
@@ -81,15 +92,28 @@ public nonisolated enum DesignTokens: Sendable {
         public enum Gauge: Sendable {
             public static let diameter: CGFloat = 88
             public static let innerDiameter: CGFloat = 74
+            public static let arcDiameter: CGFloat = 60
+            public static let arcLineWidth: CGFloat = 4
             public static let needleWidth: CGFloat = 2
             public static let needleLength: CGFloat = 26
+            public static let hubDiameter: CGFloat = 8
+            public static let shadowRadius: CGFloat = 6
             public static let criticalThreshold: Double = 0.25
             public static let warningThreshold: Double = 0.50
+            public static let arcStartDegrees: Double = 180
+            public static let arcEndDegrees: Double = 360
+            public static let needleMinimumDegrees: Double = -90
+            public static let needleMaximumDegrees: Double = 90
         }
         
         public enum TarotCard: Sendable {
+            public static let width: CGFloat = 140
             public static let aspectRatio: CGFloat = 1.618 // 黄金比例
+            public static let emblemDiameter: CGFloat = 64
             public static let cornerNotchSize: CGFloat = 6
+            public static let shadowRadius: CGFloat = 8
+            public static let establishedShadowOpacity: Double = 0.25
+            public static let restingShadowOpacity: Double = 0.05
         }
         
         /// 黄水晶吊坠原画几何（正典「克莱恩执链占卜」原画重构图）
@@ -127,6 +151,8 @@ public nonisolated enum DesignTokens: Sendable {
         public static let typewriterInterval: Double = 0.04
         public static let pendulumSwingMaxDegrees: Double = 6.0
         public static let pendulumSwingInterval: Double = 0.85
+        public static let listeningRippleDuration: Double = 0.8
+        public static let listeningDecisionRotationDuration: Double = 3.0
         
         public static var smoothSpring: Animation {
             .spring(response: 0.35, dampingFraction: 0.82)
@@ -211,6 +237,7 @@ public extension Color {
         public static let obsidianCard = Color(red: 27/255, green: 32/255, blue: 38/255)       // #1B2026
         public static let obsidianGlass = Color(red: 20/255, green: 24/255, blue: 29/255).opacity(0.8)
         public static let abyssVoid = Color(red: 8/255, green: 9/255, blue: 11/255)            // #08090B
+        public static let shadowBase = Color.black
         
         // Victorian Brass & Gold
         public static let brassGoldPrimary = Color(red: 201/255, green: 165/255, blue: 94/255) // #C9A55E (7.8:1 AAA vs #0D0F12)

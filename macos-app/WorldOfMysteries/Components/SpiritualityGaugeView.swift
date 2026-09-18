@@ -21,16 +21,25 @@ public struct SpiritualityGaugeView: View {
             ZStack {
                 Circle()
                     .fill(Color.Mystic.obsidianCard)
-                    .frame(width: 88, height: 88)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.diameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.diameter
+                    )
                     .overlay(
                         Circle()
                             .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
                     )
-                    .shadow(color: Color.black.opacity(0.4), radius: 6)
+                    .shadow(
+                        color: Color.Mystic.shadowBase.opacity(0.4),
+                        radius: DesignTokens.ComponentMetrics.Gauge.shadowRadius
+                    )
 
                 Circle()
                     .fill(Color.Mystic.obsidianBase)
-                    .frame(width: 74, height: 74)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.innerDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.innerDiameter
+                    )
 
                 Circle()
                     .trim(from: 0.0, to: 0.5)
@@ -42,24 +51,36 @@ public struct SpiritualityGaugeView: View {
                                 Color.Mystic.spiritualBlue
                             ]),
                             center: .center,
-                            startAngle: .degrees(180),
-                            endAngle: .degrees(360)
+                            startAngle: .degrees(DesignTokens.ComponentMetrics.Gauge.arcStartDegrees),
+                            endAngle: .degrees(DesignTokens.ComponentMetrics.Gauge.arcEndDegrees)
                         ),
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        style: StrokeStyle(
+                            lineWidth: DesignTokens.ComponentMetrics.Gauge.arcLineWidth,
+                            lineCap: .round
+                        )
                     )
-                    .frame(width: 60, height: 60)
-                    .rotationEffect(.degrees(180))
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.arcDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.arcDiameter
+                    )
+                    .rotationEffect(.degrees(DesignTokens.ComponentMetrics.Gauge.arcStartDegrees))
 
                 Rectangle()
                     .fill(Color.Mystic.brassGoldHover)
-                    .frame(width: 2, height: 26)
-                    .offset(y: -13)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.needleWidth,
+                        height: DesignTokens.ComponentMetrics.Gauge.needleLength
+                    )
+                    .offset(y: -DesignTokens.ComponentMetrics.Gauge.needleLength / 2)
                     .rotationEffect(.degrees(gaugeAngle))
                     .animation(reduceMotion ? nil : DesignTokens.Motion.smoothSpring, value: value)
 
                 Circle()
                     .fill(Color.Mystic.brassGoldPrimary)
-                    .frame(width: 8, height: 8)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.Gauge.hubDiameter,
+                        height: DesignTokens.ComponentMetrics.Gauge.hubDiameter
+                    )
             }
 
             VStack(spacing: DesignTokens.Spacing.xxs) {
@@ -80,14 +101,18 @@ public struct SpiritualityGaugeView: View {
 
     /// 0.0 映射到 -90 度，1.0 映射到 +90 度
     private var gaugeAngle: Double {
-        -90.0 + (value * 180.0)
+        DesignTokens.ComponentMetrics.Gauge.needleMinimumDegrees
+            + value * (
+                DesignTokens.ComponentMetrics.Gauge.needleMaximumDegrees
+                    - DesignTokens.ComponentMetrics.Gauge.needleMinimumDegrees
+            )
     }
 
     /// Danger remains visible in the gauge arc; the numeric value itself must remain readable.
     private var valueTextColor: Color {
-        if value < 0.25 {
+        if value < DesignTokens.ComponentMetrics.Gauge.criticalThreshold {
             return Color.Mystic.textPrimary
-        } else if value < 0.5 {
+        } else if value < DesignTokens.ComponentMetrics.Gauge.warningThreshold {
             return Color.Mystic.statusWarning
         } else {
             return Color.Mystic.spiritualBlue

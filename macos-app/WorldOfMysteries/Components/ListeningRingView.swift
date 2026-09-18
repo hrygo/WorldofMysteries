@@ -9,6 +9,16 @@ public enum ListeningRingState: String, Sendable, CaseIterable {
     case narrating = "narrating"
     case speaking = "speaking"
 
+    public var iconSource: WOMIconSource {
+        switch self {
+        case .idle, .listening: .system(.voiceAdvice)
+        case .interpreting: .status(.active)
+        case .deciding: .status(.cooldown)
+        case .narrating: .asset(.codex)
+        case .speaking: .system(.audioReplay)
+        }
+    }
+
     public var promptText: String {
         switch self {
         case .idle: return "世界正在聆听"
@@ -77,7 +87,7 @@ public struct ListeningRingView: View {
             Button(action: onRingTapped) {
                 ringVisual
             }
-            .buttonStyle(MysticPressableButtonStyle(scale: 0.98, pressedOpacity: 0.92))
+            .buttonStyle(MysticPressableButtonStyle())
             .focused($isRingFocused)
             .accessibilityLabel(state.promptText)
             .accessibilityHint("激活以切换语音 Advice 交互状态")
@@ -99,30 +109,48 @@ public struct ListeningRingView: View {
                     height: DesignTokens.ComponentMetrics.ListeningRing.diameterDefault
                 )
                 .scaleEffect(resolvedRingScale)
-                .opacity(reduceMotion ? 0.62 : (isBreathing ? 0.9 : 0.4))
+                .opacity(
+                    reduceMotion
+                        ? DesignTokens.ComponentMetrics.ListeningRing.reducedMotionOpacity
+                        : (
+                            isBreathing
+                                ? DesignTokens.ComponentMetrics.ListeningRing.breathingOpacityMax
+                                : DesignTokens.ComponentMetrics.ListeningRing.breathingOpacityMin
+                        )
+                )
 
             Circle()
                 .stroke(
                     Color.Mystic.brassGoldBorder,
                     lineWidth: DesignTokens.Borders.standard
                 )
-                .frame(width: 46, height: 46)
+                .frame(
+                    width: DesignTokens.ComponentMetrics.ListeningRing.middleRingDiameter,
+                    height: DesignTokens.ComponentMetrics.ListeningRing.middleRingDiameter
+                )
 
             Circle()
                 .fill(Color.Mystic.obsidianCard)
-                .frame(width: 38, height: 38)
+                .frame(
+                    width: DesignTokens.ComponentMetrics.ListeningRing.innerCircleDiameter,
+                    height: DesignTokens.ComponentMetrics.ListeningRing.innerCircleDiameter
+                )
                 .overlay(
                     Circle()
                         .stroke(Color.Mystic.brassGoldPrimary, lineWidth: DesignTokens.Borders.chamfer)
                 )
                 .shadow(
                     color: Color.Mystic.brassGoldPrimary.opacity(reduceMotion ? 0.2 : 0.35),
-                    radius: reduceMotion ? 3 : (state == .idle ? 4 : 8)
+                    radius: reduceMotion
+                        ? DesignTokens.ComponentMetrics.ListeningRing.reducedMotionShadowRadius
+                        : (
+                            state == .idle
+                                ? DesignTokens.ComponentMetrics.ListeningRing.idleShadowRadius
+                                : DesignTokens.ComponentMetrics.ListeningRing.activeShadowRadius
+                        )
                 )
 
-            Image(systemName: iconName)
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: 16, weight: .semibold))
+            WOMIcon(source: state.iconSource, size: .compact)
                 .foregroundStyle(iconColor)
                 .rotationEffect(.degrees(reduceMotion ? 0 : (state == .deciding ? rotationAngle : 0)))
 
@@ -145,24 +173,15 @@ public struct ListeningRingView: View {
     private var resolvedRingScale: CGFloat {
         if reduceMotion { return 1 }
         if (state == .listening || state == .speaking) && audioLevel > 0 {
-            return 1.0 + CGFloat(audioLevel) * 0.3
+            return 1.0 + CGFloat(audioLevel) * DesignTokens.ComponentMetrics.ListeningRing.audioScaleGain
         }
-        return state == .listening ? rippleScale : (isBreathing ? 1.08 : 0.96)
-    }
-
-    private var iconName: String {
-        switch state {
-        case .idle, .listening:
-            return "mic.fill"
-        case .interpreting:
-            return "sparkles"
-        case .deciding:
-            return "hourglass"
-        case .narrating:
-            return "book.closed.fill"
-        case .speaking:
-            return "waveform"
-        }
+        return state == .listening
+            ? rippleScale
+            : (
+                isBreathing
+                    ? DesignTokens.ComponentMetrics.ListeningRing.breathingScaleMax
+                    : DesignTokens.ComponentMetrics.ListeningRing.breathingScaleMin
+            )
     }
 
     private var iconColor: Color {
@@ -195,12 +214,18 @@ public struct ListeningRingView: View {
         }
 
         if newState == .listening {
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                rippleScale = 1.25
+            withAnimation(
+                .easeInOut(duration: DesignTokens.Motion.listeningRippleDuration)
+                    .repeatForever(autoreverses: true)
+            ) {
+                rippleScale = DesignTokens.ComponentMetrics.ListeningRing.pulseScaleMax
             }
         } else if newState == .deciding {
-            withAnimation(.linear(duration: 3.0).repeatForever(autoreverses: false)) {
-                rotationAngle = 360
+            withAnimation(
+                .linear(duration: DesignTokens.Motion.listeningDecisionRotationDuration)
+                    .repeatForever(autoreverses: false)
+            ) {
+                rotationAngle = DesignTokens.ComponentMetrics.ListeningRing.fullRotationDegrees
             }
         } else {
             rippleScale = 1.0
