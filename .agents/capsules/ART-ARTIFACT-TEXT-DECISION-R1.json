@@ -1,0 +1,76 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-ART-ARTIFACT-TEXT-DECISION-R1",
+  "capsule_revision": 1,
+  "task_id": "ART-ARTIFACT-TEXT-DECISION-R1",
+  "title": "装饰性铭刻文字批准与 A02/A03 记录收口",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-19T04:34:08.890590+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b6e72faafc224bb6fef9189ff8f38c9a9a459655",
+    "target_sha": "0ed684c0c8b7042e05b3273c15e7bc14f55d1382",
+    "context_snapshot": "sha256:d5fafec418ce25a9e27025d97b8a545713966ba45331f5cf2dd5dfe286da79dd"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "docs/05_UI/artwork/",
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": [
+      "docs/05_UI/artwork/"
+    ]
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "instructions": "遵循 Swift 6 严格并发与 SwiftUI @Observable 规范，严格通过 UDS IPC 驱动，零直接数据库访问。",
+    "assertions": [
+      "INV-12"
+    ]
+  }
+}

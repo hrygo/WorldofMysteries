@@ -206,12 +206,14 @@ class ArtifactToolTests(unittest.TestCase):
 
     def record_argv(self, work=None, **overrides):
         work = Path(work or self.work)
+        decision = overrides.pop("text_decision", self.root / "no-text-decision.json")
         argv = [
             "record", "--task", TASK, "--work-dir", str(work),
             "--manifest", str(self.manifest),
             "--inspection", str(self.inspection),
             "--catalog-root", str(self.catalog),
             "--reviewed-at", "2026-01-01",
+            "--text-decision", str(decision),
             "--qa", str(work / f"{TASK}.qa.json"),
             "--provenance", str(work / f"{TASK}.provenance.json"),
         ]
@@ -222,6 +224,47 @@ class ArtifactToolTests(unittest.TestCase):
             else:
                 argv.extend([flag, str(value)])
         return argv
+
+    def text_inspection(self, defects=("baked_readable_text",), name="text-inspection.json"):
+        document = json.loads(self.inspection.read_text())
+        entry = document["artifacts"][TASK]
+        entry["typography_detected"] = True
+        entry["defects_found"] = list(defects)
+        entry["baked_text_findings"] = [
+            {"location": "spine", "text": "THE FOOL", "legibility": "LEGIBLE_AT_100_PERCENT"}
+        ]
+        path = self.root / name
+        write_json(path, document)
+        return path
+
+    def text_decision_file(
+        self, artwork_id=f"{TASK}_ARRODES_MIRROR", defects=("baked_readable_text",),
+        name="text-decision.json",
+    ):
+        path = self.root / name
+        write_json(
+            path,
+            {
+                "schema_version": 1,
+                "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+                "decided_at": "2026-09-19",
+                "decided_by": "user",
+                "artifacts": {
+                    artwork_id: {"text_approved": True, "accepted_defects": list(defects)}
+                },
+            },
+        )
+        return path
+
+    def apply_argv(self, decision, qa=None, provenance=None):
+        work = Path(self.work)
+        return [
+            "apply-text-decision",
+            "--qa", str(qa or work / f"{TASK}.qa.json"),
+            "--provenance", str(provenance or work / f"{TASK}.provenance.json"),
+            "--decision", str(decision),
+            "--applied-at", "2026-09-19",
+        ]
 
     def catalog_for(self, name):
         imageset = self.catalog / f"{name}.imageset"
@@ -427,6 +470,121 @@ class ArtifactToolTests(unittest.TestCase):
         self.assertEqual(qa["gates"]["G0_semantic"]["status"], "PENDING_MACOS_FINISHING")
         self.assertEqual(qa["gates"]["G3_structure"]["status"], "PENDING_MACOS_FINISHING")
         self.assertEqual(qa["gates"]["G3_structure"]["defects_found"], ["baked_readable_text"])
+
+    def test_record_applies_a_recorded_text_decision(self):
+        inspection = self.text_inspection()
+        decision = self.text_decision_file()
+        self.catalog_for(DETAIL)
+        code, payload = run(self.record_argv(inspection=inspection, text_decision=decision))
+        self.assertEqual(code, 0)
+        self.assertEqual(sorted(payload["pending_gates"]), ["G1_canon_atmosphere", "G5_runtime"])
+
+        qa = json.loads((Path(self.work) / f"{TASK}.qa.json").read_text())
+        self.assertEqual(qa["gates"]["G0_semantic"]["status"], "PASSED")
+        self.assertEqual(
+            qa["gates"]["G0_semantic"]["status_basis"],
+            "ART_DIRECTION_ACCEPTED_DECORATIVE_INSCRIPTION",
+        )
+        self.assertEqual(qa["gates"]["G3_structure"]["status"], "PASSED")
+        self.assertEqual(qa["gates"]["G3_structure"]["accepted_defects"], ["baked_readable_text"])
+        self.assertEqual(qa["gates"]["G3_structure"]["blocking_defects"], [])
+        self.assertIn("art_direction_text_decision", qa["reviewers"])
+        self.assertEqual(len(qa["text_policy_decision"]["sha256"]), 64)
+        self.assertEqual(qa["text_policy_decision"]["decided_by"], "user")
+
+        provenance = json.loads((Path(self.work) / f"{TASK}.provenance.json").read_text())
+        self.assertEqual(provenance["gates"]["G0_semantic"], "PASSED")
+        self.assertEqual(provenance["gates"]["G3_structure"], "PASSED")
+        self.assertEqual(
+            provenance["text_policy_decision"]["applied_to"], ["G0_semantic", "G3_structure"]
+        )
+
+    def test_apply_text_decision_revises_an_existing_record(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        qa_path = Path(self.work) / f"{TASK}.qa.json"
+        provenance_path = Path(self.work) / f"{TASK}.provenance.json"
+        before = digest(qa_path)
+
+        code, payload = run(self.apply_argv(self.text_decision_file()))
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["result"], "REVISED")
+        self.assertEqual(payload["revised_gates"], ["G0_semantic", "G3_structure"])
+
+        qa = json.loads(qa_path.read_text())
+        self.assertEqual(sorted(qa["pending_gates"]), ["G1_canon_atmosphere", "G5_runtime"])
+        self.assertEqual(qa["final_verdict"], "PRODUCTION_EVIDENCE_PENDING")
+        self.assertEqual(qa["text_policy_decision"]["revised_from_record_sha256"], before)
+        self.assertEqual(
+            qa["gates"]["G0_semantic"]["status_basis"],
+            "ART_DIRECTION_ACCEPTED_DECORATIVE_INSCRIPTION",
+        )
+
+        provenance = json.loads(provenance_path.read_text())
+        self.assertEqual(
+            provenance["gates"],
+            {
+                "G0_semantic": "PASSED",
+                "G1_canon_atmosphere": "PENDING_CANON_REVIEW",
+                "G2_composition": "PASSED",
+                "G3_structure": "PASSED",
+                "G4_production": "PASSED",
+                "G5_runtime": "PENDING_RUNTIME_QA",
+            },
+        )
+        self.assertEqual(qa["status"], "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING")
+        self.assertEqual(provenance["status"], tool.PROVENANCE_PENDING_STATUS)
+
+    def test_apply_text_decision_is_idempotent(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        decision = self.text_decision_file()
+        run(self.apply_argv(decision))
+        code, payload = run(self.apply_argv(decision))
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["result"], "NO_CHANGE")
+
+    def test_apply_text_decision_leaves_an_uncovered_artwork_alone(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        decision = self.text_decision_file(artwork_id="A09_GROSELLE_TRAVELS")
+        code, payload = run(self.apply_argv(decision))
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["result"], "NO_CHANGE")
+        qa = json.loads((Path(self.work) / f"{TASK}.qa.json").read_text())
+        self.assertEqual(qa["gates"]["G0_semantic"]["status"], "PENDING_MACOS_FINISHING")
+        self.assertNotIn("text_policy_decision", qa)
+
+    def test_text_decision_refuses_a_defect_outside_the_lettering_vocabulary(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        decision = self.text_decision_file(defects=("architecture_errors",))
+        with self.assertRaises(SystemExit):
+            run(self.apply_argv(decision))
+
+    def test_text_decision_refuses_a_defect_the_inspection_did_not_record(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        decision = self.text_decision_file(defects=("baked_readable_text_on_brass_cover",))
+        with self.assertRaises(SystemExit):
+            run(self.apply_argv(decision))
+
+    def test_apply_text_decision_refuses_disagreeing_records(self):
+        self.catalog_for(DETAIL)
+        run(self.record_argv(inspection=self.text_inspection()))
+        provenance_path = Path(self.work) / f"{TASK}.provenance.json"
+        provenance = json.loads(provenance_path.read_text())
+        provenance["gates"]["G0_semantic"] = "PASSED"
+        write_json(provenance_path, provenance)
+        with self.assertRaises(SystemExit):
+            run(self.apply_argv(self.text_decision_file()))
+
+    def test_text_decision_file_must_be_readable(self):
+        broken = self.root / "broken-decision.json"
+        broken.write_text("{not json", encoding="utf-8")
+        self.catalog_for(DETAIL)
+        with self.assertRaises(SystemExit):
+            run(self.record_argv(inspection=self.text_inspection(), text_decision=broken))
 
 
 class ArtifactManifestBindingTests(unittest.TestCase):

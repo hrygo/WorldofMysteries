@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+  "decided_at": "2026-09-19",
+  "decided_by": "user",
+  "rationale": [
+    "Spine lettering and engraved cover inscriptions are rune-like ornament on the material and decoration layer; they carry no UI copy and no narrative text, so the text-free-art product policy does not apply to them.",
+    "The exception is limited to this class of baked lettering. Any other structural defect, and any non-lettering defect, still leaves G3 open; nothing else is waived.",
+    "The same decision confirms overall approval of the 15 Artifact artworks; only the objects that need the policy exception are registered here."
+  ],
+  "artifacts": {
+    "A02_ALZUHOD_QUILL": {
+      "text_approved": true,
+      "note": "decorative printing on the background book spines is spine material, not copy",
+      "accepted_defects": [
+        "baked_readable_text_on_background_book_spines"
+      ]
+    },
+    "A03_TRUNSOEST_BRASS_BOOK": {
+      "text_approved": true,
+      "note": "the brass-cover inscription is engraved ornament, not copy",
+      "accepted_defects": [
+        "baked_readable_text_on_brass_cover"
+      ]
+    }
+  }
+}

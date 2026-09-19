@@ -347,3 +347,16 @@ repo/
    - **相对路径唯一原则**：仓库内所有 Markdown 文档（包括 `docs/`、`README.md`、`AGENTS.md`、`.agents/` 等）中引用内部文件或目录时，**一律只允许使用相对于项目根目录或当前文档的相对路径**（例如：[`docs/README.md`](docs/README.md)、[`docs/05_UI/design_tokens.json`](docs/05_UI/design_tokens.json) 或 [`../01_总体架构/`](../01_总体架构/)）；
    - **严禁绝对路径泄露**：严禁在任何仓库 Markdown 文档中出现或生成开发机本地文件系统的绝对路径或绝对 URI（例如：`file:///Users/...`、`/Users/...`、`/home/...`、`C:\...` 等包含本地用户名或本机盘符的路径），杜绝开发机个人环境隐私泄露，确保文档在不同开发者机器、CI 与 GitHub Web 渲染下的强可移植性；
    - **跨仓库规范引用**：关联外部仓库（如卡牌制作工具 [`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art)）一律使用公开规范的 GitHub 远程 URL，严禁依赖本地跨目录绝对或相对文件路径。
+8. **App 运行时测试的进程纪律（单实例 + 测试后无残留）**：
+   - **唯一 App 进程**：任何以 macOS App 为被测对象的验证——手工点开验收、集成测试、美术 / 场景运行时取证脚本——
+     在同一时刻只允许存在**一个**该 App 实例。`open` 会把请求转交给已在运行的实例；双实例会让 `screencapture`
+     抓到另一份拷贝的窗口，并让两份 App 各自拉起一个 Local Engine 子进程同时读写同一份用户数据，证据因此不可信。
+   - **探测口径**：按 `<App 名>.app/Contents/MacOS/<可执行文件>` 匹配整个进程表（`ps -Ao pid=,command=` 或
+     `pgrep -f`），不按单一绝对路径匹配——`/Applications` 里的同名拷贝与构建产物同时存在，才是「双实例」的真实来源。
+   - **不得静默清理不属于本次运行的进程**：启动前发现既有实例即中止并列出 pid，人工退出（⌘Q）后重跑；
+     任何清理只针对自己启动、且命令行仍指向该包拷贝的 pid。
+   - **测试后必须走到退出断言**：优先正常退出（`osascript -e 'tell application id "<bundle id>" to quit'`），
+     超时才 `TERM` 兜底；异常、`Ctrl-C`、`SIGTERM` 也要经 `atexit` / 信号处理走同一条清理路径；结束时仍有残留
+     必须报错并保留 pid 证据，不静默放行；同时回收本次写入的临时产物、偏好改动与辅助功能改动。
+   - 参照实现：[`docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py`](docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py)
+     （`ensure_no_instance` / `launch_app` / `quit_app` / `assert_no_residue` / `install_cleanup_handlers`）。

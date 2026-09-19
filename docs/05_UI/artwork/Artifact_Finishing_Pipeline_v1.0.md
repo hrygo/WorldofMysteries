@@ -30,6 +30,7 @@ classes are the same asset class.
 | `fidelity` | MAE / luminance correlation / edge-structure correlation against the approved source crop | no |
 | `publish-catalog` | Publishes only the two runtime derivatives as imagesets; never the Master | no |
 | `record` | Fail-closed QA and provenance assembly from byte-verified stage reports | no |
+| `apply-text-decision` | Revise G0/G3 of an existing record from a recorded art-direction decision on decorative lettering | no |
 | `contact-sheet` | Small preview sheet for the human 96×96 legibility read | no |
 
 Contract sizes come from `delivery/approved_sources.json` → `production_contract`:
@@ -76,7 +77,9 @@ stage reports, the fidelity verdict passed, the derivatives came from that same 
 contract sizes, and the Asset Catalog payloads match the derivatives. A gate can only become
 `PASSED` with its own evidence:
 
-- **G0** needs a finished-master semantic read and no baked typography;
+- **G0** needs a finished-master semantic read, and either no baked typography or a recorded
+  art-direction decision accepting it as decorative inscription
+  (`contracts/art_direction_text_decision.json`);
 - **G1** needs a verified primary form claim *and* a recorded consistency note, otherwise it stays
   open — visual approval is not Canon verification;
 - **G2** needs the recorded crop and a subject-safety read;
@@ -88,8 +91,11 @@ contract sizes, and the Asset Catalog payloads match the derivatives. A gate can
 A missing evidence file is an open gate — never a pass and never a crash.
 
 Open items after this checkpoint are tracked in `delivery/approved_sources.json` (`pending`) and
-recorded per object in each `.qa.json`: the A02/A03 baked-lettering decision, Canon review for the
-twelve objects without primary form evidence, and the Artifact runtime captures.
+recorded per object in each `.qa.json`. The Artifact runtime captures and the A02/A03
+baked-lettering decision are closed: the decision is recorded in
+[`delivery/Artifact_Text_Policy_Decision_2026-09-19.md`](delivery/Artifact_Text_Policy_Decision_2026-09-19.md)
+and G5 passed for all 15 objects. What remains open is Canon review (G1) for the twelve objects
+without primary form evidence, and shipping approval, which no record claims.
 
 ## Running it
 
@@ -109,6 +115,20 @@ python3 docs/05_UI/artwork/tools/finish_artifact_artwork.py record \
   --catalog-root macos-app/WorldOfMysteries/Assets.xcassets \
   --qa docs/05_UI/artwork/qa/A01_ARRODES_MIRROR.qa.json \
   --provenance docs/05_UI/artwork/provenance/A01_ARRODES_MIRROR.provenance.json
+```
+
+`record` reads `contracts/art_direction_text_decision.json` by default, so a recorded decision on
+decorative lettering is applied to G0/G3 at record time and can be overridden with
+`--text-decision`. When the runtime capture bytes are no longer available, an already recorded
+Artifact is revised in place instead of re-recording it, because a full re-run would drop a verified
+G5 back to `PENDING_RUNTIME_QA`:
+
+```sh
+python3 docs/05_UI/artwork/tools/finish_artifact_artwork.py apply-text-decision \
+  --qa docs/05_UI/artwork/qa/A02_ALZUHOD_QUILL.qa.json \
+  --provenance docs/05_UI/artwork/provenance/A02_ALZUHOD_QUILL.provenance.json \
+  --decision docs/05_UI/artwork/contracts/art_direction_text_decision.json \
+  --applied-at 2026-09-19
 ```
 
 `--require-complete` turns an incomplete record into a non-zero exit code for scripts and gates.

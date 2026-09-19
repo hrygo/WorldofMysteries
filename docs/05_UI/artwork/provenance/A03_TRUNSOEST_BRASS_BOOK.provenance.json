@@ -152,12 +152,25 @@
     }
   ],
   "gates": {
-    "G0_semantic": "PENDING_MACOS_FINISHING",
+    "G0_semantic": "PASSED",
     "G1_canon_atmosphere": "PENDING_CANON_REVIEW",
     "G2_composition": "PASSED",
-    "G3_structure": "PENDING_MACOS_FINISHING",
+    "G3_structure": "PASSED",
     "G4_production": "PASSED",
     "G5_runtime": "PASSED"
   },
-  "shipping_approved": false
+  "shipping_approved": false,
+  "text_policy_decision": {
+    "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+    "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+    "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+    "decided_at": "2026-09-19",
+    "decided_by": "user",
+    "applied_to": [
+      "G0_semantic",
+      "G3_structure"
+    ],
+    "applied_at": "2026-09-19",
+    "revised_from_record_sha256": "7b817edbde4c7f5a235787c840a12ebdc9a9fd1bffce5cc09164a737482e0a9e"
+  }
 }

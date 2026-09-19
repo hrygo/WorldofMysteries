@@ -18,7 +18,7 @@
   },
   "gates": {
     "G0_semantic": {
-      "status": "PENDING_MACOS_FINISHING",
+      "status": "PASSED",
       "primary_read": "a heavy brass-bound codex whose cover is engraved with scales, a sword and a classical temple",
       "secondary_read": "a mechanical legal codex that declares and constrains",
       "generic_fantasy_read": "bounded Victorian occult tome with readable Latin lettering",
@@ -26,9 +26,9 @@
       "dominant_subject": "brass codex",
       "notes": [
         "Read from the finished 2048x2048 master, not from the source file alone.",
-        "Baked readable typography was detected in the approved source, so G0 stays open rather than passing. Product policy is text-free art; this needs an explicit user/art-direction decision (accept or re-generate the source)."
+        "The baked lettering was accepted as decorative inscription (the brass-cover inscription is engraved ornament, not copy), so G0 passes without regenerating the source."
       ],
-      "status_basis": "FINISHED_MASTER_READ_PLUS_EXPLICIT_USER_SOURCE_APPROVAL",
+      "status_basis": "ART_DIRECTION_ACCEPTED_DECORATIVE_INSCRIPTION",
       "approval_reference": "Artifact_Source_Approval_Update_2026-09-18.md",
       "baked_text_findings": [
         {
@@ -43,7 +43,32 @@
           "legibility": "LEGIBLE_AT_100_PERCENT",
           "severity": "policy_conflict"
         }
-      ]
+      ],
+      "accepted_text_findings": [
+        {
+          "location": "engraved panel on the brass cover, right of the scales emblem",
+          "text": "FIAT IUSTITIA ET PEREAT ET MUNDUS",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        },
+        {
+          "location": "engraved band on the lower cover edge",
+          "text": "ORDO LEX ...",
+          "legibility": "LEGIBLE_AT_100_PERCENT",
+          "severity": "policy_conflict"
+        }
+      ],
+      "text_decision": {
+        "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+        "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+        "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+        "decided_at": "2026-09-19",
+        "decided_by": "user",
+        "applied_to": [
+          "G0_semantic"
+        ],
+        "applied_at": "2026-09-19"
+      }
     },
     "G1_canon_atmosphere": {
       "status": "PENDING_CANON_REVIEW",
@@ -98,7 +123,7 @@
       "notes": [
         "Structural review performed locally on the finished 2048x2048 master at 25/100/200%.",
         "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that.",
-        "Defects were recorded, so G3 stays open rather than passing."
+        "The only recorded defects are the accepted decorative lettering; nothing else remains, so G3 passes."
       ],
       "architecture_errors": [],
       "repetition_errors": [],
@@ -123,7 +148,22 @@
       "seam_note": "No tile seam across the large brass sheet or along the engraved sunburst.",
       "text_like_glyph_check": "Baked readable Latin lettering is engraved into the cover. Recorded as a defect against the text-free artwork policy, not as decoration.",
       "structural_repetition_check": "No repeated engraving band from the upscale.",
-      "status": "PENDING_MACOS_FINISHING"
+      "status": "PASSED",
+      "accepted_defects": [
+        "baked_readable_text_on_brass_cover"
+      ],
+      "blocking_defects": [],
+      "text_decision": {
+        "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+        "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+        "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+        "decided_at": "2026-09-19",
+        "decided_by": "user",
+        "applied_to": [
+          "G3_structure"
+        ],
+        "applied_at": "2026-09-19"
+      }
     },
     "G4_production": {
       "status": "PASSED",
@@ -507,13 +547,12 @@
   },
   "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
   "pending_gates": [
-    "G0_semantic",
-    "G1_canon_atmosphere",
-    "G3_structure"
+    "G1_canon_atmosphere"
   ],
   "reviewers": [
     "interactive_art_direction_approval",
-    "macos_finishing_pipeline_finish_artifact_artwork.py"
+    "macos_finishing_pipeline_finish_artifact_artwork.py",
+    "art_direction_text_decision"
   ],
   "reviewed_at": "2026-09-19",
   "production_contract": {
@@ -598,5 +637,18 @@
     "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools",
     "real_esrgan_weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
     "independent_derivative_generation": false
+  },
+  "text_policy_decision": {
+    "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+    "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+    "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+    "decided_at": "2026-09-19",
+    "decided_by": "user",
+    "applied_to": [
+      "G0_semantic",
+      "G3_structure"
+    ],
+    "applied_at": "2026-09-19",
+    "revised_from_record_sha256": "7b817edbde4c7f5a235787c840a12ebdc9a9fd1bffce5cc09164a737482e0a9e"
   }
 }
