@@ -10,8 +10,9 @@ private actor ScriptedASRTurnTransport: SpeechRailRealtimeASRTransport {
     }
 
     private let commitBehavior: CommitBehavior
-    private var sessionID = "sess-turn"
+    private var sessionID = "sess-turn-0"
     private var sequence: Int64 = 0
+    private var connectionCount = 0
     private var inbound: [Data] = []
     private var waiters: [CheckedContinuation<Data, any Error>] = []
     private(set) var sentTypes: [String] = []
@@ -23,6 +24,9 @@ private actor ScriptedASRTurnTransport: SpeechRailRealtimeASRTransport {
 
     func open(_ request: URLRequest) async throws {
         del(request)
+        connectionCount += 1
+        sequence = 0
+        sessionID = "sess-turn-\(connectionCount)"
         emit(type: "session.created")
         emit(type: "conversation.created")
     }
