@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-DOMAIN-CONTRACT-PARITY-R2",
-  "capsule_revision": 2,
+  "capsule_id": "CAP-DOMAIN-CONTRACT-PARITY-R3",
+  "capsule_revision": 3,
   "task_id": "DOMAIN-CONTRACT-PARITY",
   "title": "Restore Python domain contract parity with canonical JSON Schemas",
   "assigned_role": "AGT-ARB",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
-    "target_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
-    "context_snapshot": "sha256:809fd9fa6605c14f6c521806167c3e99d7c88659a30db502602dc2b43150c69c"
+    "base_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "target_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "context_snapshot": "sha256:fb4de884befcda60d1d42063a607db50e4aa98a94d69bc8d78a4622c57a1a46f"
   },
   "scope": {
     "read": [
@@ -62,7 +62,7 @@
     "token_estimate": 2200,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
-    "note": "Revision 2 refreshes the validation base after unrelated main advancement. Contract implementation and parity-test blobs are unchanged from the verified revision-1 code."
+    "note": "Revision 3 refreshes the validation base after documentation-only PR #69 merged. Contract implementation and parity-test blobs are unchanged."
   },
   "impact": {
     "symbols": [
@@ -111,5 +111,5 @@
       "INV-12"
     ]
   },
-  "supersedes": "CAP-DOMAIN-CONTRACT-PARITY"
+  "supersedes": "CAP-DOMAIN-CONTRACT-PARITY-R2"
 }
