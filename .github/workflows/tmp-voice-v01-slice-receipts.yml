@@ -1,0 +1,74 @@
+name: Temporary Voice V01 slice receipts
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-slice-receipts.yml']
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 821fd6dd24f761132cd7e4134ec7f97664cc521d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify contract capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-MEDIA-CONTRACT.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-contract-receipt
+          path: .agents/receipts/VOICE-V01-MEDIA-CONTRACT/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
+  engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 0406d8e87c4176d1b503d786df96f11917bf06f3
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify Engine capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-ENGINE-MEDIA.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-engine-receipt
+          path: .agents/receipts/VOICE-V01-ENGINE-MEDIA/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
+  swift:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: d3478ca6b38c0baba53e298076a1e7116977d26b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify Swift capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-SWIFT-MEDIA.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-swift-receipt
+          path: .agents/receipts/VOICE-V01-SWIFT-MEDIA/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
