@@ -25,6 +25,16 @@ GATE-GOLDEN-MOCK
 
 全部 PASS 后进入大规模领域功能并行开发。
 
+## Voice-First Runtime 接续
+
+语音运行时已经进入分阶段实施，接手 W-V01/W-V02/W-V03 前先读：
+
+- [Voice-First Runtime 接续指南](Voice_First_Handoff_2026-09-19.md) — 当前 main / PR 状态、已验证证据、未放行项、SpeechRail 接线触发条件与下一团队开工顺序；
+- [Voice-First 实施方案](Voice_First_Implementation_Plan_v2.0.md) — W-V00–W-V10 任务边界；
+- [Voice-First 验收矩阵](Voice_First_Acceptance_v2.0.md) — 软件、服务、设备和发布证据。
+
+接续指南是**当前执行快照**；架构意图仍以 `docs/03_工程规范/voice/` 下的设计为准，最终能力事实以 main 代码、受保护 contracts 和成功门禁为准。
+
 ## P1 — Release Readiness
 
 - `Security_Privacy_Baseline_v1.0.md`
