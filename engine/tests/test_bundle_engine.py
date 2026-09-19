@@ -237,3 +237,10 @@ def test_download_publish_race_cannot_overwrite_another_builder(tmp_path,monkeyp
     with pytest.raises(FileExistsError): bundler.download_runtime(lock,target)
     assert target.read_bytes() == b'other builder'
     assert list(tmp_path.iterdir()) == [target] and len(calls) == 1
+
+
+def test_runtime_stager_requires_private_data_sqlite_probe():
+    source = (Path(__file__).resolve().parents[2]/'scripts/bundle_engine.py').read_text()
+    assert 'stage_data_sqlite(runtime, logs, env=env)' in source
+    assert "_wom_sqlite3.sqlite_version == '3.53.4'" in source
+    assert "'data_sqlite': data_sqlite" in source

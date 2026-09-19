@@ -20,6 +20,7 @@ from engine.infrastructure.database_manager import (
     RevisionConflict, StorageError, StoredEvent,
 )
 from engine.infrastructure.database_schema import SQLITE_VERSION
+from engine.infrastructure.sqlite_runtime import BUNDLED_DATA_SQLITE
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -71,7 +72,7 @@ async def counts(database):
 
 
 async def test_database_production_version_is_not_silently_downgraded(paths):
-    if sqlite3.sqlite_version == SQLITE_VERSION:
+    if sqlite3.sqlite_version == SQLITE_VERSION and BUNDLED_DATA_SQLITE:
         db = await DatabaseManager.open(paths)
         await db.close()
     else:
