@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-OUTCOME-RESOLVER-FOUNDATION",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-OUTCOME-RESOLVER-FOUNDATION-R2",
+  "capsule_revision": 2,
   "task_id": "OUTCOME-RESOLVER-FOUNDATION",
   "title": "Deterministic Outcome Resolver foundation and Golden Turn 1",
   "assigned_role": "AGT-DOM",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "7c558f39ada34dd8f4ba8b1112f8860388bf50fc",
+    "base_sha": "04a119f630fd33f6580c5d7dd1411b653ceb0b9c",
     "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "context_snapshot": "sha256:72e24fb11aa42dd5bc3883b7c7d34ae61c8583d4c55a8e22e4994b89d7a33741"
+    "context_snapshot": "sha256:2cf9e0500a9969db13bfc58328255e914b6ee40ad46b03822e5366fb3a2ca75d"
   },
   "scope": {
     "read": [
@@ -57,7 +57,7 @@
     "token_estimate": 1800,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
-    "note": "Stacked on #80 canonical Python contract parity. Resolver remains pure Domain logic and receives prevalidated policy; Golden rules stay in tests, not production branches."
+    "note": "Revision 2 binds the stacked resolver slice to the corrected #80 contract-parity head 04a119f while the merge target remains origin/main@a9c723. Resolver semantics and implementation remain unchanged; only task-boundary evidence is refreshed."
   },
   "impact": {
     "symbols": [
@@ -76,7 +76,9 @@
     "migrations": []
   },
   "dependencies": {
-    "depends_on": ["DOMAIN-CONTRACT-PARITY"],
+    "depends_on": [
+      "DOMAIN-CONTRACT-PARITY"
+    ],
     "conflicts_with": []
   },
   "gates": {
@@ -86,7 +88,16 @@
     "risk_class": "high"
   },
   "acceptance": {
-    "invariants": [1, 2, 4, 5, 6, 7, 9, 12],
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      9,
+      12
+    ],
     "instructions": "Pure deterministic Resolver only. No Golden scenario special cases, DB writes, AI calls or post-commit narrative decisions. Policy must be validated against declared StorySeed clue/secret registries and unmatched/ambiguous actions fail closed.",
     "assertions": [
       "INV-01",
@@ -98,5 +109,6 @@
       "INV-09",
       "INV-12"
     ]
-  }
+  },
+  "supersedes": "CAP-OUTCOME-RESOLVER-FOUNDATION"
 }
