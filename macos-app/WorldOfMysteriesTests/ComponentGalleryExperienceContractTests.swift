@@ -276,6 +276,27 @@ struct ComponentGalleryExperienceContractTests {
         #expect(recovery.contains("WOMAdaptivePair("))
     }
 
+    @Test("runtime visual QA mode uses production components and deterministic preferences")
+    func runtimeVisualQAHarnessContract() throws {
+        let view = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryRuntimeVerificationView.swift"
+        )
+        let app = try file("macos-app/WorldOfMysteries/MyApp.swift")
+        let capture = try file("macos-app/Tools/capture_component_gallery_runtime.py")
+
+        #expect(view.contains("CitrinePendulumScryingCard("))
+        #expect(view.contains("TarotCardView(stage: .unknown)"))
+        #expect(view.contains("ArtifactShowcaseView()"))
+        #expect(view.contains("WorldlineNodeView("))
+        #expect(view.contains("CharacterCodexCard("))
+        #expect(view.contains("wom.gallery.verification.enabled"))
+        #expect(app.contains("if galleryRuntimeVerificationEnabled"))
+        #expect(app.contains("ComponentGalleryRuntimeVerificationView()"))
+        #expect(capture.contains("CaptureSpec(\"pendulum\", 960, 640)"))
+        #expect(capture.contains("CaptureSpec(\"probability-die\", 1440, 900)"))
+        #expect(capture.contains("helpers.capture_window"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
