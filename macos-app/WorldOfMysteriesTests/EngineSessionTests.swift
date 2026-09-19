@@ -97,16 +97,7 @@ extension EngineSessionTests {
             Notification(name: NSApplication.didFinishLaunchingNotification)
         )
 
-        let clock = ContinuousClock()
-        let deadline = clock.now + .seconds(2)
-        while state.connectionState == .idle || state.connectionState == .connecting {
-            guard clock.now < deadline else {
-                Issue.record("App lifecycle did not drive Engine bootstrap")
-                break
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-
+        #expect(await delegate.awaitLaunchCompletion())
         #expect(state.connectionState == .unavailable)
         await state.shutdown()
         #expect(state.connectionState == .idle)
