@@ -227,6 +227,24 @@ public struct ArtifactShowcaseView: View {
         .padding(.vertical, DesignTokens.Spacing.xs)
       }
     }
+    .padding(.horizontal, DesignTokens.Spacing.sm)
+    .padding(.vertical, DesignTokens.Spacing.sm)
+    .background(
+      WOMPanelBackground(
+        tone: .card,
+        cornerRadius: DesignTokens.Radii.md,
+        texture: .sacredSlate,
+        textureOpacity: 0.018
+      )
+    )
+    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous)
+        .stroke(
+          Color.Mystic.brassGoldBorder.opacity(0.42),
+          lineWidth: DesignTokens.Borders.hairline
+        )
+    }
     .focusable()
     .onMoveCommand { direction in
       switch direction {
@@ -257,12 +275,19 @@ public struct ArtifactShowcaseView: View {
             accessibilityLabel: descriptor.displayName
           )
           .frame(
-            width: ArtifactShelfCardMetrics.thumbnailWidth,
-            height: ArtifactShelfCardMetrics.thumbnailHeight
+            width: ArtifactShelfCardMetrics.thumbnailSide,
+            height: ArtifactShelfCardMetrics.thumbnailSide
           )
           .frame(maxWidth: .infinity)
           .background(Color.Mystic.abyssVoid)
           .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
+          .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
+              .stroke(
+                Color.Mystic.brassGoldBorder.opacity(0.28),
+                lineWidth: DesignTokens.Borders.hairline
+              )
+          }
 
           if let index = ArtifactRegistry.all.firstIndex(where: { $0.id == descriptor.id }) {
             Text(String(format: "%02d", index + 1))
@@ -308,17 +333,25 @@ public struct ArtifactShowcaseView: View {
         isSelected: isSelected,
         cornerRadius: DesignTokens.Radii.md
       )
+      .simultaneousGesture(
+        TapGesture(count: 2)
+          .onEnded {
+            isObjectPreviewPresented = true
+          }
+      )
     }
 
     if isSelected {
       card
         .buttonStyle(.plain)
-        .accessibilityLabel("展品：\(descriptor.displayName)，已选中并打开高精度展陈")
+        .accessibilityLabel("展品：\(descriptor.displayName)，已选中")
+        .accessibilityHint("单击选中；双击打开高精度展陈")
         .accessibilityAddTraits(.isSelected)
     } else {
       card
         .buttonStyle(.plain)
         .accessibilityLabel("展品：\(descriptor.displayName)")
+        .accessibilityHint("单击选中；双击打开高精度展陈")
     }
   }
 
@@ -425,14 +458,6 @@ public struct ArtifactShowcaseView: View {
           exhibitControls
         }
       }
-
-      // 内嵌 2.5D 高精度实体展台（保持 1:1 方形物件、台座、微视差与柔和环境色）
-      ArtifactObjectStage(
-        artifactID: selection,
-        revision: showcaseRevision,
-        stageAspectRatio: ArtifactObjectStageMetrics.aspectRatio,
-        mountScale: 1.0
-      )
 
       MysticDivider(tone: descriptor.tone, label: "馆藏档案")
 
@@ -569,10 +594,7 @@ public struct ArtifactShowcaseView: View {
   }
 
   private func selectArtifact(_ id: ArtifactID) {
-    guard id != selection else {
-      isObjectPreviewPresented = true
-      return
-    }
+    guard id != selection else { return }
     withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
       selection = id
     }

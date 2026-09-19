@@ -65,6 +65,7 @@ struct ArtifactPresentationProfileTests {
     func shelfCardGeometry() {
         #expect(ArtifactShelfCardMetrics.cardWidth > ArtifactShelfCardMetrics.thumbnailWidth)
         #expect(ArtifactShelfCardMetrics.cardHeight > ArtifactShelfCardMetrics.thumbnailHeight)
+        #expect(ArtifactShelfCardMetrics.thumbnailWidth == ArtifactShelfCardMetrics.thumbnailHeight)
         #expect(ArtifactShelfCardMetrics.metadataBlockHeight >= ArtifactShelfCardMetrics.titleHeight)
         #expect(ArtifactShelfCardMetrics.metadataBlockHeight >= ArtifactShelfCardMetrics.subtitleHeight)
     }

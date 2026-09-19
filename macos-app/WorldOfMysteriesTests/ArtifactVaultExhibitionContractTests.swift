@@ -85,6 +85,58 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(!source.contains("color: isSelected ? descriptor.tone.accent.opacity(0.35) : Color.clear"))
     }
 
+    @Test("shelf uses a framed cabinet surface and reserves a square artwork window")
+    func shelfFrameAndSquareArtworkContract() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+        let shelfStart = source.range(of: "private var collectionShelf")?.lowerBound
+        let cardStart = source.range(of: "private func collectionCard")?.lowerBound
+
+        #expect(shelfStart != nil)
+        #expect(cardStart != nil)
+        if let shelfStart, let cardStart {
+            let shelfSource = String(source[shelfStart..<cardStart])
+            #expect(shelfSource.contains("WOMPanelBackground("))
+            #expect(shelfSource.contains("Color.Mystic.brassGoldBorder"))
+            #expect(shelfSource.contains("DesignTokens.Borders.hairline"))
+        }
+        #expect(ArtifactShelfCardMetrics.thumbnailWidth == ArtifactShelfCardMetrics.thumbnailHeight)
+    }
+
+    @Test("shelf keeps single selection and reserves double-click for high-resolution preview")
+    func doubleClickPreviewContract() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+
+        #expect(source.contains("TapGesture(count: 2)"))
+        #expect(source.contains("双击打开高精度展陈"))
+        if let selectionStart = source.range(of: "private func selectArtifact")?.lowerBound,
+           let nextFunction = source.range(of: "private func selectAdjacent")?.lowerBound {
+            let selectionSource = String(source[selectionStart..<nextFunction])
+            #expect(!selectionSource.contains("isObjectPreviewPresented = true"))
+        }
+    }
+
+    @Test("large artwork stays in the floating preview instead of repeating below the shelf")
+    func dossierRemovesInlineObjectStage() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+        let dossierStart = source.range(of: "private var exhibitionDossier")?.lowerBound
+        let liveStageStart = source.range(of: "private var liveExhibitStage")?.lowerBound
+
+        #expect(dossierStart != nil)
+        #expect(liveStageStart != nil)
+        if let dossierStart, let liveStageStart {
+            let dossierSource = String(source[dossierStart..<liveStageStart])
+            #expect(!dossierSource.contains("ArtifactObjectStage("))
+        }
+        #expect(source.contains("private var selectedArtifactPreview"))
+        #expect(source.contains(".sheet("))
+    }
+
     @Test("vault preserves all production artifact gameplay components")
     func productionComponentsRemainCanonical() throws {
         let source = try file(
