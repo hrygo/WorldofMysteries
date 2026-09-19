@@ -189,14 +189,23 @@ public final class ProbabilityDieModel {
       artifactState = resolution.resultingArtifactState
       phase = .rolling
       presentationRevision += 1
+      // 落定时刻由物理表现层通过 presentationDidSettle() 回报；这里只保留一个兜底上限，
+      // 保证视图缺席（无头测试、窗口被销毁）时状态机仍会推进。
       try? await Task.sleep(for: .milliseconds(1050))
       guard !Task.isCancelled else { return }
-      history.append(.init(face: resolution.face, rollID: resolution.rollID, autonomous: false))
-      if history.count > 16 { history.removeFirst(history.count - 16) }
-      phase = .revealed(resolution.face)
+      presentationDidSettle()
     } catch {
       phase = .error(error.localizedDescription)
     }
+  }
+
+  /// 物理投掷落定时由表现层调用，用真实的落定时刻替代固定计时器。
+  /// 仅在 `.rolling` 状态生效，所以与兜底计时器不会重复记账。
+  public func presentationDidSettle() {
+    guard case .rolling = phase, let resolution = currentResolution else { return }
+    history.append(.init(face: resolution.face, rollID: resolution.rollID, autonomous: false))
+    if history.count > 16 { history.removeFirst(history.count - 16) }
+    phase = .revealed(resolution.face)
   }
 
   public func resetPresentation() {
