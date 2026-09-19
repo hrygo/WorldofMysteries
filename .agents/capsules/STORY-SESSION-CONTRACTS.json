@@ -1,0 +1,82 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-STORY-SESSION-CONTRACTS",
+  "capsule_revision": 1,
+  "task_id": "STORY-SESSION-CONTRACTS",
+  "title": "Typed Python StorySession StoryState and TurnTransaction contracts",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:44:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "04a119f630fd33f6580c5d7dd1411b653ceb0b9c",
+    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "context_snapshot": "sha256:28990803281016c84a0cbf4ff5c50b15f012401dcba143e31e632d834d480e73"
+  },
+  "scope": {
+    "read": [
+      "contracts/schemas/",
+      "engine/contracts/",
+      "engine/tests/"
+    ],
+    "write": [
+      "engine/contracts/models.py",
+      "engine/contracts/__init__.py",
+      "engine/tests/test_story_session_contracts.py",
+      ".agents/capsules/STORY-SESSION-CONTRACTS.json"
+    ],
+    "forbidden": [
+      "contracts/**",
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/contracts/models.py",
+      "engine/contracts/__init__.py",
+      "contracts/schemas/story_state.schema.json",
+      "contracts/schemas/story_session.schema.json",
+      "contracts/schemas/turn_transaction.schema.json"
+    ],
+    "related_contracts": [
+      "story_state.schema.json",
+      "story_session.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "explicit-story-contract-slice",
+    "token_estimate": 1300,
+    "max_core_tokens": 2500,
+    "expansion_policy": "arbiter_approved",
+    "note": "Stacked on #80 canonical Python parity. Adds only missing typed projections for already-existing canonical story schemas."
+  },
+  "impact": {
+    "symbols": ["StoryState","StorySession","TurnTransaction","BaseRevisions"],
+    "contracts": [
+      "story_state.schema.json",
+      "story_session.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": ["engine/tests/test_story_session_contracts.py"],
+    "migrations": []
+  },
+  "dependencies": {"depends_on": ["DOMAIN-CONTRACT-PARITY"],"conflicts_with":[]},
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [5,6,7,9,12],
+    "instructions": "Do not change canonical schemas. Add strict Python projections only; unknown fields fail closed and integer/uniqueItems semantics match Draft 2020-12.",
+    "assertions": ["INV-05","INV-06","INV-07","INV-09","INV-12"]
+  }
+}
