@@ -8,7 +8,6 @@ on:
       - 'macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift'
       - 'macos-app/WorldOfMysteries/MyApp.swift'
       - 'macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py'
-      - 'macos-app/WorldOfMysteries/Tools/window_identity_by_pid.swift'
       - '.github/workflows/component-gallery-runtime-visual-qa.yml'
   workflow_dispatch:
 

@@ -20,7 +20,35 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 HERE = Path(__file__).resolve().parent
 DEFAULT_REPO_ROOT = HERE.parents[2]
 SCENE_HELPER = DEFAULT_REPO_ROOT / "docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py"
-DEFAULT_WINDOW_TOOL = HERE / "window_identity_by_pid.swift"
+WINDOW_HELPER_SOURCE = r"""import CoreGraphics
+import Foundation
+
+guard CommandLine.arguments.count > 1, let wantedPID = Int(CommandLine.arguments[1]) else {
+    FileHandle.standardError.write(Data("usage: window_identity_by_pid.swift <pid>\\n".utf8))
+    exit(2)
+}
+
+guard let windows = CGWindowListCopyWindowInfo(
+    [.optionOnScreenOnly, .excludeDesktopElements],
+    kCGNullWindowID
+) as? [[String: Any]] else {
+    exit(1)
+}
+
+for window in windows {
+    let pid = window[kCGWindowOwnerPID as String] as? Int ?? -1
+    guard pid == wantedPID else { continue }
+    let number = window[kCGWindowNumber as String] as? Int ?? -1
+    let layer = window[kCGWindowLayer as String] as? Int ?? -1
+    let bounds = window[kCGWindowBounds as String] as? [String: Any] ?? [:]
+    let width = Int((bounds["Width"] as? Double ?? 0).rounded())
+    let height = Int((bounds["Height"] as? Double ?? 0).rounded())
+    print(
+        "{\\\"window_number\\\": \\(number), \\\"pid\\\": \\(pid), "
+            + "\\\"width\\\": \\(width), \\\"height\\\": \\(height), \\\"layer\\\": \\(layer)}"
+    )
+}
+"""
 
 spec = importlib.util.spec_from_file_location("wom_scene_capture", SCENE_HELPER)
 if spec is None or spec.loader is None:
@@ -116,7 +144,6 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--bundle-id", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--repo-root", default=str(DEFAULT_REPO_ROOT))
-    parser.add_argument("--window-tool", default=str(DEFAULT_WINDOW_TOOL))
     return parser.parse_args(argv)
 
 
@@ -125,8 +152,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     repo_root = Path(args.repo_root).resolve()
     app_path = Path(args.app).resolve()
     out_dir = Path(args.out_dir).resolve()
-    window_tool = Path(args.window_tool).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+    window_tool = out_dir / "window_identity_by_pid.swift"
+    window_tool.write_text(WINDOW_HELPER_SOURCE, encoding="utf-8")
 
     executable = helpers.app_executable(app_path)
     app_name = app_path.stem
