@@ -448,7 +448,7 @@ public nonisolated enum MediaFrameCodec {
                   !h.traceId.isEmpty, h.traceId.count <= 128,
                   !h.engineEpoch.isEmpty, h.engineEpoch.count <= 128,
                   h.ticket.count == 64,
-                  h.ticket.allSatisfy({ $0.isASCIIHexLowercase }),
+                  isLowercaseHex(h.ticket),
                   h.format.codec == "pcm_s16le",
                   [16000, 24000, 48000].contains(h.format.sampleRate),
                   h.format.channels == 1,
@@ -476,7 +476,7 @@ public nonisolated enum MediaFrameCodec {
                   h.totalBytes.isMultiple(of: 2),
                   h.sha256 == nil || (
                     h.sha256?.count == 64
-                    && h.sha256?.allSatisfy({ $0.isASCIIHexLowercase }) == true
+                    && h.sha256.map(isLowercaseHex) == true
                   ) else {
                 throw MediaProtocolFailure.invalidHeader
             }
@@ -514,6 +514,12 @@ public nonisolated enum MediaFrameCodec {
 
     private static func isEvenInRange(_ value: Int, min: Int, max: Int) -> Bool {
         value >= min && value <= max && value.isMultiple(of: 2)
+    }
+
+    private static func isLowercaseHex(_ text: String) -> Bool {
+        text.utf8.allSatisfy { byte in
+            (48...57).contains(byte) || (97...102).contains(byte)
+        }
     }
 }
 
@@ -609,13 +615,6 @@ public nonisolated struct MediaReceiveState {
     }
 }
 
-private extension Character {
-    var isASCIIHexLowercase: Bool {
-        guard let scalar = unicodeScalars.first, unicodeScalars.count == 1 else { return false }
-        return (48...57).contains(scalar.value) || (97...102).contains(scalar.value)
-    }
-}
-
 private nonisolated struct MediaJSONWireScanner {
     let bytes: [UInt8]
     var index = 0
@@ -643,7 +642,7 @@ private nonisolated struct MediaJSONWireScanner {
         whitespace()
         switch current {
         case 123, 91:
-            guard depth < MediaFrameCodec.maximumDepthForScanner else {
+            guard depth < 32 else {
                 throw MediaProtocolFailure.invalidHeader
             }
             let object = current == 123
@@ -718,6 +717,3 @@ private nonisolated struct MediaJSONWireScanner {
     }
 }
 
-private extension MediaFrameCodec {
-    static var maximumDepthForScanner: Int { maximumDepth }
-}
