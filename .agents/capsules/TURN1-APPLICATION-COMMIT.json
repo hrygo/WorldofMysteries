@@ -1,18 +1,96 @@
 {
-  "$schema":"contracts/engineering/task_capsule.schema.json",
-  "capsule_id":"CAP-TURN1-APPLICATION-COMMIT",
-  "capsule_revision":1,
-  "task_id":"TURN1-APPLICATION-COMMIT",
-  "title":"Golden Turn 1 Application commit boundary",
-  "assigned_role":"AGT-AI",
-  "status":"CREATED",
-  "created_at":"2026-09-19T10:51:00+00:00",
-  "risk_class":"high",
-  "base":{"target_ref":"origin/main","base_sha":"606bfa8bb724cfcf111e222603fb12c874fc964c","target_sha":"a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7","context_snapshot":"sha256:2a642822a285b973e1297ece937f8f464457a30ad41920ed6fe36c39574b1550"},
-  "scope":{"read":["engine/application/","engine/domain/","engine/contracts/"],"write":["engine/application/story_turn_commit.py"],"forbidden":["engine/infrastructure/**","engine/ai/**","macos-app/**","contracts/schemas/**","contracts/protocol/**"],"privileged_grants":[]},
-  "context":{"core_manifest":["engine/application/story_turn_commit.py","engine/domain/story_state_reducer.py","engine/contracts/models.py"],"related_contracts":["state_delta.schema.json","story_state.schema.json","turn_transaction.schema.json"],"slice_strategy":"turn1-application-port","token_estimate":850,"max_core_tokens":1800,"expansion_policy":"arbiter_approved","note":"Application depends only on StoryCommitPort and typed Domain contracts; no concrete SQLite import."},
-  "impact":{"symbols":["StoryTurnCommitService","StoryCommitPort"],"contracts":["state_delta.schema.json","story_session.schema.json","turn_transaction.schema.json"],"tests":["engine/tests/test_golden_turn1_durable.py"],"migrations":[]},
-  "dependencies":{"depends_on":["TURN1-DOMAIN-REDUCER","STORY-SESSION-CONTRACTS"],"conflicts_with":[]},
-  "gates":{"profile":"FULL_P0","profile_digest":"sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6","profile_file":".hacf/gates/full_p0.json","risk_class":"high"},
-  "acceptance":{"invariants":[4,5,9,12],"instructions":"Validate identities and revisions before COMMIT; refuse unsupported overlays rather than silently dropping facts; keep Narrative after COMMIT.","assertions":["INV-04","INV-05","INV-09","INV-12"]}
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-TURN1-APPLICATION-COMMIT-R2",
+  "capsule_revision": 2,
+  "task_id": "TURN1-APPLICATION-COMMIT",
+  "title": "Golden Turn 1 Application commit boundary",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:51:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "target_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "context_snapshot": "sha256:88a8f0f7a593bd3b36a1b5a6f3cce8d7950bd696d0bd5dfbc99a950d7a66d91e"
+  },
+  "scope": {
+    "read": [
+      "engine/application/",
+      "engine/domain/",
+      "engine/contracts/"
+    ],
+    "write": [
+      "engine/application/story_turn_commit.py"
+    ],
+    "forbidden": [
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/schemas/**",
+      "contracts/protocol/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/story_turn_commit.py",
+      "engine/domain/story_state_reducer.py",
+      "engine/contracts/models.py"
+    ],
+    "related_contracts": [
+      "state_delta.schema.json",
+      "story_state.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "turn1-application-port",
+    "token_estimate": 850,
+    "max_core_tokens": 1800,
+    "expansion_policy": "arbiter_approved",
+    "note": "Application depends only on StoryCommitPort and typed Domain contracts; no concrete SQLite import. Revision 2 collapses already-merged prerequisite branches onto main@82d673e; implementation/test blobs are unchanged."
+  },
+  "impact": {
+    "symbols": [
+      "StoryTurnCommitService",
+      "StoryCommitPort"
+    ],
+    "contracts": [
+      "state_delta.schema.json",
+      "story_session.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_golden_turn1_durable.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "TURN1-DOMAIN-REDUCER",
+      "STORY-SESSION-CONTRACTS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      4,
+      5,
+      9,
+      12
+    ],
+    "instructions": "Validate identities and revisions before COMMIT; refuse unsupported overlays rather than silently dropping facts; keep Narrative after COMMIT.",
+    "assertions": [
+      "INV-04",
+      "INV-05",
+      "INV-09",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-TURN1-APPLICATION-COMMIT"
 }

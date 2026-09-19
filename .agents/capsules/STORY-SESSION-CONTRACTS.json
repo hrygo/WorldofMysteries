@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-STORY-SESSION-CONTRACTS-R2",
-  "capsule_revision": 2,
+  "capsule_id": "CAP-STORY-SESSION-CONTRACTS-R4",
+  "capsule_revision": 4,
   "task_id": "STORY-SESSION-CONTRACTS",
   "title": "Typed Python StorySession StoryState and TurnTransaction contracts",
   "assigned_role": "AGT-ARB",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "04a119f630fd33f6580c5d7dd1411b653ceb0b9c",
-    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "context_snapshot": "sha256:28990803281016c84a0cbf4ff5c50b15f012401dcba143e31e632d834d480e73"
+    "base_sha": "379dec9342dbf572a5d9569c43c0a00d273ad9e5",
+    "target_sha": "379dec9342dbf572a5d9569c43c0a00d273ad9e5",
+    "context_snapshot": "sha256:7e054ee13d7a3d2ce239624db9ee03e26b04566b34153848ab66908771392637"
   },
   "scope": {
     "read": [
@@ -57,7 +57,7 @@
     "token_estimate": 1300,
     "max_core_tokens": 2500,
     "expansion_policy": "arbiter_approved",
-    "note": "Revision 2 narrows forbidden top-level contract paths explicitly so Path.match does not misclassify engine/contracts/__init__.py. Product JSON Schemas remain read-only and unchanged."
+    "note": "Revision 4 refreshes the validation base after a documentation-only voice handoff landed on main. StorySession DTO/export/test blobs remain unchanged."
   },
   "impact": {
     "symbols": [
@@ -105,5 +105,5 @@
       "INV-12"
     ]
   },
-  "supersedes": "CAP-STORY-SESSION-CONTRACTS"
+  "supersedes": "CAP-STORY-SESSION-CONTRACTS-R3"
 }

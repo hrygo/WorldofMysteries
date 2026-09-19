@@ -1,18 +1,97 @@
 {
-  "$schema":"contracts/engineering/task_capsule.schema.json",
-  "capsule_id":"CAP-TURN1-DOMAIN-REDUCER",
-  "capsule_revision":1,
-  "task_id":"TURN1-DOMAIN-REDUCER",
-  "title":"Golden Turn 1 pure StoryState reducer",
-  "assigned_role":"AGT-DOM",
-  "status":"CREATED",
-  "created_at":"2026-09-19T10:51:00+00:00",
-  "risk_class":"high",
-  "base":{"target_ref":"origin/main","base_sha":"606bfa8bb724cfcf111e222603fb12c874fc964c","target_sha":"a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7","context_snapshot":"sha256:1e4e9799ee81bb4d2f8703fa435674a48ce3c9149d43f889fa7c284867698dfb"},
-  "scope":{"read":["engine/domain/","engine/contracts/","contracts/schemas/"],"write":["engine/domain/story_state_reducer.py"],"forbidden":["engine/infrastructure/**","engine/application/**","engine/ai/**","macos-app/**","contracts/schemas/**","contracts/protocol/**"],"privileged_grants":[]},
-  "context":{"core_manifest":["engine/domain/story_state_reducer.py","engine/contracts/models.py","contracts/schemas/state_delta.schema.json","contracts/schemas/story_state.schema.json"],"related_contracts":["state_delta.schema.json","story_state.schema.json"],"slice_strategy":"turn1-domain-reducer","token_estimate":900,"max_core_tokens":1800,"expansion_policy":"arbiter_approved","note":"Pure deterministic StoryState reducer; no storage, AI, IPC or narrative."},
-  "impact":{"symbols":["apply_story_delta"],"contracts":["state_delta.schema.json","story_state.schema.json"],"tests":["engine/tests/test_golden_turn1_durable.py"],"migrations":[]},
-  "dependencies":{"depends_on":["OUTCOME-RESOLVER-FOUNDATION","STORY-SESSION-CONTRACTS"],"conflicts_with":[]},
-  "gates":{"profile":"FULL_P0","profile_digest":"sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6","profile_file":".hacf/gates/full_p0.json","risk_class":"high"},
-  "acceptance":{"invariants":[1,2,5,6,9],"instructions":"Apply only canonical StateDelta story effects deterministically; reject secret regression, unknown pressures and unsupported local patches.","assertions":["INV-01","INV-02","INV-05","INV-06","INV-09"]}
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-TURN1-DOMAIN-REDUCER-R2",
+  "capsule_revision": 2,
+  "task_id": "TURN1-DOMAIN-REDUCER",
+  "title": "Golden Turn 1 pure StoryState reducer",
+  "assigned_role": "AGT-DOM",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:51:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "target_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "context_snapshot": "sha256:88a8f0f7a593bd3b36a1b5a6f3cce8d7950bd696d0bd5dfbc99a950d7a66d91e"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/contracts/",
+      "contracts/schemas/"
+    ],
+    "write": [
+      "engine/domain/story_state_reducer.py"
+    ],
+    "forbidden": [
+      "engine/infrastructure/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/schemas/**",
+      "contracts/protocol/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/story_state_reducer.py",
+      "engine/contracts/models.py",
+      "contracts/schemas/state_delta.schema.json",
+      "contracts/schemas/story_state.schema.json"
+    ],
+    "related_contracts": [
+      "state_delta.schema.json",
+      "story_state.schema.json"
+    ],
+    "slice_strategy": "turn1-domain-reducer",
+    "token_estimate": 900,
+    "max_core_tokens": 1800,
+    "expansion_policy": "arbiter_approved",
+    "note": "Pure deterministic StoryState reducer; no storage, AI, IPC or narrative. Revision 2 collapses already-merged prerequisite branches onto main@82d673e; implementation/test blobs are unchanged."
+  },
+  "impact": {
+    "symbols": [
+      "apply_story_delta"
+    ],
+    "contracts": [
+      "state_delta.schema.json",
+      "story_state.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_golden_turn1_durable.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "OUTCOME-RESOLVER-FOUNDATION",
+      "STORY-SESSION-CONTRACTS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      5,
+      6,
+      9
+    ],
+    "instructions": "Apply only canonical StateDelta story effects deterministically; reject secret regression, unknown pressures and unsupported local patches.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  },
+  "supersedes": "CAP-TURN1-DOMAIN-REDUCER"
 }

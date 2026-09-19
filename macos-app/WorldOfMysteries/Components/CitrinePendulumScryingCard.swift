@@ -41,6 +41,9 @@ public struct CitrinePendulumScryingCard: View {
     @State private var state: ScryingResult = .inquiring
     @State private var swingAngle: Double = 0
     @State private var isScrying = false
+    @State private var isPendulumDragging = false
+
+    private static let pendulumCoordinateSpace = "citrine-pendulum-artwork"
 
     public init(
         defaultStatement: String = "《安提哥努斯家族笔记》仍遗留在廷根市内。",
@@ -78,7 +81,10 @@ public struct CitrinePendulumScryingCard: View {
         )
         .onChange(of: reduceMotion) { _, newValue in
             if newValue {
-                swingAngle = 0
+                isPendulumDragging = false
+                withAnimation(.easeOut(duration: 0.16)) {
+                    swingAngle = 0
+                }
             }
         }
     }
@@ -112,15 +118,39 @@ public struct CitrinePendulumScryingCard: View {
     private var artworkPanel: some View {
         let artwork = CitrineArtworkGeometry.canonical
         let width = DesignTokens.ComponentMetrics.CitrineArtwork.panelWidth
+        let height = artwork.panelHeight(forWidth: width)
 
-        return CitrinePendulumArtwork(
-            swingAngle: swingAngle,
-            glowIntensity: isScrying ? 0.22 : 0.38
-        )
-        .frame(width: width, height: artwork.panelHeight(forWidth: width))
+        return ZStack {
+            CitrinePendulumArtwork(
+                swingAngle: swingAngle,
+                glowIntensity: isPendulumDragging ? 0.50 : (isScrying ? 0.22 : 0.38)
+            )
+
+            GeometryReader { geo in
+                let layout = artwork.resolveLayout(in: geo.size)
+                let pivot = artwork.swingPivotViewport(in: geo.size, scale: layout.scale)
+
+                Circle()
+                    .fill(Color.clear)
+                    .frame(
+                        width: DesignTokens.ComponentMetrics.CitrineArtwork.dragHitDiameter,
+                        height: DesignTokens.ComponentMetrics.CitrineArtwork.dragHitDiameter
+                    )
+                    .contentShape(Circle())
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    .gesture(pendulumDragGesture(pivot: pivot))
+                    .allowsHitTesting(!isScrying)
+                    .help("按住黄水晶轻轻牵引，松手后会自然阻尼回摆")
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(width: width, height: height)
+        .coordinateSpace(name: Self.pendulumCoordinateSpace)
         .shadow(
-            color: Color.Mystic.brassGoldPrimary.opacity(isScrying ? 0.25 : 0.12),
-            radius: 10
+            color: Color.Mystic.brassGoldPrimary.opacity(
+                isPendulumDragging ? 0.28 : (isScrying ? 0.25 : 0.12)
+            ),
+            radius: isPendulumDragging ? 14 : 10
         )
     }
 
@@ -146,13 +176,21 @@ public struct CitrinePendulumScryingCard: View {
 
                 HStack(spacing: DesignTokens.Spacing.xs) {
                     WOMIcon(
-                        status: isScrying ? .active : .success,
+                        status: (isScrying || isPendulumDragging) ? .active : .success,
                         size: .compact
                     )
-                    Text(isScrying ? "推演中" : "已定格")
+                    Text(
+                        isPendulumDragging
+                            ? "手动执链"
+                            : (isScrying ? "推演中" : "已定格")
+                    )
                 }
                 .font(Font.Mystic.caption)
-                .foregroundStyle(isScrying ? Color.Mystic.brassGoldPrimary : Color.Mystic.textSecondary)
+                .foregroundStyle(
+                    (isScrying || isPendulumDragging)
+                        ? Color.Mystic.brassGoldPrimary
+                        : Color.Mystic.textSecondary
+                )
             }
 
             Text(state.guidanceText)
@@ -201,7 +239,7 @@ public struct CitrinePendulumScryingCard: View {
                     }
                 }
                 .buttonStyle(WOMButtonStyle(.ritual))
-                .disabled(isScrying)
+                .disabled(isScrying || isPendulumDragging)
                 .help("手肘抵桌，持链悬垂，默念语句七遍后执链占卜")
             }
         }
@@ -239,10 +277,79 @@ public struct CitrinePendulumScryingCard: View {
         )
     }
 
+    // MARK: - 手动灵摆交互
+
+    private func pendulumDragGesture(pivot: CGPoint) -> some Gesture {
+        DragGesture(
+            minimumDistance: 0,
+            coordinateSpace: .named(Self.pendulumCoordinateSpace)
+        )
+        .onChanged { value in
+            guard !isScrying else { return }
+            isPendulumDragging = true
+
+            let angle = CitrinePendulumInteraction.dragAngle(
+                pointer: value.location,
+                pivot: pivot
+            )
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                swingAngle = angle
+            }
+        }
+        .onEnded { value in
+            guard !isScrying else { return }
+
+            let releaseAngle = CitrinePendulumInteraction.dragAngle(
+                pointer: value.location,
+                pivot: pivot
+            )
+            let angularVelocity = CitrinePendulumInteraction.angularVelocityDegreesPerSecond(
+                pointer: value.location,
+                velocity: value.velocity,
+                pivot: pivot
+            )
+            releasePendulum(
+                from: releaseAngle,
+                angularVelocityDegreesPerSecond: angularVelocity
+            )
+        }
+    }
+
+    private func releasePendulum(
+        from angle: Double,
+        angularVelocityDegreesPerSecond: Double
+    ) {
+        isPendulumDragging = false
+        swingAngle = angle
+
+        if reduceMotion {
+            withAnimation(.easeOut(duration: 0.16)) {
+                swingAngle = 0
+            }
+            return
+        }
+
+        let initialVelocity = CitrinePendulumInteraction.springInitialVelocity(
+            angleDegrees: angle,
+            angularVelocityDegreesPerSecond: angularVelocityDegreesPerSecond
+        )
+        withAnimation(
+            .interpolatingSpring(
+                duration: DesignTokens.Motion.pendulumManualReleaseDuration,
+                bounce: DesignTokens.Motion.pendulumManualReleaseBounce,
+                initialVelocity: initialVelocity
+            )
+        ) {
+            swingAngle = 0
+        }
+    }
+
     // MARK: - 原型推演
 
     private func triggerScrying() {
-        guard !isScrying else { return }
+        guard !isScrying, !isPendulumDragging else { return }
         isScrying = true
         state = .inquiring
 
