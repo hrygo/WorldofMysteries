@@ -465,3 +465,109 @@ class CharacterKnowledge(ContractBase):
     acquired_world_time: str | None = None
     status: KnowledgeStatus
     revision: JsonInteger = Field(ge=0)
+
+# Story Session ---------------------------------------------------------------
+class BaseRevisions(SchemaModel):
+    world: JsonInteger = Field(ge=0)
+    character: JsonInteger = Field(ge=0)
+    story: JsonInteger = Field(ge=0)
+
+
+class StoryPhase(StrEnum):
+    OPENING = "opening"
+    DISCOVERY = "discovery"
+    INVESTIGATION = "investigation"
+    ESCALATION = "escalation"
+    MIDPOINT = "midpoint"
+    CRISIS = "crisis"
+    TRUTH = "truth"
+    FINAL_INTERVENTION = "final_intervention"
+    RESOLUTION = "resolution"
+    CLOSURE = "closure"
+
+
+class StoryScene(SchemaModel):
+    _unique_fields = ("active_character_ids",)
+    _nonnullable_optional_fields = ("active_character_ids",)
+
+    id: str = Field(min_length=1)
+    location_id: str | None = None
+    active_character_ids: list[str] | None = None
+
+
+class StoryCommitments(SchemaModel):
+    _unique_fields = ("hard_ids", "soft_ids")
+
+    hard_ids: list[str]
+    soft_ids: list[str]
+
+
+class StoryState(ContractBase):
+    _unique_fields = ("active_conflicts", "discovered_clue_ids")
+    _nonnullable_optional_fields = ("active_conflicts", "discovered_clue_ids", "local_state")
+
+    story_session_id: str
+    revision: JsonInteger = Field(ge=0)
+    turn: JsonInteger = Field(ge=0)
+    phase: StoryPhase
+    scene: StoryScene
+    world_time: str | None = None
+    protagonist_goal: str | None = None
+    active_conflicts: list[str] | None = None
+    discovered_clue_ids: list[str] | None = None
+    secret_states: dict[str, SecretState]
+    commitments: StoryCommitments
+    local_state: dict[str, Any] | None = None
+    pressure: dict[str, JsonNumber]
+    last_state_delta_id: str | None = None
+
+
+class StorySessionStatus(StrEnum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    CLOSING = "closing"
+    FINALIZED = "finalized"
+    CANCELLED = "cancelled"
+    RECOVERY_REQUIRED = "recovery_required"
+
+
+class StorySession(ContractBase):
+    id: str
+    world_id: str
+    worldline_id: str
+    protagonist_id: str
+    story_seed_id: str
+    base_revisions: BaseRevisions
+    story_state: StoryState
+    status: StorySessionStatus
+
+
+class TurnStatus(StrEnum):
+    RECEIVED = "received"
+    INTERPRETED = "interpreted"
+    DECIDED = "decided"
+    RESOLVED = "resolved"
+    VALIDATED = "validated"
+    COMMITTED = "committed"
+    BEAT_READY = "beat_ready"
+    NARRATIVE_READY = "narrative_ready"
+    AUDIO_READY = "audio_ready"
+    DELIVERED = "delivered"
+    FAILED_RETRYABLE = "failed_retryable"
+    FAILED_FATAL = "failed_fatal"
+    CANCELLED = "cancelled"
+    RECONCILE_REQUIRED = "reconcile_required"
+
+
+class TurnTransaction(ContractBase):
+    id: str
+    session_id: str
+    idempotency_key: str
+    status: TurnStatus
+    base_revisions: BaseRevisions
+    player_advice_id: str | None = None
+    action_intent_id: str | None = None
+    state_delta_id: str | None = None
+    committed_story_revision: JsonInteger | None = Field(default=None, ge=0)
+    narrative_block_id: str | None = None
+
