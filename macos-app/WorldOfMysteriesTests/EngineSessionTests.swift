@@ -1,5 +1,8 @@
 import Foundation
 import Testing
+#if canImport(AppKit)
+import AppKit
+#endif
 @testable import WorldOfMysteriesCore
 
 @Suite("Local Engine session boundaries")
@@ -76,3 +79,49 @@ struct EngineSessionTests {
         #expect(app.connectionError == nil)
     }
 }
+
+
+#if canImport(AppKit)
+extension EngineSessionTests {
+    @Test("Process lifecycle owns Engine bootstrap instead of a SwiftUI view")
+    @MainActor
+    func appDelegateOwnsBootstrap() async throws {
+        let config = EngineLaunchConfiguration(
+            executableURL: URL(fileURLWithPath: "/nonexistent/wom/python3"),
+            moduleDirectory: URL(fileURLWithPath: "/nonexistent/wom/engine")
+        )
+        let state = AppState(processManager: EngineProcessManager(configuration: config))
+        let delegate = EngineAppDelegate(appState: state)
+
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification)
+        )
+
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(2)
+        while state.connectionState == .idle || state.connectionState == .connecting {
+            guard clock.now < deadline else {
+                Issue.record("App lifecycle did not drive Engine bootstrap")
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(state.connectionState == .unavailable)
+        await state.shutdown()
+        #expect(state.connectionState == .idle)
+    }
+
+    @Test("ContentView no longer owns process bootstrap")
+    func viewSourceDoesNotStartEngine() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("WorldOfMysteries/ContentView.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("await appState.startAndConnect()"))
+    }
+}
+#endif

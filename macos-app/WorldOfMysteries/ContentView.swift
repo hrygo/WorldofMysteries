@@ -49,11 +49,6 @@ public struct ContentView: View {
             minHeight: WOMWindowMetrics.minimumHeight
         )
         .preferredColorScheme(.dark)
-        .task {
-            if appState.connectionState == .idle {
-                await appState.startAndConnect()
-            }
-        }
     }
 
     // MARK: - 状态条
