@@ -297,6 +297,22 @@ struct ComponentGalleryExperienceContractTests {
         #expect(capture.contains("helpers.capture_window"))
     }
 
+    @Test("runtime visual QA verifies real requested window geometry")
+    func runtimeVisualQAVerifiesWindowGeometry() throws {
+        let view = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryRuntimeVerificationView.swift"
+        )
+        let capture = try file(
+            "macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py"
+        )
+
+        #expect(view.contains("applyRequestedWindowGeometry()"))
+        #expect(view.contains("window.setFrame(frame, display: true, animate: false)"))
+        #expect(capture.contains("expected_size: Tuple[int, int]"))
+        #expect(capture.contains("geometry_verified"))
+        #expect(capture.contains("did not reach requested geometry"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

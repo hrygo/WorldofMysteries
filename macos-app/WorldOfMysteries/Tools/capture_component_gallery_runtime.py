@@ -120,7 +120,13 @@ def windows_for_pid(pid: int, window_tool: Path) -> List[Dict[str, int]]:
     return windows
 
 
-def primary_window(pid: int, window_tool: Path, timeout: float = 30.0) -> Dict[str, int]:
+def primary_window(
+    pid: int,
+    window_tool: Path,
+    expected_size: Tuple[int, int],
+    timeout: float = 30.0,
+    tolerance: int = 3,
+) -> Dict[str, int]:
     deadline = time.time() + timeout
     seen: List[Dict[str, int]] = []
     while time.time() < deadline:
@@ -132,10 +138,19 @@ def primary_window(pid: int, window_tool: Path, timeout: float = 30.0) -> Dict[s
             and window.get("width", 0) >= 500
             and window.get("height", 0) >= 400
         ]
-        if candidates:
-            return max(candidates, key=lambda item: item["width"] * item["height"])
+        exact = [
+            window
+            for window in candidates
+            if abs(window.get("width", 0) - expected_size[0]) <= tolerance
+            and abs(window.get("height", 0) - expected_size[1]) <= tolerance
+        ]
+        if exact:
+            return max(exact, key=lambda item: item["width"] * item["height"])
         time.sleep(0.4)
-    raise RuntimeError(f"no primary layer-0 window for pid {pid}; seen={seen}")
+    raise RuntimeError(
+        "runtime QA window did not reach requested geometry "
+        f"{expected_size[0]}x{expected_size[1]}pt; seen={seen}"
+    )
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -167,8 +182,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             write_preferences(args.bundle_id, item)
             pid = helpers.launch_app(app_name, app_path, executable)
             try:
-                window = primary_window(pid, window_tool)
-                time.sleep(1.0)
+                window = primary_window(pid, window_tool, (item.width, item.height))
+                time.sleep(0.8)
                 destination = out_dir / item.filename
                 helpers.capture_window(int(window["window_number"]), destination)
                 pixel_width, pixel_height = helpers.pixel_size(destination)
@@ -177,6 +192,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "requested_window_points": [item.width, item.height],
                     "observed_window_points": [window["width"], window["height"]],
                     "pixel_size": [pixel_width, pixel_height],
+                    "geometry_verified": (
+                        abs(window["width"] - item.width) <= 3
+                        and abs(window["height"] - item.height) <= 3
+                    ),
                     "sha256": helpers.sha256_of(destination),
                 }
                 print(

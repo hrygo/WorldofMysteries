@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -35,6 +36,9 @@ struct ComponentGalleryRuntimeVerificationView: View {
         .background(WOMWindowCanvas())
         .preferredColorScheme(.dark)
         .accessibilityIdentifier("wom.gallery.runtime-verification.\(scenario.rawValue)")
+        .onAppear {
+            applyRequestedWindowGeometry()
+        }
     }
 
     private var verificationHeader: some View {
@@ -202,6 +206,20 @@ struct ComponentGalleryRuntimeVerificationView: View {
             }
         }
     }
+    private func applyRequestedWindowGeometry() {
+        let defaults = UserDefaults.standard
+        let requestedWidth = defaults.double(forKey: Self.widthPreferenceKey)
+        let requestedHeight = defaults.double(forKey: Self.heightPreferenceKey)
+        guard requestedWidth > 0, requestedHeight > 0 else { return }
+
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+            var frame = window.frame
+            frame.size = NSSize(width: requestedWidth, height: requestedHeight)
+            window.setFrame(frame, display: true, animate: false)
+        }
+    }
+
 }
 
 nonisolated enum ComponentGalleryVerificationScenario: String, CaseIterable, Sendable {
