@@ -1,0 +1,115 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-DOMAIN-CONTRACT-PARITY-R3",
+  "capsule_revision": 3,
+  "task_id": "DOMAIN-CONTRACT-PARITY",
+  "title": "Restore Python domain contract parity with canonical JSON Schemas",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T09:37:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "target_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "context_snapshot": "sha256:fb4de884befcda60d1d42063a607db50e4aa98a94d69bc8d78a4622c57a1a46f"
+  },
+  "scope": {
+    "read": [
+      "contracts/schemas/",
+      "engine/contracts/",
+      "engine/tests/",
+      "fixtures/golden_001/",
+      "docs/07_工程启动/golden_001_runtime/"
+    ],
+    "write": [
+      "engine/contracts/models.py",
+      "engine/tests/test_contracts_pydantic.py",
+      ".agents/capsules/DOMAIN-CONTRACT-PARITY.json"
+    ],
+    "forbidden": [
+      "contracts/schemas/**",
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/contracts/models.py",
+      "engine/tests/test_contracts_pydantic.py",
+      "contracts/schemas/*.schema.json",
+      "fixtures/golden_001/",
+      "docs/07_工程启动/golden_001_runtime/mock/"
+    ],
+    "related_contracts": [
+      "character.schema.json",
+      "world_snapshot.schema.json",
+      "player_advice.schema.json",
+      "action_intent.schema.json",
+      "beat_plan.schema.json",
+      "narrative_block.schema.json",
+      "state_delta.schema.json",
+      "episode.schema.json",
+      "character_knowledge.schema.json"
+    ],
+    "slice_strategy": "explicit-contract-parity-slice",
+    "token_estimate": 2200,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 3 refreshes the validation base after documentation-only PR #69 merged. Contract implementation and parity-test blobs are unchanged."
+  },
+  "impact": {
+    "symbols": [
+      "Character",
+      "WorldSnapshot",
+      "PlayerAdvice",
+      "ActionIntent",
+      "BeatPlan",
+      "NarrativeBlock",
+      "StateDelta",
+      "Episode",
+      "CharacterKnowledge"
+    ],
+    "contracts": [
+      "contracts/schemas/*.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_contracts_pydantic.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      9,
+      12
+    ],
+    "instructions": "Do not change canonical JSON Schema semantics. Python Pydantic models must reject unknown/legacy shapes and validate Golden fixtures consistently with Draft 2020-12 schemas. IPC envelope remains unchanged.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-09",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-DOMAIN-CONTRACT-PARITY-R2"
+}
