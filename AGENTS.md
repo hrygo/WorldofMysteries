@@ -154,7 +154,8 @@ repo/
   macOS 的 AF_UNIX `sun_path` 上限为 104 字节（实测可用 103），而工作区路径本身已有 60+ 字符；把 TMPDIR
   放回工作区内会让 IPC 测试整片失败，而 CI 因没有租约文件、TMPDIR 保持系统默认反而恒绿——这种「本地假红」
   比失败更难排查。`spm_scratch` / `test_db_dir` / `log_dir` 不受该限制，仍留在工作区内便于取证；
-  `abort` 与 `integrate --auto-clean` 负责回收短命名空间。
+  `abort` 与 `integrate --auto-clean` 负责回收短命名空间。短命名空间不在工作区目录内，
+  **不会随工作区删除而消失**：不显式回收，`/tmp/wom-ws-*` 会独立残留（合并后回收见 §4.2 第 6 步）。
 
 ---
 
@@ -185,11 +186,14 @@ repo/
 ### 4.2 协同作业标准流程 (SOP)
 
 > **顺序不可颠倒**：`pack`（定基线）→ `start`（隔离工作区）→ 编码并**提交** → `verify`（签发凭单）→
-> 凭单作为独立提交带上 → `integrate` / `submit`。三条硬规则：
+> 凭单作为独立提交带上 → `integrate` / `submit` → **合入后回收工作区**。四条硬规则：
 > ① **`target_ref` 是合入目标（默认 `origin/main`），不是当前工作分支**；只有合入目标前进才判定上下文陈旧；
 > ② **先提交再验收**：`changes_digest` 取 `base_sha...HEAD` 的**已提交内容**，提交前执行只会得到空摘要；
 > ③ `.agents/capsules/` 与 `.agents/receipts/` 不计入摘要（否则「签发凭单 → 提交凭单」会让凭单自我失效），
-> 所以凭单必须在验收之后单独提交。
+> 所以凭单必须在验收之后单独提交；
+> ④ **合入即回收**：PR 显示 `MERGED` 后立即回收隔离工作区、本地分支与短路径运行时命名空间，
+> 不留到「下一个任务开始前」——含独立 `engine/.venv` 的孤立工作区是 GB 级磁盘占用，
+> 还会在 `git worktree list` 与 `collab_pipeline.py status` 里长期伪装成活跃工作区。
 
 1. **任务切片派发 (Pack)**：
    ```bash
@@ -243,6 +247,34 @@ repo/
      `.github/dependabot.yml`、`engine/uv.lock`、`macos-app/Package.resolved` 时，`Capsule Gate`
      按自动化维护 PR 放行，不要求胶囊与 Work Receipt（由 CI 三阶段门禁全权守门）。任何其他代码路径
      都必须携带胶囊与凭单；`*.md` 等文档属元数据，不参与代码胶囊判定。
+6. **合并后回收 (Cleanup)**：
+   ```bash
+   # 1. 先证明内容已落地（squash 合入后，分支提交不会出现在 main 历史上）
+   gh pr view <branch> --json state,mergedAt,mergeCommit
+   # 取 mergeCommit.oid 与本地分支尖端比对：输出为空即该分支内容已全部落在 main
+   git diff --stat "<mergeCommit.oid>" "<branch>"
+   # 2. 回收本地：工作区（含独立 .venv）+ 本地分支 + /tmp 短命名空间，一条命令三者齐清
+   python3 scripts/collab_pipeline.py abort --branch "<branch>"
+   # 3. 清掉远端已删除头分支留下的本地引用
+   git fetch --prune
+   ```
+   - **`abort` 是强制回收**：它执行 `git worktree remove --force` 与 `git branch -D`，会丢弃未提交改动与
+     未合入提交。动手前确认工作区干净（工作区位于 `../wom-worktrees/<branch-slug>/`，`<branch-slug>`
+     是分支名把 `/` 换成 `-`；`git -C ../wom-worktrees/<branch-slug> status --short` 应无输出），
+     并以第 1 步的证据确认内容已经落地；证据不足时保留工作区，不做强删。
+   - **`git branch --merged` 在本仓库会漏报**：主线走 squash 合入，分支提交不在 `origin/main` 历史上，
+     已合入的分支同样不出现在 `--merged` 结果里——靠它判断会把已合入分支当成「未合入」长期留着。
+     判定口径只有两条：PR 状态为 `MERGED`，或第 1 步的差分为空。
+   - **远端分支不归本地清理**：已合入的远端头分支由仓库的 auto-delete 设置回收，本地只需
+     `git fetch --prune` 清掉失效的 `origin/<branch>` 引用；删除仍存在的远端分支属远端状态变更，须单独授权。
+   - **只剩本地分支的残留**：工作区已被移除时 `abort` 会直接返回（找不到工作区、不删分支），
+     此时按上文证明内容已落地后另行 `git branch -D <branch>`，并核对租约记录的
+     `/tmp/wom-ws-<branch-hash>/` 是否已回收。
+   - **本地预演路径自带回收，PR 通道没有**：`integrate --auto-clean` 在合入后执行同一套回收
+     （工作区 + 分支 + 短命名空间）；走 PR 通道时 `submit` **不做任何回收**，第 6 步是唯一收尾，
+     漏掉就会留下孤儿工作区与分支。
+   - **收尾自检**：`python3 scripts/collab_pipeline.py status`、`git worktree list`、
+     `ls -d /tmp/wom-ws-*` 三处都应只剩活跃任务；已合入的分支不允许停留在任何一处。
 
 ---
 
