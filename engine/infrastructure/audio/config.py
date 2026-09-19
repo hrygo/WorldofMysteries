@@ -8,12 +8,15 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+_DEFAULT_SPEECHRAIL_BASE_URL = "http://127.0.0.1:8201/v1"
+
+
 @dataclass(frozen=True)
 class AudioProviderConfig:
     """Configuration for OpenAI-compatible ASR & TTS voice services."""
 
     provider_name: str = "speechrail"
-    base_url: str = "http://localhost:8080/v1"
+    base_url: str = _DEFAULT_SPEECHRAIL_BASE_URL
     api_key: str = "speechrail-local"
     asr_model: str = "whisper-1"
     tts_model: str = "tts-1"
@@ -32,7 +35,7 @@ class AudioProviderConfig:
         base_url = (
             os.getenv("OPENAI_AUDIO_BASE_URL")
             or os.getenv("SPEECHRAIL_BASE_URL")
-            or "http://localhost:8080/v1"
+            or _DEFAULT_SPEECHRAIL_BASE_URL
         )
         api_key = (
             os.getenv("OPENAI_AUDIO_API_KEY")

@@ -315,20 +315,21 @@ public struct WOMStatusBanner: View {
         .background(
             WOMPanelBackground(
                 tone: .card,
-                cornerRadius: DesignTokens.Radii.md,
+                cornerRadius: cornerRadius,
                 texture: .sacredSlate,
                 textureOpacity: 0.018
             )
         )
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(accentColor)
-                .frame(width: railWidth)
-                .padding(.vertical, DesignTokens.Spacing.xs)
-                .accessibilityHidden(true)
+        .overlay {
+            // 竖条与面板共用同一圆角轮廓，直边段与圆角段都与面板边缘 100% 拟合。
+            WOMLeadingRail(
+                color: accentColor,
+                cornerRadius: cornerRadius,
+                thickness: railWidth
+            )
         }
         .overlay {
-            RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(
                     accentColor.opacity(colorSchemeContrast == .increased ? 0.9 : 0.34),
                     style: StrokeStyle(
@@ -394,8 +395,15 @@ public struct WOMStatusBanner: View {
         feedbackAccentColor(tone)
     }
 
+    /// 竖条与面板背景必须共用同一圆角半径，否则两者无法拟合。
+    private var cornerRadius: CGFloat {
+        DesignTokens.Radii.md
+    }
+
     private var railWidth: CGFloat {
-        differentiateWithoutColor ? 5 : 3
+        differentiateWithoutColor
+            ? DesignTokens.ComponentMetrics.LeadingRail.thicknessDifferentiated
+            : DesignTokens.ComponentMetrics.LeadingRail.thickness
     }
 
     private var dashPattern: [CGFloat] {
@@ -408,8 +416,9 @@ public struct WOMStatusBanner: View {
     }
 }
 
+/// Tone → 语义色映射：feedback 类 surface（banner / loading / empty）共用同一份事实源。
 @MainActor
-private func feedbackAccentColor(_ tone: WOMFeedbackTone) -> Color {
+func feedbackAccentColor(_ tone: WOMFeedbackTone) -> Color {
     switch tone {
     case .info:
         Color.Mystic.spiritualBlue

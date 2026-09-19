@@ -1,0 +1,65 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M2-SQLITE-3534-RUNTIME-R2",
+  "capsule_revision": 2,
+  "task_id": "M2-SQLITE-3534-RUNTIME",
+  "title": "Align bundled data SQLite to 3.53.4 with isolated extension",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-18T22:11:10.137479+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "target_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "context_snapshot": "sha256:b249e717c6e52d3f581610069c370b0824a9eda861e8e2f845d35da8c6bf9b23"
+  },
+  "scope": {
+    "read": ["engine/","macos-app/Packaging/","scripts/","docs/03_工程规范/","docs/07_工程启动/",".agents/",".hacf/"],
+    "write": [
+      "macos-app/Packaging/data-sqlite.lock.json",
+      "scripts/build_data_sqlite.py","scripts/bundle_engine.py","scripts/build_macos_package.py",
+      "engine/infrastructure/sqlite_runtime.py","engine/infrastructure/database_schema.py","engine/infrastructure/database_manager.py",
+      "engine/tests/test_data_sqlite_runtime.py","engine/tests/test_bundle_engine.py","engine/tests/test_database_manager.py",
+      "docs/07_工程启动/M2_SQLite_3534_Runtime.md",".agents/capsules/M2-SQLITE-3534-RUNTIME.json"
+    ],
+    "forbidden": [
+      "engine/domain/**","engine/application/**","engine/ai/**","engine/infrastructure/ipc*","engine/infrastructure/audio/**",
+      "contracts/**","engine/uv.lock","engine/pyproject.toml","macos-app/WorldOfMysteries/**",
+      "macos-app/WorldOfMysteries.xcodeproj/**",".hacf/gates/**",".github/**"
+    ],
+    "privileged_grants": ["scripts/build_data_sqlite.py","scripts/bundle_engine.py","scripts/build_macos_package.py"]
+  },
+  "context": {
+    "core_manifest": [
+      "AGENTS.md","docs/03_工程规范/Data_Architecture_v1.0.md","docs/07_工程启动/M2_Data_Kernel_Foundation.md",
+      "macos-app/Packaging/python-runtime.lock.json","scripts/bundle_engine.py","scripts/build_macos_package.py",
+      "engine/infrastructure/database_schema.py","engine/infrastructure/database_manager.py"
+    ],
+    "related_contracts": ["contracts/engineering/task_capsule.schema.json"],
+    "slice_strategy": "arbiter-reviewed-explicit-files",
+    "token_estimate": 1900,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 2 refreshes the validation base after main advanced with HACF target-ref governance only. SQLite implementation blobs are unchanged from revision 1. Refs #58/#46/#53. Keep CPython 3.14.7 GIL arm64 and AgentScope 2.0.8; stage a private data-only SQLite 3.53.4 extension from pinned official CPython/SQLite sources. Do not relax the exact production version gate, depend on macOS system SQLite, or modify App IPC/Domain semantics. #55 signing remains independent."
+  },
+  "impact": {
+    "symbols": ["stage_engine","DatabaseManager","connect","initialize"],
+    "contracts": [],
+    "tests": ["engine/tests/test_data_sqlite_runtime.py","engine/tests/test_bundle_engine.py","engine/tests/test_database_manager.py"],
+    "migrations": []
+  },
+  "dependencies": {"depends_on": ["M2-DATA-KERNEL-FOUNDATION","M1-BUNDLED-RUNTIME"],"conflicts_with": []},
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [5,9,10,11,12],
+    "instructions": "Refs #58/#46/#53. Preserve Python 3.14.7 standard GIL arm64 and AgentScope 2.0.8. Build a private data-only CPython sqlite extension from pinned official Python 3.14.7 and SQLite 3.53.4 sources; package it with the Engine, record source hashes/features in the runtime manifest, and make infrastructure persistence use it while dev/test may explicitly exercise compatibility fallback. Production default must fail closed unless exact SQLite 3.53.4 is active. Validate STRICT/WAL/FTS5 trigram/backup and existing durable commit/idempotency/crash behavior. No system SQLite dependency, no user setup, no App/IPC/Domain behavior changes, no merge authorization. Preserve #55 separately.",
+    "assertions": ["INV-05","INV-09","INV-10","INV-11","INV-12"]
+  },
+  "supersedes": "CAP-M2-SQLITE-3534-RUNTIME"
+}

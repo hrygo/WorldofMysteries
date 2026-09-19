@@ -124,18 +124,42 @@
       "asset_name": "wom.art.scene.codex-archive",
       "width": 2560,
       "height": 1600,
-      "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
+      "sha256": "7367bdc60e3e1c3b531e2d44ceae96240a1b64a4bdea44f011909282f1fc9699",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 6219506,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=33b1528433741c5fc8af3747a472565760dad08ea553f4098fc009022d2a81bf",
+        "bytes_before": 7982031,
+        "bytes_after": 6219506,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.scene.codex-archive.wide",
       "width": 2400,
       "height": 900,
-      "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+      "sha256": "6d5161bf1f5a0d1babbf9c34367bef0a731342b7fe0f0ec847ac91604d4533e7",
       "derivation": "bottom_aligned_4096x1536_crop_from_master_then_downsample",
       "crop_anchor": "bottom",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 3312310,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=2d7067c34eff97f90040f1153d23bbabf1dcecf2d6031f3dd581bf8b921d3cdf",
+        "bytes_before": 4229447,
+        "bytes_after": 3312310,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     }
   ],
   "qa_record": "docs/05_UI/artwork/qa/W4_CODEX_ARCHIVE.qa.json",

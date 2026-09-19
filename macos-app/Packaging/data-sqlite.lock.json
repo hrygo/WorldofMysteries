@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "module_name": "_wom_sqlite3",
+  "python_version": "3.14.7",
+  "sqlite_version": "3.53.4",
+  "python_source": {
+    "url": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz",
+    "filename": "Python-3.14.7.tar.xz",
+    "size": 24053924,
+    "sha256": "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81"
+  },
+  "sqlite_source": {
+    "url": "https://www.sqlite.org/2026/sqlite-amalgamation-3530400.zip",
+    "filename": "sqlite-amalgamation-3530400.zip",
+    "sha256": "1e71ddf93849c6a6ecf58b827c0692073d2dd7ee40196158068f7b29f422e87d",
+    "sha3_256": "628a44cfe82c66aed1ccbbe85a562d2e33ebe64b3288981ed76285612227934e",
+    "sqlite3_c_sha3_256": "67f423e9ebbbdc473cbc4772c872ee6b89f31fde4ed0279a5c25d5f65c043a16"
+  },
+  "required_compile_options": [
+    "ENABLE_DBSTAT_VTAB",
+    "ENABLE_FTS3",
+    "ENABLE_FTS3_PARENTHESIS",
+    "ENABLE_FTS4",
+    "ENABLE_FTS5",
+    "ENABLE_GEOPOLY",
+    "ENABLE_MATH_FUNCTIONS",
+    "ENABLE_PERCENTILE",
+    "ENABLE_RTREE",
+    "THREADSAFE=1"
+  ]
+}

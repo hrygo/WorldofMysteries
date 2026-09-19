@@ -38,10 +38,13 @@ Example:
       --input A01_ARRODES_MIRROR/source.png --output work/A01_01_square_1254x1254.png
 
     python3 docs/05_UI/artwork/tools/finish_artifact_artwork.py record \
-      --task A01 --work-dir .hacf/tmp/artifact-work/A01_ARRODES_MIRROR \
+      --task A01 --work-dir docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR \
       --inspection docs/05_UI/artwork/qa/G3_artifact_structural_inspection_2026-09-18.json \
       --qa docs/05_UI/artwork/qa/A01_ARRODES_MIRROR.qa.json \
       --provenance docs/05_UI/artwork/provenance/A01_ARRODES_MIRROR.provenance.json
+
+    # 工作目录长期归宿是 workbench/（本机资产，不入库）：母版必须留在项目目录内，
+    # 不能只放在 .hacf/tmp 之类的临时目录，见 ../Asset_Storage_Policy_v1.0.md。
 """
 
 from __future__ import annotations
@@ -61,6 +64,15 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[3]
 DEFAULT_MANIFEST = REPO_ROOT / "docs/05_UI/artwork/delivery/approved_sources.json"
 DEFAULT_CANON_EVIDENCE = REPO_ROOT / "docs/05_UI/artwork/delivery/canon_evidence.json"
+
+# 美术方向对「装饰性铭刻文字」的批准：产品「无文字画面」政策不覆盖类符文铭刻，但例外必须来自
+# 一份可审计、可复算的决定文件——工具不做默认放行，决定没覆盖到就保持 gate 打开。
+DEFAULT_TEXT_DECISION = REPO_ROOT / "docs/05_UI/artwork/contracts/art_direction_text_decision.json"
+DECORATIVE_TEXT_DECISION_KIND = "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT"
+DECORATIVE_TEXT_DEFECT_PREFIX = "baked_readable_text"
+PROVENANCE_PENDING_STATUS = (
+    "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING"
+)
 
 # 运行时证据的复算原语（截图摘要校验、WCAG 对比度、归一化互相关）只有一份实现：世界/场景
 # 工具已经把它们用在 W1..W6 的 G5 上。神器记录复用同一份，阈值与算法不会在两套交付之间漂移。
@@ -866,6 +878,162 @@ def _canon_limit(canon_evidence: Dict[str, Any] | None, artifact_id: str) -> Dic
     return None
 
 
+def _repo_relative(path: Path) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(REPO_ROOT))
+    except ValueError:  # pragma: no cover - only for out-of-tree decision files
+        return str(path)
+
+
+def load_text_decision(
+    path: Path | None, *, required: bool
+) -> Tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+    """Read the recorded art-direction decision on decorative lettering.
+
+    A missing file is not an error unless the caller insists on one: records stay reproducible on
+    a checkout that does not carry the decision, and the gates simply stay open. A file that is
+    present but unreadable, of an unknown schema, or of a different decision kind is fatal.
+    """
+
+    candidate = Path(path) if path else None
+    if candidate is None or not candidate.is_file():
+        if required:
+            raise SystemExit(
+                f"text decision {candidate} is missing; refusing to apply an unrecorded decision"
+            )
+        return None, None
+    try:
+        document = load_json(candidate)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"text decision {candidate} is not valid JSON: {error}") from error
+    if document.get("schema_version") != 1:
+        raise SystemExit(f"text decision {candidate} has an unsupported schema_version")
+    if document.get("decision") != DECORATIVE_TEXT_DECISION_KIND:
+        raise SystemExit(
+            f"text decision {candidate} records {document.get('decision')!r}, not "
+            f"{DECORATIVE_TEXT_DECISION_KIND!r}"
+        )
+    reference = {
+        "record": _repo_relative(candidate),
+        "sha256": sha256_of(candidate),
+        "decision": document.get("decision"),
+        "decided_at": document.get("decided_at"),
+        "decided_by": document.get("decided_by"),
+    }
+    return document, reference
+
+
+def decision_block(
+    reference: Dict[str, Any] | None, revised_gates: List[str], applied_at: str | None
+) -> Dict[str, Any]:
+    return dict(
+        reference or {},
+        applied_to=revised_gates,
+        applied_at=applied_at or datetime.date.today().isoformat(),
+    )
+
+
+def verdict_from_gates(gates: Dict[str, Any]) -> Tuple[List[str], str]:
+    pending = [name for name, gate in gates.items() if gate.get("status") != "PASSED"]
+    return pending, ("PASSED" if not pending else "PRODUCTION_EVIDENCE_PENDING")
+
+
+def qa_status_for(pending_gates: List[str]) -> str:
+    return (
+        "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING"
+        if "G4_production" not in pending_gates
+        else "MACOS_FINISHING_PENDING"
+    )
+
+
+def reviewers_for(revised_gates: List[str]) -> List[str]:
+    reviewers = [
+        "interactive_art_direction_approval",
+        "macos_finishing_pipeline_finish_artifact_artwork.py",
+    ]
+    if revised_gates:
+        reviewers.append("art_direction_text_decision")
+    return reviewers
+
+
+def apply_text_decision_to_gates(
+    gates: Dict[str, Any],
+    decision: Dict[str, Any] | None,
+    reference: Dict[str, Any] | None,
+    artwork_id: str,
+    applied_at: str | None,
+) -> List[str]:
+    """Close G0/G3 for lettering the art direction has accepted, and nothing else.
+
+    The exception is deliberately narrow: only defects whose id starts with the tool's own
+    lettering vocabulary can be cleared, only when the inspection recorded that exact defect, and
+    only for an artwork the decision names. Any other unrecorded or structural defect keeps G3
+    open.
+    """
+
+    entry = ((decision or {}).get("artifacts") or {}).get(artwork_id)
+    if not entry or not entry.get("text_approved"):
+        return []
+    accepted_ids = list(entry.get("accepted_defects") or [])
+    revised: List[str] = []
+
+    g0 = gates.get("G0_semantic") or {}
+    findings = g0.get("baked_text_findings") or []
+    if (
+        g0.get("status") != "PASSED"
+        and g0.get("typography_detected")
+        and (g0.get("primary_read") or "").strip()
+        and findings
+    ):
+        g0["status"] = "PASSED"
+        g0["status_basis"] = "ART_DIRECTION_ACCEPTED_DECORATIVE_INSCRIPTION"
+        g0["accepted_text_findings"] = findings
+        g0["text_decision"] = decision_block(reference, ["G0_semantic"], applied_at)
+        g0["notes"] = [
+            note for note in g0.get("notes", []) if "text-free art" not in note
+        ] + [
+            "The baked lettering was accepted as decorative inscription "
+            f"({entry.get('note') or 'engraved and spine lettering is material, not product copy'}), "
+            "so G0 passes without regenerating the source."
+        ]
+        revised.append("G0_semantic")
+
+    g3 = gates.get("G3_structure") or {}
+    if g3.get("status") != "PASSED":
+        defects = list(g3.get("defects_found") or [])
+        for defect in accepted_ids:
+            if not defect.startswith(DECORATIVE_TEXT_DEFECT_PREFIX):
+                raise SystemExit(
+                    f"decision {reference.get('record')} accepts {defect!r}, which is not a "
+                    "recorded lettering defect; only baked-text findings can be accepted"
+                )
+            if defect not in defects:
+                raise SystemExit(
+                    f"decision {reference.get('record')} accepts {defect!r}, which the inspection "
+                    "did not record for this artwork; refusing to clear an unrecorded defect"
+                )
+        scales = {int(value) for value in g3.get("inspection_scales_percent", [])}
+        blocking = [defect for defect in defects if defect not in accepted_ids]
+        if (
+            accepted_ids
+            and not blocking
+            and {25, 100, 200} <= scales
+            and (g3.get("method") or "").strip()
+        ):
+            g3["status"] = "PASSED"
+            g3["accepted_defects"] = accepted_ids
+            g3["blocking_defects"] = []
+            g3["text_decision"] = decision_block(reference, ["G3_structure"], applied_at)
+            g3["notes"] = [
+                note for note in g3.get("notes", []) if "Defects were recorded" not in note
+            ] + [
+                "The only recorded defects are the accepted decorative lettering; nothing else "
+                "remains, so G3 passes."
+            ]
+            revised.append("G3_structure")
+    return revised
+
+
 def _evaluate_structural(inspection: Dict[str, Any] | None) -> Tuple[str, Dict[str, Any]]:
     if not inspection:
         return "PENDING_MACOS_FINISHING", {
@@ -1373,8 +1541,13 @@ def command_record(args: argparse.Namespace) -> int:
         "G4_production": g4,
         "G5_runtime": g5,
     }
-    pending_gates = [name for name, gate in gates.items() if gate["status"] != "PASSED"]
-    final_verdict = "PASSED" if not pending_gates else "PRODUCTION_EVIDENCE_PENDING"
+    text_decision, text_decision_reference = load_text_decision(
+        Path(args.text_decision) if args.text_decision else None, required=False
+    )
+    revised_gates = apply_text_decision_to_gates(
+        gates, text_decision, text_decision_reference, artwork_id, reviewed_at
+    )
+    pending_gates, final_verdict = verdict_from_gates(gates)
 
     source_sha = crop_report["input"]["sha256"]
     production_evidence = {
@@ -1412,11 +1585,7 @@ def command_record(args: argparse.Namespace) -> int:
         "artifact_id": target["artifact_id"],
         "asset_name": asset_name,
         "contract_version": 1,
-        "status": (
-            "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING"
-            if "G4_production" not in pending_gates
-            else "MACOS_FINISHING_PENDING"
-        ),
+        "status": qa_status_for(pending_gates),
         "selected_candidate_id": f"{args.task}_SELECTED_SOURCE",
         "source": {
             "source_id": target["source_id"],
@@ -1429,10 +1598,7 @@ def command_record(args: argparse.Namespace) -> int:
         "gates": gates,
         "final_verdict": final_verdict,
         "pending_gates": pending_gates,
-        "reviewers": [
-            "interactive_art_direction_approval",
-            "macos_finishing_pipeline_finish_artifact_artwork.py",
-        ],
+        "reviewers": reviewers_for(revised_gates),
         "reviewed_at": reviewed_at,
         "production_contract": {
             "artifact_master_baseline": list(MASTER_SIZE),
@@ -1446,6 +1612,10 @@ def command_record(args: argparse.Namespace) -> int:
         "task_id": args.task,
         "production_evidence": production_evidence,
     }
+    if revised_gates:
+        qa["text_policy_decision"] = decision_block(
+            text_decision_reference, revised_gates, reviewed_at
+        )
 
     provenance = {
         "artwork_id": artwork_id,
@@ -1588,6 +1758,10 @@ def command_record(args: argparse.Namespace) -> int:
         "gates": {name: gate["status"] for name, gate in gates.items()},
         "shipping_approved": False,
     }
+    if revised_gates:
+        provenance["text_policy_decision"] = decision_block(
+            text_decision_reference, revised_gates, reviewed_at
+        )
 
     if pending_gates and args.require_complete:
         report(
@@ -1614,6 +1788,89 @@ def command_record(args: argparse.Namespace) -> int:
             "pending_gates": pending_gates,
             "qa": str(args.qa),
             "provenance": str(args.provenance),
+        }
+    )
+    return 0
+
+
+def command_apply_text_decision(args) -> int:
+    """Revise G0/G3 of an already recorded Artifact from a recorded decorative-text decision.
+
+    运行时截图证据不入库，历史记录里的 G5 无法在本地重放，所以整条 `record` 无法为已交付的成品
+    重跑。本命令只施加美术方向决定并复算派生字段，其余 gate 逐字沿用输入记录，同时把输入记录的
+    sha256 记入决定凭据，便于审计「哪一份记录被哪一条决定修订过」。
+    """
+
+    qa_path = Path(args.qa)
+    provenance_path = Path(args.provenance)
+    decision, reference = load_text_decision(Path(args.decision), required=True)
+
+    qa = load_json(qa_path)
+    provenance = load_json(provenance_path)
+    artwork_id = qa.get("artwork_id")
+    if not artwork_id or provenance.get("artwork_id") != artwork_id:
+        raise SystemExit(
+            "QA and provenance records do not describe the same artwork; refusing to revise"
+        )
+
+    gates = qa.get("gates") or {}
+    recorded = {name: gate.get("status") for name, gate in gates.items()}
+    if provenance.get("gates") != recorded:
+        raise SystemExit(
+            "QA and provenance gate statuses disagree; refusing to revise either record"
+        )
+
+    source_record_sha256 = sha256_of(qa_path)
+    revised = apply_text_decision_to_gates(
+        gates, decision, reference, artwork_id, args.applied_at
+    )
+    if not revised:
+        report(
+            {
+                "operation": "apply-text-decision",
+                "result": "NO_CHANGE",
+                "reason": "the recorded decision does not cover this artwork",
+                "qa": str(qa_path),
+                "decision": reference.get("record"),
+            }
+        )
+        return 0
+
+    pending_gates, final_verdict = verdict_from_gates(gates)
+    block = dict(
+        decision_block(reference, revised, args.applied_at),
+        revised_from_record_sha256=source_record_sha256,
+    )
+    qa["status"] = qa_status_for(pending_gates)
+    qa["pending_gates"] = pending_gates
+    qa["final_verdict"] = final_verdict
+    qa["text_policy_decision"] = block
+    if "art_direction_text_decision" not in (qa.get("reviewers") or []):
+        qa["reviewers"] = list(qa.get("reviewers") or []) + ["art_direction_text_decision"]
+
+    if final_verdict == "PASSED":
+        provenance["status"] = "APPROVED"
+    elif provenance.get("status") != PROVENANCE_PENDING_STATUS:
+        raise SystemExit(
+            f"provenance status {provenance.get('status')!r} is not the finishing-pending value; "
+            "refusing to rewrite it"
+        )
+    provenance["gates"] = {name: gate.get("status") for name, gate in gates.items()}
+    provenance["text_policy_decision"] = block
+
+    write_json(qa_path, qa)
+    write_json(provenance_path, provenance)
+    report(
+        {
+            "operation": "apply-text-decision",
+            "result": "REVISED",
+            "artwork_id": artwork_id,
+            "revised_gates": revised,
+            "pending_gates": pending_gates,
+            "final_verdict": final_verdict,
+            "decision": reference.get("record"),
+            "qa": str(qa_path),
+            "provenance": str(provenance_path),
         }
     )
     return 0
@@ -1700,10 +1957,25 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--catalog-root", default=None)
     record.add_argument("--generation-id", default=None)
     record.add_argument("--reviewed-at", default=None)
+    record.add_argument(
+        "--text-decision",
+        default=str(DEFAULT_TEXT_DECISION),
+        help="recorded art-direction decision on decorative lettering (G0/G3 exception)",
+    )
     record.add_argument("--qa", required=True)
     record.add_argument("--provenance", required=True)
     record.add_argument("--require-complete", action="store_true")
     record.set_defaults(handler=command_record)
+
+    text = sub.add_parser(
+        "apply-text-decision",
+        help="revise G0/G3 of an existing record from a recorded decorative-text decision",
+    )
+    text.add_argument("--qa", required=True)
+    text.add_argument("--provenance", required=True)
+    text.add_argument("--decision", default=str(DEFAULT_TEXT_DECISION))
+    text.add_argument("--applied-at", default=None)
+    text.set_defaults(handler=command_apply_text_decision)
 
     return parser
 

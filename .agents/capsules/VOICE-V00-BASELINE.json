@@ -1,0 +1,134 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V00-BASELINE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V00-BASELINE",
+  "title": "Voice V00 connection and confidence baseline",
+  "assigned_role": "AGT-VOICE",
+  "status": "CREATED",
+  "created_at": "2026-09-19T02:49:42.783255+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "193d04f4c26512dde814cd07acb91bf67601a4b3",
+    "target_sha": "193d04f4c26512dde814cd07acb91bf67601a4b3",
+    "context_snapshot": "sha256:5787a88427397ad01b9d78b0209d069797607ced0603aac4ca74a6a2088d4624"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/infrastructure/audio/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/domain/audio_voice.py",
+      "engine/infrastructure/audio/",
+      "engine/tests/test_audio_adapter.py"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ASRResult@engine/domain/audio_voice.py:11",
+      "symbol:SpeechResult@engine/domain/audio_voice.py:21",
+      "symbol:ASRProviderProtocol@engine/domain/audio_voice.py:30",
+      "symbol:TTSProviderProtocol@engine/domain/audio_voice.py:44",
+      "symbol:AudioVoiceEngineProtocol@engine/domain/audio_voice.py:59",
+      "symbol:transcribe@engine/domain/audio_voice.py:33",
+      "symbol:synthesize@engine/domain/audio_voice.py:47",
+      "symbol:process_user_speech@engine/domain/audio_voice.py:62",
+      "symbol:render_narrative_speech@engine/domain/audio_voice.py:66",
+      "symbol:AudioProviderConfig@engine/infrastructure/audio/config.py:12",
+      "symbol:from_env@engine/infrastructure/audio/config.py:24",
+      "symbol:MockAudioAdapter@engine/infrastructure/audio/mock_adapter.py:7",
+      "symbol:__init__@engine/infrastructure/audio/mock_adapter.py:10",
+      "symbol:transcribe@engine/infrastructure/audio/mock_adapter.py:20",
+      "symbol:synthesize@engine/infrastructure/audio/mock_adapter.py:34",
+      "symbol:OpenAIAudioAdapter@engine/infrastructure/audio/openai_adapter.py:9",
+      "symbol:create_audio_adapter@engine/infrastructure/audio/openai_adapter.py:87",
+      "symbol:__init__@engine/infrastructure/audio/openai_adapter.py:17",
+      "symbol:provider_name@engine/infrastructure/audio/openai_adapter.py:26",
+      "symbol:base_url@engine/infrastructure/audio/openai_adapter.py:30",
+      "symbol:transcribe@engine/infrastructure/audio/openai_adapter.py:33",
+      "symbol:synthesize@engine/infrastructure/audio/openai_adapter.py:56",
+      "symbol:test_audio_provider_config_default_speechrail@engine/tests/test_audio_adapter.py:15",
+      "symbol:test_audio_provider_config_hot_swap_to_third_party@engine/tests/test_audio_adapter.py:26",
+      "symbol:test_openai_audio_adapter_conforms_to_domain_protocols@engine/tests/test_audio_adapter.py:46",
+      "symbol:test_openai_audio_adapter_transcribe_mocked@engine/tests/test_audio_adapter.py:55",
+      "symbol:test_openai_audio_adapter_synthesize_mocked@engine/tests/test_audio_adapter.py:85",
+      "symbol:test_mock_audio_adapter_deterministic@engine/tests/test_audio_adapter.py:116"
+    ],
+    "related_contracts": [
+      "audio_asset_ref.schema.json",
+      "performance_plan.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 691,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ASRResult",
+      "SpeechResult",
+      "ASRProviderProtocol",
+      "TTSProviderProtocol",
+      "AudioVoiceEngineProtocol",
+      "transcribe",
+      "synthesize",
+      "process_user_speech",
+      "render_narrative_speech",
+      "AudioProviderConfig",
+      "from_env",
+      "MockAudioAdapter",
+      "__init__",
+      "transcribe",
+      "synthesize",
+      "OpenAIAudioAdapter",
+      "create_audio_adapter",
+      "__init__",
+      "provider_name",
+      "base_url",
+      "transcribe",
+      "synthesize",
+      "test_audio_provider_config_default_speechrail",
+      "test_audio_provider_config_hot_swap_to_third_party",
+      "test_openai_audio_adapter_conforms_to_domain_protocols",
+      "test_openai_audio_adapter_transcribe_mocked",
+      "test_openai_audio_adapter_synthesize_mocked",
+      "test_mock_audio_adapter_deterministic"
+    ],
+    "contracts": [
+      "audio_asset_ref.schema.json",
+      "performance_plan.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "VOICE_P0",
+    "profile_digest": "sha256:f8bc1e2bd98aad63fc6204e5e647a92f7916437bcde74318ef4766537f3db832",
+    "profile_file": ".hacf/gates/voice_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      9
+    ],
+    "instructions": "维护 OpenAI Audio API 规范对接与 SpeechRail 热拔插，落实内容寻址缓存与静音降级。",
+    "assertions": [
+      "INV-09"
+    ]
+  }
+}

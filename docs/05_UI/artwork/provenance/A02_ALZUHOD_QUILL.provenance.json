@@ -1,7 +1,7 @@
 {
   "artwork_id": "A02_ALZUHOD_QUILL",
   "artifact_id": "alzuhodQuill",
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "status": "APPROVED",
   "source": {
     "source_id": "A02_ALZUHOD_QUILL",
     "sha256": "dd6c4cd3f43375314b5108f4b292724fcec3394fe736282c5e8ec42f34567509",
@@ -138,26 +138,63 @@
       "asset_name": "wom.art.artifact.alzuhod-quill.detail",
       "width": 1024,
       "height": 1024,
-      "sha256": "368af4f5bd8ead2d999088bc092609c1ba7e13b5d9b15315b1813379eb43e3ed",
+      "sha256": "1c577a32a282ee99e5acbbf3b9c9de176f94c2beedc7d2554733d547f3a07838",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 1492032,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=a8f6b396652368d8034da3c0c79beecaf7735b9abe8ff728833a4691c9e8b956",
+        "bytes_before": 1500683,
+        "bytes_after": 1492032,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.artifact.alzuhod-quill.thumbnail",
       "width": 512,
       "height": 512,
-      "sha256": "9f775e9657a4b841e0c5b653206c9a7fbc94bbb2724b88a8135d70b2848c055b",
+      "sha256": "826f9f4eb0b5a26a92e493f9ff48049f7de3560c3e28e56cc3ebcb231628ef7d",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 418156,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=b1ad14bf386eef5897c013bae5a7c88ba570ee1602ff138c5849b39883092b84",
+        "bytes_before": 419262,
+        "bytes_after": 418156,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     }
   ],
   "gates": {
-    "G0_semantic": "PENDING_MACOS_FINISHING",
+    "G0_semantic": "PASSED",
     "G1_canon_atmosphere": "PASSED",
     "G2_composition": "PASSED",
-    "G3_structure": "PENDING_MACOS_FINISHING",
+    "G3_structure": "PASSED",
     "G4_production": "PASSED",
     "G5_runtime": "PASSED"
   },
-  "shipping_approved": false
+  "shipping_approved": false,
+  "text_policy_decision": {
+    "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+    "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+    "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+    "decided_at": "2026-09-19",
+    "decided_by": "user",
+    "applied_to": [
+      "G0_semantic",
+      "G3_structure"
+    ],
+    "applied_at": "2026-09-19",
+    "revised_from_record_sha256": "19ef1f87fbcd1ce8e9dd750967c4817f5754c9ea57f3b935dd75a285ea1ed432"
+  }
 }

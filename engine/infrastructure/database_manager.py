@@ -19,13 +19,14 @@ import json
 import os
 from pathlib import Path
 import re
-import sqlite3
+from .sqlite_runtime import sqlite3
 import tempfile
 import threading
 from typing import Callable, Protocol
 import uuid
 
 from .database_schema import SQLITE_VERSION, StorageError, check_file, connect, initialize, integrity, read_rows
+from .sqlite_runtime import BUNDLED_DATA_SQLITE
 
 
 class DatabaseManagerProtocol(Protocol):
@@ -198,11 +199,15 @@ class DatabaseManager:
         self._world_identity = None
 
     @classmethod
-    async def open(cls, paths: DatabasePaths, *, expected_sqlite_version: str = SQLITE_VERSION,
+    async def open(cls, paths: DatabasePaths, *, expected_sqlite_version: str | None = None,
                    fault_hook: Callable[[str], None] | None = None) -> DatabaseManager:
-        # Explicit version override is compatibility-test injection, not a production
-        # fallback or environment setting. Production default is the approved pin.
-        if sqlite3.sqlite_version != expected_sqlite_version or sqlite3.sqlite_version_info < (3, 37, 0):
+        # None is the production path: exact approved version AND the private bundled
+        # driver are mandatory. An explicit version is compatibility-test injection,
+        # never an environment-driven production fallback.
+        production = expected_sqlite_version is None
+        expected = SQLITE_VERSION if production else expected_sqlite_version
+        if (sqlite3.sqlite_version != expected or sqlite3.sqlite_version_info < (3, 37, 0)
+                or (production and not BUNDLED_DATA_SQLITE)):
             raise StorageError('SQLite runtime does not match the required baseline')
         self = cls(paths.normalized(), fault_hook=fault_hook)
         try:

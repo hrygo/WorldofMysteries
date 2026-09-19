@@ -36,6 +36,10 @@ public struct FateArtifactInterventionView: View {
       }
 
       runtimeHint
+
+      MysticDivider(tone: .gold)
+
+      artifactLibrarySection
     }
     .padding(DesignTokens.LayoutInsets.cardPadding)
     .womCardChrome(
@@ -46,6 +50,85 @@ public struct FateArtifactInterventionView: View {
     .sheet(item: $presentedArtifact) { artifactID in
       artifactSheet(for: artifactID)
     }
+  }
+
+  /// 特殊物品档案库：把 15 件已批准的神器美术全部放进命运场景。
+  ///
+  /// 这是只读登记视图，不是第二套背包：它不伪造任何世界状态，也不替代玩法组件。
+  /// 15 件中只有少数是当前局势下的命运干预工具；其余物品的玩法组件需要真实的
+  /// World / Story 上下文，缺上下文时强行打开只会得到伪造事实。
+  private var artifactLibrarySection: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+      WOMSceneHeroHeader(
+        scene: .artifactLibrary,
+        icon: .asset(.artifact),
+        title: "特殊物品档案库 (Artifact Library)"
+      ) {
+        MysticBadge(
+          "\(ArtifactRegistry.all.count) 件已登记",
+          tone: .gold,
+          variant: .panel,
+          systemIcon: "seal"
+        )
+      }
+
+      LazyVGrid(
+        columns: [
+          GridItem(
+            .adaptive(minimum: 108, maximum: 168),
+            spacing: DesignTokens.Spacing.sm,
+            alignment: .top
+          )
+        ],
+        alignment: .leading,
+        spacing: DesignTokens.Spacing.sm
+      ) {
+        ForEach(ArtifactRegistry.all) { descriptor in
+          libraryTile(descriptor)
+        }
+      }
+
+      Text("档案库为只读登记视图：只有绑定活动 World / Story 上下文的物品才会开放玩法组件。")
+        .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  private func libraryTile(_ descriptor: ArtifactDescriptor) -> some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+      WOMArtworkView(
+        assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+        fallback: .systemImage(descriptor.systemIcon),
+        fallbackTint: descriptor.tone.accent,
+        contentMode: .fit,
+        accessibilityLabel: descriptor.displayName
+      )
+      .frame(width: 56, height: 56)
+      .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous))
+      .overlay {
+        RoundedRectangle(cornerRadius: DesignTokens.Radii.sm, style: .continuous)
+          .stroke(descriptor.tone.accent.opacity(0.24), lineWidth: DesignTokens.Borders.hairline)
+      }
+
+      Text(descriptor.displayName)
+        .font(Font.Mystic.caption)
+        .foregroundStyle(Color.Mystic.textPrimary)
+        .fixedSize(horizontal: false, vertical: true)
+
+      Text(descriptor.subtitle)
+        .font(Font.Mystic.monoBadge)
+        .foregroundStyle(Color.Mystic.textTertiary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(DesignTokens.LayoutInsets.compactCardPadding)
+    .womCardChrome(
+      tone: .card,
+      texture: .sacredSlate,
+      cornerRadius: DesignTokens.Radii.md
+    )
+    .help(descriptor.shortGameplay)
   }
 
   private var header: some View {

@@ -9,12 +9,21 @@ from typing import Optional, Protocol, runtime_checkable
 
 @dataclass(frozen=True)
 class ASRResult:
-    """Domain representation of speech-to-text transcript output."""
+    """Domain representation of speech-to-text transcript output.
+
+    Confidence is optional because OpenAI-compatible transcription APIs do not
+    universally return a calibrated utterance-level confidence score. Missing
+    evidence must stay unknown instead of being promoted to 1.0.
+    """
 
     transcript: str
-    confidence: float = 1.0
+    confidence: Optional[float] = None
     duration_seconds: Optional[float] = None
     language: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("ASR confidence must be between 0.0 and 1.0")
 
 
 @dataclass(frozen=True)
