@@ -411,8 +411,11 @@ class MediaGrantStore:
             header.max_payload_bytes,
             header.initial_credit_bytes,
         )
-        # The ticket is burned on any mismatch, preventing iterative probing.
-        if not hmac.compare_digest(repr(expected), repr(actual)):
+        # The bearer ticket was already resolved through its 256-bit digest.
+        # Grant metadata is not secret; compare structure directly so valid
+        # Unicode trace identifiers remain supported. The ticket is still
+        # burned before this check, preventing iterative probing.
+        if expected != actual:
             raise MediaProtocolError("media_grant_mismatch")
         return grant
 
