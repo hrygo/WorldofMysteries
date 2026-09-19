@@ -44,8 +44,8 @@ for window in windows {
     let width = Int((bounds["Width"] as? Double ?? 0).rounded())
     let height = Int((bounds["Height"] as? Double ?? 0).rounded())
     print(
-        "{\"window_number\": \\(number), \"pid\": \\(pid), "
-            + "\"width\": \\(width), \"height\": \\(height), \"layer\": \\(layer)}"
+        "{\"window_number\": \(number), \"pid\": \(pid), "
+            + "\"width\": \(width), \"height\": \(height), \"layer\": \(layer)}"
     )
 }
 """
