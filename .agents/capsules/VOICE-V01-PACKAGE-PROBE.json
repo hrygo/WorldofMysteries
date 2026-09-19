@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V01-PACKAGE-PROBE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V01-PACKAGE-PROBE",
+  "title": "Voice V01 packaging probe source closure",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T06:50:58.780419+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "6f0be1003a4120f04b8ddec443b8444822c5bb11",
+    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "context_snapshot": "sha256:43713b047e4c8ece7f8125d087a9cf1d6934abbfda9cadf1162ee857df9207de"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:350",
+      "symbol:probe_layout@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:303",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:327",
+      "symbol:test_probe_regions_land_on_the_text_block@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:260",
+      "symbol:test_probe_layout_fits_the_probe_window@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:143",
+      "symbol:test_probe_regions_sit_inside_the_probe_band@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:174",
+      "symbol:_probe@scripts/build_data_sqlite.py:236",
+      "symbol:macho_files@scripts/build_macos_package.py:34",
+      "symbol:validate_load_paths@scripts/build_macos_package.py:44",
+      "symbol:sign_bundle@scripts/build_macos_package.py:63",
+      "symbol:minimal_environment@scripts/build_macos_package.py:95",
+      "symbol:children@scripts/build_macos_package.py:105",
+      "symbol:_process_path_function@scripts/build_macos_package.py:121",
+      "symbol:process_executable@scripts/build_macos_package.py:130",
+      "symbol:is_bundled_engine@scripts/build_macos_package.py:147",
+      "symbol:await_engine@scripts/build_macos_package.py:157",
+      "symbol:process_exists@scripts/build_macos_package.py:172",
+      "symbol:release_app_probe@scripts/build_macos_package.py:180",
+      "symbol:packaged_probe@scripts/build_macos_package.py:235",
+      "symbol:build@scripts/build_macos_package.py:261",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 742,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "probe_text_regions",
+      "probe_layout",
+      "probe_text_regions",
+      "test_probe_regions_land_on_the_text_block",
+      "test_probe_layout_fits_the_probe_window",
+      "test_probe_regions_sit_inside_the_probe_band",
+      "_probe",
+      "macho_files",
+      "validate_load_paths",
+      "sign_bundle",
+      "minimal_environment",
+      "children",
+      "_process_path_function",
+      "process_executable",
+      "is_bundled_engine",
+      "await_engine",
+      "process_exists",
+      "release_app_probe",
+      "packaged_probe",
+      "build",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
