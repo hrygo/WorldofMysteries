@@ -258,6 +258,100 @@ public nonisolated struct MediaErrorHeader: Codable, Sendable, Equatable {
     }
 }
 
+
+public nonisolated struct MediaOpenGrant: Sendable, Equatable, CustomStringConvertible {
+    public let socketPath: String
+    public let streamId: String
+    public let traceId: String
+    public let engineEpoch: String
+    public let generation: Int64
+    public let direction: MediaDirection
+    public let format: MediaFormat
+    public let maxPayloadBytes: Int
+    public let initialCreditBytes: Int
+    public let expiresInMs: Int
+    private let ticket: String
+
+    public var description: String {
+        "MediaOpenGrant(streamId: <redacted>, generation: \(generation), direction: \(direction.rawValue))"
+    }
+
+    public init(payload: [String: AnyCodableValue]) throws {
+        let expected: Set<String> = [
+            "protocol_version", "socket_path", "stream_id", "trace_id", "engine_epoch",
+            "generation", "ticket", "direction", "format", "max_payload_bytes",
+            "initial_credit_bytes", "expires_in_ms",
+        ]
+        guard Set(payload.keys) == expected,
+              payload["protocol_version"] == .string(MediaFrameCodec.protocolVersion),
+              case .string(let socketPath) = payload["socket_path"],
+              !socketPath.isEmpty, socketPath.utf8.count < 512, !socketPath.utf8.contains(0),
+              case .string(let streamId) = payload["stream_id"],
+              case .string(let traceId) = payload["trace_id"],
+              case .string(let engineEpoch) = payload["engine_epoch"],
+              case .int(let generationValue) = payload["generation"], generationValue >= 0,
+              case .string(let ticket) = payload["ticket"],
+              case .string(let rawDirection) = payload["direction"],
+              let direction = MediaDirection(rawValue: rawDirection),
+              case .object(let rawFormat) = payload["format"],
+              Set(rawFormat.keys) == ["codec", "sample_rate", "channels"],
+              case .string(let codec) = rawFormat["codec"],
+              case .int(let sampleRate) = rawFormat["sample_rate"],
+              case .int(let channels) = rawFormat["channels"],
+              case .int(let maxPayloadBytes) = payload["max_payload_bytes"],
+              case .int(let initialCreditBytes) = payload["initial_credit_bytes"],
+              case .int(let expiresInMs) = payload["expires_in_ms"],
+              (1...30_000).contains(expiresInMs)
+        else {
+            throw EngineConnectionError.invalidFrame
+        }
+
+        let format = MediaFormat(codec: codec, sampleRate: sampleRate, channels: channels)
+        let open = MediaOpenHeader(
+            streamId: streamId,
+            traceId: traceId,
+            engineEpoch: engineEpoch,
+            generation: Int64(generationValue),
+            ticket: ticket,
+            direction: direction,
+            format: format,
+            maxPayloadBytes: maxPayloadBytes,
+            initialCreditBytes: initialCreditBytes
+        )
+        do {
+            _ = try MediaFrameCodec.encodeHeader(.open(open))
+        } catch {
+            throw EngineConnectionError.invalidFrame
+        }
+
+        self.socketPath = socketPath
+        self.streamId = streamId
+        self.traceId = traceId
+        self.engineEpoch = engineEpoch
+        self.generation = Int64(generationValue)
+        self.ticket = ticket
+        self.direction = direction
+        self.format = format
+        self.maxPayloadBytes = maxPayloadBytes
+        self.initialCreditBytes = initialCreditBytes
+        self.expiresInMs = expiresInMs
+    }
+
+    package func makeOpenHeader() -> MediaOpenHeader {
+        MediaOpenHeader(
+            streamId: streamId,
+            traceId: traceId,
+            engineEpoch: engineEpoch,
+            generation: generation,
+            ticket: ticket,
+            direction: direction,
+            format: format,
+            maxPayloadBytes: maxPayloadBytes,
+            initialCreditBytes: initialCreditBytes
+        )
+    }
+}
+
 public nonisolated enum MediaHeader: Sendable, Equatable {
     case open(MediaOpenHeader)
     case chunk(MediaChunkHeader)

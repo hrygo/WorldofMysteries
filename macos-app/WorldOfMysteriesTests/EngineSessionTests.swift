@@ -30,6 +30,21 @@ struct EngineSessionTests {
         #expect(!EngineConnectionState.unavailable.isReady)
     }
 
+    @Test("Handshake capability remains the authority for media.open")
+    func mediaCapabilityGate() async {
+        let client = EngineIPCClient(requestTimeout: 0.1)
+        do {
+            _ = try await client.openMedia(
+                direction: .engineToApp,
+                generation: 1,
+                format: MediaFormat(sampleRate: 24000)
+            )
+            Issue.record("Media opened without an authenticated control connection")
+        } catch {
+            #expect(error as? EngineConnectionError == .notConnected)
+        }
+    }
+
     @Test("Production connection cannot succeed without a socket")
     func noEcho() async {
         let client = EngineIPCClient(requestTimeout: 0.1)

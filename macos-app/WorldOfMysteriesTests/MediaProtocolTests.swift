@@ -176,6 +176,49 @@ struct MediaProtocolTests {
         }
     }
 
+    @Test("Authenticated media grant is strict and redacts its bearer ticket")
+    func grantParsing() throws {
+        let ticket = String(repeating: "a", count: 64)
+        let payload: [String: AnyCodableValue] = [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/private/media.sock"),
+            "stream_id": .string("media_1"),
+            "trace_id": .string("trace_中文"),
+            "engine_epoch": .string("epoch_1"),
+            "generation": .int(4),
+            "ticket": .string(ticket),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65536),
+            "initial_credit_bytes": .int(262144),
+            "expires_in_ms": .int(10000),
+        ]
+        let grant = try MediaOpenGrant(payload: payload)
+        #expect(grant.generation == 4)
+        #expect(grant.direction == .engineToApp)
+        #expect(grant.format.sampleRate == 24000)
+        #expect(!grant.description.contains(ticket))
+        let open = grant.makeOpenHeader()
+        let encoded = try MediaFrameCodec.encode(.init(header: .open(open)))
+        #expect(encoded.count > 8)
+
+        var extra = payload
+        extra["unexpected"] = .bool(true)
+        #expect(throws: EngineConnectionError.invalidFrame) {
+            try MediaOpenGrant(payload: extra)
+        }
+
+        var badTicket = payload
+        badTicket["ticket"] = .string("secret")
+        #expect(throws: EngineConnectionError.invalidFrame) {
+            try MediaOpenGrant(payload: badTicket)
+        }
+    }
+
     @Test("Media errors expose only fixed diagnostics")
     func fixedDiagnostics() {
         let error = MediaProtocolFailure.invalidHeader
