@@ -125,7 +125,7 @@ struct ComponentGalleryExperienceContractTests {
         #expect(gallery.contains("LazyVStack(alignment: .leading"))
         #expect(gallery.contains("真实组件优先 · 可交互 specimen"))
         #expect(recovery.contains("12 · 控件恢复与反馈边界"))
-        #expect(artifact.contains("13 · 特殊物品玩法组件"))
+        #expect(artifact.contains("13 · 神器展览 (Artifact Vault)"))
         #expect(visual.contains("recordVisualAction(\"查看完整诊断\")"))
         #expect(visual.contains("recordVisualAction(\"压力样例操作\")"))
     }
@@ -202,11 +202,11 @@ struct ComponentGalleryExperienceContractTests {
 
         #expect(source.contains("Picker(\"物品分组\""))
         #expect(source.contains("selectedFamily"))
-        #expect(source.contains("selectedArtifactContext"))
-        #expect(source.contains("Button(\"重置当前演示\")"))
+        #expect(source.contains("exhibitionDossier"))
+        #expect(source.contains("Button(\"重置演示\")"))
         #expect(source.contains("resetShowcase()"))
         #expect(source.contains(".id(showcaseRevision)"))
-        #expect(source.contains("没有匹配的特殊物品"))
+        #expect(source.contains("没有匹配的神器"))
     }
 
     @Test("gallery supports focused browsing without introducing a second scroll owner")
