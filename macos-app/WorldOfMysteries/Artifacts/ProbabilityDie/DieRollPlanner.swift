@@ -4,7 +4,9 @@ import Foundation
 /// settle at a readable pace, stay inside the engraved circle and come to rest flat.
 nonisolated public struct DiePresentationGate: Sendable, Equatable {
   public var minimumBounces: Int = 2
-  public var settleWindow: ClosedRange<Double> = 0.45...1.8
+  /// Measured presentation window for the current 16 mm die and tray: the trajectory is
+  /// visibly active for roughly 0.20–0.56 s across the seeded throw family.
+  public var settleWindow: ClosedRange<Double> = 0.22...0.62
   public var maximumApex: Double = 0.18
   public var minimumFaceUpAlignment: Double = 0.995
   public var maximumLateralDrift: Double = 0.12

@@ -165,13 +165,16 @@ nonisolated public struct DieBodyDefinition: Sendable, Equatable {
 nonisolated public struct DieThrowField: Sendable, Equatable {
   public var gravity: Double = 9.81
   public var trayRadius: Double = 0.15
-  public var restitution: Double = 0.38
-  public var restitutionThreshold: Double = 0.25
+  public var restitution: Double = 0.44
+  public var restitutionThreshold: Double = 0.16
   public var friction: Double = 0.40
-  public var contactAngularDamping: Double = 6.0
-  public var contactLinearDamping: Double = 2.5
-  public var airAngularDamping: Double = 0.06
-  public var airLinearDamping: Double = 0.12
+  /// Damping while the die touches the stone. A real 16 mm die loses spin to rolling and to
+  /// inelastic impacts over roughly a second; damping it in a quarter of that reads as a
+  /// flick rather than a throw, which is what the first tuning pass did.
+  public var contactAngularDamping: Double = 2.2
+  public var contactLinearDamping: Double = 1.1
+  public var airAngularDamping: Double = 0.04
+  public var airLinearDamping: Double = 0.08
   /// Contacts are allowed to stay slightly penetrated. Without this slack the position
   /// projector lifts the die every step and gravity drops it back, which the solver reports
   /// as permanent residual velocity instead of rest.
@@ -183,6 +186,10 @@ nonisolated public struct DieThrowField: Sendable, Equatable {
   public var sampleStride: Int = 4
   /// Length of the final blend that settles the die flat onto the face it landed on.
   public var settleSnapDuration: Double = 0.10
+  /// Per-sample motion below both thresholds counts as "the die has stopped". Loose enough to
+  /// sit above solver jitter, tight enough that the remaining turn is imperceptible.
+  public var restTurnThreshold: Double = 0.006
+  public var restTravelThreshold: Double = 6e-5
 
   public init() {}
 
@@ -264,17 +271,20 @@ nonisolated public struct DieRigidBodySolver: Sendable {
     let stepDuration = field.timeStep
 
     var orientation = DieQuaternion.random(&sampler)
-    let dropHeight = 0.05 + sampler.range(0, 0.07)
+    // Release envelope of an actual throw rather than a drop: a die has to fall far enough and
+    // spin fast enough to tumble. The first tuning pass released it 5-12 cm with 15-40 rad/s,
+    // which turned less than one revolution in total and read as a flick.
+    let dropHeight = 0.09 + sampler.range(0, 0.12)
     var position = SIMD3<Double>(0, dropHeight, 0)
 
     let speedScale = 0.7 + 0.6 * throwInput.impulse
-    let lateralSpeed = (0.18 + sampler.range(0, 0.27)) * speedScale
+    let lateralSpeed = (0.20 + sampler.range(0, 0.30)) * speedScale
     var velocity = SIMD3<Double>(
-      throwInput.direction.x * lateralSpeed, sampler.range(-0.05, 0.20),
+      throwInput.direction.x * lateralSpeed, sampler.range(0, 0.25),
       throwInput.direction.y * lateralSpeed)
 
     let spinAxis = SIMD3<Double>(sampler.range(-1, 1), sampler.range(-1, 1), sampler.range(-1, 1))
-    var spin = spinAxis * ((15.0 + sampler.range(0, 25.0)) / max(1e-9, dieLength(spinAxis)))
+    var spin = spinAxis * ((25.0 + sampler.range(0, 35.0)) / max(1e-9, dieLength(spinAxis)))
 
     var contacts: [DieContact] = []
     contacts.reserveCapacity(16)
@@ -459,8 +469,15 @@ nonisolated public struct DieRigidBodySolver: Sendable {
       dieCross(landedNormal, up), angle: acos(min(max(dieDot(landedNormal, up), -1), 1)))
     let settledOrientation = (correction * orientation).normalized()
 
-    let blendStart = settledTime - field.settleSnapDuration
-    var baked = samples
+    // The solver integrates until its rest detector releases, which appends a tail where the
+    // die is already motionless. Presenting that tail freezes the die for up to a second
+    // before the reveal, so the trajectory is trimmed back to the moment it stops.
+    let endIndex = DieRigidBodySolver.motionEndIndex(of: samples, field: field)
+    let presentedTime = samples[endIndex].time
+    let presentedPosition = samples[endIndex].position
+
+    let blendStart = max(0, presentedTime - field.settleSnapDuration)
+    var baked = Array(samples[0...endIndex])
     for index in baked.indices where baked[index].time > blendStart {
       let progress = min(max((baked[index].time - blendStart) / field.settleSnapDuration, 0), 1)
       let eased = progress * progress * (3 - 2 * progress)
@@ -471,14 +488,40 @@ nonisolated public struct DieRigidBodySolver: Sendable {
     }
     baked.append(
       DiePoseSample(
-        time: settledTime, position: position, orientation: settledOrientation.vector,
+        time: presentedTime, position: presentedPosition, orientation: settledOrientation.vector,
         impactSpeed: baked.last?.impactSpeed ?? 0))
 
     return DieRollOutcome(
-      face: landedFace, seed: seed, settledTime: settledTime, bounces: bounces,
+      face: landedFace, seed: seed, settledTime: presentedTime, bounces: bounces,
       faceUpAlignment: alignment,
       lateralDrift: (position.x * position.x + position.z * position.z).squareRoot(), apex: apex,
       trajectoryDigest: DieRigidBodySolver.digest(of: baked), samples: baked)
+  }
+
+  /// Index of the first baked sample after the last visibly moving interval.
+  ///
+  /// Scanning from the tail removes the solver's motionless rest-detector tail. A late jitter
+  /// spike remains visible by design: it is still a physical sample, and hiding it would make
+  /// the presented trajectory diverge from the solved one.
+  static func motionEndIndex(of samples: [DiePoseSample], field: DieThrowField) -> Int {
+    guard samples.count > 1 else { return 0 }
+    var index = samples.count - 1
+    while index > 0 {
+      let previous = samples[index - 1]
+      let current = samples[index]
+      let from = DieQuaternion(
+        x: previous.orientation.x, y: previous.orientation.y, z: previous.orientation.z,
+        w: previous.orientation.w)
+      let to = DieQuaternion(
+        x: current.orientation.x, y: current.orientation.y, z: current.orientation.z,
+        w: current.orientation.w)
+      let dot = min(1.0, abs(from.x * to.x + from.y * to.y + from.z * to.z + from.w * to.w))
+      let turn = 2 * acos(dot)
+      let travel = dieLength(current.position - previous.position)
+      if turn > field.restTurnThreshold || travel > field.restTravelThreshold { return index }
+      index -= 1
+    }
+    return 0
   }
 
   static func digest(of samples: [DiePoseSample]) -> String {

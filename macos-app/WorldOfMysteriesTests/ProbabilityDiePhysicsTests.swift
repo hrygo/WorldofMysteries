@@ -3,7 +3,7 @@ import Testing
 
 @testable import WorldOfMysteriesCore
 
-@Suite("Probability Die Deterministic Physics")
+@Suite("Probability Die Deterministic Physics", .serialized)
 struct ProbabilityDiePhysicsTests {
   @Test("The same seed and throw produce an identical trajectory")
   func trajectoryIsReproducible() throws {
@@ -41,6 +41,19 @@ struct ProbabilityDiePhysicsTests {
     // The solver must not silently give up on a meaningful share of throws: a missing
     // outcome would mean "no physics available", which the presentation has to know about.
     #expect(settled >= 285)
+  }
+
+  @Test("Presented throws do not carry a motionless tail")
+  func presentedThrowsTrackVisibleMotion() {
+    let solver = DieRigidBodySolver()
+    var settled = 0
+    for seed in 0..<120 {
+      guard let outcome = solver.simulate(seed: UInt64(seed) &* 2_654_435_761) else { continue }
+      settled += 1
+      #expect(outcome.settledTime <= 0.62)
+      #expect(outcome.samples.last?.time == outcome.settledTime)
+    }
+    #expect(settled >= 114)
   }
 
   @Test("Unweighted throws show no systematic bias across the six faces")
