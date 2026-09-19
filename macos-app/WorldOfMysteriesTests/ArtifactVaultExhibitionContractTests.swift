@@ -12,6 +12,9 @@ struct ArtifactVaultExhibitionContractTests {
 
         #expect(source.contains("神器展览 · Artifact Vault"))
         #expect(source.contains("collectionShelf"))
+        #expect(source.contains("exhibitionWorkspace"))
+        #expect(source.contains("ArtifactObjectStage"))
+        #expect(source.contains("objectStage"))
         #expect(source.contains("exhibitionDossier"))
         #expect(source.contains("liveExhibitStage"))
         #expect(source.contains("CURRENT EXHIBIT"))
@@ -55,6 +58,7 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(source.contains("resetShowcase()"))
         #expect(source.contains("genericModel.resetPresentation(keepHistory: false)"))
         #expect(source.contains(".id(showcaseRevision)"))
+        #expect(source.contains("artifactPresentationContext, .vaultExhibit"))
     }
 
     @Test("vault preserves responsive and single-scroll ownership")
@@ -67,6 +71,20 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(source.contains("ScrollView(.horizontal, showsIndicators: false)"))
         #expect(!source.contains("ScrollView {"))
         #expect(source.contains("LazyHStack("))
+        #expect(source.contains(".focusable()"))
+        #expect(source.contains("onMoveCommand"))
+    }
+
+    @Test("vault shell uses the exhibition context to remove duplicate identity")
+    func vaultContextRemovesDuplicateIdentity() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactUIPrimitivesCore.swift"
+        )
+
+        #expect(source.contains("@Environment(\\.artifactPresentationContext)"))
+        #expect(source.contains("componentLayout(_ descriptor: ArtifactDescriptor)"))
+        #expect(source.contains("presentationContext == .vaultExhibit"))
+        #expect(source.contains("detailPanel"))
     }
 
     @Test("gallery labels the area as an artifact exhibition")

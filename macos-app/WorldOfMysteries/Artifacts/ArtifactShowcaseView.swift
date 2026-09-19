@@ -42,8 +42,7 @@ public struct ArtifactShowcaseView: View {
       if filteredDescriptors.isEmpty {
         emptyVaultState
       } else {
-        collectionShelf
-        exhibitionDossier
+        exhibitionWorkspace
         liveExhibitStage
       }
     }
@@ -194,6 +193,31 @@ public struct ArtifactShowcaseView: View {
 
   // MARK: - Collection Shelf
 
+  private var exhibitionWorkspace: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+        collectionShelf
+          .frame(minWidth: 280, idealWidth: 320, maxWidth: 340)
+
+        VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
+          objectStage
+          exhibitionDossier
+        }
+        .frame(minWidth: 720, maxWidth: .infinity, alignment: .leading)
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+        collectionShelf
+        objectStage
+        exhibitionDossier
+      }
+    }
+  }
+
+  private var objectStage: some View {
+    ArtifactObjectStage(artifactID: selection, revision: showcaseRevision)
+  }
+
   private var collectionShelf: some View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
       HStack(spacing: DesignTokens.Spacing.sm) {
@@ -221,6 +245,17 @@ public struct ArtifactShowcaseView: View {
           }
         }
         .padding(.vertical, DesignTokens.Spacing.xs)
+      }
+    }
+    .focusable()
+    .onMoveCommand { direction in
+      switch direction {
+      case .left:
+        selectAdjacent(offset: -1)
+      case .right:
+        selectAdjacent(offset: 1)
+      default:
+        break
       }
     }
   }
@@ -388,6 +423,7 @@ public struct ArtifactShowcaseView: View {
 
       selectedComponent
         .id(showcaseRevision)
+        .environment(\.artifactPresentationContext, .vaultExhibit)
     }
     .padding(.top, DesignTokens.Spacing.xs)
     .accessibilityElement(children: .contain)
@@ -430,8 +466,7 @@ public struct ArtifactShowcaseView: View {
     withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
       selection = id
     }
-    genericModel.resetPresentation(keepHistory: false)
-    showcaseRevision += 1
+    resetShowcase()
   }
 
   private func selectAdjacent(offset: Int) {
@@ -452,6 +487,7 @@ public struct ArtifactShowcaseView: View {
   }
 
   private func resetShowcase() {
+    genericModel.resetPresentation(keepHistory: false)
     genericModel = ArtifactActionModel(
       resolver: PreviewArtifactResolver(),
       meters: [
