@@ -50,3 +50,15 @@ GitHub PR号码、Issue链接、最终提交与CI状态以PR及本次交付索�
 增加[首批开工规格](Voice_First_Kickoff_Spec_v1.0.md)，给出W-V00/W-V02/03最小接口、失败oracle及可先行/受上游约束能力表。状态仍为文档与Issue落地，产品实现和声学目标未完成。
 
 本轮只读文档导出run `35413562495`，Artifact `10575041441`，外层ZIP SHA-256 `892164a35626d7b22ee660a09c1bdff75d65e79dadef4f44096dfb9c6086efd0`；8份原始文档按manifest逐一核对Git blob及SHA-256。临时工作流不进入方案PR；清理与最新CI结果在PR交付回读中记录，不把导出成功当作产品测试。
+
+
+## SpeechRail 团队维护视角再审查
+
+确认 SpeechRail 同属团队维护后，依然保持其产品定位：本地共享 ASR/TTS 服务负责模型适配、音色制品、协议、资源准入与可验证的语音元数据；不接管游戏/LLM/麦克风/播放器。基于此新增四项通用平台任务：
+
+- [SR-V09 / #70](https://github.com/hrygo/SpeechRail/issues/70)：版本化发音词典与可审计 SpokenText 映射。
+- [SR-V10 / #71](https://github.com/hrygo/SpeechRail/issues/71)：结构化 Voice Catalog 与最小披露视图。
+- [SR-V11 / #72](https://github.com/hrygo/SpeechRail/issues/72)：长文本/跨句 planner 与韵律连续性；明确不重做已完成 #18 的 planner 基础。
+- [SR-V12 / #73](https://github.com/hrygo/SpeechRail/issues/73)：可选 TTS 文本-音频时间轴 sidecar，复用已有 fixed-text alignment 接缝但不阻塞热路径。
+
+没有另建“预热 API”：冷驱逐/预热已由完成的 #9 和持续 #44/#65 覆盖。没有建立播放器、角色选角算法、剧情授权或业务数据库相关 SpeechRail issue，因为这些仍属于消费者。当前 SpeechRail issue 总数由 SR-V01..V08 扩展为 SR-V01..V12；创建 issue 不代表能力已实现。

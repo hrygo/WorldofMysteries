@@ -72,7 +72,7 @@ cleared 仅是排空栅栏；本轮任意 append/commit error、failed item、�
 
 ## 4. Issue映射与优先级
 
-以下8项Issue已在SpeechRail登记（2026-09-19），均为open待办，**不是已实现能力**。对应下游文档PR为[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。稳定任务键不随Issue编号变化。
+以下12项Issue已在SpeechRail登记（2026-09-19），均为open待办，**不是已实现能力**。对应下游文档PR为[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。稳定任务键不随Issue编号变化。
 
 | 键 / 实际Issue | 优先级 | 范围 | 对WoM的依赖关系 |
 |---|---|---|---|
@@ -84,6 +84,26 @@ cleared 仅是排空栅栏；本轮任意 append/commit error、failed item、�
 | [SR-V06 / #67](https://github.com/hrygo/SpeechRail/issues/67) | P1 | C6多维质量 | 专属动态音色自动发布前置 |
 | [SR-V07 / #68](https://github.com/hrygo/SpeechRail/issues/68) | P2 | C7身份保持的表达实验 | 可选增强，不阻塞中性固定身份 |
 | [SR-V08 / #69](https://github.com/hrygo/SpeechRail/issues/69) | P1 | 已有普通ASR收口契约/组合回归 | W-V02安全聚合；不要求新增API |
+| [SR-V09 / #70](https://github.com/hrygo/SpeechRail/issues/70) | P1 | 版本化发音词典/SpokenText映射 | 术语、人名、数字读音；不阻塞基础媒体MVP |
+| [SR-V10 / #71](https://github.com/hrygo/SpeechRail/issues/71) | P1 | 结构化音色目录与最小披露视图 | 动态选角与安全发现；避免客户端解析私有ref_text |
+| [SR-V11 / #72](https://github.com/hrygo/SpeechRail/issues/72) | P1 | 长文本planner与跨句韵律连续性 | 长叙述自然度/一致断句；基础短句可先用 |
+| [SR-V12 / #73](https://github.com/hrygo/SpeechRail/issues/73) | P2 | 可选TTS文本-音频时间轴sidecar | 字幕/口型/精确回放增强；不阻塞首版句级时间轴 |
+
+### C8 — PronunciationSet 与 SpokenText 映射
+
+SpeechRail 管通用发音规范化，不管理业务 DisplayText。词典按语言和 revision 版本化，输出 deterministic SpokenText + span mapping；否定、数字、单位、URL、缩写和混合语言需守恒。是否存在模型原生 phoneme/SSML 是独立 capability，未知时不能静默接受。
+
+### C9 — 结构化 Voice Catalog 与最小披露
+
+voice catalog 应区分“合成选择需要的公开目录元数据”和“参考正文/来源证明等私有详情”。结构化 descriptor 只描述合成表现与声明标签，不做真实人的敏感属性或声纹身份推断；与 C1 能力、C2 revision 分开。
+
+### C10 — TTS Planner / Prosody Contract
+
+历史 #18 已完成 REST/Realtime/preview 的 planner 基础。本阶段只追踪 planner_version、实际断句策略、跨 chunk 韵律连续性证据及 Realtime 文档/实现一致性。没有 vendor 上下文能力时如实采用确定性 pause/crossfade，而不是冒充模型上下文。
+
+### C11 — Optional TTS Timing Sidecar
+
+对已生成音频可选提供 chunk/word 等分级时间映射；没有可靠证据时为 unavailable。若复用现有 FixedTextAligner，必须解决 24k TTS 与 16k aligner 的坐标映射，并放在受治理的可选后处理，不阻塞首 PCM。该 sidecar 不代表设备已播放。
 
 现有[#34响度](https://github.com/hrygo/SpeechRail/issues/34)和[#44架构演进](https://github.com/hrygo/SpeechRail/issues/44)继续负责既有范围；不重复建响度修复或全局架构epic。所有Issue是待办，不代表创建后功能已可用。
 
