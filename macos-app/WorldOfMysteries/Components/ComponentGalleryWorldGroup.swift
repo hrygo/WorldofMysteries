@@ -16,7 +16,19 @@ private struct GrayFogAndRitualGallerySection: View {
 
     var body: some View {
         ComponentGallerySection(title: "05 · 灰雾深红星辰与仪式魔法 (Above Gray Fog & Ritual)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            ComponentGallerySpecimenStage(
+                title: "灰雾祈祷与祭坛",
+                summary: "深红星辰与祭坛都使用正式 callback；统一重置让祈祷、仪式与反馈可以反复从初始态验证。",
+                mode: .live,
+                controls: {
+                    Button("重置仪式") {
+                        lastRitualAction = "尚未触发"
+                        ritualActionCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                 LazyVGrid(
                     columns: [
                         GridItem(
@@ -60,6 +72,7 @@ private struct GrayFogAndRitualGallerySection: View {
                     tone: ritualActionCount == 0 ? .neutral : .crimson,
                     systemIcon: "sparkles"
                 )
+                }
             }
         }
     }
@@ -75,7 +88,18 @@ private struct CodexAndDatabaseGallerySection: View {
 
     var body: some View {
         ComponentGallerySection(title: "06 · 人物档案与四库内核 (Codex & Database)") {
-            WOMAdaptivePair(
+            ComponentGallerySpecimenStage(
+                title: "人物档案与数据状态",
+                summary: "人物 Advice 使用真实入口；数据库卡片显式区分已测量与未探测，避免把演示状态误解为实时探针。",
+                mode: .live,
+                controls: {
+                    Button("重置 Advice") {
+                        characterAdviceCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
+                WOMAdaptivePair(
                 trailingIdealWidth: 240,
                 primaryIdealWidth: 520,
                 spacing: DesignTokens.Spacing.lg
@@ -123,6 +147,7 @@ private struct CodexAndDatabaseGallerySection: View {
                     DatabaseStatusHUDCard(role: .runtime)
                 }
             }
+            }
         }
     }
 }
@@ -156,11 +181,13 @@ private struct SidebarGallerySample: View {
     private static let badgeCounts: [NavigationItem: Int] = [.fate: 2, .worldline: 1, .cards: 4]
 
     let title: String
+    private let initialCollapsed: Bool
     @State private var selection: NavigationItem = .fate
     @State private var isCollapsed: Bool
 
     init(title: String, isCollapsed: Bool) {
         self.title = title
+        self.initialCollapsed = isCollapsed
         self._isCollapsed = State(initialValue: isCollapsed)
     }
 
@@ -178,6 +205,15 @@ private struct SidebarGallerySample: View {
                     tone: isCollapsed ? .neutral : .teal,
                     systemIcon: isCollapsed ? "sidebar.right" : "sidebar.left"
                 )
+
+                Button {
+                    selection = .fate
+                    isCollapsed = initialCollapsed
+                } label: {
+                    WOMIcon(system: .retry, size: .compact, accessibilityLabel: "恢复侧边栏样例")
+                }
+                .buttonStyle(WOMToolbarButtonStyle(.tertiary))
+                .help("恢复侧边栏样例的初始选择与折叠状态")
             }
 
             AppSidebarView(
@@ -204,7 +240,18 @@ private struct CanonicalGeographyGallerySection: View {
 
     var body: some View {
         ComponentGallerySection(title: "08 · 原著正典地域档案 (Canonical Geography)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            ComponentGallerySpecimenStage(
+                title: "地域与运行时场景",
+                summary: "场景页头使用已批准 wideHeader；廷根与贝克兰德保持完整档案尺度，并通过正式选择回调验证地域交互。",
+                mode: .live,
+                controls: {
+                    Button("重置地域") {
+                        lastGeographySelection = "尚未选择"
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                 WOMSceneHeroHeader(
                     scene: .worldObservation,
                     icon: .asset(.world),
@@ -238,6 +285,7 @@ private struct CanonicalGeographyGallerySection: View {
                     tone: lastGeographySelection == "尚未选择" ? .neutral : .gold,
                     systemIcon: "map"
                 )
+                }
             }
         }
     }

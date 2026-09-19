@@ -226,6 +226,20 @@ struct ComponentGalleryExperienceContractTests {
         #expect(!source.contains("ScrollView {"))
     }
 
+    @Test("world specimens expose replayable reset controls")
+    func worldSpecimensAreReplayable() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryWorldGroup.swift"
+        )
+
+        #expect(source.contains("Button(\"重置仪式\")"))
+        #expect(source.contains("Button(\"重置 Advice\")"))
+        #expect(source.contains("Button(\"重置地域\")"))
+        #expect(source.contains("initialCollapsed"))
+        #expect(source.contains("恢复侧边栏样例"))
+        #expect(source.contains("ComponentGallerySpecimenStage("))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
