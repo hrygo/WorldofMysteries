@@ -6,6 +6,8 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
     case unsupportedMessage
     case sessionRejected(code: String)
     case audioFrameInvalid
+    case transportFailure
+    case finalizationTimedOut
     case invalidEnvelope
     case sequenceGap(expected: Int64, actual: Int64)
     case duplicateEventConflict(eventID: String)
