@@ -73,6 +73,11 @@ struct ArtifactPresentationProfileTests {
         #expect(source.contains("accessibilityReduceMotion"))
         #expect(source.contains("accessibilityHidden(true)"))
         #expect(source.contains("maximumParallax"))
+        #expect(source.contains("objectPedestal"))
+        #expect(source.contains("rotation3DEffect"))
+        #expect(source.contains("floorGlow"))
+        #expect(!source.contains("WOMWorldArtworkAsset.artifactVault.runtimeAssetName"))
+        #expect(!source.contains("stageCornerMark"))
     }
 
     private func file(_ relativePath: String) throws -> String {

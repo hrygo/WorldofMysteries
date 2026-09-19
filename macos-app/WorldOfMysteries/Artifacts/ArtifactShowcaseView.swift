@@ -42,7 +42,9 @@ public struct ArtifactShowcaseView: View {
       if filteredDescriptors.isEmpty {
         emptyVaultState
       } else {
-        exhibitionWorkspace
+        collectionShelf
+        objectStage
+        exhibitionDossier
         liveExhibitStage
       }
     }
@@ -193,29 +195,12 @@ public struct ArtifactShowcaseView: View {
 
   // MARK: - Collection Shelf
 
-  private var exhibitionWorkspace: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
-        collectionShelf
-          .frame(minWidth: 280, idealWidth: 320, maxWidth: 340)
-
-        VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
-          objectStage
-          exhibitionDossier
-        }
-        .frame(minWidth: 720, maxWidth: .infinity, alignment: .leading)
-      }
-
-      VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-        collectionShelf
-        objectStage
-        exhibitionDossier
-      }
-    }
-  }
-
   private var objectStage: some View {
-    ArtifactObjectStage(artifactID: selection, revision: showcaseRevision)
+    HStack(spacing: 0) {
+      ArtifactObjectStage(artifactID: selection, revision: showcaseRevision)
+        .frame(maxWidth: 720)
+    }
+    .frame(maxWidth: .infinity)
   }
 
   private var collectionShelf: some View {

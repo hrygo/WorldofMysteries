@@ -12,7 +12,6 @@ struct ArtifactVaultExhibitionContractTests {
 
         #expect(source.contains("神器展览 · Artifact Vault"))
         #expect(source.contains("collectionShelf"))
-        #expect(source.contains("exhibitionWorkspace"))
         #expect(source.contains("ArtifactObjectStage"))
         #expect(source.contains("objectStage"))
         #expect(source.contains("exhibitionDossier"))
@@ -20,6 +19,21 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(source.contains("CURRENT EXHIBIT"))
         #expect(source.contains("LIVE ARTIFACT WORKBENCH"))
         #expect(!source.contains("Canon Artifact Component Library"))
+    }
+
+    @Test("vault keeps the former linear reading order and a restrained stage width")
+    func linearExhibitionOrder() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+
+        #expect(!source.contains("exhibitionWorkspace"))
+        #expect(
+            source.contains(
+                "collectionShelf\n        objectStage\n        exhibitionDossier\n        liveExhibitStage"
+            )
+        )
+        #expect(source.contains(".frame(maxWidth: 720)"))
     }
 
     @Test("vault preserves all production artifact gameplay components")
