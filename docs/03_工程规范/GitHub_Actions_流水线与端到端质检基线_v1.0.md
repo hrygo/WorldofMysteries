@@ -5,7 +5,7 @@
 > **核心目标**：零上下文稀释 · 零越界提交 · 100% 架构不变量机器守卫  
 
 > 🔁 **Actions 运行时基线刷新（2026-09-18）**：全部工作流已升级到 Node 24 运行时基线
-> （`actions/checkout@v7`、`actions/setup-python@v7`、`actions/cache@v6`、`astral-sh/setup-uv@v10.1.0`、
+> （`actions/checkout@v7`、`actions/setup-python@v7`、`astral-sh/setup-uv@v10.1.0`、
 > `actions/github-script@v9`、`actions/upload-artifact@v7`）。注意 `astral-sh/setup-uv` 自 v8 起
 > 不再发布大版本标签，必须锁不可变全版本标签；`setup-uv` 的 `enable-cache` 保留 `auto`
 > 安全默认（`pull_request_target` / `workflow_run` / `release` 事件自动禁用缓存，防缓存投毒）。
@@ -70,25 +70,28 @@
   - 针对 `main` 分支的 `pull_request`。
 - **并发控制**：开启 `cancel-in-progress: true`，当同一 PR 提交新代码时自动取消陈旧构建，节约算力。
 - **Job 编排**：
-  1. **`architecture-and-contracts` (ubuntu-latest)**：
+  1. **`change-scope` (ubuntu-latest)**：
+     - 使用 `fetch-depth: 0` 获取完整历史；PR 计算 `base...head` 三点 diff，main push 计算 `before..head` 两点 diff；首次 push、未知事件或解析异常按 full 处理；
+     - PR 优先执行 base SHA 中受信任的 `scripts/ci_changed_scope.py`；base 尚未提供分类器时直接选择 full，不执行 PR 工作树中的版本；输出 `run_python`、`run_swift` 和 `scope`，未知路径、空输入及非法编码均 fail-closed。
+  2. **`architecture-and-contracts` (ubuntu-latest)**：
      - 运行 `python3 scripts/check_architecture_fitness.py`（静态扫描 Domain 零依赖、App 零直接数据库访问、AI 零直接 SQL）；
      - 循环校验全部 28 个 JSON Schema 语法与格式。
-  2. **`python-engine` (macOS 26+ baseline / macos-latest)**：
-     - 依赖 `architecture-and-contracts` 通过；
+  3. **`python-engine` (macOS 26+ baseline / macos-latest)**：
+     - 依赖 `change-scope` 与 `architecture-and-contracts` 通过，并仅在 `run_python=true` 时创建 runner；
      - 使用 `astral-sh/setup-uv@v10.1.0` 开启依赖缓存（`enable-cache: auto`），基于 `engine/uv.lock` 进行秒级环境复现；
-     - 执行 `uv run pytest -v`，覆盖 25 项契约与适配层单测。
-  3. **`swift-macos-app` (macOS 26+ baseline / Apple Silicon arm64)**：
-     - 依赖 `architecture-and-contracts` 通过；
-     - 使用 `actions/cache@v6` 缓存 `macos-app/.build` SPM 编译产物；
+     - 执行 `uv run --locked --extra dev pytest -v`，覆盖 Python 契约与适配层单测。
+  4. **`swift-macos-app` (macOS 26+ baseline / Apple Silicon arm64)**：
+     - 依赖 `change-scope` 与 `architecture-and-contracts` 通过，并仅在 `run_swift=true` 时创建 runner；
+     - `macos-app/Package.swift` 当前无外部 Swift Package 依赖；测试使用 `${RUNNER_TEMP}/wom-spm-scratch`，不缓存无效的 `.build` 目录；
      - 激活 Swift 6 严格并发检查，执行 `swift test`，覆盖 8 项跨语言与 Actor 测试。
      - 额外执行 `xcodebuild ... build` 构建 Xcode App Target：SPM 目标未启用默认 MainActor 隔离
        （`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`），只有真实 App Target 才能复现宿主应用与预览的
        编译面；该步骤为编译验证，以 `CODE_SIGNING_ALLOWED=NO` 跳过签名。
-  4. **`all-gates-passed` (ubuntu-latest)**：
-     - 作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）。
+  5. **`all-gates-passed` (ubuntu-latest)**：
+     - 保持 `if: always()`，校验 `scope` 与两个布尔输出的一致性后，作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）；被分类器明确判定为不需要的平台 job 为 `skipped` 时视为合法，意外失败或输出不一致仍阻断合入。
 
 ### 2.3 实时质量报告与 Sticky 评论工作流 (`.github/workflows/pr-gate-reporter.yml`)
-- **触发条件**：`pull_request` 打开、更新或重开。
+- **触发条件**：`pull_request` 打开、提交更新、重开或发生 review 状态转换；描述字段的 `edited` 事件不触发报告，避免无代码变更重复消耗 runner。
 - **核心逻辑**：
   1. 调用 `scripts/generate_pr_report.py` 提取任务契约事实、执行角色、门禁档案摘要与凭单证据
      （**只复述记录，不宣称测试结论**）；
@@ -110,25 +113,26 @@
 
 | 规范项 | 工业级标准要求 | 《诡秘世界》实施落地 |
 |:---|:---|:---|
-| **官方 Actions 生命周期** | 工作流引用的全部 Actions 必须运行在 Node 24 运行时，严禁停留在已弃用的旧主版本 | 全面采用 `actions/checkout@v7`, `actions/setup-python@v7`, `astral-sh/setup-uv@v10.1.0`, `actions/cache@v6`, `actions/upload-artifact@v7`, `actions/github-script@v9`（六个引用在锁定标签上实测 `runs.using: node24`）；`astral-sh/setup-uv` 因上游停止发布大版本标签而锁不可变全版本标签。 |
+| **官方 Actions 生命周期** | 工作流引用的全部 Actions 必须运行在 Node 24 运行时，严禁停留在已弃用的旧主版本 | 全面采用 `actions/checkout@v7`, `actions/setup-python@v7`, `astral-sh/setup-uv@v10.1.0`, `actions/upload-artifact@v7`, `actions/github-script@v9`（五个引用在锁定标签上实测 `runs.using: node24`）；`astral-sh/setup-uv` 因上游停止发布大版本标签而锁不可变全版本标签。 |
 | **最小权限原则 (Least Privilege)** | 顶层禁用通配写权限，显式限制只读 | 所有工作流顶层严格配置 `permissions: contents: read`；仅在 PR Reporter 中局部按需开放 `pull-requests: write, issues: write`。 |
 | **超时保护 (Timeout Guard)** | 严禁无超时任务，防止 runner 死锁耗费配额 | 所有 Job 均显式声明 `timeout-minutes: 5 ~ 25`，异常卡顿自动自愈熔断。 |
 | **Runner 架构匹配** | 淘汰 Intel x86 runner，对齐 Apple Silicon 硬件与 macOS 26+ 平台基线 | 编译与测试统一采用 `macos-latest` (Apple Silicon arm64, macOS 26+) 与 `ubuntu-latest` 组合。 |
-| **自动化依赖升级** | 必须具备自动化依赖与 Actions 追踪机制 | 引入 `.github/dependabot.yml`，每周一全自动审查 Actions、Python 及 SPM 依赖更新。 |
+| **自动化依赖升级** | 必须具备自动化依赖与 Actions 追踪机制 | 引入 `.github/dependabot.yml`，每周一全自动审查 Actions 与 Python 依赖更新。 |
 
 ---
 
 ## 4. 缓存与性能极致优化 (Caching & Performance Optimization)
 
-为避免 macOS 云端 Runner 排队等待与高昂配额消耗，工程落实了深度缓存策略：
+为避免 macOS 云端 Runner 排队等待与高昂配额消耗，工程保留有效缓存并对不同变更面分别观测：
 
 | 构件类型 | 缓存机制 | 缓存 Key 规划 | 命中后收益 |
 |:---|:---|:---|:---|
-| **Python 依赖** | `astral-sh/setup-uv@v10.1.0` 内置全局缓存（`enable-cache: auto`） | `engine/uv.lock` 哈希计算 | 依赖准备耗时从 45s 降至 **< 2s** |
-| **Swift SPM 依赖** | `actions/cache@v6` | `${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved') }}` | 编译构建耗时由 40s 压缩至 **< 6s** |
-| **AST 架构检查** | 纯 Python 标准库静态分析 | 无外部依赖 | 耗时稳定在 **< 0.5s** |
+| **Python 依赖** | `astral-sh/setup-uv@v10.1.0` 内置全局缓存（`enable-cache: auto`） | `engine/uv.lock` 哈希计算 | 记录每次 run 的 cache hit/miss 与 Stage 2 实际耗时，不预设固定收益 |
+| **Swift Package 解析** | 不使用独立 `actions/cache`；当前 `Package.swift` 无外部依赖 | `${RUNNER_TEMP}/wom-spm-scratch` | 避免缓存无效 `.build`；以 Swift test 与 Xcode build 实测耗时为准 |
+| **变更面分类** | `scripts/ci_changed_scope.py`，仅 Python 标准库 | NUL 分隔路径流 | 元数据 PR 不创建 Python/Swift runner；未知输入自动 full |
+| **AST 架构检查** | 纯 Python 标准库静态分析 | 无外部依赖 | 保持为每次核心 CI 的廉价基础门禁 |
 
-整体 CI 流水线端到端耗时控制在 **1.5 分钟以内**。
+不再承诺统一的端到端时限。每次优化按 `meta-only`、`python-only`、`swift-only`、`full` 四类记录 GitHub Actions run 总时长、各 job 时长、缓存命中和 skipped job；只有在每类都有可复核样本后，才更新目标或预算。变更前参考数据（2026-09-19）为一次完整 run 约 2 分 38 秒、一次文档 PR 仍误跑完整平台门禁约 5 分 36 秒；这些是历史基线，不是发布承诺。
 
 ---
 

@@ -20,6 +20,78 @@ defaults:
     shell: bash
 
 jobs:
+  # Decide the expensive platform gates from the exact changed path set.
+  change-scope:
+    name: "Determine CI Scope"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_python: ${{ steps.scope.outputs.run_python }}
+      run_swift: ${{ steps.scope.outputs.run_swift }}
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - name: Checkout Code with History
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Classify changed paths
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          scope_command=(python3 scripts/ci_changed_scope.py)
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if git cat-file -e "$PR_BASE_SHA:scripts/ci_changed_scope.py" 2>/dev/null; then
+              git show "$PR_BASE_SHA:scripts/ci_changed_scope.py" \
+                > "$RUNNER_TEMP/ci_changed_scope.py"
+              scope_command=(python3 "$RUNNER_TEMP/ci_changed_scope.py")
+            else
+              {
+                echo "run_python=true"
+                echo "run_swift=true"
+                echo "scope=full"
+              } >> "$GITHUB_OUTPUT"
+              {
+                echo '### CI change scope: `full`'
+                echo '- Reason: base branch has no trusted classifier; fail-closed'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --name-only -z "$PR_BASE_SHA...$PR_HEAD_SHA" \
+              | "${scope_command[@]}" \
+                  --github-output "$GITHUB_OUTPUT" \
+                  --summary "$GITHUB_STEP_SUMMARY"
+          elif [[ "$EVENT_NAME" == "push" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
+            git diff --name-only -z "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" \
+              | "${scope_command[@]}" \
+                  --github-output "$GITHUB_OUTPUT" \
+                  --summary "$GITHUB_STEP_SUMMARY"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            git ls-files -z \
+              | "${scope_command[@]}" \
+                  --github-output "$GITHUB_OUTPUT" \
+                  --summary "$GITHUB_STEP_SUMMARY"
+          else
+            python3 scripts/ci_changed_scope.py \
+              --force-full \
+              --github-output "$GITHUB_OUTPUT" \
+              --summary "$GITHUB_STEP_SUMMARY"
+          fi
+
   # Stage 1: Fast static architecture fitness & JSON schemas check
   architecture-and-contracts:
     name: "Stage 1: Architecture Fitness & Contracts"
@@ -28,6 +100,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -73,10 +147,13 @@ jobs:
     name: "Stage 2: Python Engine & Contracts"
     runs-on: macos-latest
     timeout-minutes: 10
-    needs: [architecture-and-contracts]
+    needs: [change-scope, architecture-and-contracts]
+    if: ${{ needs.change-scope.outputs.run_python == 'true' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install uv with Cache Enabled
         # setup-uv 自 v8 起不再发布大版本标签（供应链加固），必须锁不可变全版本标签。
@@ -90,7 +167,6 @@ jobs:
       - name: Run Python Pytest Suite
         run: |
           cd engine
-          uv lock --check
           uv run --locked --extra dev pytest -v
 
   # Stage 3: Swift 6 macOS App & IPC Protocol Roundtrip (macOS 26+ baseline)
@@ -98,10 +174,13 @@ jobs:
     name: "Stage 3: Swift 6 App & Protocol Roundtrip"
     runs-on: macos-latest
     timeout-minutes: 10
-    needs: [architecture-and-contracts]
+    needs: [change-scope, architecture-and-contracts]
+    if: ${{ needs.change-scope.outputs.run_swift == 'true' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Select Xcode Toolchain
         run: |
@@ -112,14 +191,6 @@ jobs:
             exit 1
           fi
           swift --version
-
-      - name: Cache SPM Dependencies
-        uses: actions/cache@v6
-        with:
-          path: macos-app/.build
-          key: ${{ runner.os }}-spm-${{ hashFiles('macos-app/Package.resolved', 'macos-app/Package.swift') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-
 
       - name: Run Swift 6 Test Suite
         run: |
@@ -145,15 +216,59 @@ jobs:
     name: "All Quality Gates Passed"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [architecture-and-contracts, python-engine, swift-macos-app]
+    needs: [change-scope, architecture-and-contracts, python-engine, swift-macos-app]
     if: always()
     steps:
       - name: Evaluate Pipeline Status
+        env:
+          SCOPE_RESULT: ${{ needs.change-scope.result }}
+          ARCHITECTURE_RESULT: ${{ needs.architecture-and-contracts.result }}
+          PYTHON_RESULT: ${{ needs.python-engine.result }}
+          SWIFT_RESULT: ${{ needs.swift-macos-app.result }}
+          CI_SCOPE: ${{ needs.change-scope.outputs.scope }}
+          RUN_PYTHON: ${{ needs.change-scope.outputs.run_python }}
+          RUN_SWIFT: ${{ needs.change-scope.outputs.run_swift }}
         run: |
-          if [ "${{ needs.architecture-and-contracts.result }}" != "success" ] || \
-             [ "${{ needs.python-engine.result }}" != "success" ] || \
-             [ "${{ needs.swift-macos-app.result }}" != "success" ]; then
-            echo "❌ One or more required quality gates failed!"
+          if [ "$SCOPE_RESULT" != "success" ] || \
+             [ "$ARCHITECTURE_RESULT" != "success" ]; then
+            echo "❌ Scope or architecture gate failed."
             exit 1
           fi
-          echo "🎉 All local and CI gates PASSED successfully!"
+          case "$CI_SCOPE" in
+            meta)
+              expected_python=false
+              expected_swift=false
+              ;;
+            python)
+              expected_python=true
+              expected_swift=false
+              ;;
+            swift)
+              expected_python=false
+              expected_swift=true
+              ;;
+            full)
+              expected_python=true
+              expected_swift=true
+              ;;
+            *)
+              echo "❌ Invalid CI scope: $CI_SCOPE"
+              exit 1
+              ;;
+          esac
+          if [ "$RUN_PYTHON" != "$expected_python" ] || \
+             [ "$RUN_SWIFT" != "$expected_swift" ]; then
+            echo "❌ Inconsistent CI scope outputs."
+            exit 1
+          fi
+          if [ "$RUN_PYTHON" = "true" ] && \
+             [ "$PYTHON_RESULT" != "success" ]; then
+            echo "❌ Python gate was required but did not succeed."
+            exit 1
+          fi
+          if [ "$RUN_SWIFT" = "true" ] && \
+             [ "$SWIFT_RESULT" != "success" ]; then
+            echo "❌ Swift gate was required but did not succeed."
+            exit 1
+          fi
+          echo "🎉 All selected CI gates passed; skipped platform jobs were out of scope."

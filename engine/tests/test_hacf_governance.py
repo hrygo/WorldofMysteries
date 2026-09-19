@@ -209,6 +209,23 @@ def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+def test_policy_git_calls_scrub_hook_injected_environment(monkeypatch):
+    """策略内核的 git 子进程不得继承 hook 注入的仓库定位变量。"""
+    captured = {}
+
+    def fake_run(*args, **kwargs):  # noqa: ANN002, ANN003
+        captured["env"] = kwargs["env"]
+        return subprocess.CompletedProcess(args[0], 0, stdout="", stderr="")
+
+    for key in _GIT_ENV_POLLUTANTS:
+        monkeypatch.setenv(key, "/polluted-by-hook")
+    monkeypatch.setattr(hacf_policy.subprocess, "run", fake_run)
+
+    hacf_policy.run_git(["status"])
+
+    assert all(key not in captured["env"] for key in _GIT_ENV_POLLUTANTS)
+
+
 def _init_repo_with_branches(tmp_path: Path, shallow_clone: bool) -> Path:
     """构造带 `origin/main` 与一个引入胶囊/凭单的功能分支的工作区。
 

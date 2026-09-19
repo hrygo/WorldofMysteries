@@ -37,7 +37,13 @@ def _git_env() -> Dict[str, str]:
     若继承这些变量，`git -C <workdir>` 语义会被静默改写，变更面判定将指向错误的仓库。
     """
     env = dict(os.environ)
-    for key in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_COMMON_DIR"):
+    for key in (
+        "GIT_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+    ):
         env.pop(key, None)
     return env
 
