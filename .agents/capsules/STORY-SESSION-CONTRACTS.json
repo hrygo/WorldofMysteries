@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-STORY-SESSION-CONTRACTS-R3",
-  "capsule_revision": 3,
+  "capsule_id": "CAP-STORY-SESSION-CONTRACTS-R4",
+  "capsule_revision": 4,
   "task_id": "STORY-SESSION-CONTRACTS",
   "title": "Typed Python StorySession StoryState and TurnTransaction contracts",
   "assigned_role": "AGT-ARB",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "b0d3dad6bf388c8c8122cc1678c64b5fa8091c6c",
-    "target_sha": "b0d3dad6bf388c8c8122cc1678c64b5fa8091c6c",
-    "context_snapshot": "sha256:68fa9b242f358a7c1f89fd8a59be60d485a8567e24eacb8c0ef8f41bd1eff2ef"
+    "base_sha": "379dec9342dbf572a5d9569c43c0a00d273ad9e5",
+    "target_sha": "379dec9342dbf572a5d9569c43c0a00d273ad9e5",
+    "context_snapshot": "sha256:7e054ee13d7a3d2ce239624db9ee03e26b04566b34153848ab66908771392637"
   },
   "scope": {
     "read": [
@@ -57,7 +57,7 @@
     "token_estimate": 1300,
     "max_core_tokens": 2500,
     "expansion_policy": "arbiter_approved",
-    "note": "Revision 3 binds the isolated StorySession typed-contract slice to main after #80 and #84 merged. Only Story DTO/export/test blobs differ from main."
+    "note": "Revision 4 refreshes the validation base after a documentation-only voice handoff landed on main. StorySession DTO/export/test blobs remain unchanged."
   },
   "impact": {
     "symbols": [
@@ -105,5 +105,5 @@
       "INV-12"
     ]
   },
-  "supersedes": "CAP-STORY-SESSION-CONTRACTS-R2"
+  "supersedes": "CAP-STORY-SESSION-CONTRACTS-R3"
 }
