@@ -1,0 +1,114 @@
+{
+  "receipt_id": "RCP-WORK-ART-SCENE-IN-GAME-R1-94062197505a",
+  "receipt_type": "work",
+  "task_id": "ART-SCENE-IN-GAME-R1",
+  "capsule_id": "CAP-ART-SCENE-IN-GAME-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:fa38d970f68fbe2fbf198243051da3d16053bdc59f849421bc7e72f66b221124",
+  "diff_digest": "sha256:4ac8fd92e2234659522cc023476842ba2dfc8568a433d67859b56fc1eb712151",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "high",
+  "base_commit": "180aa6a413d70d1524402f22d9e6323062fc785e",
+  "head_commit": "94062197505a1e15d6ee8f6a4e60fb3eadb610b8",
+  "target_ref": "origin/main",
+  "target_sha": "180aa6a413d70d1524402f22d9e6323062fc785e",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:07:00.188554+00:00",
+      "finished_at": "2026-09-19T05:07:00.217442+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        ".build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:07:00.217518+00:00",
+      "finished_at": "2026-09-19T05:07:03.961635+00:00",
+      "raw_log_digest": "sha256:b1d864fe4cdd5bfb5fb5ed87b8e8a370c014140466231a4290c06e0663a0c7cd",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:07:03.961734+00:00",
+      "finished_at": "2026-09-19T05:07:06.060758+00:00",
+      "raw_log_digest": "sha256:4f5b34cedec21b118df025b87954445c057cac5fdba7c377c254205ce730100e",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/05_UI/artwork/delivery/Scene_In_Game_Integration_2026-09-19.md",
+      "macos-app/WorldOfMysteries/Artifacts/ArtifactFateInterventionView.swift",
+      "macos-app/WorldOfMysteries/Components/WOMSceneHeroHeader.swift",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/DesignSystem/WOMSceneArtworkRegistry.swift",
+      "macos-app/WorldOfMysteriesTests/SceneArtworkIntegrationTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-19T05:07:00.154639+00:00",
+  "finished_at": "2026-09-19T05:07:06.226808+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
