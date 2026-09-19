@@ -1,6 +1,6 @@
 # Engine Media Protocol v1.0
 
-状态：**W-V01 第一阶段权威协议设计；本提交只定义契约与 fixture，尚未宣称 Python/Swift 运行时已经实现。**
+状态：**W-V01 权威协议与 transport primitive 已实现：Schema、fixture、Python framing/grant/server primitive、Swift framing/grant/client primitive 均已落地并受测试约束；默认 Engine CLI 仍不安装 media handler，因此尚未宣称真实麦克风/TTS 播放链路已启用。**
 
 ## 1. 目标
 
@@ -128,7 +128,7 @@ credit 只计 raw payload bytes。
 ## 7. 安全边界
 
 - Media UDS 位于 App 创建的私有 runtime 目录，继续遵守现有短 AF_UNIX 路径与 0700/0600 规则；
-- peer 同 UID 不是完整授权；ticket 必须与已认证控制 session 和 engine epoch 绑定；
+- peer 同 UID 不是完整授权；ticket 必须由已认证控制 session 签发，并绑定 engine epoch、stream、trace、generation、direction、format 与限额。v1 媒体面不携带可复用 control-session ID，授权语义是一枚短时、一次性的 bearer capability；
 - ticket 一次使用，过期、重放、错误 direction/stream/epoch 均拒绝；
 - header/payload 在分配内存前检查长度；
 - OPEN 完成后 format 不可变化；若需要新格式必须开新 stream；
@@ -159,4 +159,4 @@ v1 只定义安全 transport primitive，不定义：
 6. generation、sequence、offset 的状态机行为一致；
 7. ticket 不出现在 repr/log/error。
 
-在 Python/Swift 实现和对应门禁通过前，本文件不能被解释成“media transport 已上线”。
+Python/Swift transport primitive 与 parity 测试已经实现；但只有安装真实 media session handler、接入 App 采集/播放并完成设备验收后，才能称为“media transport 已在产品路径启用”。
