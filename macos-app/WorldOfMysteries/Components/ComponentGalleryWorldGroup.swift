@@ -14,7 +14,16 @@ private struct GrayFogAndRitualGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "05 · 灰雾深红星辰与仪式魔法 (Above Gray Fog & Ritual)") {
             VStack(spacing: DesignTokens.Spacing.lg) {
-                HStack(spacing: DesignTokens.Spacing.md) {
+                LazyVGrid(
+                    columns: [
+                        GridItem(
+                            .adaptive(minimum: 280, maximum: 420),
+                            spacing: DesignTokens.Spacing.md
+                        )
+                    ],
+                    alignment: .leading,
+                    spacing: DesignTokens.Spacing.md
+                ) {
                     CrimsonStarBeaconView(
                         starName: "深红星辰 · 正义小姐",
                         prayerPreview: "请求愚者先生指引贝克兰德非凡聚会情报...",
@@ -40,14 +49,18 @@ private struct GrayFogAndRitualGallerySection: View {
 private struct CodexAndDatabaseGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "06 · 人物档案与四库内核 (Codex & Database)") {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+            WOMAdaptivePair(
+                trailingIdealWidth: 240,
+                primaryIdealWidth: 520,
+                spacing: DesignTokens.Spacing.lg
+            ) {
                 CharacterCodexCard(
                     characterName: "克莱恩·莫雷蒂",
                     pathwayTitle: "占卜家途径 · 序列 9",
                     occupation: "值夜者文职人员",
                     location: "佐特兰街36号"
                 )
-
+            } secondary: {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                     // 组件样例：显式并列「探针已接入」与「未接入」两种合法状态，
                     // 生产页面在探针不可达时必须使用后者。
@@ -55,12 +68,20 @@ private struct CodexAndDatabaseGallerySection: View {
                         .font(Font.Mystic.caption)
                         .foregroundStyle(Color.Mystic.textTertiary)
 
-                    DatabaseStatusHUDCard(role: .canon, status: .measured(sizeText: "38.2 MB", isHealthy: true))
-                    DatabaseStatusHUDCard(role: .world, status: .measured(sizeText: "14.6 MB", isHealthy: true))
-                    DatabaseStatusHUDCard(role: .retrieval, status: .measured(sizeText: "52.1 MB", isHealthy: true))
+                    DatabaseStatusHUDCard(
+                        role: .canon,
+                        status: .measured(sizeText: "38.2 MB", isHealthy: true)
+                    )
+                    DatabaseStatusHUDCard(
+                        role: .world,
+                        status: .measured(sizeText: "14.6 MB", isHealthy: true)
+                    )
+                    DatabaseStatusHUDCard(
+                        role: .retrieval,
+                        status: .measured(sizeText: "52.1 MB", isHealthy: true)
+                    )
                     DatabaseStatusHUDCard(role: .runtime)
                 }
-                .frame(width: 240)
             }
         }
     }
@@ -74,9 +95,16 @@ private struct SidebarGallerySection: View {
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textSecondary)
 
-                HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
-                    SidebarGallerySample(title: "展开形态 (Expanded · 224pt)", isCollapsed: false)
-                    SidebarGallerySample(title: "紧凑折叠 (Collapsed · 68pt)", isCollapsed: true)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
+                        SidebarGallerySample(title: "展开形态 (Expanded · 224pt)", isCollapsed: false)
+                        SidebarGallerySample(title: "紧凑折叠 (Collapsed · 68pt)", isCollapsed: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                        SidebarGallerySample(title: "展开形态 (Expanded · 224pt)", isCollapsed: false)
+                        SidebarGallerySample(title: "紧凑折叠 (Collapsed · 68pt)", isCollapsed: true)
+                    }
                 }
             }
         }
@@ -112,18 +140,21 @@ private struct SidebarGallerySample: View {
 
 private struct CanonicalGeographyGallerySection: View {
     var body: some View {
-        ComponentGallerySection(title: "08 · 原著正典地域与黄水晶占卜 (Citrine & Canonical Geography)") {
+        ComponentGallerySection(title: "08 · 原著正典地域档案 (Canonical Geography)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                Text("基于《占卜家·克莱恩》正典原画与原著地理风貌打造的核心神秘学实体与据点卡片：")
+                Text("地域组件在这里保留完整档案尺度；黄水晶占卜已提升到 03 交互主展区，避免同一真实组件重复占据两个画廊层级。")
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                CitrinePendulumScryingCard()
-                    .frame(maxWidth: 580)
-
-                HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+                WOMAdaptivePair(
+                    trailingIdealWidth: 420,
+                    primaryIdealWidth: 420,
+                    spacing: DesignTokens.Spacing.lg
+                ) {
                     TingenCityDossierCard()
                         .frame(maxWidth: .infinity)
+                } secondary: {
                     BacklundMetropolisCard()
                         .frame(maxWidth: .infinity)
                 }

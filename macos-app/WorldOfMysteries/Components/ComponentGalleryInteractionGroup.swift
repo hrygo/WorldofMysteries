@@ -15,8 +15,17 @@ private struct ListeningAndAdviceGallerySection: View {
 
     var body: some View {
         ComponentGallerySection(title: "01 · 声纹交互与干预输入 (Listening & Advice)") {
-            VStack(spacing: DesignTokens.Spacing.lg) {
-                HStack(spacing: DesignTokens.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                LazyVGrid(
+                    columns: [
+                        GridItem(
+                            .adaptive(minimum: 112, maximum: 148),
+                            spacing: DesignTokens.Spacing.md
+                        )
+                    ],
+                    alignment: .leading,
+                    spacing: DesignTokens.Spacing.md
+                ) {
                     ListeningRingView(state: .idle)
                     ListeningRingView(state: .listening)
                     ListeningRingView(state: .deciding)
@@ -35,7 +44,10 @@ private struct ListeningAndAdviceGallerySection: View {
 private struct CardsAndCluesGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "02 · 容器材质与调查卷宗 (Cards & Clues)") {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+            WOMAdaptivePair(
+                trailingIdealWidth: 320,
+                primaryIdealWidth: 360
+            ) {
                 VictorianCard(style: .obsidianGlass) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("黑曜石玻璃卡片")
@@ -46,7 +58,7 @@ private struct CardsAndCluesGallerySection: View {
                             .foregroundStyle(Color.Mystic.textSecondary)
                     }
                 }
-
+            } secondary: {
                 CluePinboardNodeView(
                     title: "自杀的手枪",
                     note: "转轮手枪内缺少一颗子弹。弹壳掉落在书桌右侧脚垫旁。"
@@ -57,21 +69,73 @@ private struct CardsAndCluesGallerySection: View {
 }
 
 private struct SpiritualityAndPendulumGallerySection: View {
+    @State private var scryCount = 0
+    @State private var latestStatement = "尚未执链"
+
     var body: some View {
         ComponentGallerySection(title: "03 · 灵性状态与灵摆占卜 (Spirituality & Pendulum)") {
-            HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
-                VStack(spacing: DesignTokens.Spacing.md) {
-                    SpiritualityGaugeView(title: "灵性适中", value: 0.58)
-                    SpiritualityGaugeView(title: "临界预警", value: 0.18)
-                }
-                .frame(width: 200)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                Text("真实组件优先：直接使用 PendulumCitrine 高保真原画与正式灵摆交互，不再以矢量替身代表黄水晶占卜。")
+                    .font(Font.Mystic.bodyMedium)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                SpiritPendulumView(
-                    statement: "安提哥努斯笔记在瑞尔·比伯手中。",
-                    state: .affirmative
-                )
+                WOMAdaptivePair(
+                    trailingIdealWidth: 220,
+                    primaryIdealWidth: 620,
+                    spacing: DesignTokens.Spacing.xl
+                ) {
+                    CitrinePendulumScryingCard(
+                        defaultStatement: "《安提哥努斯家族笔记》仍遗留在廷根市内。",
+                        onScryingTriggered: { statement in
+                            scryCount += 1
+                            latestStatement = statement
+                        }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } secondary: {
+                    spiritualityCompanionPanel
+                }
             }
         }
+    }
+
+    private var spiritualityCompanionPanel: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+            Text("灵性读数与交互回执")
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.textPrimary)
+
+            SpiritualityGaugeView(title: "灵性适中", value: 0.58)
+            SpiritualityGaugeView(title: "临界预警", value: 0.18)
+
+            WOMDividerOrnament(opacity: 0.45)
+
+            MysticKeyValueRow(
+                key: "已触发",
+                value: "\(scryCount) 次",
+                tone: scryCount == 0 ? .neutral : .gold,
+                systemIcon: "hand.point.up.left"
+            )
+
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                Text("最近占卜语句")
+                    .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+                Text(latestStatement)
+                    .font(Font.Mystic.bodyMedium)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(DesignTokens.LayoutInsets.compactCardPadding)
+        .background(
+            WOMPanelBackground(
+                tone: .card,
+                cornerRadius: DesignTokens.Radii.md,
+                texture: .sacredSlate,
+                textureOpacity: 0.018
+            )
+        )
     }
 }
 
