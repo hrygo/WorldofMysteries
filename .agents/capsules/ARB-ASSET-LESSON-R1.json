@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-ARB-ASSET-LESSON-R1",
+  "capsule_revision": 1,
+  "task_id": "ARB-ASSET-LESSON-R1",
+  "title": "资产编码优化的历史代价记录与「先编码后提交」规则",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T06:00:00.142858+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "fc6cae755c339c56169252c280e86c4d074a9cec",
+    "target_sha": "fc6cae755c339c56169252c280e86c4d074a9cec",
+    "context_snapshot": "sha256:087cca20ce5b75a7e2a4283a87b638c069dc25db68ac50046b0f27671f90b9e6"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:test_asset_catalog_destination_refused@docs/05_UI/artwork/delivery/tests/test_intake.py:151",
+      "symbol:asset_names@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:180",
+      "symbol:expected_asset_scale@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:333",
+      "symbol:asset_path@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:401",
+      "symbol:expected_asset_scale@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:319",
+      "symbol:asset_path@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:804",
+      "symbol:asset_variant@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:127",
+      "symbol:is_photographic_asset@docs/05_UI/artwork/tools/reencode_runtime_assets.py:66",
+      "symbol:ToolError@docs/05_UI/artwork/tools/reencode_runtime_assets.py:70",
+      "symbol:run@docs/05_UI/artwork/tools/reencode_runtime_assets.py:74",
+      "symbol:sha256_of@docs/05_UI/artwork/tools/reencode_runtime_assets.py:84",
+      "symbol:rgb24_plane_sha256@docs/05_UI/artwork/tools/reencode_runtime_assets.py:92",
+      "symbol:pixel_dimensions@docs/05_UI/artwork/tools/reencode_runtime_assets.py:102",
+      "symbol:color_profile@docs/05_UI/artwork/tools/reencode_runtime_assets.py:109",
+      "symbol:alpha_range@docs/05_UI/artwork/tools/reencode_runtime_assets.py:115",
+      "symbol:fidelity_metrics@docs/05_UI/artwork/tools/reencode_runtime_assets.py:133",
+      "symbol:AssetResult@docs/05_UI/artwork/tools/reencode_runtime_assets.py:173",
+      "symbol:discover_imagesets@docs/05_UI/artwork/tools/reencode_runtime_assets.py:220",
+      "symbol:_single_png_payload@docs/05_UI/artwork/tools/reencode_runtime_assets.py:228",
+      "symbol:encode_lossless@docs/05_UI/artwork/tools/reencode_runtime_assets.py:241",
+      "symbol:encode_heic@docs/05_UI/artwork/tools/reencode_runtime_assets.py:311",
+      "symbol:catalog_payload_matches@docs/05_UI/artwork/tools/reencode_runtime_assets.py:373",
+      "symbol:patch_provenance@docs/05_UI/artwork/tools/reencode_runtime_assets.py:383",
+      "symbol:main@docs/05_UI/artwork/tools/reencode_runtime_assets.py:438",
+      "symbol:measure@docs/05_UI/artwork/tools/reencode_runtime_assets.py:140",
+      "symbol:as_dict@docs/05_UI/artwork/tools/reencode_runtime_assets.py:190",
+      "symbol:test_asset_names_resolve_to_shipped_catalog_imagesets@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:119",
+      "symbol:test_expected_asset_scales_stay_inside_the_search_span@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:214",
+      "symbol:test_evidence_names_only_repository_relative_assets@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:472"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 865,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "contains_asset_catalog",
+      "test_asset_catalog_destination_refused",
+      "asset_names",
+      "expected_asset_scale",
+      "asset_path",
+      "expected_asset_scale",
+      "asset_path",
+      "asset_variant",
+      "is_photographic_asset",
+      "ToolError",
+      "run",
+      "sha256_of",
+      "rgb24_plane_sha256",
+      "pixel_dimensions",
+      "color_profile",
+      "alpha_range",
+      "fidelity_metrics",
+      "AssetResult",
+      "discover_imagesets",
+      "_single_png_payload",
+      "encode_lossless",
+      "encode_heic",
+      "catalog_payload_matches",
+      "patch_provenance",
+      "main",
+      "measure",
+      "as_dict",
+      "test_asset_names_resolve_to_shipped_catalog_imagesets",
+      "test_expected_asset_scales_stay_inside_the_search_span",
+      "test_evidence_names_only_repository_relative_assets"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
