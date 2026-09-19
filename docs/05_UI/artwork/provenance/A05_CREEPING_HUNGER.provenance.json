@@ -138,9 +138,21 @@
       "asset_name": "wom.art.artifact.creeping-hunger.detail",
       "width": 1024,
       "height": 1024,
-      "sha256": "10999830802ef2c0fc28b09e08258cd534f07bc5129b34936cf6e9f92ffebbbc",
+      "sha256": "4896f048e46ae114dbc629dc69da2c8d426364aa07676daa0140131932aa78a9",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 1729714,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=fa825b4138b2d1a74082f531715cac95808e9f21729e0d698fbbc1022132231b",
+        "bytes_before": 1730773,
+        "bytes_after": 1729714,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.artifact.creeping-hunger.thumbnail",

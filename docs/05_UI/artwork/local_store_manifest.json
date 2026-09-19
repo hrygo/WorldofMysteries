@@ -1,0 +1,3123 @@
+{
+  "$comment": "本机母版库索引；不含二进制、不含绝对路径。策略见 ../Asset_Storage_Policy_v1.0.md",
+  "generated_at": "2026-09-19T05:38:39+00:00",
+  "root": "docs/05_UI/artwork/workbench",
+  "file_count": 346,
+  "total_bytes": 1792798699,
+  "entries": [
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_01_square.png",
+      "task": "A01",
+      "stage": "01_square",
+      "bytes": 2124579,
+      "sha256": "737dfbb50e7fbde38bc44e5550609b34d0e88b41b7d0ee57a98bb88914aea921",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_01_square_1254x1254.png",
+      "task": "A01",
+      "stage": "01_square",
+      "bytes": 2124581,
+      "sha256": "dcf7e3998dadf36619579ee21a307e211e56b0b81783c024f40378a3645ac4b0",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_02_sr.png",
+      "task": "A01",
+      "stage": "02_sr",
+      "bytes": 24885192,
+      "sha256": "0c55b62d0701ca1c57bb55a674c741d0d7aeac9b3a2cc1511f8b57e27081e799",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_02_sr_5016x5016.png",
+      "task": "A01",
+      "stage": "02_sr",
+      "bytes": 24885194,
+      "sha256": "e0f52bf5065732c4bd8191cc70a7f5a15fade7e405a4794c570cbd6e57fb983e",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_03_grade.png",
+      "task": "A01",
+      "stage": "03_grade",
+      "bytes": 29062150,
+      "sha256": "0095673d353bd65496993550f9211a6224af7fba9ccf418c7b844298728dbc10",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_03_grade_5016x5016.png",
+      "task": "A01",
+      "stage": "03_grade",
+      "bytes": 29062151,
+      "sha256": "5bdb945322ae997e9aa67236eaab4bf07485f8bbb6010b099f6cf7deab5906d8",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_MASTER_2048x2048.png",
+      "task": "A01",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5191237,
+      "sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "provenance_master_sha256": "614813beffa9a90c2deaca80d0963f42235371b6458b0d682cd86f7db7128e73",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1016,
+      "sha256": "ce7299eac5e4c5e93bbc27313d11c5656d74d40a83e91e4fbf06e7215b91e219",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1625,
+      "sha256": "d538fe67e2f5c99d7852891928fa1e1e10081f19393b0ce58462794e00b40938",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "6b0a3ceddc1f6335c54e01286e27d189245834eee4829944d2017dba24e4d6ea",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "4c5cfa7fff6e825423caebee985a5ac7ceb4a101c0d2ae54d02dfb7d2680e34a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "3e6fdce9ba902195f7d2136798b6841773a5e591ee41284efd0ad1730fe34596",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 424,
+      "sha256": "c80e4717f37a4d21f8cf5e7a8e8acb154ef2a220b7f9d6ccf8e84cfad87c729e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 598,
+      "sha256": "786ee9ebe7f53e93c7a9ea8c5fa2ab3834a06cab378fbead072b36efed4016a1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "235b9e9a4070c69772a4e257b80f41eb5339cbedc6245f3802bd27f7e2077601",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/A01_sr_stderr.txt",
+      "task": null,
+      "stage": null,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/wom.art.artifact.arrodes.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429373,
+      "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR/wom.art.artifact.arrodes.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387865,
+      "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_01_square.png",
+      "task": "A02",
+      "stage": "01_square",
+      "bytes": 2053477,
+      "sha256": "bc1fb260273b26d5861862d58aca0f17551a2bce63f2943a769190e496da911b",
+      "provenance_master_sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_02_sr.png",
+      "task": "A02",
+      "stage": "02_sr",
+      "bytes": 24415241,
+      "sha256": "13ea9cdc3543a6ecb5ca2f8d0d5e0b72f74c3a91a057de5d57ae296c1bafec50",
+      "provenance_master_sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_03_grade.png",
+      "task": "A02",
+      "stage": "03_grade",
+      "bytes": 28347289,
+      "sha256": "63c5e5657f29e56865dc86ddd506daf622bdde2e1f1ee7f254a0d53b65d83699",
+      "provenance_master_sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_MASTER_2048x2048.png",
+      "task": "A02",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5334850,
+      "sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "provenance_master_sha256": "637c5b76ee3988cb628eca9d4895ccf809346b7b5c826617b0bc652ce2563085",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1052,
+      "sha256": "8caa6fd0b0eefc3f97f780cebec91452e0c13bea2f428e829cb2fae18f1689ac",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1673,
+      "sha256": "8c443815930b6aeda20bec55c3637ae77d26cc0249d24ce7498ed0b7d285b6aa",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 836,
+      "sha256": "eea007e3059988e3480b45fe9d0323bbe02e628628ac34abb856e5b75291de0a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "e462e164e64cab21655fdf4da34a8f195d73536bd0d8593fa4c8034f28427739",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "16322ae460064374d1a3b8ad33e056c88e86da6d24bf2c5f49eb3afa516dcc16",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 460,
+      "sha256": "4994830abf4f30e0a3bdd46019e62e321cfd4a603445cf49f3f84e76f1a548d2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 600,
+      "sha256": "e58e7fccce6898236d132dadc93cf10db4e58dc44216f321997979af4aed8937",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/A02_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "2d363238aab13329ffc4c34e552ce6eeb96b22b6dfd465cee02d871e8d128d1f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/wom.art.artifact.alzuhod-quill.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1500683,
+      "sha256": "368af4f5bd8ead2d999088bc092609c1ba7e13b5d9b15315b1813379eb43e3ed",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A02_ALZUHOD_QUILL/wom.art.artifact.alzuhod-quill.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 419262,
+      "sha256": "9f775e9657a4b841e0c5b653206c9a7fbc94bbb2724b88a8135d70b2848c055b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_01_square.png",
+      "task": "A03",
+      "stage": "01_square",
+      "bytes": 2420146,
+      "sha256": "44bb12a8a5294ebcfa3b58462547ad78457d4d733a0d91d6ca895bd9d9ba65c9",
+      "provenance_master_sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_02_sr.png",
+      "task": "A03",
+      "stage": "02_sr",
+      "bytes": 29681870,
+      "sha256": "4607daf120072d5abb8c1793ee67d51a45a0d4f7af529a5ca83eb0f6fb9e6c83",
+      "provenance_master_sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_03_grade.png",
+      "task": "A03",
+      "stage": "03_grade",
+      "bytes": 33842699,
+      "sha256": "0beefbe303b187f1c49ff20bfa5ab1bf82729ff82a9a205335d5f075051302d1",
+      "provenance_master_sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_MASTER_2048x2048.png",
+      "task": "A03",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6157293,
+      "sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "provenance_master_sha256": "649084c11f2a0d676235fe7aade834b469d3fa23cc49644c7a94daba1a757d00",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1094,
+      "sha256": "fc29f149e27cb8c697ef23bf05f2099cb5bbbf9a332a25f703ebceca09ad8f42",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1729,
+      "sha256": "33a96c8b8a510c9dab8bed5f4bf0c992536b33dd7c71dfbbef124243172012d1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "95d2740ede737fd78f474c365c0718cdb2a8fb6a79053a2dad747a2a89f3ace2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "ae3ae6edc364669ba208c56b322ab72405f7f526e0e61c697a0186d565c9b480",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "10fe166a8bce402908882264d1d432a8a642203401e6872e5a51df77a1aaef15",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 508,
+      "sha256": "282d33c918185975d8264ab5b1ddf7f3fa361fe4b0163176f91e4af0acc20fc9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 604,
+      "sha256": "9179f9ee3861a9f6cb31385244c3a3b868c5509a262d530d1ae636548a98fae3",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/A03_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "5e0594f543f9cfbe242481fe3a2e9300676a67cc7c0da166973a077dff008b3e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/wom.art.artifact.trunsoest-brass-book.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1724215,
+      "sha256": "8dee78c720a3adc5d2d72185c6cfbf2241f309c9b39d1ac59ba31c8176adcba6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A03_TRUNSOEST_BRASS_BOOK/wom.art.artifact.trunsoest-brass-book.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 462917,
+      "sha256": "ad4d64591eb00796bc106f7fe6140d0ac3de3ee35aa6879d18b30ff3d9634d0b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_01_square.png",
+      "task": "A04",
+      "stage": "01_square",
+      "bytes": 2253477,
+      "sha256": "2966bf3d25bcf32d0097eb2c3f82389c9620fb51cebf778c6fc172090fae018f",
+      "provenance_master_sha256": "1b190974138dc29c19046a77d74122f74d15dff7b1c3e24fee4192b0e640778b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_02_sr.png",
+      "task": "A04",
+      "stage": "02_sr",
+      "bytes": 26281836,
+      "sha256": "c141ea9444e67febe2d61835565257b51ee15b1e380484511bc9fc1a400cfa5e",
+      "provenance_master_sha256": "1b190974138dc29c19046a77d74122f74d15dff7b1c3e24fee4192b0e640778b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_03_grade.png",
+      "task": "A04",
+      "stage": "03_grade",
+      "bytes": 30246974,
+      "sha256": "2b9c7195fbfc369d04af2ba19e58d6553834a4b36de4bde2e5746f571a54a009",
+      "provenance_master_sha256": "1b190974138dc29c19046a77d74122f74d15dff7b1c3e24fee4192b0e640778b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_MASTER_2048x2048.png",
+      "task": "A04",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5516112,
+      "sha256": "1b190974138dc29c19046a77d74122f74d15dff7b1c3e24fee4192b0e640778b",
+      "provenance_master_sha256": "1b190974138dc29c19046a77d74122f74d15dff7b1c3e24fee4192b0e640778b",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1082,
+      "sha256": "0e120c46e3fde28f5ea05e88208c1f8dc05f353f3df47812458c8de49329c539",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1713,
+      "sha256": "5ddc1c661d8872857abca3f13a5b2e874e37f972c7ba0588144d77d00e24f3b9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "ad8ff394f0d9f560ff02b8d2475df03a60c22d92105bd50261b220a7a0b89d40",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "fa89da7d474529ee32b0340be2e827273246cdda2d971803993680340de09028",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "c05035f2e29dde240aefa6b8aac5455a127e041ce3b2ede33d98298d55e2ecc6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 463,
+      "sha256": "85bbf639d28c215d88d53406c04479c09424abc6376093e81655b95907dd031f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 602,
+      "sha256": "9ea0b0d2764ac285e78789c2e10791f40012798a680385059386a064fcbf4dae",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/A04_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "550fec86fcc92c095db1178ba9d59de3f9993ddecf56f02bb00a73b463524654",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/wom.art.artifact.magic-wishing-lamp.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1589789,
+      "sha256": "40867d8bf2cc2c4231de9932dabb9db69840ac68346bd8dde2d1f6588ee70cc3",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A04_MAGIC_WISHING_LAMP/wom.art.artifact.magic-wishing-lamp.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 451950,
+      "sha256": "ceacdaf38a3c4f5fdcad87ac0c143b7ece0e633fa816a4bf638875cf61968cdd",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_01_square.png",
+      "task": "A05",
+      "stage": "01_square",
+      "bytes": 2467172,
+      "sha256": "ec8ac963d8a3765bf348c1fb20c172b044eda68f3e9a5fe075f6dbd26269f776",
+      "provenance_master_sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_02_sr.png",
+      "task": "A05",
+      "stage": "02_sr",
+      "bytes": 27151325,
+      "sha256": "6b72296e5126f2da2878c96f5fefee707114386449d7ef25e5465c42a951ba18",
+      "provenance_master_sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_03_grade.png",
+      "task": "A05",
+      "stage": "03_grade",
+      "bytes": 31619729,
+      "sha256": "c760fbcc9698dd91f70f85b47f48367fdf43aea9c47e7560e696ae77bb1b07a2",
+      "provenance_master_sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_MASTER_2048x2048.png",
+      "task": "A05",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5908160,
+      "sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "provenance_master_sha256": "5d3313b7a0b0b6ba9f7fe31eb1d41baa6720cb05551a95d8bb0292ba280057c6",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1064,
+      "sha256": "4153dd70650c94af987c33295faca38f1c1482f5937f675e94744e08173f6e21",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1689,
+      "sha256": "f1c5ece66d5985b454fc18730d58350be07ac1e665dfca507223f2b63fca615c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "a29ba06dcec21b96b36be316d4f10a0fe1672e890b541254434f2c637ccf44f1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "c1cdeb7f41795331eb08810aecfd2a6517c99766ed47ab7b4a9e1528e5fe91e7",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "08677ae4fb5a2c525e61158d4af5a66397235eba0c5f451ca9b4e3ae707e6115",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 454,
+      "sha256": "b087b84f10655fb98a0f0edd1c2ab634e57c0bed201a5e72f0180516be1ddfe1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 599,
+      "sha256": "6666de88531db006bcc21d7622665fa99d5a7925c4914656de12ecbd7192662c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/A05_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "d0a11e7a6022370488c05b32fa4a51a452af4f1de2fac8cb218fe883f2a39657",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/wom.art.artifact.creeping-hunger.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1730773,
+      "sha256": "10999830802ef2c0fc28b09e08258cd534f07bc5129b34936cf6e9f92ffebbbc",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A05_CREEPING_HUNGER/wom.art.artifact.creeping-hunger.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 491299,
+      "sha256": "36894193edd51e5d83c45677147f950bdded168713bb94b42110aee960ed9ccf",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_01_square.png",
+      "task": "A06",
+      "stage": "01_square",
+      "bytes": 2912946,
+      "sha256": "945cfd238eac0f7fbbced23c4512e208cc742dc389b85fed5966b41a480d9e67",
+      "provenance_master_sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_02_sr.png",
+      "task": "A06",
+      "stage": "02_sr",
+      "bytes": 29686227,
+      "sha256": "eca322d9d18a1e5bf255c199bef2fc7b0a42ef469cc617eec8ab92935cb4c6a1",
+      "provenance_master_sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_03_grade.png",
+      "task": "A06",
+      "stage": "03_grade",
+      "bytes": 34538865,
+      "sha256": "219389f5f09f84fb43bb8a5c5dca8760da573535c4b09ea86450770bc8e3a3ec",
+      "provenance_master_sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_MASTER_2048x2048.png",
+      "task": "A06",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6821775,
+      "sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "provenance_master_sha256": "8de10c6cb80dd67680e42334134603362cff39d168e2793a600d19983b047777",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1064,
+      "sha256": "6f47a24d1d2735d7316aca73c759e6a4a4a43a175abc443dc446b1bf06fd1801",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1689,
+      "sha256": "f4dafb7e47d2de2ee0337d8cbc4d79e275567f7fab8b8d11c7d987458ee30dd6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "f3cc2a0343a45f2d1464ac5d45c2e9fc25a28bd1a5c25f799494f0b7f486de8b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "0ff23951f0a69676ced58c2cb5bbe654875a2e3081ebe87bffb34d3c30a04ef1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "bf2ff3e02099d02dffe45ddc8ecf210f7c22ce83450d24eb0ef8727c8f4668c5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 454,
+      "sha256": "0a675c724c2d67608580bd1c3158679557b1b1db06c7d7e575c993cf38d87d69",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 599,
+      "sha256": "4b988246736c5b1c428fb35ef80a76efa76200e5e8f2af09c8a536087ca85996",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/A06_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "2e68ed9ccf22be00d82c74911bf9f575431ed50b9505f01983a5430f1d9ec4d7",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/wom.art.artifact.sea-god-scepter.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1974363,
+      "sha256": "c4bb9ea3707f2f90aa72130b20739ceb2c9fd9521906fc028d72940fbeed9906",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A06_SEA_GOD_SCEPTER/wom.art.artifact.sea-god-scepter.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 529129,
+      "sha256": "185288ec2ecca4943787b165a122218fcb983232d4ea3f792ac4524d2c73abab",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_01_square.png",
+      "task": "A07",
+      "stage": "01_square",
+      "bytes": 2033025,
+      "sha256": "14617b45830886c4c67155da975db9cf7f7dd865e5decd3b32564ed1f8447b48",
+      "provenance_master_sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_02_sr.png",
+      "task": "A07",
+      "stage": "02_sr",
+      "bytes": 23206493,
+      "sha256": "fd90a68d50bf59b396af691789ca42248c72f3727c8f88b043a973be03a60348",
+      "provenance_master_sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_03_grade.png",
+      "task": "A07",
+      "stage": "03_grade",
+      "bytes": 27235657,
+      "sha256": "5ce8c93b43b0edb4523b5a0e930577c023ba20c4cf43a52c38021a89b3064a3c",
+      "provenance_master_sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_MASTER_2048x2048.png",
+      "task": "A07",
+      "stage": "MASTER_2048x2048",
+      "bytes": 4860048,
+      "sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "provenance_master_sha256": "acb53a5bea259b0223c496771501fbbf92c3a88df00932fedcc4bd07d045deb1",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1064,
+      "sha256": "a362a446ecbafcc9d7fcb8470bb0486e74cf94b74aa8414f595549d9e12200f1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1689,
+      "sha256": "024a3ae03c94cef40f2617f3b4794b15dffa6778c8e02fcb76ad52345ae7d450",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "0d0c3cc68a30295d813deedec97b6e9b69149f9fa77990964ff4781e475b063d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "dd34199c298b183acdb5f7a9060c5d48bb67ee146368279fee29d8fefc998625",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "ffe1c8b18a0665348ad81ddd0448466237abe62ab91d2bdbdaa36663605e9f70",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 427,
+      "sha256": "fb6111d18574ea2fb1c3b82d0b8e09fd67932464ad98c8505ecb51b47a2e6479",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 599,
+      "sha256": "3a431f42cf8955a82ff642a7973d00175ed19f7a3a7e281118b1e276ea853c30",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/A07_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "d0a209ded9c496fec20cafe0f34721eaed5ed1317ab3d3cb44945b08d3411da5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/wom.art.artifact.probability-die.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1411054,
+      "sha256": "42739c9b9586706da8bfa9b71dbb69d5b63b233c56ffce7b9eef8154ac50d077",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A07_PROBABILITY_DIE/wom.art.artifact.probability-die.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 409587,
+      "sha256": "7fe86fa2d2ac1990e31aaddb406c38ecb5d0c94e0e1d9faa58cc20c66c2a5503",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_01_square.png",
+      "task": "A08",
+      "stage": "01_square",
+      "bytes": 2502825,
+      "sha256": "49af54ac018f94f9e130a5fd4862109cb518968bd4e6b19b481b4eb8e03aaf0b",
+      "provenance_master_sha256": "33da5a7c2051dab910a67c0120d00f3151e08aa1f6f6f900371f9d766f32f8ad",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_02_sr.png",
+      "task": "A08",
+      "stage": "02_sr",
+      "bytes": 28682183,
+      "sha256": "961a1952abca64502c035d803b361c1f78bf7f69eac59d10ec08e82512597728",
+      "provenance_master_sha256": "33da5a7c2051dab910a67c0120d00f3151e08aa1f6f6f900371f9d766f32f8ad",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_03_grade.png",
+      "task": "A08",
+      "stage": "03_grade",
+      "bytes": 33478794,
+      "sha256": "6104f16f267a7de49db4d22e8946375bf83478b0e9c7a6360a7af094643bcb14",
+      "provenance_master_sha256": "33da5a7c2051dab910a67c0120d00f3151e08aa1f6f6f900371f9d766f32f8ad",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_MASTER_2048x2048.png",
+      "task": "A08",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6315577,
+      "sha256": "33da5a7c2051dab910a67c0120d00f3151e08aa1f6f6f900371f9d766f32f8ad",
+      "provenance_master_sha256": "33da5a7c2051dab910a67c0120d00f3151e08aa1f6f6f900371f9d766f32f8ad",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1064,
+      "sha256": "fe3599052d562a995fe8384eee99a1de5e75ab64553a18474ef3b2156e6b4574",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1689,
+      "sha256": "86fadb15fb40d0b354e88f5c734b91e10c37e08a70769f15db818fbb130a56bf",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "d0722e281e1130853eac528eaae0244e90fa894a777ce75959b1d2338a84392f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "b349976c074841d82b66430fb857a5e3de3c2c7dd65a1e10b0dbd55b5aa9e718",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "a0bd7ae77abca814a3a33623642aeafbb9a4c8dd8b67947cd7cc45891d5b8bdc",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 454,
+      "sha256": "9d39dffbd2401cece0a6d3cde8e2444d70b10b29bea417c7ab97e229d774beb2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 599,
+      "sha256": "888838772d520b0ab18e54585bf04864893a8744259b282ea9efbccb4979c891",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/A08_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "6af016a099e6221151e3ea24315b5eb577248c8bc5a59774114b6a4dfdbccb9f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/wom.art.artifact.leymano-travels.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1827726,
+      "sha256": "2270fef261652ef7e7bc94d9a6975e3ee5dd0bf31f481cf0b0e6fd19c40dcffe",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A08_LEYMANO_TRAVELS/wom.art.artifact.leymano-travels.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 507041,
+      "sha256": "be9d5303b0302204e91a99ac4836ad8fcd4e002eddcfdc4af6a2a4e4ca5e6f56",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_01_square.png",
+      "task": "A09",
+      "stage": "01_square",
+      "bytes": 2587684,
+      "sha256": "590cd8078da030e1dd2bfc4abe033bdb10f622d3a777e2f71fbf13aa9926200e",
+      "provenance_master_sha256": "ac9a6f0550228fb96420e72349dd8bbb0e18b4bb95bd5f2ead28ddb850e45d05",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_02_sr.png",
+      "task": "A09",
+      "stage": "02_sr",
+      "bytes": 27976123,
+      "sha256": "f9db91ba96eafc274a9fa4fbbad73875dea28b0af29b98a946adc8e71ce79a66",
+      "provenance_master_sha256": "ac9a6f0550228fb96420e72349dd8bbb0e18b4bb95bd5f2ead28ddb850e45d05",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_03_grade.png",
+      "task": "A09",
+      "stage": "03_grade",
+      "bytes": 32137684,
+      "sha256": "5ca045026c844a028b02933a6489333c24356b5b34fdc71995069e058f998899",
+      "provenance_master_sha256": "ac9a6f0550228fb96420e72349dd8bbb0e18b4bb95bd5f2ead28ddb850e45d05",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_MASTER_2048x2048.png",
+      "task": "A09",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6305479,
+      "sha256": "ac9a6f0550228fb96420e72349dd8bbb0e18b4bb95bd5f2ead28ddb850e45d05",
+      "provenance_master_sha256": "ac9a6f0550228fb96420e72349dd8bbb0e18b4bb95bd5f2ead28ddb850e45d05",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1070,
+      "sha256": "19d5482c34c47e76ef7bc08f516558aa1e2ee28efcb6dd9ac35daa2d5e760539",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1697,
+      "sha256": "00771412cd1c42158ad173eec878c50fdb67ced49fe31286a4a95cc239b10351",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 836,
+      "sha256": "59a9fcbccaaf285c171d894c4c5976f75d67cd986b94a2c3bbc8e6dc6de0c0f3",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "a956259880abffc456577cad14907ebc28e49253e14381107cca2f33daef1a9f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "5efcc3f7e9b29a6c7ad92a9693bdcc4b2f29c3cd60ea478c541dfd2a8cfc9173",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 457,
+      "sha256": "12b5726c8be0230beca5d360a711816ecfb96bfa7a8d3a66945408b276c90741",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 600,
+      "sha256": "76e9a7f76b33d90bfaeeca2c47590552b939b0a764f1e29ebeaad6f0c5e512d5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/A09_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "82e5883026741a7d0be863f33b5bc9f37efa2a35c4d887230af65199b12a9133",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/wom.art.artifact.groselle-travels.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1843566,
+      "sha256": "c8c4583a2c42287f9b9b408e6ee9a16cb8773086fa3553137c0b12b76d2fd1ff",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A09_GROSELLE_TRAVELS/wom.art.artifact.groselle-travels.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 510738,
+      "sha256": "7ea5a7cdb66c2706492e55b8c50a47950fb2eba516f9d53468a6d593c966aa61",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_01_square.png",
+      "task": "A10",
+      "stage": "01_square",
+      "bytes": 2182664,
+      "sha256": "82957ab157b5031463dfa524a52b668116722589f3066f7a3218e881ba2fe423",
+      "provenance_master_sha256": "e1cb6234646600288b5365aa09016ac215f2cdfc646767dac3b49946c6b4d9c9",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_02_sr.png",
+      "task": "A10",
+      "stage": "02_sr",
+      "bytes": 25956415,
+      "sha256": "16991a9002bb80da590f5b18ea7680ef927c3255cd455936dc9dd8c8927c3c83",
+      "provenance_master_sha256": "e1cb6234646600288b5365aa09016ac215f2cdfc646767dac3b49946c6b4d9c9",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_03_grade.png",
+      "task": "A10",
+      "stage": "03_grade",
+      "bytes": 30551532,
+      "sha256": "fa4362c58d7d7ff55a7cdcd4304e454440e311e6d679358cdf83b3ff6020b22b",
+      "provenance_master_sha256": "e1cb6234646600288b5365aa09016ac215f2cdfc646767dac3b49946c6b4d9c9",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_MASTER_2048x2048.png",
+      "task": "A10",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5615706,
+      "sha256": "e1cb6234646600288b5365aa09016ac215f2cdfc646767dac3b49946c6b4d9c9",
+      "provenance_master_sha256": "e1cb6234646600288b5365aa09016ac215f2cdfc646767dac3b49946c6b4d9c9",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1088,
+      "sha256": "902fb2a630e248662f48bb47131ba3c158670efea3a6785f6c40074ba9510676",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1721,
+      "sha256": "9c2ae04db6479d63f19c187e0d135f4ccea2c6d8fed3eaadd33246309b32ae38",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "971f3b6cdba5230f1c31ee38181a20293d71c3087298a56b56f061a349595e42",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "35c75222928b697cc45cae1c128b888b8b8894e7ed8511b80e1e3928afc83310",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "9cf4c8737fc836cc0adb223765e37463c0ec9698bacb5de1b352889bc7cf08b6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 466,
+      "sha256": "888b558da94321c4c03f918f9503818182016865b0996c2aaf617ac17930fb05",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 603,
+      "sha256": "9e18706f52157da49f364165ffc1d87446a1245f0587805531879f0679e2d954",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/A10_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "bd57808eca10e32f6a06a4f67a08559c90b078b147e2d7ee22ebe24f0da3139b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/wom.art.artifact.azik-copper-whistle.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1662626,
+      "sha256": "b2105f75bf924f313ede9825c7d4b20d3068a0f209314cbfe68cc80015aa118f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A10_AZIK_COPPER_WHISTLE/wom.art.artifact.azik-copper-whistle.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 483292,
+      "sha256": "cf002b084c7fb7edcc4a2f9c224f84df956050a6a78c7dfd35e083c542c8ba58",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_01_square.png",
+      "task": "A11",
+      "stage": "01_square",
+      "bytes": 2082930,
+      "sha256": "4a84cddfcd88514178ac83e2bea8ae1b2294e7d8f598e1afcc42b3914209bf63",
+      "provenance_master_sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_02_sr.png",
+      "task": "A11",
+      "stage": "02_sr",
+      "bytes": 23827372,
+      "sha256": "dd32e6ef241848f8d3ef69a299f04fd7345ec1d37f97a7ca6ad71148fadef92c",
+      "provenance_master_sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_03_grade.png",
+      "task": "A11",
+      "stage": "03_grade",
+      "bytes": 27346017,
+      "sha256": "f9ecdaac1c2479eb9138df08ddb4629eec9d93345cad785ec089cb9a2913e4a2",
+      "provenance_master_sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_MASTER_2048x2048.png",
+      "task": "A11",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6159147,
+      "sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "provenance_master_sha256": "584de035a6ff3c30bb42af1a06caf2fb3c69a3a0e8e6bb3c7b2544b96d931dd0",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1082,
+      "sha256": "d01e88e02c7b071aa9033827ba129ca9352358d63205af4e0555022528125e9b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1713,
+      "sha256": "250d581ab824e773c2be19f8869050fefc6833ce81b7ab0c5a8b7e3b186986ad",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "d0c3223d8c44d018f8e26d9145484ee7fea38742a56cf00c7da964f14ba6dc91",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "0ebd309e86a739995753a4cbbb04b53648efc0ccdd0c31abd62036c64bb97de8",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "0807c17faf84c0744f66e6aa49953703cae1ef3487e5f2d9b3889e35334e1ad0",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 463,
+      "sha256": "eb3538c5821714e2d729d7ca9ba65e3694d31c07b2728be11f113823cf1567e2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 608,
+      "sha256": "eef6168d44fd286d4c34a7ed8db34520d03a197c05aeedaecebf84f91d2bdd4e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/A11_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "a94fbba8338d3cfe35287fd86a7e37abedfbd41a39c03137677b46af6fe39bac",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/wom.art.artifact.cards-of-blasphemy.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1790202,
+      "sha256": "bee8a283f1babc28c0c39d66dda30a5106653cf7d94bddbec716fa6ad29ec80e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A11_CARDS_OF_BLASPHEMY/wom.art.artifact.cards-of-blasphemy.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 503680,
+      "sha256": "4291d3be0e59b121a247ae1a87bbe0c0786f6f62126136998a14e5e54837985d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_01_square.png",
+      "task": "A12",
+      "stage": "01_square",
+      "bytes": 2157541,
+      "sha256": "732a006c85db3006745418cb95eac7a957855dacc396f138c5c9315e7f28b92c",
+      "provenance_master_sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_02_sr.png",
+      "task": "A12",
+      "stage": "02_sr",
+      "bytes": 23231269,
+      "sha256": "8586fbdb1ba9ec9a72831fc2ade5961be47aab3929fc3f2a2b9c0aca0235321c",
+      "provenance_master_sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_03_grade.png",
+      "task": "A12",
+      "stage": "03_grade",
+      "bytes": 26646387,
+      "sha256": "25e25a2b0a9f9a73153c4f103f2bcb51536146d6f40ad980e357da5e3db1e1f1",
+      "provenance_master_sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_MASTER_2048x2048.png",
+      "task": "A12",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6061895,
+      "sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "provenance_master_sha256": "8de14ef026b649b18388384f8e1530a4bfe3441371551dcc64d8f1a5e2ac1fc2",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1058,
+      "sha256": "e99b8a83f6bbaf2b9cc305c19a4d1a407fbaae543a2456026768f7d4b9ef860f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1681,
+      "sha256": "f6005e800c0b104a494c6aee1c8beb6d77a87137f6568dabbb3d564e3c3771dd",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "d191d02580f16410e709a64953286c317188abb238274858da50cce1b0fe4c30",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "8da290b09f428c850434042f4c83ccd27f74d25886952824b123006a9f031c91",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "979314923d9e96e259c611c72486ef3c2b120e4376621da1bd5959a0b47aa50a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 451,
+      "sha256": "59f5c276116d6225a79cbb2662d8188905367b629215b39da1a058c99da59fd8",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 604,
+      "sha256": "db602efe43f9f12b313356b45fbab39affc51a930d3b84af561d116c860a235b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/A12_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "36cab22f2e7a6603b694db6f71a8184d5f894e6710ea3058fb732f9f3ee5ffe5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/wom.art.artifact.staff-of-stars.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1788598,
+      "sha256": "dff5d41b70c930f52e564eae4fd1fc289b4525c0f36704b5faa538049978d90d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A12_STAFF_OF_STARS/wom.art.artifact.staff-of-stars.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 510364,
+      "sha256": "cdec58f59b3c840453dccf6ffed58d8f51ab5ec746d4c8d612f1072ba61f732e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_01_square.png",
+      "task": "A13",
+      "stage": "01_square",
+      "bytes": 2938423,
+      "sha256": "af881af09ea3c191f4b51f2aaf18229a78045a0e770908746b2b83107d448698",
+      "provenance_master_sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_02_sr.png",
+      "task": "A13",
+      "stage": "02_sr",
+      "bytes": 31297960,
+      "sha256": "9a0ceb8512e95f379c02a3d0d663e0fdca0697026375b79afc4fbd4a5b56d959",
+      "provenance_master_sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_03_grade.png",
+      "task": "A13",
+      "stage": "03_grade",
+      "bytes": 35202958,
+      "sha256": "61eed1264250c44d15e5e305e7b90ccdce449d9a84b163d036370aace1c2f9c1",
+      "provenance_master_sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_MASTER_2048x2048.png",
+      "task": "A13",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6984704,
+      "sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "provenance_master_sha256": "3c74f9acba157b3d7db932d3938a940d95df5728113be55bc17fc96b5afdac2b",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1100,
+      "sha256": "59e92b0c01c24ece9210cc8a48770e649b3ee00eef89d524f0b14c4554616157",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1737,
+      "sha256": "ce658f3a00f40562640c2e8b8407f3f7aa799d1d820b9db8b9bf8422d744e8e1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 837,
+      "sha256": "8918c65e21dfa81b002edfaae4625f9e8635f5d4fcf23e870e5fee04bba6bd4c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "67f5078953c4208752b431d324fd34d631c0a51d7f6d3a0a51e806ed14eba365",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "e9e6660385135e1233012ebceaadfc36ab5a5921bb98d201494489a9ff30fc9b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 472,
+      "sha256": "1244a1f96a5fd423862175896751f33a50b0c4c7154cfdb6f239ec7896b5904d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 605,
+      "sha256": "687541e628c3a71585e576acfdfa99abd438eebd5ba38741224a40d682f6ee92",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/A13_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "0269931674fa55c27c3afde9e0f38b58b5e1ae6ff3bde1cd89e929e5700f57cf",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/wom.art.artifact.box-of-great-old-ones.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2079786,
+      "sha256": "c3b607b66ceaea0c34368f2217e3bf2d655165ea1a812cc5d55b53c4e0c0d88b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A13_BOX_OF_GREAT_OLD_ONES/wom.art.artifact.box-of-great-old-ones.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 580813,
+      "sha256": "a348c7e0b98134046905464322dee81e17ee2db698ae0b844f210195bc7566d1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_01_square.png",
+      "task": "A14",
+      "stage": "01_square",
+      "bytes": 2019858,
+      "sha256": "368059e5b065ff9617bcc4e81587415bad9238f1ddf741c5ad376fd9e70b8156",
+      "provenance_master_sha256": "80d409e2df9a2a53cd085e3e1eb0ea0db6b0017d05fef6f70fcdd56273d68b60",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_02_sr.png",
+      "task": "A14",
+      "stage": "02_sr",
+      "bytes": 21772874,
+      "sha256": "fe48be850954b110b428462c45fe612c3a65a64ca185f617265d959c58fcda8c",
+      "provenance_master_sha256": "80d409e2df9a2a53cd085e3e1eb0ea0db6b0017d05fef6f70fcdd56273d68b60",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_03_grade.png",
+      "task": "A14",
+      "stage": "03_grade",
+      "bytes": 25321223,
+      "sha256": "38ef71e0ae7f4ccf16e78022d3fd22f1663304f27233df70db0ecdca58ebb710",
+      "provenance_master_sha256": "80d409e2df9a2a53cd085e3e1eb0ea0db6b0017d05fef6f70fcdd56273d68b60",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_MASTER_2048x2048.png",
+      "task": "A14",
+      "stage": "MASTER_2048x2048",
+      "bytes": 5733165,
+      "sha256": "80d409e2df9a2a53cd085e3e1eb0ea0db6b0017d05fef6f70fcdd56273d68b60",
+      "provenance_master_sha256": "80d409e2df9a2a53cd085e3e1eb0ea0db6b0017d05fef6f70fcdd56273d68b60",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1040,
+      "sha256": "733cb789a180ded99d65d22701cb93f2757722ffa673a0ef63d004b2a06186f2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1657,
+      "sha256": "338b5f59aed8a1059395d76427acbd03b9eb92fdcfab17a08dc79dc9331c2dc9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 836,
+      "sha256": "f72789162dd693c4b14dc5b83d7fd055796487cbd61e660dc7f7e3ea13bb79c4",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "f84fd5f6f0607773d9b303c6d65d58ca9b3d1777d7a465e64484780550c1d869",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "79299377b6334e714c574fdf1c5cc7470e32c576ef421bc274be791dffad195b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 442,
+      "sha256": "97c3b528df90df9f689f2f3f6ebe7deb1193a8f5af4a945828036315afdf229b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 601,
+      "sha256": "203a94bb408dc70ae645f99a7322b037c3aea079bc5ee1059806577d226bc7a8",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/A14_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "51281e06235cac5eefced0f6cd69a42884fe3ddac87d0795cc1581112c5e4236",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/wom.art.artifact.death-knell.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1714901,
+      "sha256": "86102667f8d0f1d9bb8be4e85654fc8fcf9e91c7a560e74d81c9da77517a78f8",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A14_DEATH_KNELL/wom.art.artifact.death-knell.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 495479,
+      "sha256": "a323678b8687b883ecf6c1f3378ee80b2a7466975686b8ef7509eb28dca944eb",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_01_square.png",
+      "task": "A15",
+      "stage": "01_square",
+      "bytes": 2657543,
+      "sha256": "f3b3ae7567908b2a2ebec40b666688dbeb9131c5bcbbd05c9e4fb4040b8208b4",
+      "provenance_master_sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_02_sr.png",
+      "task": "A15",
+      "stage": "02_sr",
+      "bytes": 27121013,
+      "sha256": "d9b2315ac7437347ca12ab13aa29f50649c5e216e9169e1e19c652185ced5bab",
+      "provenance_master_sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_03_grade.png",
+      "task": "A15",
+      "stage": "03_grade",
+      "bytes": 31111295,
+      "sha256": "cddc193bf54eea576a11aaec42f1dfebeb17953deb5646375c2a5dbb4e12891b",
+      "provenance_master_sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_MASTER_2048x2048.png",
+      "task": "A15",
+      "stage": "MASTER_2048x2048",
+      "bytes": 6134974,
+      "sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "provenance_master_sha256": "4b5d503a918c86647193e012158faf73be1b3ca570f13fb64628dee2faa61337",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_catalog.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1088,
+      "sha256": "3054b6b990e29f67083dd85d06de1162be68961e320d861475ff4d0c11a21446",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_derive.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1721,
+      "sha256": "1bc336c19a876257dcd0c668c9b29b6a16362d3d9ebf45c783dae53b820d9749",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 836,
+      "sha256": "651baab391280d91d96351d248adeee754b167d52767ac835ce21a2b7f691d95",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 816,
+      "sha256": "73ed393b668e02edd33a26cf00e083196efaf99ca62c08e0a1ad2c89609c090e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 436,
+      "sha256": "4871416b2176df468e77bf561246a719f2108bd72fb4c66e1078eb1c253c9940",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_record.json",
+      "task": null,
+      "stage": null,
+      "bytes": 466,
+      "sha256": "9410c433dd1efc8a3e728143bdb880662f1709cefa7c7604175ba6845442fe47",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_square_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 603,
+      "sha256": "119130e230c70b4c4c448db0aa1138622cc972da59185cc2b3e50ce906f7eda9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/A15_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 726,
+      "sha256": "145b983cd09194734f792406d89940b2b9ff98ca6714057b662deb6cef081872",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/wom.art.artifact.unshadowed-crucifix.detail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1819374,
+      "sha256": "5e9dae51d06764f2902e1647ff82747a1c54e959304af97e5ab36a2a315022d6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/A15_UNSHADOWED_CRUCIFIX/wom.art.artifact.unshadowed-crucifix.thumbnail.png",
+      "task": null,
+      "stage": null,
+      "bytes": 504988,
+      "sha256": "fa6262bb46aa47b2ed7a2e8d9453ae11d622b3337f138ab50a01b5fed37552fb",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A01_ARRODES_MIRROR/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2139449,
+      "sha256": "3a76a388e8316e61147ccb60711f90e9f1c701f31489cd4c2a1aa908f5db4c5b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A02_ALZUHOD_QUILL/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2136619,
+      "sha256": "dd6c4cd3f43375314b5108f4b292724fcec3394fe736282c5e8ec42f34567509",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A03_TRUNSOEST_BRASS_BOOK/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2414307,
+      "sha256": "490a4c74d2364e26093830f941701c1917545d497569df660521ff5fa8590fe2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A04_MAGIC_WISHING_LAMP/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2238833,
+      "sha256": "3df7eb7bb25374594132656dc05715f72da447538b15abd102c2228b1ceab82b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A05_CREEPING_HUNGER/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2470686,
+      "sha256": "519a611c80f6ac276b14e1fb3b0922cb92066bac486aa48171658cf4c82d3dae",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A06_SEA_GOD_SCEPTER/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2933470,
+      "sha256": "f187e331d0c1d6cf62af686c5da8500a89db918179d0815cc8254a5db5ae21b9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A07_PROBABILITY_DIE/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2029074,
+      "sha256": "29fc341d9631f373be536c59291156f3528e241ba96b3ad89add4602b9fa1c36",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A08_LEYMANO_TRAVELS/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2510063,
+      "sha256": "c74b5f7edb5689d086c532e9e127b56295607e44020d5bfc5fac121b724b8747",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A09_GROSELLE_TRAVELS/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2582050,
+      "sha256": "c337775c93719c2496e6f5fc8bbb05014be7922f98f074724905f49067fd064b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A10_AZIK_COPPER_WHISTLE/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2178071,
+      "sha256": "eb9476e227fa7f19e7cb2b0e2bdd8cb4bad755887687b43b78e5a363305e9dc2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A11_CARDS_OF_BLASPHEMY/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2478877,
+      "sha256": "621c2c1ddce3e85d2fb83f3ee20c6817846bc858eca72b03108451bfcbbb095c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A12_STAFF_OF_STARS/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2532270,
+      "sha256": "619916562293b9c3d66940b6ef48039b0f2bfbe89d86f8deddb4d53c32f1b55f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A13_BOX_OF_GREAT_OLD_ONES/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2956670,
+      "sha256": "1709b8ce53e266164182d1b5baef08962c9146f41e2105cb413e81c377fdd278",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A14_DEATH_KNELL/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2360402,
+      "sha256": "f65337a5e6bcde3da7c3d5c5d52b8477d312d78865a312ac231f3f784ffc20a4",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/A15_UNSHADOWED_CRUCIFIX/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2652076,
+      "sha256": "25813960f9e0ffb821eacea2f055ebf6983d6ac8b0b8a9a2ac02c194edd115a5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S01_WORLD_HERO/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2867095,
+      "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S02_STREET/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2899077,
+      "sha256": "74e6e508939a40f8790ddc7b2f729563682e721ec0a3dc1530830e26dee6ee03",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S03_CODEX_LIBRARY/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2683916,
+      "sha256": "f6a1f1db7f2ec25edf4a3378f63faac305926623dcaba9d7398a416444403131",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S04_RITUAL_TEMPLE/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2693011,
+      "sha256": "2fe4de72830401540e1dc48c8424e4762601191abee9d53e8e8d3af5f947bd25",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S05_HARBOR/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2820903,
+      "sha256": "0c608ffba6143241558bdf5f406b4b428a5833b031bb53bc7c141bd04f56508a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S06_ALLEY/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2560459,
+      "sha256": "08f2ec45b3f6eac248cf7157e32fd7caf3b9d1be782641922a1859feca42b8d7",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S07_GRAY_FOG/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2358585,
+      "sha256": "97a8bcee9d1254c5a2c5413e79d4900f5e28edd9def9be0cc95850acd8badda1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S08_FATE_WORLDLINE/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 3037161,
+      "sha256": "7d06fda3b369700ca073d3f3c45f0dbf6caa39948016f20711b485e7ab7f5bdc",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/combined-sources/sources/S09_ARTIFACT_VAULT/source.png",
+      "task": null,
+      "stage": null,
+      "bytes": 2771712,
+      "sha256": "5091f10d10a3799faff12ffa78361693ad40060004731f1c723caf971815df2c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/d1.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429376,
+      "sha256": "b253d368e4285d0df4debf71f1b35abb0163ec0c5abba92d9497a4c44e0d7714",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/d2.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429376,
+      "sha256": "53d37494ae2ddfdee5cfff8aafd03b3c74606f9c25b85108fbb1e658ea008276",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/d3.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429373,
+      "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/d4.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429373,
+      "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/g1.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1157126,
+      "sha256": "80c951535dca221f8ca74d147e380506e6150937b549b82f5be7ddbf2cec162a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/g2.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1157126,
+      "sha256": "80c951535dca221f8ca74d147e380506e6150937b549b82f5be7ddbf2cec162a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/g3.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1157123,
+      "sha256": "f23d0323822b320d257c0520db2d8231a31f57aa45e2f2f776960b06e799b6c9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/g4.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1157123,
+      "sha256": "f23d0323822b320d257c0520db2d8231a31f57aa45e2f2f776960b06e799b6c9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/m0.png",
+      "task": null,
+      "stage": null,
+      "bytes": 5191240,
+      "sha256": "0ec7314a44b444542b2bade78dda310907389a5a318bd9fdf996339f4365a0ef",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/probe.png",
+      "task": null,
+      "stage": null,
+      "bytes": 85133,
+      "sha256": "6c3fc58cae7577b3c101a24e28be146e79ed03e8e35100c7b91494ec9157ddb6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/run1.png",
+      "task": null,
+      "stage": null,
+      "bytes": 989262,
+      "sha256": "66c72902ba096585c9c0d683349d0cfce710ad60cc3d9a0b9faee01d2010b057",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/run2.png",
+      "task": null,
+      "stage": null,
+      "bytes": 989262,
+      "sha256": "efbba7c4e222cff5b6b1f06adb006d8f76eb64c0b690e4c3a64625ab380f5bf8",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/t1.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387868,
+      "sha256": "670eea471661233df7348389852ef1f6854b4f3f599b6aadddea980bd48005af",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/t2.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387868,
+      "sha256": "844d56c109dea9785a6ca49e8487565b12cab9de4e6cbad96a059a92e28d87bb",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/t3.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387865,
+      "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/determinism/t4.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387865,
+      "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A02_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 715518,
+      "sha256": "237ea311c0a2c91079ad6e01bbc8ab4a731f00bc925487b132fe7d6e25f3f03e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A02_ALZUHOD_QUILL.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1174278,
+      "sha256": "ba94a81a23bb9add7ed4d3060d9095c3b0cbccb2df9962aaa5f46be3fab1773f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A03_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1282898,
+      "sha256": "ffbbf9b9dd92b579cb70c5703c6d1660ca68588a168c691a2ec8ae6201d4c2f4",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A11_CARDS_OF_BLASPHEMY.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1187622,
+      "sha256": "a8b18e5c71cb6e3d7bc95527ceeaeb21607d7ab1782ba317c703a51d59c80cbd",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A12_STAFF_OF_STARS.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1194403,
+      "sha256": "dfed53092b60894354a5704029a09fab0b469c4651554ba162d2991cff0cfee1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/A14_DEATH_KNELL.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1159462,
+      "sha256": "aa02360ea1dba8658d4494dc83cf3b40e2c1f1602775ac0a21d033a24c4b1a96",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/contact_nonsquare.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1727486,
+      "sha256": "a2e12cb98bae9e2b5fc9da33505ac551e26959c700a33d945cf20f34d14896a5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/g1_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1382192,
+      "sha256": "ec8d2568148e8c97b3704874ca0613d47ee03a1ffce77c588759d159744e5050",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/g2_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1223219,
+      "sha256": "b80c90908ab787a36aef2b0f95b58716c292417690c7e16e552b882e4682a4ae",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/g3_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1188546,
+      "sha256": "d5a7ec25305a1f38e86cf5e094e1027fd49a3d7bd52ea519f560c4dbc3c49386",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/g4_100pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1574399,
+      "sha256": "99208c3c904e5a4cb4aca3b55fa2affc58c327effe7727ee189ce6b13bb17cab",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/g5_200pct.png",
+      "task": null,
+      "stage": null,
+      "bytes": 291710,
+      "sha256": "88f803939902149e84705ac7a7837658076323100955db59cdc96187882c82f7",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/legibility_96.png",
+      "task": null,
+      "stage": null,
+      "bytes": 397210,
+      "sha256": "968e3034547797bb9f8c2569732515f2da431f2164aa0289d970729fa858aec1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/preview/review_masters.png",
+      "task": null,
+      "stage": null,
+      "bytes": 3228324,
+      "sha256": "3600258c8d3f7cefdd45570d92c1a4729de0136e46a6e83b5ee6e60cd5ef1448",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/run_artifacts.sh",
+      "task": null,
+      "stage": null,
+      "bytes": 3820,
+      "sha256": "0e38e54810342419930f33a9f8c2f1a8a19d9449443481dd33afbf8854332624",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/verify-stability/d.png",
+      "task": null,
+      "stage": null,
+      "bytes": 1429373,
+      "sha256": "5a1fd22c2f1b5ad672080008e1e38259c9d68eed0637ab0c33fc605cbcd397f2",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/verify-stability/report.json",
+      "task": null,
+      "stage": null,
+      "bytes": 1499,
+      "sha256": "44306565bb5395ecd299a1285a8483c9e5acbc00dead622c2462b8e73e70cae9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/artifacts/verify-stability/t.png",
+      "task": null,
+      "stage": null,
+      "bytes": 387865,
+      "sha256": "16ede84815a24145be82855d8811e6da1161a1f33d16991d57c9b6655b782f19",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/weights/RealESRGAN_x4plus.pth",
+      "task": null,
+      "stage": null,
+      "bytes": 67040989,
+      "sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_01_crop_1584x990.png",
+      "task": "W1",
+      "stage": "01_crop",
+      "bytes": 2893929,
+      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "provenance_master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_02_sr_6336x3960.png",
+      "task": "W1",
+      "stage": "02_sr",
+      "bytes": 31020427,
+      "sha256": "8bc2a3bbbe35da398e6e3288d344667a465492eeef45844fc3c4706e2d1d59e6",
+      "provenance_master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_03_grade_6336x3960.png",
+      "task": "W1",
+      "stage": "03_grade",
+      "bytes": 35186785,
+      "sha256": "06611c21cd645d2863b4705fc67443b83eed8a7f117eaf9c397697d318a1ca3a",
+      "provenance_master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_MASTER_4096x2560.png",
+      "task": "W1",
+      "stage": "MASTER_4096x2560",
+      "bytes": 15617056,
+      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "provenance_master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "a49afdf584529360ce77c546fc2a80a9a0bd1a5c6afb92b8ebca519941662f2e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 961,
+      "sha256": "c6937755f503b22015d0bcdfd212e8993fc538202ff5c002252b73781b38ceea",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 840,
+      "sha256": "3cae694e64e0acb6a23e9afb1050b3df8d7d313a5e7f0012d843a1f416d3acba",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "70d8b1954d01a2985bfcaf65c84b2f96f27b00fe10ec4e4cace9964872747629",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "92e98760dc6c1f75828c80c2995c14e5467cf2402e93944d8c01baa750c2efe3",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W1_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "3bbac8940a02a0deb5c4ab5aa78f2e288d8d8462f889d048412ac289e0949e66",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_01_crop_1584x990.png",
+      "task": "W2",
+      "stage": "01_crop",
+      "bytes": 2364185,
+      "sha256": "caa3f1bd53c0a73405044d4dce264c664ab77623e86f652443c981fd0364122a",
+      "provenance_master_sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_02_sr_6336x3960.png",
+      "task": "W2",
+      "stage": "02_sr",
+      "bytes": 25513943,
+      "sha256": "a34e44afddeca39b07844d25745ec42916dc666216845184f34fcc9506d317ea",
+      "provenance_master_sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_03_grade_6336x3960.png",
+      "task": "W2",
+      "stage": "03_grade",
+      "bytes": 30644483,
+      "sha256": "750295e59caa507ef6af8cb5d6e1574f98be75164a21e0f667da91aa73058bf3",
+      "provenance_master_sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_MASTER_4096x2560.png",
+      "task": "W2",
+      "stage": "MASTER_4096x2560",
+      "bytes": 13418977,
+      "sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "provenance_master_sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "aaa914280a473485a4af745447dadded97cd516df9606c1addd9e63c807588f4",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 969,
+      "sha256": "ee01413e9ef8c172f338bf2c92959d5906affe17913b22082549572803090ceb",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 838,
+      "sha256": "dd51d4e6f40d65b0dae98fe2b5437de125853610de1f2e2e8cac0e2bf7febab5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "905e08633f6de6edfc10ecdc0670635515f416eceadf6f50e28bda72ed99bed1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "a4820b22ae2570d0088b2735c640b755538b2ff00b6ee14f2d08d9049b845661",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W2_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "e140d956ce3436234b6ec33c81558fc910b3d144421f4363d46fa41597bb90ad",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_01_crop_1584x990.png",
+      "task": "W3",
+      "stage": "01_crop",
+      "bytes": 2719655,
+      "sha256": "7458de597078d4aaec4cc1f6890b976dc46ce5296f51c896a8355124c09020f5",
+      "provenance_master_sha256": "8164697d4d80af8c9aa6db4f5800a3abb0f02d56c4449105ed358f62f34c5343",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_02_sr_6336x3960.png",
+      "task": "W3",
+      "stage": "02_sr",
+      "bytes": 29329218,
+      "sha256": "cac8cd66774a01ffa9343f18e3374c732f4b98a083630a4acf44e8898785fe6f",
+      "provenance_master_sha256": "8164697d4d80af8c9aa6db4f5800a3abb0f02d56c4449105ed358f62f34c5343",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_03_grade_6336x3960.png",
+      "task": "W3",
+      "stage": "03_grade",
+      "bytes": 33212977,
+      "sha256": "da0c269f4f3fd7c36623308cfad90593ddd50bbe406b57a3c1196f96075451cf",
+      "provenance_master_sha256": "8164697d4d80af8c9aa6db4f5800a3abb0f02d56c4449105ed358f62f34c5343",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_MASTER_4096x2560.png",
+      "task": "W3",
+      "stage": "MASTER_4096x2560",
+      "bytes": 14862242,
+      "sha256": "8164697d4d80af8c9aa6db4f5800a3abb0f02d56c4449105ed358f62f34c5343",
+      "provenance_master_sha256": "8164697d4d80af8c9aa6db4f5800a3abb0f02d56c4449105ed358f62f34c5343",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "435bc439e14fb31181b5dfc927c22001faf3ec91ad09d1e178d806f70a587edf",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 980,
+      "sha256": "05d80ec58ac5eb65a15aaa45e79b8ad52f7989b3f57522cc82ab954206a2c51a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 840,
+      "sha256": "c4695eaacf00eeffa9a7a30757fefd9a07f4124e4172655fa5d699ba8163f05b",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "b1c54f8abe058a430575ea6fea52e600e03a8f39409064e6f3577ff6df147f3e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "97bb01cb3d9c4a0ceedc73651f4b666f0c3a2cb102a6ad28a7ca7ef0eeff60d6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W3_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "df205a4a8793a03179942e93fb401d9e5338e1ccd9ad59c43f44640e4f12a5c1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_01_crop_1584x990.png",
+      "task": "W4",
+      "stage": "01_crop",
+      "bytes": 2711204,
+      "sha256": "64e1070b82d9a0a0f64fc8565ba38b6b2ff7660efb84fe1cb760967291ffcd88",
+      "provenance_master_sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_02_sr_6336x3960.png",
+      "task": "W4",
+      "stage": "02_sr",
+      "bytes": 29280994,
+      "sha256": "f856d0448dff656c70ef856c820a3478a7bb2f63ce79f4d4c2454690f57d73d5",
+      "provenance_master_sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_03_grade_6336x3960.png",
+      "task": "W4",
+      "stage": "03_grade",
+      "bytes": 33248308,
+      "sha256": "59cd1802f1f05fb6c3d43d80aafa84af4f6b488aa07e399b34169c2f285d9e4b",
+      "provenance_master_sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_MASTER_4096x2560.png",
+      "task": "W4",
+      "stage": "MASTER_4096x2560",
+      "bytes": 14922773,
+      "sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "provenance_master_sha256": "dfa125ce86e28e1161e1c6dd7da6709fee3882602de4e943cba7a15ce8235070",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "93e9ecaca2810b6e71f9fd905aee327a00dc1a5f8af8d8c2e7dee2cc26de3731",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 982,
+      "sha256": "a0ed658200d2b50499a8edbdde7d0542bec2a874c36d13f1fe6b2e0c65a85503",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 839,
+      "sha256": "cfbe0ac7a4e14999ff726c7d800207809c4b868842f7f60bc3fcfc933c040eea",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "f3e2321d883f40fc4c7e3003193a13a23026daaf04c58e05dc93a34de1da9b4f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "40ca7b9f2c974705c39eb29b764dda5f69442e81f8a3a74c6d593854ebd25277",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W4_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "a26d63d07536cffd95adb9b94efb41fbfae9d6350fbdf521987322c7f1d5445d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_01_crop_1584x990.png",
+      "task": "W5",
+      "stage": "01_crop",
+      "bytes": 3054710,
+      "sha256": "7319edbd300b29ee458afcb1d5ef711d0fb0b4252506fb6addd1469e677acdce",
+      "provenance_master_sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_02_sr_6336x3960.png",
+      "task": "W5",
+      "stage": "02_sr",
+      "bytes": 32579015,
+      "sha256": "24f4e21a9d5263540ebdb7b465584c94928897c573155393e4de1df9268094ef",
+      "provenance_master_sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_03_grade_6336x3960.png",
+      "task": "W5",
+      "stage": "03_grade",
+      "bytes": 36449416,
+      "sha256": "e73a7925dc03ddd99bf3dba47bfe18cd9d253f82e535fd91524aa0d05bba8be6",
+      "provenance_master_sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_MASTER_4096x2560.png",
+      "task": "W5",
+      "stage": "MASTER_4096x2560",
+      "bytes": 16415251,
+      "sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "provenance_master_sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "b1beaed1de1f106e2ec4f054363a64875816a4423ae0c5f70520e8b6a8fa091c",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 981,
+      "sha256": "564c92e89309b0efff8756695205355296b47cd2d0394fea47cc30174267734d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 840,
+      "sha256": "aad5040d5d3ce24c03bb5ca549f1291238aface52585ab05f02ab92cf7d5d9d0",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "0e634894a32c64a7aeb1baac4b62effb8e1ff6e5995453b0c965f87ed9c051cd",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "e5aa9ec1e4f1a8128b32016f75be236e8ba88d424f10f70890c3ed4b31e7fbfa",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W5_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "7a7212d5ec44556dd01d8cdc28529e4cc4b6ac00c80e5a9d16cf089149eb2cd1",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_01_crop_1584x990.png",
+      "task": "W6",
+      "stage": "01_crop",
+      "bytes": 2796021,
+      "sha256": "eeac280a758ddb4db5c99eb84da168e4c0a462847fb2e82a31b455db63689a21",
+      "provenance_master_sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_02_sr_6336x3960.png",
+      "task": "W6",
+      "stage": "02_sr",
+      "bytes": 29596132,
+      "sha256": "39bbc61b04d596bb18f6da006c73b1fefa748f08abc4f8eaaf1221a38514c0bb",
+      "provenance_master_sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_03_grade_6336x3960.png",
+      "task": "W6",
+      "stage": "03_grade",
+      "bytes": 33366709,
+      "sha256": "31cb892f359b0b145f8460fa6a82a29312ed04ea1bc4c48000012ecb88b1b1ff",
+      "provenance_master_sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "matches_provenance_master": false
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_MASTER_4096x2560.png",
+      "task": "W6",
+      "stage": "MASTER_4096x2560",
+      "bytes": 14979886,
+      "sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "provenance_master_sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "matches_provenance_master": true
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_crop.json",
+      "task": null,
+      "stage": null,
+      "bytes": 441,
+      "sha256": "8524ce8199f188886d6853f54cef478143b7df2ccc97e17b2d428d42b085ff2f",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_derivatives.json",
+      "task": null,
+      "stage": null,
+      "bytes": 984,
+      "sha256": "e8c70d587a17e42a84203a594950416c44f2add86cd6634d65c35188df81a71a",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_fidelity.json",
+      "task": null,
+      "stage": null,
+      "bytes": 839,
+      "sha256": "438a9aa1835670a6413c09470a37a31782cbf48871db2621c9760a9524945d02",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_grade.json",
+      "task": null,
+      "stage": null,
+      "bytes": 834,
+      "sha256": "77d60fc83c50773208d1ef20b7a02bc73bce79c386011fe9a8d4877310d772f3",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_master.json",
+      "task": null,
+      "stage": null,
+      "bytes": 446,
+      "sha256": "02cc5dab4257467caa15156f33fa24759ee1fd366f23e4761ad81b302944ce2e",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/W6_report_sr.json",
+      "task": null,
+      "stage": null,
+      "bytes": 725,
+      "sha256": "5846e8708cb6695676ba5d54cf4c50c51d1a834fe84c310332f2fe6bc231a223",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/stage_summary.json",
+      "task": null,
+      "stage": null,
+      "bytes": 8006,
+      "sha256": "5e010ae78c88d1ae8516803948b9c4c130f3629d3d9bfcf033c839ad6c7195aa",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.artifact-vault.png",
+      "task": null,
+      "stage": null,
+      "bytes": 8060128,
+      "sha256": "e4261b35fae20bcb207973ed429ec66525223de7e5dbd60a0e5ac7eb0df1f992",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.artifact-vault.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 4351674,
+      "sha256": "96b52da25f2122701dcb7d717b5047cf2089e549beaab12c8c1b7b4b766f7714",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.codex-archive.png",
+      "task": null,
+      "stage": null,
+      "bytes": 7982031,
+      "sha256": "678289b34f66eb7ab614936a371e87d96921f8663fec969c068ad2250477e303",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.codex-archive.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 4229447,
+      "sha256": "721e190c4769faef630747b460fad73a166ebda59dd8265c1861cf3e64d768d6",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.fate-worldline.png",
+      "task": null,
+      "stage": null,
+      "bytes": 8737801,
+      "sha256": "df077bd493509a35b16b5c8decd3aa2ca438c2d1e8a66d9215541a691815678d",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.fate-worldline.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 4690160,
+      "sha256": "59444ef0d9ade9b26ec863bb90803c1e84e2aa9dab76fe079af74fc0c87e6c43",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.ritual-altar.png",
+      "task": null,
+      "stage": null,
+      "bytes": 8006405,
+      "sha256": "2b851c67f7d1b662db1165064a9d21888ef8e7195eabcd0956e7266adea02fb5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.scene.ritual-altar.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 4292244,
+      "sha256": "bf184396701b6ed0de7c7e3755d14e8fb03b45d9745d1d078651a1047379e0fb",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.world.gray-fog.png",
+      "task": null,
+      "stage": null,
+      "bytes": 7153219,
+      "sha256": "14518e8ea435b374086b4eaa23b21a6a5a8dc7722dace2a66ce2a71f4bfa2fd5",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.world.gray-fog.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 3859452,
+      "sha256": "2671bfc20655d48a7226bcba2a8bfe4b140c334c38a001ca5363f10aac6492ec",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.world.hero.png",
+      "task": null,
+      "stage": null,
+      "bytes": 8266882,
+      "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    },
+    {
+      "path": "docs/05_UI/artwork/workbench/world-scenes/wom.art.world.hero.wide.png",
+      "task": null,
+      "stage": null,
+      "bytes": 4239408,
+      "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+      "provenance_master_sha256": null,
+      "matches_provenance_master": null
+    }
+  ]
+}
