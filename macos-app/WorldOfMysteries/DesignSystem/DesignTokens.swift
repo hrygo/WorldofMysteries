@@ -89,6 +89,13 @@ public nonisolated enum DesignTokens: Sendable {
             public static let iconSize: CGFloat = 14
         }
         
+        /// 贴边语义竖条 (`WOMLeadingRail`)：厚度沿容器圆角轮廓的法线方向恒定。
+        public enum LeadingRail: Sendable {
+            public static let thickness: CGFloat = 3
+            /// 不使用颜色区分时（Differentiate Without Color）加粗，保证纯几何可辨识。
+            public static let thicknessDifferentiated: CGFloat = 5
+        }
+        
         public enum Gauge: Sendable {
             public static let diameter: CGFloat = 88
             public static let innerDiameter: CGFloat = 74
