@@ -1,0 +1,25 @@
+name: Temporary Voice V01 contract gate
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-contract-gate.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 821fd6dd24f761132cd7e4134ec7f97664cc521d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Media contract tests
+        working-directory: engine
+        run: uv run --locked --extra dev pytest -q ../contracts/tests/test_media_contract.py tests/test_contracts_schema.py
