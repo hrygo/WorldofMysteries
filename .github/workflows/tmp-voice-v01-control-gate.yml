@@ -1,0 +1,25 @@
+name: Temporary Voice V01 control gate
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-control-gate.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 5b6afeb081b7221b3be993965cffd6e1a66eff07
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Media and IPC tests
+        working-directory: engine
+        run: uv run --locked --extra dev pytest -q tests/test_ipc_server.py tests/test_audio_adapter.py ../contracts/tests/test_media_contract.py
