@@ -1,4 +1,4 @@
-name: Component Gallery Runtime Visual QA
+name: Component Gallery Runtime Regression QA
 
 on:
   pull_request:
@@ -27,7 +27,7 @@ env:
 
 jobs:
   capture-gallery:
-    name: Capture real macOS gallery surfaces
+    name: Smoke real macOS gallery surfaces
     runs-on: macos-latest
     timeout-minutes: 15
     steps:

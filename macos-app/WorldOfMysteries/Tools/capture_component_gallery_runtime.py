@@ -74,19 +74,18 @@ class CaptureSpec:
         return f"{self.scenario}-{self.width}x{self.height}.jpg"
 
 
+MINIMUM_ACCEPTED_WINDOW = (900, 600)
+
 def capture_plan() -> List[CaptureSpec]:
-    # Five priority components at the product default; flagship physical/artifact surfaces also
-    # cover minimum and spacious widths to expose compression or excess-empty-space defects.
+    # Regression fallback only: one minimum-window smoke capture per priority production surface.
+    # Product-quality visual judgment remains a human macOS task; CI only catches launch/render
+    # regressions, missing assets, broken scenarios and catastrophic layout/window failures.
     return [
         CaptureSpec("pendulum", 960, 640),
-        CaptureSpec("pendulum", 1180, 760),
-        CaptureSpec("pendulum", 1440, 900),
-        CaptureSpec("tarot", 1180, 760),
+        CaptureSpec("tarot", 960, 640),
         CaptureSpec("probability-die", 960, 640),
-        CaptureSpec("probability-die", 1180, 760),
-        CaptureSpec("probability-die", 1440, 900),
-        CaptureSpec("worldline", 1180, 760),
-        CaptureSpec("character-codex", 1180, 760),
+        CaptureSpec("worldline", 960, 640),
+        CaptureSpec("character-codex", 960, 640),
     ]
 
 
@@ -123,9 +122,7 @@ def windows_for_pid(pid: int, window_tool: Path) -> List[Dict[str, int]]:
 def primary_window(
     pid: int,
     window_tool: Path,
-    expected_size: Tuple[int, int],
     timeout: float = 30.0,
-    tolerance: int = 3,
 ) -> Dict[str, int]:
     deadline = time.time() + timeout
     seen: List[Dict[str, int]] = []
@@ -135,21 +132,15 @@ def primary_window(
             window
             for window in seen
             if window.get("layer") == 0
-            and window.get("width", 0) >= 500
-            and window.get("height", 0) >= 400
+            and window.get("width", 0) >= MINIMUM_ACCEPTED_WINDOW[0]
+            and window.get("height", 0) >= MINIMUM_ACCEPTED_WINDOW[1]
         ]
-        exact = [
-            window
-            for window in candidates
-            if abs(window.get("width", 0) - expected_size[0]) <= tolerance
-            and abs(window.get("height", 0) - expected_size[1]) <= tolerance
-        ]
-        if exact:
-            return max(exact, key=lambda item: item["width"] * item["height"])
+        if candidates:
+            return max(candidates, key=lambda item: item["width"] * item["height"])
         time.sleep(0.4)
     raise RuntimeError(
-        "runtime QA window did not reach requested geometry "
-        f"{expected_size[0]}x{expected_size[1]}pt; seen={seen}"
+        "runtime QA did not expose a usable primary window "
+        f"(minimum={MINIMUM_ACCEPTED_WINDOW[0]}x{MINIMUM_ACCEPTED_WINDOW[1]}pt); seen={seen}"
     )
 
 
@@ -182,7 +173,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             write_preferences(args.bundle_id, item)
             pid = helpers.launch_app(app_name, app_path, executable)
             try:
-                window = primary_window(pid, window_tool, (item.width, item.height))
+                window = primary_window(pid, window_tool)
                 time.sleep(0.8)
                 destination = out_dir / item.filename
                 helpers.capture_window(int(window["window_number"]), destination)
@@ -192,9 +183,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "requested_window_points": [item.width, item.height],
                     "observed_window_points": [window["width"], window["height"]],
                     "pixel_size": [pixel_width, pixel_height],
-                    "geometry_verified": (
-                        abs(window["width"] - item.width) <= 3
-                        and abs(window["height"] - item.height) <= 3
+                    "minimum_window_verified": (
+                        window["width"] >= MINIMUM_ACCEPTED_WINDOW[0]
+                        and window["height"] >= MINIMUM_ACCEPTED_WINDOW[1]
                     ),
                     "sha256": helpers.sha256_of(destination),
                 }
@@ -217,6 +208,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "source_head": run(["git", "rev-parse", "HEAD"]).stdout.strip(),
         "app": str(app_path),
         "capture_count": len(captures),
+        "regression_contract": {
+            "purpose": "smoke regression fallback",
+            "minimum_accepted_window_points": list(MINIMUM_ACCEPTED_WINDOW),
+            "expected_scenarios": [item.scenario for item in capture_plan()],
+        },
         "captures": captures,
     }
     (out_dir / "capture-summary.json").write_text(

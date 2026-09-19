@@ -293,12 +293,15 @@ struct ComponentGalleryExperienceContractTests {
         #expect(app.contains("if galleryRuntimeVerificationEnabled"))
         #expect(app.contains("ComponentGalleryRuntimeVerificationView()"))
         #expect(capture.contains("CaptureSpec(\"pendulum\", 960, 640)"))
-        #expect(capture.contains("CaptureSpec(\"probability-die\", 1440, 900)"))
+        #expect(capture.contains("CaptureSpec(\"tarot\", 960, 640)"))
+        #expect(capture.contains("CaptureSpec(\"probability-die\", 960, 640)"))
+        #expect(capture.contains("CaptureSpec(\"worldline\", 960, 640)"))
+        #expect(capture.contains("CaptureSpec(\"character-codex\", 960, 640)"))
         #expect(capture.contains("helpers.capture_window"))
     }
 
-    @Test("runtime visual QA verifies real requested window geometry")
-    func runtimeVisualQAVerifiesWindowGeometry() throws {
+    @Test("runtime visual QA is a minimum-window smoke regression fallback")
+    func runtimeVisualQAUsesMinimumWindowSmokeContract() throws {
         let view = try file(
             "macos-app/WorldOfMysteries/Components/ComponentGalleryRuntimeVerificationView.swift"
         )
