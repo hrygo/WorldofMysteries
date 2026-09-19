@@ -183,3 +183,11 @@ MVP 控制通道只传递：
 ### POST_COMMIT
 
 用户中断只停止 Narrative/Audio 表达；已提交 StateDelta 保持不变。
+
+
+## v2 演进方案（待实施，保留 v1 历史行为）
+
+[Voice-First v2技术与实施入口](../03_工程规范/voice/README.md)提出稳定身份、有效表演、
+流式媒体控制、动态选角与恢复方案。其中“缺少音色直接fallback到default_voice”和“仅以旧AudioHash配方缓存”
+拟由显式身份保真降级与版本化RenderManifest替代；这是待实施修订，不表示当前adapter已完成变更。
+公共协议、DTO和持久化迁移须走独立实现PR与对应门禁，不能只据本文调用尚未支持的新字段。

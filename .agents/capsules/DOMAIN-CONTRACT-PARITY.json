@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-DOMAIN-CONTRACT-PARITY",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-DOMAIN-CONTRACT-PARITY-R3",
+  "capsule_revision": 3,
   "task_id": "DOMAIN-CONTRACT-PARITY",
   "title": "Restore Python domain contract parity with canonical JSON Schemas",
   "assigned_role": "AGT-ARB",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "context_snapshot": "sha256:32c96b3b8828343d761dd759096d8d10689d520a331bb260710efc54c39f2435"
+    "base_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "target_sha": "cfda5bc00602cf0384b61345d3ae8e6a93fca056",
+    "context_snapshot": "sha256:fb4de884befcda60d1d42063a607db50e4aa98a94d69bc8d78a4622c57a1a46f"
   },
   "scope": {
     "read": [
@@ -62,7 +62,7 @@
     "token_estimate": 2200,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
-    "note": "Issue #66. Canonical JSON Schemas remain unchanged; restore Python projection and add executable parity/negative tests before Outcome Resolver implementation."
+    "note": "Revision 3 refreshes the validation base after documentation-only PR #69 merged. Contract implementation and parity-test blobs are unchanged."
   },
   "impact": {
     "symbols": [
@@ -110,5 +110,6 @@
       "INV-09",
       "INV-12"
     ]
-  }
+  },
+  "supersedes": "CAP-DOMAIN-CONTRACT-PARITY-R2"
 }
