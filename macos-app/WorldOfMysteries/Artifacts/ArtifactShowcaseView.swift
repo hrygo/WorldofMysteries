@@ -11,6 +11,7 @@ public struct ArtifactShowcaseView: View {
   @State private var searchText = ""
   @State private var selectedFamily = "all"
   @State private var showcaseRevision = 0
+  @State private var isObjectPreviewPresented = false
 
   @State private var genericModel = ArtifactActionModel(
     resolver: PreviewArtifactResolver(),
@@ -43,7 +44,6 @@ public struct ArtifactShowcaseView: View {
         emptyVaultState
       } else {
         collectionShelf
-        objectStage
         exhibitionDossier
         liveExhibitStage
       }
@@ -58,6 +58,9 @@ public struct ArtifactShowcaseView: View {
       )
     )
     .accessibilityIdentifier("artifact-vault-exhibition")
+    .sheet(isPresented: $isObjectPreviewPresented) {
+      selectedArtifactPreview
+    }
   }
 
   // MARK: - Vault Header
@@ -195,14 +198,6 @@ public struct ArtifactShowcaseView: View {
 
   // MARK: - Collection Shelf
 
-  private var objectStage: some View {
-    HStack(spacing: 0) {
-      ArtifactObjectStage(artifactID: selection, revision: showcaseRevision)
-        .frame(maxWidth: 720)
-    }
-    .frame(maxWidth: .infinity)
-  }
-
   private var collectionShelf: some View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
       HStack(spacing: DesignTokens.Spacing.sm) {
@@ -245,10 +240,11 @@ public struct ArtifactShowcaseView: View {
     }
   }
 
+  @ViewBuilder
   private func collectionCard(_ descriptor: ArtifactDescriptor) -> some View {
     let isSelected = selection == descriptor.id
 
-    return Button {
+    let card = Button {
       selectArtifact(descriptor.id)
     } label: {
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
@@ -260,7 +256,10 @@ public struct ArtifactShowcaseView: View {
             contentMode: .fit,
             accessibilityLabel: descriptor.displayName
           )
-          .frame(width: 118, height: 88)
+          .frame(
+            width: ArtifactShelfCardMetrics.thumbnailWidth,
+            height: ArtifactShelfCardMetrics.thumbnailHeight
+          )
           .frame(maxWidth: .infinity)
           .background(Color.Mystic.abyssVoid)
           .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
@@ -277,28 +276,135 @@ public struct ArtifactShowcaseView: View {
           }
         }
 
-        Text(descriptor.displayName)
-          .font(Font.Mystic.caption)
-          .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
-          .lineLimit(2)
-          .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+          Text(descriptor.displayName)
+            .font(Font.Mystic.caption)
+            .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+            .lineLimit(2)
+            .frame(
+              height: ArtifactShelfCardMetrics.titleHeight,
+              alignment: .topLeading
+            )
 
-        Text(descriptor.canonClass.localizedTitle)
-          .font(Font.Mystic.monoBadge)
-          .foregroundStyle(isSelected ? descriptor.tone.accent : Color.Mystic.textTertiary)
+          Text(descriptor.canonClass.localizedTitle)
+            .font(Font.Mystic.monoBadge)
+            .foregroundStyle(isSelected ? descriptor.tone.accent : Color.Mystic.textTertiary)
+            .lineLimit(1)
+            .frame(
+              height: ArtifactShelfCardMetrics.subtitleHeight,
+              alignment: .topLeading
+            )
+        }
+        .frame(height: ArtifactShelfCardMetrics.metadataBlockHeight, alignment: .topLeading)
       }
-      .frame(width: 146, alignment: .leading)
       .padding(DesignTokens.Spacing.sm)
+      .frame(
+        width: ArtifactShelfCardMetrics.cardWidth,
+        height: ArtifactShelfCardMetrics.cardHeight,
+        alignment: .topLeading
+      )
       .womCardChrome(
         tone: .card,
-        texture: .sacredSlate,
         isSelected: isSelected,
         cornerRadius: DesignTokens.Radii.md
       )
     }
-    .buttonStyle(.plain)
-    .accessibilityLabel("展品：\(descriptor.displayName)")
-    .accessibilityAddTraits(isSelected ? .isSelected : [])
+
+    if isSelected {
+      card
+        .buttonStyle(.plain)
+        .accessibilityLabel("展品：\(descriptor.displayName)，已选中并打开高精度展陈")
+        .accessibilityAddTraits(.isSelected)
+    } else {
+      card
+        .buttonStyle(.plain)
+        .accessibilityLabel("展品：\(descriptor.displayName)")
+    }
+  }
+
+  private var selectedArtifactPreview: some View {
+    let descriptor = ArtifactRegistry.descriptor(for: selection)
+
+    return VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+      HStack(alignment: .center, spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+          Text(descriptor.displayName)
+            .font(Font.Mystic.titleSmall)
+            .foregroundStyle(Color.Mystic.textGoldAccent)
+
+          Text(descriptor.subtitle)
+            .font(Font.Mystic.monoBadge)
+            .foregroundStyle(Color.Mystic.textTertiary)
+        }
+
+        Spacer(minLength: 0)
+
+        Text("高精度展陈")
+          .font(Font.Mystic.monoBadge)
+          .foregroundStyle(Color.Mystic.textSecondary)
+
+        Button {
+          selectAdjacent(offset: -1)
+        } label: {
+          Image(systemName: "chevron.left")
+            .font(.system(size: 11, weight: .semibold))
+            .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.plain)
+        .help("上一件展品")
+        .accessibilityLabel("上一件展品")
+
+        Button {
+          selectAdjacent(offset: 1)
+        } label: {
+          Image(systemName: "chevron.right")
+            .font(.system(size: 11, weight: .semibold))
+            .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.plain)
+        .help("下一件展品")
+        .accessibilityLabel("下一件展品")
+
+        Button {
+          withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
+            isObjectPreviewPresented = false
+          }
+        } label: {
+          Image(systemName: "xmark")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Color.Mystic.textSecondary)
+            .frame(width: 24, height: 24)
+            .background(Color.Mystic.obsidianGlass.opacity(0.72), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .help("关闭高精度展陈")
+        .accessibilityLabel("关闭高精度展陈")
+      }
+
+      ArtifactObjectStage(
+        artifactID: selection,
+        revision: showcaseRevision,
+        stageAspectRatio: ArtifactObjectStageMetrics.floatingPreviewAspectRatio,
+        mountScale: ArtifactObjectStageMetrics.floatingPreviewMountScale
+      )
+      .frame(width: 580)
+    }
+    .padding(.horizontal, DesignTokens.Spacing.md)
+    .padding(.vertical, DesignTokens.Spacing.sm)
+    .background(
+      WOMPanelBackground(
+        tone: .floating,
+        cornerRadius: DesignTokens.Radii.md,
+        texture: .sacredSlate,
+        textureOpacity: 0.018
+      )
+    )
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md, style: .continuous)
+        .stroke(Color.Mystic.brassGoldBorder.opacity(0.42), lineWidth: DesignTokens.Borders.hairline)
+    }
+    .shadow(color: Color.black.opacity(0.42), radius: 26, y: 16)
+    .frame(width: 620)
   }
 
   // MARK: - Selected Exhibit
@@ -447,10 +553,14 @@ public struct ArtifactShowcaseView: View {
   }
 
   private func selectArtifact(_ id: ArtifactID) {
-    guard id != selection else { return }
+    guard id != selection else {
+      isObjectPreviewPresented = true
+      return
+    }
     withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
       selection = id
     }
+    isObjectPreviewPresented = true
     resetShowcase()
   }
 
@@ -463,9 +573,13 @@ public struct ArtifactShowcaseView: View {
   }
 
   private func reconcileSelection() {
-    guard let first = filteredDescriptors.first else { return }
+    guard let first = filteredDescriptors.first else {
+      isObjectPreviewPresented = false
+      return
+    }
     guard filteredDescriptors.contains(where: { $0.id == selection }) else {
       selection = first.id
+      isObjectPreviewPresented = true
       resetShowcase()
       return
     }

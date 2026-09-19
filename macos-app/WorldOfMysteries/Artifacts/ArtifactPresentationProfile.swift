@@ -6,6 +6,17 @@ public enum ArtifactPresentationContext: Sendable, Equatable {
   case vaultExhibit
 }
 
+/// Fixed shelf geometry keeps the lower metadata region comparable across all 15 artifacts.
+public enum ArtifactShelfCardMetrics {
+  public static let cardWidth: CGFloat = 150
+  public static let cardHeight: CGFloat = 164
+  public static let thumbnailWidth: CGFloat = 118
+  public static let thumbnailHeight: CGFloat = 88
+  public static let metadataBlockHeight: CGFloat = 52
+  public static let titleHeight: CGFloat = 30
+  public static let subtitleHeight: CGFloat = 18
+}
+
 public enum ArtifactExhibitionArchetype: String, CaseIterable, Sendable, Equatable {
   case fateInstrument
   case oracleAndArchive

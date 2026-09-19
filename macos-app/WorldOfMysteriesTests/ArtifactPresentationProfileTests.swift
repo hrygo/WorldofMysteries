@@ -61,13 +61,21 @@ struct ArtifactPresentationProfileTests {
         )
     }
 
+    @Test("shelf card geometry keeps a stable lower display region")
+    func shelfCardGeometry() {
+        #expect(ArtifactShelfCardMetrics.cardWidth > ArtifactShelfCardMetrics.thumbnailWidth)
+        #expect(ArtifactShelfCardMetrics.cardHeight > ArtifactShelfCardMetrics.thumbnailHeight)
+        #expect(ArtifactShelfCardMetrics.metadataBlockHeight >= ArtifactShelfCardMetrics.titleHeight)
+        #expect(ArtifactShelfCardMetrics.metadataBlockHeight >= ArtifactShelfCardMetrics.subtitleHeight)
+    }
+
     @Test("stage source declares native 2.5D and accessibility fallbacks")
     func stageAccessibilityContract() throws {
         let source = try file(
             "macos-app/WorldOfMysteries/Artifacts/ArtifactObjectStage.swift"
         )
 
-        #expect(source.contains(".aspectRatio(ArtifactObjectStageMetrics.aspectRatio"))
+        #expect(source.contains(".aspectRatio(stageAspectRatio"))
         #expect(source.contains("contentMode: .fit"))
         #expect(source.contains("onContinuousHover"))
         #expect(source.contains("accessibilityReduceMotion"))

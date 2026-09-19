@@ -3,16 +3,20 @@ import SwiftUI
 /// Pure geometry used by the Object Stage and its contract tests.
 public enum ArtifactObjectStageMetrics {
   public static let aspectRatio: CGFloat = 1.6
+  public static let floatingPreviewAspectRatio: CGFloat = 1.35
+  public static let floatingPreviewMountScale: CGFloat = 1.38
   public static let maximumParallax: CGFloat = 8
 
   public static func mountSide(
     for stageSize: CGSize,
-    profile: ArtifactPresentationProfile
+    profile: ArtifactPresentationProfile,
+    scale: CGFloat = 1
   ) -> CGFloat {
     guard stageSize.width > 0, stageSize.height > 0 else { return 0 }
 
-    let heightBudget = stageSize.height * 0.68
-    let widthBudget = stageSize.width * 0.48
+    let resolvedScale = max(0.1, scale)
+    let heightBudget = stageSize.height * 0.68 * resolvedScale
+    let widthBudget = stageSize.width * 0.48 * resolvedScale
     return max(0, min(heightBudget, widthBudget))
   }
 
@@ -56,13 +60,22 @@ public struct ArtifactObjectStage: View {
   private let descriptor: ArtifactDescriptor
   private let profile: ArtifactPresentationProfile
   private let revision: Int
+  private let stageAspectRatio: CGFloat
+  private let mountScale: CGFloat
 
   @State private var hoverLocation: CGPoint?
 
-  public init(artifactID: ArtifactID, revision: Int = 0) {
+  public init(
+    artifactID: ArtifactID,
+    revision: Int = 0,
+    stageAspectRatio: CGFloat = ArtifactObjectStageMetrics.aspectRatio,
+    mountScale: CGFloat = 1
+  ) {
     self.descriptor = ArtifactRegistry.descriptor(for: artifactID)
     self.profile = ArtifactPresentationProfiles.profile(for: artifactID)
     self.revision = revision
+    self.stageAspectRatio = max(1, stageAspectRatio)
+    self.mountScale = max(0.1, mountScale)
   }
 
   public var body: some View {
@@ -89,7 +102,7 @@ public struct ArtifactObjectStage: View {
         }
     }
     .frame(maxWidth: .infinity)
-    .aspectRatio(ArtifactObjectStageMetrics.aspectRatio, contentMode: .fit)
+    .aspectRatio(stageAspectRatio, contentMode: .fit)
     .frame(minHeight: 300, maxHeight: 520)
     .id(revision)
     .accessibilityElement(children: .ignore)
@@ -106,7 +119,7 @@ public struct ArtifactObjectStage: View {
       : 720
     return CGSize(
       width: width,
-      height: width / ArtifactObjectStageMetrics.aspectRatio
+      height: width / stageAspectRatio
     )
   }
 
@@ -114,7 +127,11 @@ public struct ArtifactObjectStage: View {
   private func stageContent(size: CGSize) -> some View {
     let mountSide = max(
       180,
-      ArtifactObjectStageMetrics.mountSide(for: size, profile: profile)
+      ArtifactObjectStageMetrics.mountSide(
+        for: size,
+        profile: profile,
+        scale: mountScale
+      )
     )
     let anchorOffset = ArtifactObjectStageMetrics.anchorOffset(
       for: size,
@@ -192,7 +209,7 @@ public struct ArtifactObjectStage: View {
 
   @ViewBuilder
   private func objectMount(side: CGFloat, parallax: CGSize) -> some View {
-    let artworkSide = max(0, side * 0.78)
+    let artworkSide = max(0, side * 0.84)
     let tiltX = Double(parallax.height) * 0.18
     let tiltY = Double(-parallax.width) * 0.18
 

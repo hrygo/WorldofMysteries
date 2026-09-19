@@ -13,7 +13,7 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(source.contains("神器展览 · Artifact Vault"))
         #expect(source.contains("collectionShelf"))
         #expect(source.contains("ArtifactObjectStage"))
-        #expect(source.contains("objectStage"))
+        #expect(source.contains("selectedArtifactPreview"))
         #expect(source.contains("exhibitionDossier"))
         #expect(source.contains("liveExhibitStage"))
         #expect(source.contains("CURRENT EXHIBIT"))
@@ -21,19 +21,57 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(!source.contains("Canon Artifact Component Library"))
     }
 
-    @Test("vault keeps the former linear reading order and a restrained stage width")
+    @Test("vault keeps the former linear reading order and moves the large preview out of flow")
     func linearExhibitionOrder() throws {
         let source = try file(
             "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
         )
 
         #expect(!source.contains("exhibitionWorkspace"))
-        #expect(
-            source.contains(
-                "collectionShelf\n        objectStage\n        exhibitionDossier\n        liveExhibitStage"
-            )
+        let shelfIndex = source.range(of: "collectionShelf")?.lowerBound
+        let dossierIndex = source.range(of: "exhibitionDossier")?.lowerBound
+        let liveStageIndex = source.range(of: "liveExhibitStage")?.lowerBound
+        #expect(shelfIndex != nil)
+        #expect(dossierIndex != nil)
+        #expect(liveStageIndex != nil)
+        if let shelfIndex, let dossierIndex, let liveStageIndex {
+            #expect(shelfIndex < dossierIndex)
+            #expect(dossierIndex < liveStageIndex)
+        }
+        #expect(!source.contains("private var objectStage"))
+        #expect(source.contains(".sheet("))
+        #expect(source.contains("isPresented: $isObjectPreviewPresented"))
+        #expect(source.contains("selectedArtifactPreview"))
+        #expect(!source.contains(".popover("))
+    }
+
+    @Test("selected shelf item opens the high-resolution preview without changing page geometry")
+    func floatingPreviewContract() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
         )
-        #expect(source.contains(".frame(maxWidth: 720)"))
+
+        #expect(source.contains("@State private var isObjectPreviewPresented"))
+        #expect(source.contains("selectedArtifactPreview"))
+        #expect(source.contains("isObjectPreviewPresented = false"))
+        #expect(source.contains("isObjectPreviewPresented = true"))
+        #expect(source.contains("floatingPreviewMountScale"))
+        #expect(source.contains("上一件展品"))
+        #expect(source.contains("下一件展品"))
+        #expect(source.contains("关闭高精度展陈"))
+        #expect(source.contains("ArtifactShelfCardMetrics.cardHeight"))
+    }
+
+    @Test("every shelf card uses the same lower metadata region")
+    func shelfCardMetadataContract() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+
+        #expect(source.contains("ArtifactShelfCardMetrics.metadataBlockHeight"))
+        #expect(source.contains("ArtifactShelfCardMetrics.titleHeight"))
+        #expect(source.contains("ArtifactShelfCardMetrics.subtitleHeight"))
+        #expect(source.contains("ArtifactShelfCardMetrics.cardHeight"))
     }
 
     @Test("vault preserves all production artifact gameplay components")
