@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: d3478ca6b38c0baba53e298076a1e7116977d26b
+          ref: 95695b21be3014b0a3d1d96e211cb46dd1fa831e
           fetch-depth: 0
           persist-credentials: false
       - name: Architecture fitness
