@@ -9,7 +9,7 @@
 
 1. **已合并代码 / contracts / tests on `main`**：当前可运行能力的最高事实源。
 2. **当前正在实施的 PR**：尚未进入 main 的能力，只能按该 PR 的实际 head、diff 与 CI 解释。
-3. [Engine Media Protocol v1.0](../03_工程规范/Engine_Media_Protocol_v1.0.md)：**仅在 PR #71 合并后**成为 main 上的 W-V01 媒体协议事实源；在此之前请从 PR #71 查看该文件。
+3. `docs/03_工程规范/Engine_Media_Protocol_v1.0.md`：该文件当前只存在于 PR #71；**仅在 PR #71 合并后**成为 main 上的 W-V01 媒体协议事实源。在此之前请从 PR #71 查看该文件，不在 main 文档中制造断链。
 4. [Voice-First 技术设计](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)：架构与目标语义。
 5. [实施计划](Voice_First_Implementation_Plan_v2.0.md) 与 [验收矩阵](Voice_First_Acceptance_v2.0.md)：任务边界、完成标准与测试 ID。
 6. [SpeechRail 接入契约](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)：跨仓边界与 SR-V01..SR-V12 任务映射。
