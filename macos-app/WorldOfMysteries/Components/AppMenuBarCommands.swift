@@ -6,6 +6,10 @@ public struct AppMenuBarCommands: Commands {
     @Binding public var isSidebarCollapsed: Bool
     public var onAdviceRequested: () -> Void
     public var onReconnectEngine: () -> Void
+
+    /// G5 运行时证据采集面（场景 / 神器各一）是独立窗口，由菜单显式打开；
+    /// 采集脚本再按窗口几何与进程归属锚定抓取。
+    @Environment(\.openWindow) private var openWindow
     
     public init(
         currentNavigation: Binding<NavigationItem>,
@@ -66,6 +70,16 @@ public struct AppMenuBarCommands: Commands {
                 currentNavigation = .gallery
             }
             .keyboardShortcut("g", modifiers: .command)
+
+            Button("场景美术运行时校验 (G5 采集面)") {
+                openWindow(id: SceneArtworkRuntimeVerificationView.windowID)
+            }
+            .keyboardShortcut("v", modifiers: [.command, .option])
+            
+            Button("神器美术运行时校验 (G5 采集面)") {
+                openWindow(id: ArtifactArtworkRuntimeVerificationView.windowID)
+            }
+            .keyboardShortcut("b", modifiers: [.option, .command])
             
             Divider()
             

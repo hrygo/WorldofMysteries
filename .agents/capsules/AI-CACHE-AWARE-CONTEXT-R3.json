@@ -1,0 +1,151 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AI-CACHE-AWARE-CONTEXT",
+  "capsule_revision": 3,
+  "task_id": "AI-CACHE-AWARE-CONTEXT",
+  "title": "玩法感知上下文编排、模块接口与高效缓存策略",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-18T23:34:24.838322+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "target_sha": "afdad649e07be3b01f54f1f53ba9a6651cda2d5f",
+    "context_snapshot": "sha256:fc8d15043c2df0086e7009a1b52056c2ba5dfad5abc00b5419dfd166c5093857"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "contracts/",
+      "docs/",
+      ".hacf/gates/"
+    ],
+    "write": [
+      "engine/application/",
+      "engine/ai/",
+      "engine/tests/",
+      "docs/03_工程规范/Cache_Aware_Context_v1.0.md",
+      "docs/03_工程规范/Gameplay_Context_Cache_Strategy_v1.0.md",
+      "docs/07_工程启动/Context_Cache_Implementation.md"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:AIGatewayProtocol@engine/ai/gateway.py:5",
+      "symbol:ContextCompilerProtocol@engine/application/context_compiler.py:5",
+      "symbol:SessionOrchestratorProtocol@engine/application/session_orchestrator.py:5",
+      "symbol:AgentScopeAdapterProtocol@engine/ai/agentscope_adapter.py:5",
+      "symbol:sample_trace_id@engine/tests/conftest.py:6",
+      "symbol:app_driver@engine/tests/test_app_engine_session.py:28",
+      "symbol:test_real_swift_app_engine_lifecycle@engine/tests/test_app_engine_session.py:54",
+      "symbol:test_engine_stops_when_swift_parent_is_force_quit@engine/tests/test_app_engine_session.py:63",
+      "symbol:_receive@engine/tests/test_app_engine_session.py:97",
+      "symbol:_frame@engine/tests/test_app_engine_session.py:109",
+      "symbol:test_production_client_rejects_bad_peers@engine/tests/test_app_engine_session.py:116",
+      "symbol:exact@engine/tests/test_app_engine_session.py:98",
+      "symbol:serve@engine/tests/test_app_engine_session.py:126",
+      "symbol:test_audio_provider_config_default_speechrail@engine/tests/test_audio_adapter.py:15",
+      "symbol:test_audio_provider_config_hot_swap_to_third_party@engine/tests/test_audio_adapter.py:26",
+      "symbol:test_openai_audio_adapter_conforms_to_domain_protocols@engine/tests/test_audio_adapter.py:46",
+      "symbol:test_openai_audio_adapter_transcribe_mocked@engine/tests/test_audio_adapter.py:55",
+      "symbol:test_openai_audio_adapter_synthesize_mocked@engine/tests/test_audio_adapter.py:85",
+      "symbol:test_mock_audio_adapter_deterministic@engine/tests/test_audio_adapter.py:116",
+      "symbol:make_archive@engine/tests/test_bundle_engine.py:19",
+      "symbol:test_upstream_lock_is_fixed_and_gil_enabled@engine/tests/test_bundle_engine.py:36",
+      "symbol:test_invalid_locks_rejected@engine/tests/test_bundle_engine.py:49",
+      "symbol:test_safe_relative_symlink_and_file_are_preserved@engine/tests/test_bundle_engine.py:57",
+      "symbol:test_unsafe_archives_rejected@engine/tests/test_bundle_engine.py:70",
+      "symbol:test_duplicate_archive_members_rejected@engine/tests/test_bundle_engine.py:77",
+      "symbol:test_hash_is_checked_before_extraction@engine/tests/test_bundle_engine.py:82",
+      "symbol:test_size_is_checked_before_extraction@engine/tests/test_bundle_engine.py:89",
+      "symbol:test_existing_output_is_not_replaced@engine/tests/test_bundle_engine.py:96",
+      "symbol:test_escaped_or_dangling_filesystem_links_rejected@engine/tests/test_bundle_engine.py:104",
+      "symbol:test_inventory_is_relative_and_does_not_read_symlink_target@engine/tests/test_bundle_engine.py:111"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 816,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "AIGatewayProtocol",
+      "ContextCompilerProtocol",
+      "SessionOrchestratorProtocol",
+      "AgentScopeAdapterProtocol",
+      "sample_trace_id",
+      "app_driver",
+      "test_real_swift_app_engine_lifecycle",
+      "test_engine_stops_when_swift_parent_is_force_quit",
+      "_receive",
+      "_frame",
+      "test_production_client_rejects_bad_peers",
+      "exact",
+      "serve",
+      "test_audio_provider_config_default_speechrail",
+      "test_audio_provider_config_hot_swap_to_third_party",
+      "test_openai_audio_adapter_conforms_to_domain_protocols",
+      "test_openai_audio_adapter_transcribe_mocked",
+      "test_openai_audio_adapter_synthesize_mocked",
+      "test_mock_audio_adapter_deterministic",
+      "make_archive",
+      "test_upstream_lock_is_fixed_and_gil_enabled",
+      "test_invalid_locks_rejected",
+      "test_safe_relative_symlink_and_file_are_preserved",
+      "test_unsafe_archives_rejected",
+      "test_duplicate_archive_members_rejected",
+      "test_hash_is_checked_before_extraction",
+      "test_size_is_checked_before_extraction",
+      "test_existing_output_is_not_replaced",
+      "test_escaped_or_dangling_filesystem_links_rejected",
+      "test_inventory_is_relative_and_does_not_read_symlink_target"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，缓存不授予权限。 本修订增加玩法感知 Context 编排、World/Character/Story/Memory/Lore 只读接口、 no-model bypass 与按玩法复用热度选择 Provider 缓存；不修改 Domain、数据库、App、公共 Schema 或受保护门禁。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  },
+  "supersedes": "CAP-AI-CACHE-AWARE-CONTEXT"
+}

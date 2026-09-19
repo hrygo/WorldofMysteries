@@ -1,0 +1,214 @@
+{
+  "artwork_id": "W6_ARTIFACT_VAULT",
+  "status": "APPROVED",
+  "source": {
+    "source_id": "S09_ARTIFACT_VAULT",
+    "sha256": "5091f10d10a3799faff12ffa78361693ad40060004731f1c723caf971815df2c",
+    "native_width": 1586,
+    "native_height": 992
+  },
+  "postprocess": [
+    {
+      "stage": "server_exact_16_10_crop",
+      "operation": "crop_1px_each_edge",
+      "output_width": 1584,
+      "output_height": 990,
+      "contract_declared_container_sha256": null,
+      "sha256": "eeac280a758ddb4db5c99eb84da168e4c0a462847fb2e82a31b455db63689a21",
+      "pixel_sha256": "0cab0cb7241ecbe78a01ea93cb2e37cc0a1bd2b6e5ff34f38d20f0f79d61cce9",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is expected and is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing; the working crop is produced deterministically from the locked source and the contract crop rectangle.",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "NOT_REQUIRED",
+      "basis": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "generative_operations": false
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "6144x3840",
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "39bbc61b04d596bb18f6da006c73b1fefa748f08abc4f8eaaf1221a38514c0bb",
+      "passes": 1
+    },
+    {
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "31cb892f359b0b145f8460fa6a82a29312ed04ea1bc4c48000012ecb88b1b1ff"
+    },
+    {
+      "stage": "oversample_downsample_to_4096x2560_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_production_master",
+      "resample": "Lanczos",
+      "output_width": 4096,
+      "output_height": 2560,
+      "sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "pixel_sha256": "444004d962691663366dc220d2139eac2f27376e5ff3f52049be72dd225cac9d"
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "wide_crop_anchor": "center",
+      "wide_master_crop_pixels": [
+        0,
+        512,
+        4096,
+        2048
+      ],
+      "derivatives": [
+        {
+          "asset_name": "wom.art.scene.artifact-vault",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "e4261b35fae20bcb207973ed429ec66525223de7e5dbd60a0e5ac7eb0df1f992",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.scene.artifact-vault.wide",
+          "width": 2400,
+          "height": 900,
+          "sha256": "96b52da25f2122701dcb7d717b5047cf2089e549beaab12c8c1b7b4b766f7714",
+          "derivation": "center_aligned_4096x1536_crop_from_master_then_downsample",
+          "crop_anchor": "center"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PASSED",
+      "unmet_requirements": [],
+      "evidence": "docs/05_UI/artwork/qa/W6_ARTIFACT_VAULT.qa.json"
+    }
+  ],
+  "master": {
+    "path": "W6_MASTER_4096x2560.png",
+    "width": 4096,
+    "height": 2560,
+    "format": "PNG",
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "runtime_loadable": false,
+    "sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+    "pixel_sha256": "444004d962691663366dc220d2139eac2f27376e5ff3f52049be72dd225cac9d"
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.scene.artifact-vault",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "e4261b35fae20bcb207973ed429ec66525223de7e5dbd60a0e5ac7eb0df1f992",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    },
+    {
+      "asset_name": "wom.art.scene.artifact-vault.wide",
+      "width": 2400,
+      "height": 900,
+      "sha256": "96b52da25f2122701dcb7d717b5047cf2089e549beaab12c8c1b7b4b766f7714",
+      "derivation": "center_aligned_4096x1536_crop_from_master_then_downsample",
+      "crop_anchor": "center",
+      "catalog_payload_verified": true
+    }
+  ],
+  "qa_record": "docs/05_UI/artwork/qa/W6_ARTIFACT_VAULT.qa.json",
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "b0fc41bf3e7093248cb486ebf1c6112131a97eb4fa6fef1451e4affe73197cd0",
+      "pixel_sha256": "444004d962691663366dc220d2139eac2f27376e5ff3f52049be72dd225cac9d",
+      "photometry": {
+        "mean_luminance_0_255": 41.44,
+        "luminance_p05_0_255": 1.99,
+        "luminance_p50_0_255": 26.7,
+        "luminance_p95_0_255": 133.65,
+        "shadow_clip_pct": 6.039,
+        "highlight_clip_pct": 0.018
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "eeac280a758ddb4db5c99eb84da168e4c0a462847fb2e82a31b455db63689a21",
+      "photometry": {
+        "mean_luminance_0_255": 37.76,
+        "luminance_p05_0_255": 0.64,
+        "luminance_p50_0_255": 23.26,
+        "luminance_p95_0_255": 122.15,
+        "shadow_clip_pct": 8.679,
+        "highlight_clip_pct": 0.062
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 19.67,
+      "wide_red_dominant_pct": 22.867,
+      "wide_vs_master_ratio": 1.163,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 5.79,
+      "luminance_correlation": 0.9925,
+      "edge_structure_correlation": 0.9816,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.scene.artifact-vault",
+          "payload": "wom.art.scene.artifact-vault.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "e4261b35fae20bcb207973ed429ec66525223de7e5dbd60a0e5ac7eb0df1f992",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.scene.artifact-vault.wide",
+          "payload": "wom.art.scene.artifact-vault.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "96b52da25f2122701dcb7d717b5047cf2089e549beaab12c8c1b7b4b766f7714",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
+  },
+  "approved_at": "2026-09-18",
+  "approved_basis": "Locked approved source direction + byte-verified macOS finishing chain + G0-G5 evidence with captured runtime checks",
+  "copyright_note": "AI-assisted original artwork; no official commercial asset copying."
+}

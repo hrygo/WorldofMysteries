@@ -50,6 +50,7 @@ import argparse
 import datetime
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -60,6 +61,12 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[3]
 DEFAULT_MANIFEST = REPO_ROOT / "docs/05_UI/artwork/delivery/approved_sources.json"
 DEFAULT_CANON_EVIDENCE = REPO_ROOT / "docs/05_UI/artwork/delivery/canon_evidence.json"
+
+# 运行时证据的复算原语（截图摘要校验、WCAG 对比度、归一化互相关）只有一份实现：世界/场景
+# 工具已经把它们用在 W1..W6 的 G5 上。神器记录复用同一份，阈值与算法不会在两套交付之间漂移。
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+import finish_world_artwork as world_tool  # noqa: E402
 DEFAULT_REGISTRY = REPO_ROOT / "macos-app/WorldOfMysteries/DesignSystem/WOMArtworkAsset.swift"
 
 MASTER_SIZE = (2048, 2048)
@@ -934,6 +941,198 @@ def _catalog_evidence(catalog_root: Path | None, asset_names: List[str]) -> Dict
     return {"status": "VERIFIED", "payloads": entries}
 
 
+ARTIFACT_WINDOW_CHECKS: Tuple[str, ...] = ("960x640", "1180x760", "2560x1600")
+ARTIFACT_ACCESSIBILITY_STATES: Tuple[str, ...] = ("Increased Contrast", "Reduce Transparency")
+RUNTIME_EVIDENCE_SEQUENCE: Tuple[str, ...] = (
+    "collection-960x640",
+    "collection-1180x760",
+    "collection-2560x1600",
+    "detail-2560x1600",
+    "showcase-1180x760",
+    "showcase-increased-contrast",
+    "showcase-reduce-transparency",
+)
+
+
+def _evaluate_runtime(
+    payload: Dict[str, Any] | None,
+    evidence_dir: Path,
+) -> Tuple[str, Dict[str, Any], List[str]]:
+    """神器的 G5：窗口、辅助功能状态与「派生图确实被渲染」三件事都要有可复算的像素依据。
+
+    截图只算证据当它仍然等于记录里的字节；对比度一律由本工具从测量区重算，证据文件里
+    声明的任何比值都被忽略；模板匹配分由采集脚本产出（低于阈值时脚本直接失败），这里只
+    接受 `verdict == "present"` 且不低于阈值的条目。
+    """
+
+    if not payload:
+        return (
+            "PENDING_RUNTIME_QA",
+            {
+                "window_checks": {size: None for size in ARTIFACT_WINDOW_CHECKS},
+                "accessibility_checks": {state: None for state in ARTIFACT_ACCESSIBILITY_STATES},
+                "notes": [
+                    "Artifact collection, detail and accessibility window checks have not been "
+                    "captured yet."
+                ],
+            },
+            ["runtime evidence missing"],
+        )
+
+    problems: List[str] = []
+    window_checks = payload.get("window_checks") or {}
+    accessibility_checks = payload.get("accessibility_checks") or {}
+    digests = {
+        Path(str(entry.get("file"))).name: entry.get("sha256")
+        for entry in (payload.get("captures") or [])
+        if isinstance(entry, dict) and entry.get("file")
+    }
+
+    verified_windows: Dict[str, Any] = {}
+    for size in ARTIFACT_WINDOW_CHECKS:
+        entry = window_checks.get(size)
+        if not entry:
+            problems.append(f"window {size} not captured")
+            verified_windows[size] = None
+            continue
+        digest = world_tool._verified_capture(
+            entry.get("capture"), evidence_dir, digests, problems, f"window {size}"
+        )
+        if entry.get("text_legible") is not True:
+            problems.append(f"window {size} text legibility not confirmed")
+        if entry.get("identity_visible") is not True:
+            problems.append(f"window {size} identity motif not confirmed")
+        verified_windows[size] = {
+            "capture": Path(str(entry.get("capture"))).name,
+            "capture_sha256": digest,
+            "text_legible": entry.get("text_legible"),
+            "identity_visible": entry.get("identity_visible"),
+            "notes": entry.get("notes"),
+        }
+
+    verified_states: Dict[str, Any] = {}
+    for state in ARTIFACT_ACCESSIBILITY_STATES:
+        entry = accessibility_checks.get(state)
+        if not entry:
+            problems.append(f"accessibility state {state} not captured")
+            verified_states[state] = None
+            continue
+        digest = world_tool._verified_capture(
+            entry.get("capture"), evidence_dir, digests, problems, f"accessibility {state}"
+        )
+        if entry.get("text_legible") is not True or entry.get("artwork_readable") is not True:
+            problems.append(f"accessibility state {state} not confirmed usable")
+        verified_states[state] = {
+            "capture": Path(str(entry.get("capture"))).name,
+            "capture_sha256": digest,
+            "text_legible": entry.get("text_legible"),
+            "artwork_readable": entry.get("artwork_readable"),
+            "notes": entry.get("notes"),
+        }
+
+    # 「出厂的派生图确实出现在这一帧里」：每一张抓取都必须带着不低于阈值的匹配结论。
+    surface = payload.get("surface_verification") or {}
+    threshold = surface.get("minimum_score")
+    if not isinstance(threshold, (int, float)):
+        problems.append("surface verification has no minimum score")
+    else:
+        for capture_name, entry in (surface.get("captures") or {}).items():
+            if not isinstance(entry, dict):
+                problems.append(f"surface verification for {capture_name} is malformed")
+                continue
+            world_tool._verified_capture(
+                capture_name, evidence_dir, digests, problems, f"surface {capture_name}"
+            )
+            score = entry.get("score")
+            if entry.get("verdict") != "present" or not isinstance(score, (int, float)):
+                problems.append(f"surface verification for {capture_name} is not a confirmed match")
+            elif score < threshold:
+                problems.append(
+                    f"surface verification for {capture_name} scored {score} below {threshold}"
+                )
+
+    # 对比度从点名的测量区复算：证据里声明的比值不算数。
+    computed: Dict[str, List[Dict[str, Any]]] = {}
+    for index, measurement in enumerate((payload.get("contrast") or {}).get("measurements") or []):
+        kind = measurement.get("kind")
+        label = f"contrast measurement {index}"
+        if kind not in ("text_primary", "important_copy"):
+            problems.append(f"{label} has an unsupported kind {kind!r}")
+            continue
+        capture = measurement.get("capture")
+        if world_tool._verified_capture(capture, evidence_dir, digests, problems, label) is None:
+            continue
+        region = measurement.get("region")
+        if not (
+            isinstance(region, list)
+            and len(region) == 4
+            and all(isinstance(value, int) for value in region)
+        ):
+            problems.append(f"{label} needs an integer region [x, y, width, height]")
+            continue
+        image = world_tool.load_rgb(evidence_dir / str(capture))
+        x, y, width, height = region
+        if (
+            width <= 0
+            or height <= 0
+            or x < 0
+            or y < 0
+            or x + width > image.width
+            or y + height > image.height
+        ):
+            problems.append(f"{label} region falls outside the capture")
+            continue
+        ratio = round(
+            world_tool._wcag_contrast_ratio(np.asarray(image.crop((x, y, x + width, y + height)))),
+            2,
+        )
+        computed.setdefault(kind, []).append(
+            {"kind": kind, "capture": Path(str(capture)).name, "region": region, "ratio": ratio}
+        )
+
+    thresholds = world_tool.CONTRAST_THRESHOLDS
+    primary = min((entry["ratio"] for entry in computed.get("text_primary", [])), default=None)
+    important = min((entry["ratio"] for entry in computed.get("important_copy", [])), default=None)
+    if primary is None:
+        problems.append("no recomputable primary-text contrast measurement was provided")
+    elif primary < thresholds["text_primary_min"]:
+        problems.append(
+            f"primary text contrast {primary}:1 is below the {thresholds['text_primary_min']}:1 minimum"
+        )
+    if important is None:
+        problems.append("no recomputable important-copy contrast measurement was provided")
+    elif important < thresholds["important_long_copy_target"]:
+        problems.append(
+            f"important copy contrast {important}:1 is below the "
+            f"{thresholds['important_long_copy_target']}:1 target"
+        )
+
+    record = dict(payload)
+    record["window_checks"] = verified_windows
+    record["accessibility_checks"] = verified_states
+    record["contrast"] = {
+        "method": (
+            "Recomputed from the named capture regions by this tool: WCAG 2.2 relative luminance, "
+            "p95 percentile as text ink against p05 as the backing surface. Any ratio declared in "
+            "the evidence file is ignored."
+        ),
+        "measurements": [entry for group in computed.values() for entry in group],
+        "text_primary_contrast_min": primary,
+        "important_copy_contrast_min": important,
+        "thresholds": dict(thresholds),
+    }
+    record["notes"] = [
+        "Captured from the real macOS window surface; every capture is re-hashed against the "
+        "recorded digest before its claims are accepted.",
+        "Template matching is produced by the capture harness against the shipped derivative; the "
+        "record refuses a capture whose recorded verdict is not a confirmed match.",
+    ]
+    if problems:
+        record["unmet_requirements"] = problems
+        return "PENDING_RUNTIME_QA", record, problems
+    return "PASSED", record, []
+
+
 def command_record(args: argparse.Namespace) -> int:
     targets = artifact_targets(Path(args.manifest))
     _require(args.task in targets, f"unknown artifact task {args.task}")
@@ -1152,15 +1351,19 @@ def command_record(args: argparse.Namespace) -> int:
         g4["notes"].append("The Asset Catalog payloads are not verified against the derivatives.")
 
     # ---- G5: runtime ----------------------------------------------------------------
-    g5 = {
-        "status": "PENDING_RUNTIME_QA",
-        "window_sizes": ["960x640", "1180x760", "2560x1600"],
-        "accessibility_states": ["Increased Contrast", "Reduce Transparency"],
-        "notes": [
-            "Artifact collection, detail sheet and accessibility window checks have not been "
-            "captured yet."
-        ],
-    }
+    runtime_evidence_path = Path(args.runtime_evidence) if args.runtime_evidence else None
+    g5_status, g5_record, runtime_problems = _evaluate_runtime(
+        load_json(runtime_evidence_path) if runtime_evidence_path else None,
+        runtime_evidence_path.parent if runtime_evidence_path else Path("."),
+    )
+    g5 = dict(
+        {
+            "status": g5_status,
+            "window_sizes": list(ARTIFACT_WINDOW_CHECKS),
+            "accessibility_states": list(ARTIFACT_ACCESSIBILITY_STATES),
+        },
+        **g5_record,
+    )
 
     gates = {
         "G0_semantic": g0,
@@ -1489,6 +1692,11 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
     record.add_argument("--canon-evidence", default=str(DEFAULT_CANON_EVIDENCE))
     record.add_argument("--inspection", default=None)
+    record.add_argument(
+        "--runtime-evidence",
+        default=None,
+        help="G5 window / accessibility evidence captured from the real macOS window (JSON)",
+    )
     record.add_argument("--catalog-root", default=None)
     record.add_argument("--generation-id", default=None)
     record.add_argument("--reviewed-at", default=None)

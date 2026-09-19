@@ -1,7 +1,7 @@
 {
   "artwork_id": "W1_WORLD_HERO",
   "contract_version": 3,
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "status": "APPROVED",
   "generator": {
     "provider": "OpenAI",
     "model": null,
@@ -12,7 +12,8 @@
   "source": {
     "native_width": 1586,
     "native_height": 992,
-    "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd"
+    "sha256": "331d165b12f90bced6526e0f2dba36afb80c437100a10d88d194aa1653920ddd",
+    "source_id": "S01_WORLD_HERO"
   },
   "postprocess": [
     {
@@ -20,62 +21,204 @@
       "operation": "crop_1px_each_edge",
       "output_width": 1584,
       "output_height": 990,
-      "sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
+      "contract_declared_container_sha256": "b0417cab61588456fe0e3d554ff5b5f618d63dd84706cdced6a43e47914c9454",
+      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "pixel_sha256": "f409983e8c47b9d94fc173f75855ed9fb98d186ec601dd5ba13e47d31da6aa90",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is expected and is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing; the working crop is produced deterministically from the locked source and the contract crop rectangle.",
       "status": "COMPLETE"
     },
     {
       "stage": "macos_local_structural_repair",
-      "status": "PENDING"
+      "status": "NOT_REQUIRED",
+      "basis": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "generative_operations": false
     },
     {
       "stage": "macos_primary_super_resolution",
-      "status": "PENDING"
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "6144x3840",
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "8bc2a3bbbe35da398e6e3288d344667a465492eeef45844fc3c4706e2d1d59e6",
+      "passes": 1
     },
     {
-      "stage": "macos_material_restoration",
-      "status": "PENDING"
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "06611c21cd645d2863b4705fc67443b83eed8a7f117eaf9c397697d318a1ca3a"
     },
     {
-      "stage": "macos_color_luminance_grade",
-      "status": "PENDING"
-    },
-    {
-      "stage": "downsample_to_4096x2560_master",
-      "status": "PENDING"
+      "stage": "oversample_downsample_to_4096x2560_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_production_master",
+      "resample": "Lanczos",
+      "output_width": 4096,
+      "output_height": 2560,
+      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5"
     },
     {
       "stage": "deterministic_derivatives",
-      "status": "PENDING",
-      "wide_crop_anchor": "top"
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "wide_crop_anchor": "top",
+      "wide_master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "derivatives": [
+        {
+          "asset_name": "wom.art.world.hero",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.world.hero.wide",
+          "width": 2400,
+          "height": 900,
+          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+          "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
+          "crop_anchor": "top"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PASSED",
+      "unmet_requirements": [],
+      "evidence": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json"
     }
   ],
   "master": {
-    "path": null,
+    "path": "W1_MASTER_4096x2560.png",
     "width": 4096,
     "height": 2560,
     "format": "PNG",
-    "color_profile": "sRGB target",
-    "sha256": null
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+    "runtime_loadable": false,
+    "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5"
   },
   "derivatives": [
     {
       "asset_name": "wom.art.world.hero",
       "width": 2560,
       "height": 1600,
-      "sha256": null,
-      "derivation": "full_frame_downsample_from_master"
+      "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
     },
     {
       "asset_name": "wom.art.world.hero.wide",
       "width": 2400,
       "height": 900,
-      "sha256": null,
-      "derivation": "top_aligned_crop_from_master"
+      "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+      "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
+      "crop_anchor": "top",
+      "catalog_payload_verified": true
     }
   ],
   "qa_record": "docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json",
   "copyright_note": "AI-assisted original artwork; no official commercial asset copying.",
-  "approved_at": null,
+  "approved_at": "2026-09-18",
   "art_direction_decision": "docs/05_UI/artwork/W1_Art_Direction_Decision_v3.md",
-  "finishing_backlog": "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md"
+  "finishing_backlog": "docs/05_UI/artwork/W1_macOS_Finishing_Backlog.md",
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5",
+      "photometry": {
+        "mean_luminance_0_255": 66.73,
+        "luminance_p05_0_255": 2.62,
+        "luminance_p50_0_255": 58.24,
+        "luminance_p95_0_255": 164.1,
+        "shadow_clip_pct": 3.462,
+        "highlight_clip_pct": 0.015
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "photometry": {
+        "mean_luminance_0_255": 61.3,
+        "luminance_p05_0_255": 2.64,
+        "luminance_p50_0_255": 52.21,
+        "luminance_p95_0_255": 152.99,
+        "shadow_clip_pct": 4.257,
+        "highlight_clip_pct": 0.037
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 22.077,
+      "wide_red_dominant_pct": 21.862,
+      "wide_vs_master_ratio": 0.99,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.255,
+      "luminance_correlation": 0.9933,
+      "edge_structure_correlation": 0.9792,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.world.hero",
+          "payload": "wom.art.world.hero.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.world.hero.wide",
+          "payload": "wom.art.world.hero.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
+  },
+  "approved_basis": "Locked approved source direction + byte-verified macOS finishing chain + G0-G5 evidence with captured runtime checks"
 }

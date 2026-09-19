@@ -1,0 +1,214 @@
+{
+  "artwork_id": "W2_GRAY_FOG",
+  "status": "APPROVED",
+  "source": {
+    "source_id": "S07_GRAY_FOG",
+    "sha256": "97a8bcee9d1254c5a2c5413e79d4900f5e28edd9def9be0cc95850acd8badda1",
+    "native_width": 1586,
+    "native_height": 992
+  },
+  "postprocess": [
+    {
+      "stage": "server_exact_16_10_crop",
+      "operation": "crop_1px_each_edge",
+      "output_width": 1584,
+      "output_height": 990,
+      "contract_declared_container_sha256": null,
+      "sha256": "caa3f1bd53c0a73405044d4dce264c664ab77623e86f652443c981fd0364122a",
+      "pixel_sha256": "c92ddacfc3cedfaa2530063d137ac6e784f7804f96d390f9f6bdb843aa5a6706",
+      "container_note": "PNG container hashes are encoder dependent, so a byte mismatch against a hash produced by a different encoder is expected and is not evidence of a different crop. pixel_sha256 identifies the decoded pixels independently of container framing; the working crop is produced deterministically from the locked source and the contract crop rectangle.",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "macos_local_structural_repair",
+      "status": "NOT_REQUIRED",
+      "basis": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "generative_operations": false
+    },
+    {
+      "stage": "macos_primary_super_resolution",
+      "status": "COMPLETE",
+      "engine": "Real-ESRGAN RRDBNet x4 (single pass)",
+      "device": "mps",
+      "weights": "RealESRGAN_x4plus.pth",
+      "weights_sha256": "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1",
+      "tile": 512,
+      "overlap": 32,
+      "scale": 4,
+      "downstream_downsample": "6144x3840",
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "a34e44afddeca39b07844d25745ec42916dc666216845184f34fcc9506d317ea",
+      "passes": 1
+    },
+    {
+      "stage": "macos_material_restoration_and_color_luminance_grade",
+      "status": "COMPLETE",
+      "profile": "subtle-illustration-v1",
+      "parameters": {
+        "shadow_lift_gamma": 1.1,
+        "midtone_contrast": 0.06,
+        "highlight_knee": 0.9,
+        "detail_radius": 2.0,
+        "detail_amount": 0.35,
+        "detail_noise_floor": 0.004,
+        "clarity_radius": 24.0,
+        "clarity_amount": 0.08,
+        "saturation": 1.03,
+        "warm_highlight_red": 1.012,
+        "warm_highlight_blue": 0.988
+      },
+      "generative": false,
+      "output_width": 6336,
+      "output_height": 3960,
+      "sha256": "750295e59caa507ef6af8cb5d6e1574f98be75164a21e0f667da91aa73058bf3"
+    },
+    {
+      "stage": "oversample_downsample_to_4096x2560_master",
+      "status": "COMPLETE",
+      "operation": "controlled_downsample_to_production_master",
+      "resample": "Lanczos",
+      "output_width": 4096,
+      "output_height": 2560,
+      "sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "pixel_sha256": "996ebd48f7705ea32d501703783480761e65265eab0f0812fdc2d37a52e14397"
+    },
+    {
+      "stage": "deterministic_derivatives",
+      "status": "COMPLETE",
+      "tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "wide_crop_anchor": "top",
+      "wide_master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "derivatives": [
+        {
+          "asset_name": "wom.art.world.gray-fog",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "14518e8ea435b374086b4eaa23b21a6a5a8dc7722dace2a66ce2a71f4bfa2fd5",
+          "derivation": "full_frame_downsample_from_master"
+        },
+        {
+          "asset_name": "wom.art.world.gray-fog.wide",
+          "width": 2400,
+          "height": 900,
+          "sha256": "2671bfc20655d48a7226bcba2a8bfe4b140c334c38a001ca5363f10aac6492ec",
+          "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
+          "crop_anchor": "top"
+        }
+      ]
+    },
+    {
+      "stage": "runtime_qa",
+      "status": "PASSED",
+      "unmet_requirements": [],
+      "evidence": "docs/05_UI/artwork/qa/W2_GRAY_FOG.qa.json"
+    }
+  ],
+  "master": {
+    "path": "W2_MASTER_4096x2560.png",
+    "width": 4096,
+    "height": 2560,
+    "format": "PNG",
+    "color_profile": "sRGB IEC61966-2.1 (explicit ICC)",
+    "runtime_loadable": false,
+    "sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+    "pixel_sha256": "996ebd48f7705ea32d501703783480761e65265eab0f0812fdc2d37a52e14397"
+  },
+  "derivatives": [
+    {
+      "asset_name": "wom.art.world.gray-fog",
+      "width": 2560,
+      "height": 1600,
+      "sha256": "14518e8ea435b374086b4eaa23b21a6a5a8dc7722dace2a66ce2a71f4bfa2fd5",
+      "derivation": "full_frame_downsample_from_master",
+      "catalog_payload_verified": true
+    },
+    {
+      "asset_name": "wom.art.world.gray-fog.wide",
+      "width": 2400,
+      "height": 900,
+      "sha256": "2671bfc20655d48a7226bcba2a8bfe4b140c334c38a001ca5363f10aac6492ec",
+      "derivation": "top_aligned_4096x1536_crop_from_master_then_downsample",
+      "crop_anchor": "top",
+      "catalog_payload_verified": true
+    }
+  ],
+  "qa_record": "docs/05_UI/artwork/qa/W2_GRAY_FOG.qa.json",
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "268a61f3a0b481dfb919806d85f5911f74564f6101e505bc12f2695345f70a1a",
+      "pixel_sha256": "996ebd48f7705ea32d501703783480761e65265eab0f0812fdc2d37a52e14397",
+      "photometry": {
+        "mean_luminance_0_255": 91.88,
+        "luminance_p05_0_255": 4.78,
+        "luminance_p50_0_255": 97.58,
+        "luminance_p95_0_255": 166.28,
+        "shadow_clip_pct": 2.273,
+        "highlight_clip_pct": 0.005
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "caa3f1bd53c0a73405044d4dce264c664ab77623e86f652443c981fd0364122a",
+      "photometry": {
+        "mean_luminance_0_255": 84.27,
+        "luminance_p05_0_255": 5.71,
+        "luminance_p50_0_255": 88.58,
+        "luminance_p95_0_255": 155.56,
+        "shadow_clip_pct": 2.763,
+        "highlight_clip_pct": 0.003
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 3.609,
+      "wide_red_dominant_pct": 4.403,
+      "wide_vs_master_ratio": 1.22,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 8.258,
+      "luminance_correlation": 0.9961,
+      "edge_structure_correlation": 0.9784,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.world.gray-fog",
+          "payload": "wom.art.world.gray-fog.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "14518e8ea435b374086b4eaa23b21a6a5a8dc7722dace2a66ce2a71f4bfa2fd5",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.world.gray-fog.wide",
+          "payload": "wom.art.world.gray-fog.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "2671bfc20655d48a7226bcba2a8bfe4b140c334c38a001ca5363f10aac6492ec",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
+  },
+  "approved_at": "2026-09-18",
+  "approved_basis": "Locked approved source direction + byte-verified macOS finishing chain + G0-G5 evidence with captured runtime checks",
+  "copyright_note": "AI-assisted original artwork; no official commercial asset copying."
+}

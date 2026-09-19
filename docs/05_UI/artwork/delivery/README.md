@@ -10,16 +10,20 @@ Intake revision 2 preserves **nine independently approved originals**; revision 
 
 | Runtime task | Approved source | Delivery status |
 | --- | --- | --- |
-| W1 World Hero | S01 city | Locked source; macOS finishing #40 |
-| W2 Gray Fog / Sefirah | S07 high-order fog interpretation | Source locked; game-metaphor mapping/crop/runtime QA pending |
-| W3 Ritual Altar | S04 temple | Source approved; ritual-component mapping and crop review pending |
-| W4 Codex / Archive | S03 library | Source approved; reading-surface mapping and crop review pending |
-| W5 Fate / Worldline | S08 fate observation | Source locked; mapping/crop/runtime QA pending |
-| W6 Artifact Vault / Evidence Room | S09 containment vault | Source locked; mapping/crop/runtime QA pending |
+| W1 World Hero | S01 city | Finished from the locked source; runtime QA pending ([record](../qa/W1_WORLD_HERO.qa.json)) |
+| W2 Gray Fog / Sefirah | S07 high-order fog interpretation | Finished from the locked source; runtime QA pending ([record](../qa/W2_GRAY_FOG.qa.json)) |
+| W3 Ritual Altar | S04 temple | Finished from the locked source; runtime QA pending ([record](../qa/W3_RITUAL_ALTAR.qa.json)) |
+| W4 Codex / Archive | S03 library | Finished from the locked source; runtime QA pending ([record](../qa/W4_CODEX_ARCHIVE.qa.json)) |
+| W5 Fate / Worldline | S08 fate observation | Finished from the locked source; runtime QA pending ([record](../qa/W5_FATE_WORLDLINE.qa.json)) |
+| W6 Artifact Vault / Evidence Room | S09 containment vault | Finished from the locked source; runtime QA pending ([record](../qa/W6_ARTIFACT_VAULT.qa.json)) |
 
 S02 street, S05 harbor and S06 alley remain supplemental environments, not substitutes for Gray Fog, Fate or Vault. Revision 3 therefore holds 24 approved sources: nine scene sources (six assigned candidates and three supplemental environments) plus 15 Artifact objects bound one-to-one to the 15 `artifact_targets`. No source in this intake is a shipping approval. Existing `crop_review.json` records W1/W3/W4 proposals; `additional_scene_crops.json` adds W2/W5/W6. No crop record is a runtime approval.
 
 The Artifact objects have since reached the macOS finishing checkpoint without becoming shipping approvals: see [the Artifact object finishing pipeline](../Artifact_Finishing_Pipeline_v1.0.md) for the 2048×2048 Master, the same-Master `detail` / `thumbnail` derivatives, the Asset Catalog payloads and the per-object QA / provenance records.
+
+The six scene sources have reached the same checkpoint through [the World / Scene finishing pipeline](../tools/README.md#finish_world_artworkpy): one 4096×2560 Master per scene, the same-Master 2560×1600 runtime and 2400×900 wide derivatives, byte-identical Asset Catalog payloads, and a per-scene QA / provenance record that re-derives from the stage reports. Their G2 runtime framing and G5 runtime evidence are still open, so `status` reads `MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING` and `shipping_approved` stays `false`.
+
+The nine scene originals are now committed under `../sources/approved-2026-09-18-r2/`, so the transport note below describes how they arrived rather than a remaining step.
 
 ## Ordered delivery
 

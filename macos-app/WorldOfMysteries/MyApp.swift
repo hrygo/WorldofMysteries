@@ -33,6 +33,20 @@ struct WorldOfMysteriesApp: App {
             width: WOMWindowMetrics.defaultWidth,
             height: WOMWindowMetrics.defaultHeight
         )
+        // G5 运行时取证窗口：把出厂的派生图按未裁切方式呈现，供采集脚本复算。
+        Window(
+            ArtifactArtworkRuntimeVerificationView.windowTitle,
+            id: ArtifactArtworkRuntimeVerificationView.windowID
+        ) {
+            ArtifactArtworkRuntimeVerificationView()
+        }
+        // 采集窗口的初始尺寸来自偏好键：抓取脚本按档位写入并重启 App，窗口就以该档位创建。
+        // 窗口本身仍是原生可缩放窗口；这里只是让「抓取像素 = 档位 × 背屏倍率」可复算，
+        // 而不必依赖 Accessibility 的窗口几何（本机该路径不可用）。
+        .defaultSize(
+            width: ArtifactArtworkRuntimeVerificationView.preferredWindowSize.width,
+            height: ArtifactArtworkRuntimeVerificationView.preferredWindowSize.height
+        )
         .commands {
             AppMenuBarCommands(
                 currentNavigation: $currentNavigation,
@@ -47,5 +61,16 @@ struct WorldOfMysteriesApp: App {
                 }
             )
         }
+
+        // 场景美术运行时证据采集面（G5）：产品表面用 `.fill` 裁切并叠加 scrim 与透明度，
+        // 无法证明「出厂的派生图确实被渲染出来」。该窗口只做未裁切渲染与发布态叠加探针，
+        // 供 `docs/05_UI/artwork/tools/` 下的抓取脚本采集可复算的运行时证据。
+        Window("场景美术运行时校验", id: SceneArtworkRuntimeVerificationView.windowID) {
+            SceneArtworkRuntimeVerificationView()
+        }
+        .defaultSize(
+            width: WOMWindowMetrics.defaultWidth,
+            height: WOMWindowMetrics.defaultHeight
+        )
     }
 }

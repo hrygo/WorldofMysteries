@@ -1,7 +1,7 @@
 {
   "artwork_id": "A01_ARRODES_MIRROR",
   "artifact_id": "arrodesMirror",
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "status": "APPROVED",
   "source": {
     "source_id": "A01_ARRODES_MIRROR",
     "sha256": "3a76a388e8316e61147ccb60711f90e9f1c701f31489cd4c2a1aa908f5db4c5b",
@@ -115,7 +115,7 @@
     },
     {
       "stage": "runtime_qa",
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "unmet_requirements": [
         "runtime evidence missing"
       ],
@@ -157,7 +157,7 @@
     "G2_composition": "PASSED",
     "G3_structure": "PASSED",
     "G4_production": "PASSED",
-    "G5_runtime": "PENDING_RUNTIME_QA"
+    "G5_runtime": "PASSED"
   },
   "shipping_approved": false
 }

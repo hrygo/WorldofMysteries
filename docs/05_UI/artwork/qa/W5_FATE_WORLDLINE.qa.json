@@ -1,0 +1,482 @@
+{
+  "artwork_id": "W5_FATE_WORLDLINE",
+  "task_id": "W5",
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PASSED",
+  "final_verdict": "PASSED",
+  "gates": {
+    "G0_semantic": {
+      "status": "PASSED",
+      "status_basis": "USER_APPROVED_SOURCE_DIRECTION_R2 (worldline observation metaphor; no domain cosmology is asserted)",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md",
+      "primary_read": "astronomical observation hall with an armillary orrery and suspended glass orbs",
+      "secondary_read": "luminous threads linking worlds; robed figures recording at lecterns",
+      "read_recorded_by": "world-scene finishing review: direct inspection of the finished 4096x2560 master",
+      "scored_criteria": null,
+      "unscored_criteria_note": "W1's numeric art-direction sub-scores were never produced for this scene. This pass rests on the explicit user source-direction approval plus the reading recorded here, not on an invented score; nothing in this record should be read as a scored artistic judgement."
+    },
+    "G1_canon_atmosphere": {
+      "status": "PASSED",
+      "status_basis": "USER_APPROVED_SOURCE_DIRECTION_R2",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md",
+      "world_contradictions": [],
+      "world_contradictions_basis": "these images assert no Canon architecture, ownership or cosmology; the source-direction approval records the metaphor framing explicitly",
+      "scored_criteria": null,
+      "unscored_criteria_note": "W1's numeric art-direction sub-scores were never produced for this scene. This pass rests on the explicit user source-direction approval plus the reading recorded here, not on an invented score; nothing in this record should be read as a scored artistic judgement."
+    },
+    "G2_composition": {
+      "status": "PASSED",
+      "source_crop_rect_pixels": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_output": {
+        "width": 1584,
+        "height": 990,
+        "sha256": "7319edbd300b29ee458afcb1d5ef711d0fb0b4252506fb6addd1469e677acdce"
+      },
+      "wide_anchor": "top",
+      "wide_master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "crop_reference": "docs/05_UI/artwork/delivery/additional_scene_crops.json",
+      "wide_crop_survival_pass": "PASS",
+      "runtime_crop_survival_pass": true,
+      "identity_survival": {
+        "rule": "R >= 80 and R - max(G, B) >= 40",
+        "master_red_dominant_pct": 22.664,
+        "wide_red_dominant_pct": 19.622,
+        "wide_vs_master_ratio": 0.866,
+        "wide_retains_identity": true
+      }
+    },
+    "G3_structure": {
+      "status": "PASSED",
+      "inspection_scales_percent": [
+        25,
+        100,
+        200
+      ],
+      "method": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "defects_found": [],
+      "architecture_errors": [],
+      "repetition_errors": [],
+      "gibberish_or_fake_text": [],
+      "human_or_vehicle_errors": [],
+      "inspected_at": null,
+      "notes": [
+        "Structural review performed locally on the finished 4096x2560 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "readability_note": "The orrery rings, luminous threads, glass orbs and robed observers stay distinct at 100%.",
+      "detail_note": "Threads remain continuous without banding or dashes; orb-contained city silhouettes stay crisp; the astrolabe frame does not alias.",
+      "seam_note": "No halo or ringing along the brightest thread cores against the dark hall.",
+      "text_like_glyph_check": "Banner emblems are geometric; no text.",
+      "structural_repetition_check": "Thread crossings and orb contents are individually varied."
+    },
+    "G4_production": {
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 4096,
+        "height": 2560
+      },
+      "runtime_dimensions": {
+        "wom.art.scene.fate-worldline": {
+          "width": 2560,
+          "height": 1600
+        },
+        "wom.art.scene.fate-worldline.wide": {
+          "width": 2400,
+          "height": 900
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.scene.fate-worldline": "df077bd493509a35b16b5c8decd3aa2ca438c2d1e8a66d9215541a691815678d",
+        "wom.art.scene.fate-worldline.wide": "59444ef0d9ade9b26ec863bb90803c1e84e2aa9dab76fe079af74fc0c87e6c43"
+      },
+      "master_sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "asset_names": [
+        "wom.art.scene.fate-worldline",
+        "wom.art.scene.fate-worldline.wide"
+      ],
+      "derivative_tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.scene.fate-worldline",
+            "payload": "wom.art.scene.fate-worldline.png",
+            "width": 2560,
+            "height": 1600,
+            "sha256": "df077bd493509a35b16b5c8decd3aa2ca438c2d1e8a66d9215541a691815678d",
+            "icc_profile": null
+          },
+          {
+            "asset_name": "wom.art.scene.fate-worldline.wide",
+            "payload": "wom.art.scene.fate-worldline.wide.png",
+            "width": 2400,
+            "height": 900,
+            "sha256": "59444ef0d9ade9b26ec863bb90803c1e84e2aa9dab76fe079af74fc0c87e6c43",
+            "icc_profile": null
+          }
+        ],
+        "matches_derivatives": true
+      }
+    },
+    "G5_runtime": {
+      "status": "PASSED",
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600",
+        "2400x900"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "window_checks": {
+        "960x640": {
+          "capture": "wom-verification-grid-960x640.jpg",
+          "capture_sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 960×640 pt → 抓取 1920×1280 px；归一化互相关 score=0.5741（阈值 0.45），匹配框 [647, 616, 1273, 1007]，资产缩放 0.245；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "1180x760": {
+          "capture": "wom-verification-grid-1180x760.jpg",
+          "capture_sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1180×760 pt → 抓取 2360×1520 px；归一化互相关 score=0.6184（阈值 0.45），匹配框 [811, 721, 1547, 1181]，资产缩放 0.288；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2560x1600": {
+          "capture": "wom-verification-grid-2560x1600.jpg",
+          "capture_sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1280×800 pt → 抓取 2560×1600 px；归一化互相关 score=0.6444（阈值 0.45），匹配框 [859, 749, 1699, 1274]，资产缩放 0.328；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2400x900": {
+          "capture": "wom-verification-grid-2400x900.jpg",
+          "capture_sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1200×450 pt → 抓取 2400×900 px；归一化互相关 score=0.6722（阈值 0.45），匹配框 [1604, 178, 1984, 417]，资产缩放 0.149；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        }
+      },
+      "accessibility_checks": {
+        "Increased Contrast": {
+          "capture": "wom-verification-probe-increased-contrast.jpg",
+          "capture_sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:increaseContrast 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.contrast=increased 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        },
+        "Reduce Transparency": {
+          "capture": "wom-verification-probe-reduce-transparency.jpg",
+          "capture_sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:reduceTransparency 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.transparency=reduced 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        }
+      },
+      "notes": [
+        "Captured from the real macOS window surface; every capture is re-hashed against the recorded digest before its claims are accepted.",
+        "The wide header anchor under test is the one recorded in the derivative report."
+      ],
+      "captured_at": "2026-09-19",
+      "task": "W5",
+      "capture_environment": {
+        "app": "未记录（复用既有抓取图）",
+        "owner_name": null,
+        "process_name": null,
+        "window_title": "场景美术运行时校验",
+        "capture_geometry_labels": {
+          "960x640": "960x640pt",
+          "1180x760": "1180x760pt",
+          "2560x1600": "1280x800pt",
+          "2400x900": "1200x450pt"
+        }
+      },
+      "captures": [
+        {
+          "file": "wom-verification-grid-960x640.jpg",
+          "sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af"
+        },
+        {
+          "file": "wom-verification-grid-1180x760.jpg",
+          "sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5"
+        },
+        {
+          "file": "wom-verification-grid-2560x1600.jpg",
+          "sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804"
+        },
+        {
+          "file": "wom-verification-grid-2400x900.jpg",
+          "sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf"
+        },
+        {
+          "file": "wom-verification-probe-1180x760.jpg",
+          "sha256": "a71a6d8889ae0711f7d3a9a24a6b9cc4a7919f10de6ff5fd7906ff260165edb5"
+        },
+        {
+          "file": "wom-verification-probe-increased-contrast.jpg",
+          "sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b"
+        },
+        {
+          "file": "wom-verification-probe-reduce-transparency.jpg",
+          "sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845"
+        }
+      ],
+      "contrast": {
+        "method": "Recomputed from the named capture regions by this tool: WCAG 2.2 relative luminance, p95 percentile as text ink against p05 as the backing surface. Any ratio declared in the evidence file is ignored.",
+        "measurements": [
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              823,
+              956,
+              715,
+              20
+            ],
+            "ratio": 17.52
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              823,
+              956,
+              715,
+              20
+            ],
+            "ratio": 17.55
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              823,
+              956,
+              715,
+              20
+            ],
+            "ratio": 17.55
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              823,
+              988,
+              715,
+              48
+            ],
+            "ratio": 8.19
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              823,
+              988,
+              715,
+              48
+            ],
+            "ratio": 8.2
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              823,
+              988,
+              715,
+              48
+            ],
+            "ratio": 8.2
+          }
+        ],
+        "text_primary_contrast_min": 17.52,
+        "important_copy_contrast_min": 8.19,
+        "thresholds": {
+          "text_primary_min": 4.5,
+          "important_long_copy_target": 7.0
+        }
+      },
+      "surface_verification": {
+        "operation": "normalised_cross_correlation_against_shipped_derivative",
+        "minimum_score": 0.45,
+        "captures": {
+          "wom-verification-grid-960x640.jpg": {
+            "asset": "wom.art.scene.fate-worldline.png",
+            "score": 0.5741,
+            "asset_scale": 0.245,
+            "window_in_capture_pixels": [
+              647,
+              616,
+              1273,
+              1007
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-1180x760.jpg": {
+            "asset": "wom.art.scene.fate-worldline.png",
+            "score": 0.6184,
+            "asset_scale": 0.288,
+            "window_in_capture_pixels": [
+              811,
+              721,
+              1547,
+              1181
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2560x1600.jpg": {
+            "asset": "wom.art.scene.fate-worldline.png",
+            "score": 0.6444,
+            "asset_scale": 0.328,
+            "window_in_capture_pixels": [
+              859,
+              749,
+              1699,
+              1274
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2400x900.jpg": {
+            "asset": "wom.art.scene.fate-worldline.png",
+            "score": 0.6722,
+            "asset_scale": 0.149,
+            "window_in_capture_pixels": [
+              1604,
+              178,
+              1984,
+              417
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-1180x760.jpg": {
+            "asset": "wom.art.scene.fate-worldline.wide.png",
+            "score": 0.6855,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              795,
+              631,
+              1566,
+              920
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-increased-contrast.jpg": {
+            "asset": "wom.art.scene.fate-worldline.wide.png",
+            "score": 0.6854,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              795,
+              631,
+              1566,
+              920
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-reduce-transparency.jpg": {
+            "asset": "wom.art.scene.fate-worldline.wide.png",
+            "score": 0.6854,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              795,
+              631,
+              1566,
+              920
+            ],
+            "verdict": "present"
+          }
+        }
+      },
+      "wide_anchor_under_test": "top"
+    }
+  },
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "2b5ac61019932762a40abf501827fecfb7c22c2f267c0cad5bfa4058d53e3751",
+      "pixel_sha256": "488a46b119fd0603378c4cb3744f9080be40ed84b47698d800ecffdfeb1cec56",
+      "photometry": {
+        "mean_luminance_0_255": 62.35,
+        "luminance_p05_0_255": 3.56,
+        "luminance_p50_0_255": 48.21,
+        "luminance_p95_0_255": 172.5,
+        "shadow_clip_pct": 2.628,
+        "highlight_clip_pct": 0.018
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "7319edbd300b29ee458afcb1d5ef711d0fb0b4252506fb6addd1469e677acdce",
+      "photometry": {
+        "mean_luminance_0_255": 57.08,
+        "luminance_p05_0_255": 3.48,
+        "luminance_p50_0_255": 44.08,
+        "luminance_p95_0_255": 158.89,
+        "shadow_clip_pct": 3.622,
+        "highlight_clip_pct": 0.08
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 22.664,
+      "wide_red_dominant_pct": 19.622,
+      "wide_vs_master_ratio": 0.866,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.251,
+      "luminance_correlation": 0.9933,
+      "edge_structure_correlation": 0.9798,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.scene.fate-worldline",
+          "payload": "wom.art.scene.fate-worldline.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "df077bd493509a35b16b5c8decd3aa2ca438c2d1e8a66d9215541a691815678d",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.scene.fate-worldline.wide",
+          "payload": "wom.art.scene.fate-worldline.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "59444ef0d9ade9b26ec863bb90803c1e84e2aa9dab76fe079af74fc0c87e6c43",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
+  },
+  "reviewers": [
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_world_artwork.py"
+  ],
+  "reviewed_at": "2026-09-18"
+}

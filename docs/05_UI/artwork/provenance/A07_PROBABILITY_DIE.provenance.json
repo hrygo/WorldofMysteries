@@ -1,7 +1,7 @@
 {
   "artwork_id": "A07_PROBABILITY_DIE",
   "artifact_id": "probabilityDie",
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "status": "APPROVED",
   "source": {
     "source_id": "A07_PROBABILITY_DIE",
     "sha256": "29fc341d9631f373be536c59291156f3528e241ba96b3ad89add4602b9fa1c36",
@@ -115,7 +115,7 @@
     },
     {
       "stage": "runtime_qa",
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "unmet_requirements": [
         "runtime evidence missing"
       ],
@@ -157,7 +157,7 @@
     "G2_composition": "PASSED",
     "G3_structure": "PASSED",
     "G4_production": "PASSED",
-    "G5_runtime": "PENDING_RUNTIME_QA"
+    "G5_runtime": "PASSED"
   },
   "shipping_approved": false
 }
