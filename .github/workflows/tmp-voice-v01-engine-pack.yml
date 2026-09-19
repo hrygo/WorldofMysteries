@@ -1,0 +1,27 @@
+name: Temporary Voice V01 engine capsule pack
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-engine-pack.yml']
+permissions:
+  contents: write
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/voice-v01-media-contract
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Pack Engine media capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'GitHub Actions'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python3 scripts/agent_capsule.py pack             --role AGT-VOICE             --task-id VOICE-V01-ENGINE-MEDIA             --title 'Voice V01 Engine media framing and grants'             --focus 'voice media framing ticket grant backpressure ipc server engine infrastructure audio'             --target-ref origin/main
+          git add .agents/capsules/
+          git commit -m 'chore(voice): pack VOICE-V01-ENGINE-MEDIA task capsule'
+          git push origin HEAD:refs/heads/feat/voice-v01-media-contract
