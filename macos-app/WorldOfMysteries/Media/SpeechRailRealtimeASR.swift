@@ -1,6 +1,11 @@
 import Foundation
 
 public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable, LocalizedError {
+    case invalidConfiguration
+    case notConnected
+    case unsupportedMessage
+    case sessionRejected(code: String)
+    case audioFrameInvalid
     case invalidEnvelope
     case sequenceGap(expected: Int64, actual: Int64)
     case duplicateEventConflict(eventID: String)
