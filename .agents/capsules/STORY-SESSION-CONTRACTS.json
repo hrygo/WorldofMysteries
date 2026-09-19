@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-STORY-SESSION-CONTRACTS",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-STORY-SESSION-CONTRACTS-R2",
+  "capsule_revision": 2,
   "task_id": "STORY-SESSION-CONTRACTS",
   "title": "Typed Python StorySession StoryState and TurnTransaction contracts",
   "assigned_role": "AGT-ARB",
@@ -27,7 +27,9 @@
       ".agents/capsules/STORY-SESSION-CONTRACTS.json"
     ],
     "forbidden": [
-      "contracts/**",
+      "contracts/schemas/**",
+      "contracts/protocol/**",
+      "contracts/engineering/**",
       "engine/domain/**",
       "engine/application/**",
       "engine/infrastructure/**",
@@ -55,19 +57,31 @@
     "token_estimate": 1300,
     "max_core_tokens": 2500,
     "expansion_policy": "arbiter_approved",
-    "note": "Stacked on #80 canonical Python parity. Adds only missing typed projections for already-existing canonical story schemas."
+    "note": "Revision 2 narrows forbidden top-level contract paths explicitly so Path.match does not misclassify engine/contracts/__init__.py. Product JSON Schemas remain read-only and unchanged."
   },
   "impact": {
-    "symbols": ["StoryState","StorySession","TurnTransaction","BaseRevisions"],
+    "symbols": [
+      "StoryState",
+      "StorySession",
+      "TurnTransaction",
+      "BaseRevisions"
+    ],
     "contracts": [
       "story_state.schema.json",
       "story_session.schema.json",
       "turn_transaction.schema.json"
     ],
-    "tests": ["engine/tests/test_story_session_contracts.py"],
+    "tests": [
+      "engine/tests/test_story_session_contracts.py"
+    ],
     "migrations": []
   },
-  "dependencies": {"depends_on": ["DOMAIN-CONTRACT-PARITY"],"conflicts_with":[]},
+  "dependencies": {
+    "depends_on": [
+      "DOMAIN-CONTRACT-PARITY"
+    ],
+    "conflicts_with": []
+  },
   "gates": {
     "profile": "FULL_P0",
     "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
@@ -75,8 +89,21 @@
     "risk_class": "high"
   },
   "acceptance": {
-    "invariants": [5,6,7,9,12],
+    "invariants": [
+      5,
+      6,
+      7,
+      9,
+      12
+    ],
     "instructions": "Do not change canonical schemas. Add strict Python projections only; unknown fields fail closed and integer/uniqueItems semantics match Draft 2020-12.",
-    "assertions": ["INV-05","INV-06","INV-07","INV-09","INV-12"]
-  }
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-09",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-STORY-SESSION-CONTRACTS"
 }
