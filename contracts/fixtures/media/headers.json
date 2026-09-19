@@ -1,0 +1,223 @@
+[
+  {
+    "id": "open_tts_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "open",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "trace_id": "trace_001",
+      "engine_epoch": "epoch_001",
+      "generation": 7,
+      "ticket": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144
+    }
+  },
+  {
+    "id": "open_asr_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "open",
+      "protocol_version": "1.0",
+      "stream_id": "stream_asr_001",
+      "trace_id": "trace_002",
+      "engine_epoch": "epoch_001",
+      "generation": 3,
+      "ticket": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "direction": "app_to_engine",
+      "format": {"codec": "pcm_s16le", "sample_rate": 16000, "channels": 1},
+      "max_payload_bytes": 32768,
+      "initial_credit_bytes": 131072
+    }
+  },
+  {
+    "id": "chunk_valid",
+    "valid": true,
+    "payload_length": 1920,
+    "header": {
+      "kind": "chunk",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "sequence": 0,
+      "offset_frames": 0,
+      "frame_count": 960,
+      "payload_bytes": 1920
+    }
+  },
+  {
+    "id": "credit_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "credit",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "credit_bytes": 65536
+    }
+  },
+  {
+    "id": "end_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "end",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "total_frames": 48000,
+      "total_bytes": 96000,
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  {
+    "id": "cancel_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "cancel",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "reason": "user_stop"
+    }
+  },
+  {
+    "id": "error_valid",
+    "valid": true,
+    "payload_length": 0,
+    "header": {
+      "kind": "error",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "code": "provider_failed",
+      "message": "The media stream could not continue.",
+      "retryable": true
+    }
+  },
+  {
+    "id": "unknown_version_invalid",
+    "valid": false,
+    "payload_length": 0,
+    "header": {
+      "kind": "credit",
+      "protocol_version": "2.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "credit_bytes": 65536
+    }
+  },
+  {
+    "id": "open_ticket_invalid",
+    "valid": false,
+    "payload_length": 0,
+    "header": {
+      "kind": "open",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "trace_id": "trace_001",
+      "engine_epoch": "epoch_001",
+      "generation": 7,
+      "ticket": "secret",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144
+    }
+  },
+  {
+    "id": "stereo_invalid",
+    "valid": false,
+    "payload_length": 0,
+    "header": {
+      "kind": "open",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "trace_id": "trace_001",
+      "engine_epoch": "epoch_001",
+      "generation": 7,
+      "ticket": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 2},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144
+    }
+  },
+  {
+    "id": "chunk_odd_payload_invalid",
+    "valid": false,
+    "payload_length": 1919,
+    "header": {
+      "kind": "chunk",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "sequence": 0,
+      "offset_frames": 0,
+      "frame_count": 960,
+      "payload_bytes": 1919
+    }
+  },
+  {
+    "id": "control_payload_invalid",
+    "valid": false,
+    "payload_length": 2,
+    "header": {
+      "kind": "credit",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "credit_bytes": 65536
+    }
+  },
+  {
+    "id": "chunk_length_mismatch_invalid",
+    "valid": false,
+    "payload_length": 1922,
+    "header": {
+      "kind": "chunk",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "sequence": 0,
+      "offset_frames": 0,
+      "frame_count": 960,
+      "payload_bytes": 1920
+    }
+  },
+  {
+    "id": "chunk_frame_math_invalid",
+    "valid": false,
+    "payload_length": 1920,
+    "header": {
+      "kind": "chunk",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "sequence": 0,
+      "offset_frames": 0,
+      "frame_count": 959,
+      "payload_bytes": 1920
+    }
+  },
+  {
+    "id": "extra_property_invalid",
+    "valid": false,
+    "payload_length": 0,
+    "header": {
+      "kind": "cancel",
+      "protocol_version": "1.0",
+      "stream_id": "stream_tts_001",
+      "generation": 7,
+      "reason": "user_stop",
+      "secret": "must-not-pass"
+    }
+  }
+]
