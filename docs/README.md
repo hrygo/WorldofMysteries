@@ -305,7 +305,10 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 通过上述门槛后，系统进入可扩展内容生产阶段。
 
 
-## Voice-First v2 方案与实施入口（待实施）
+## Voice-First v2 方案与实施入口（实施中）
 
 语音第一、动态音色与跨仓依赖的详细技术/实施/验收方案见[Voice-First v2](03_工程规范/voice/README.md)。
-本项是方案交付，不代表运行时、真实语音质量或生产接线已完成；SpeechRail需求与兼容路径在该入口统一跟踪。
+
+后续团队接手前应先读[Voice-First Runtime 接续指南](07_工程启动/Voice_First_Handoff_2026-09-19.md)：其中区分已合并的 W-V00、仍在 PR #71 收尾的 W-V01、尚未进入生产接线的 W-V02/W-V03，并记录 SpeechRail 接线触发条件与证据层级。
+
+当前仍**不代表**真实游戏语音闭环、真实设备声学质量或发布验收已经完成；完成状态只能由 main 代码、当前 PR、受保护门禁和真实设备证据共同证明。

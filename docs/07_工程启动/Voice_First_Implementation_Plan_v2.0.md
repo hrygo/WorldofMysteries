@@ -1,10 +1,22 @@
 # Voice-First Runtime v2.0 — 实施方案
 
-日期：2026-09-19。状态：**执行设计，不是代码完成清单**。本次交付文档与上游 Issue；不改生产运行时、数据库或公共协议，不启动模型/麦克风/自动化听测，不授权合并。
+日期：2026-09-19。状态：**执行设计 + 任务分解；不是当前完成清单**。原始交付为文档与上游 Issue，后续已进入代码实施。实时完成状态、证据与阻塞统一见[接续指南](Voice_First_Handoff_2026-09-19.md)。
 
 固定基线：WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。技术定义见[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)，跨仓依赖见[接口与 Issue 映射](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)，验收见[验收矩阵](Voice_First_Acceptance_v2.0.md)。
 
-首批可直接转换为代码任务的输入、边界和测试 oracle 见[开工规格](Voice_First_Kickoff_Spec_v1.0.md)。该规格仍为设计，不新增公共 API 或可运行模型入口。
+首批可直接转换为代码任务的输入、边界和测试 oracle 见[开工规格](Voice_First_Kickoff_Spec_v1.0.md)。该规格是实施输入，不自动证明公共 API 已发布。
+
+### 当前执行快照（2026-09-19）
+
+| Workstream | 当前状态 | 继续工作的事实入口 |
+|---|---|---|
+| W-V00 | **已合并**（PR #70） | main 上 Audio config / adapter / capability probe |
+| W-V01 | **实现中，未最终放行**（PR #71） | PR #71 contracts、Python/Swift media primitive、门禁与 Work Receipt |
+| W-V02 | 未进入产品接线 | 本文 W-V02 + 开工规格 + 验收矩阵 |
+| W-V03 | 未进入产品接线 | 本文 W-V03 + W-V01 最终媒体协议 |
+| W-V04–W-V10 | 设计/待实施 | 本文任务卡；SpeechRail 依赖按实际上游实现接线 |
+
+任务卡正文描述“应该实现什么”；不要用其中的“拟新增/已有落点”判断当前代码状态。
 
 ## 1. 交付目标与禁止的替代完成标准
 
