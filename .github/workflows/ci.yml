@@ -50,19 +50,38 @@ jobs:
           PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          scope_command=(python3 scripts/ci_changed_scope.py)
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            if git cat-file -e "$PR_BASE_SHA:scripts/ci_changed_scope.py" 2>/dev/null; then
+              git show "$PR_BASE_SHA:scripts/ci_changed_scope.py" \
+                > "$RUNNER_TEMP/ci_changed_scope.py"
+              scope_command=(python3 "$RUNNER_TEMP/ci_changed_scope.py")
+            else
+              {
+                echo "run_python=true"
+                echo "run_swift=true"
+                echo "scope=full"
+              } >> "$GITHUB_OUTPUT"
+              {
+                echo '### CI change scope: `full`'
+                echo '- Reason: base branch has no trusted classifier; fail-closed'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             git diff --name-only -z "$PR_BASE_SHA...$PR_HEAD_SHA" \
-              | python3 scripts/ci_changed_scope.py \
+              | "${scope_command[@]}" \
                   --github-output "$GITHUB_OUTPUT" \
                   --summary "$GITHUB_STEP_SUMMARY"
           elif [[ "$EVENT_NAME" == "push" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
             git diff --name-only -z "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" \
-              | python3 scripts/ci_changed_scope.py \
+              | "${scope_command[@]}" \
                   --github-output "$GITHUB_OUTPUT" \
                   --summary "$GITHUB_STEP_SUMMARY"
           elif [[ "$EVENT_NAME" == "push" ]]; then
             git ls-files -z \
-              | python3 scripts/ci_changed_scope.py \
+              | "${scope_command[@]}" \
                   --github-output "$GITHUB_OUTPUT" \
                   --summary "$GITHUB_STEP_SUMMARY"
           else
@@ -194,19 +213,54 @@ jobs:
     if: always()
     steps:
       - name: Evaluate Pipeline Status
+        env:
+          SCOPE_RESULT: ${{ needs.change-scope.result }}
+          ARCHITECTURE_RESULT: ${{ needs.architecture-and-contracts.result }}
+          PYTHON_RESULT: ${{ needs.python-engine.result }}
+          SWIFT_RESULT: ${{ needs.swift-macos-app.result }}
+          CI_SCOPE: ${{ needs.change-scope.outputs.scope }}
+          RUN_PYTHON: ${{ needs.change-scope.outputs.run_python }}
+          RUN_SWIFT: ${{ needs.change-scope.outputs.run_swift }}
         run: |
-          if [ "${{ needs.change-scope.result }}" != "success" ] || \
-             [ "${{ needs.architecture-and-contracts.result }}" != "success" ]; then
+          if [ "$SCOPE_RESULT" != "success" ] || \
+             [ "$ARCHITECTURE_RESULT" != "success" ]; then
             echo "❌ Scope or architecture gate failed."
             exit 1
           fi
-          if [ "${{ needs.change-scope.outputs.run_python }}" = "true" ] && \
-             [ "${{ needs.python-engine.result }}" != "success" ]; then
+          case "$CI_SCOPE" in
+            meta)
+              expected_python=false
+              expected_swift=false
+              ;;
+            python)
+              expected_python=true
+              expected_swift=false
+              ;;
+            swift)
+              expected_python=false
+              expected_swift=true
+              ;;
+            full)
+              expected_python=true
+              expected_swift=true
+              ;;
+            *)
+              echo "❌ Invalid CI scope: $CI_SCOPE"
+              exit 1
+              ;;
+          esac
+          if [ "$RUN_PYTHON" != "$expected_python" ] || \
+             [ "$RUN_SWIFT" != "$expected_swift" ]; then
+            echo "❌ Inconsistent CI scope outputs."
+            exit 1
+          fi
+          if [ "$RUN_PYTHON" = "true" ] && \
+             [ "$PYTHON_RESULT" != "success" ]; then
             echo "❌ Python gate was required but did not succeed."
             exit 1
           fi
-          if [ "${{ needs.change-scope.outputs.run_swift }}" = "true" ] && \
-             [ "${{ needs.swift-macos-app.result }}" != "success" ]; then
+          if [ "$RUN_SWIFT" = "true" ] && \
+             [ "$SWIFT_RESULT" != "success" ]; then
             echo "❌ Swift gate was required but did not succeed."
             exit 1
           fi

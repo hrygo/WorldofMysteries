@@ -6,6 +6,7 @@ import argparse
 import sys
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 from typing import TextIO
 
@@ -119,11 +120,12 @@ def write_github_output(decision: ScopeDecision, stream: TextIO) -> None:
 def write_summary(decision: ScopeDecision, stream: TextIO) -> None:
     """Write human-readable classification evidence to the step summary."""
 
+    safe_reason = escape(decision.reason.replace("\r", " ").replace("\n", " "), quote=True)
     stream.write(f"### CI change scope: `{decision.scope}`\n\n")
     stream.write(f"- Changed paths: `{decision.file_count}`\n")
     stream.write(f"- Run Python gate: `{str(decision.run_python).lower()}`\n")
     stream.write(f"- Run Swift gate: `{str(decision.run_swift).lower()}`\n")
-    stream.write(f"- Reason: {decision.reason}\n")
+    stream.write(f"- Reason: <code>{safe_reason}</code>\n")
 
 
 def _write_output_file(path_text: str, writer: Callable[[TextIO], None]) -> None:

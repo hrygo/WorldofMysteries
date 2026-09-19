@@ -72,7 +72,7 @@
 - **Job 编排**：
   1. **`change-scope` (ubuntu-latest)**：
      - 使用 `fetch-depth: 0` 获取完整历史；PR 计算 `base...head` 三点 diff，main push 计算 `before..head` 两点 diff；首次 push、未知事件或解析异常按 full 处理；
-     - 调用标准库脚本 `scripts/ci_changed_scope.py` 输出 `run_python`、`run_swift` 和 `scope`，未知路径、空输入及非法编码均 fail-closed。
+     - PR 优先执行 base SHA 中受信任的 `scripts/ci_changed_scope.py`；base 尚未提供分类器时直接选择 full，不执行 PR 工作树中的版本；输出 `run_python`、`run_swift` 和 `scope`，未知路径、空输入及非法编码均 fail-closed。
   2. **`architecture-and-contracts` (ubuntu-latest)**：
      - 运行 `python3 scripts/check_architecture_fitness.py`（静态扫描 Domain 零依赖、App 零直接数据库访问、AI 零直接 SQL）；
      - 循环校验全部 28 个 JSON Schema 语法与格式。
@@ -88,7 +88,7 @@
        （`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`），只有真实 App Target 才能复现宿主应用与预览的
        编译面；该步骤为编译验证，以 `CODE_SIGNING_ALLOWED=NO` 跳过签名。
   5. **`all-gates-passed` (ubuntu-latest)**：
-     - 保持 `if: always()`，作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）；被分类器明确判定为不需要的平台 job 为 `skipped` 时视为合法，意外失败仍阻断合入。
+     - 保持 `if: always()`，校验 `scope` 与两个布尔输出的一致性后，作为 GitHub Branch Protection 的单一聚合检查点（Required Status Check）；被分类器明确判定为不需要的平台 job 为 `skipped` 时视为合法，意外失败或输出不一致仍阻断合入。
 
 ### 2.3 实时质量报告与 Sticky 评论工作流 (`.github/workflows/pr-gate-reporter.yml`)
 - **触发条件**：`pull_request` 打开、提交更新、重开或发生 review 状态转换；描述字段的 `edited` 事件不触发报告，避免无代码变更重复消耗 runner。

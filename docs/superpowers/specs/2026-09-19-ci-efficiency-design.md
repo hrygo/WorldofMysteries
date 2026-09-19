@@ -49,7 +49,7 @@
 | `scripts/**`、`.hacf/**`、`.github/**`、根级构建配置 | 是 | 是 |
 | 未知路径、空输入、解析错误 | 是 | 是 |
 
-`ci.yml` 的 `change-scope` job 负责 checkout 完整历史、计算当前事件的 diff，并将路径流交给分类器。PR 使用 base...head 三点 diff；main push 使用 before..head 两点 diff；首次 push 或无法解析 ref 时直接进入 full 模式。
+`ci.yml` 的 `change-scope` job 负责 checkout 完整历史、计算当前事件的 diff，并将路径流交给分类器。PR 使用 base...head 三点 diff，并优先执行 base SHA 中受信任的分类器版本；base 分支尚未提供分类器时直接写入 full 选择，不执行 PR 工作树中的分类器。main push 使用 before..head 两点 diff；首次 push 或无法解析 ref 时直接进入 full 模式。聚合 job 还会校验 `scope` 与两个布尔输出的四种合法组合，不一致时 fail-closed。
 
 ### 2. 核心 CI job 拓扑
 

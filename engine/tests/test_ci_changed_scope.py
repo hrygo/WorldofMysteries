@@ -6,9 +6,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from ci_changed_scope import (
+    ScopeDecision,
     classify_paths,
     decision_from_nul_bytes,
     write_github_output,
+    write_summary,
 )
 
 
@@ -45,3 +47,12 @@ def test_github_output_contains_only_safe_scalar_outputs():
         "run_swift=false",
         "scope=python",
     ]
+
+
+def test_summary_escapes_untrusted_reason_text():
+    output = StringIO()
+    write_summary(
+        ScopeDecision.full("未知路径: `evil`\n## forged <tag>"),
+        output,
+    )
+    assert "<code>未知路径: `evil` ## forged &lt;tag&gt;</code>" in output.getvalue()

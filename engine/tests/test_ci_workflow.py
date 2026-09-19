@@ -21,6 +21,23 @@ def test_ci_uses_job_level_scope_selection():
     assert "\n    paths:" not in CI
 
 
+def test_pull_request_scope_uses_trusted_base_classifier():
+    assert 'git cat-file -e "$PR_BASE_SHA:scripts/ci_changed_scope.py"' in CI
+    assert 'git show "$PR_BASE_SHA:scripts/ci_changed_scope.py"' in CI
+    assert '"$RUNNER_TEMP/ci_changed_scope.py"' in CI
+    assert "base branch has no trusted classifier" in CI
+
+
+def test_aggregate_validates_scope_and_keeps_outputs_out_of_shell_source():
+    assert 'CI_SCOPE: ${{ needs.change-scope.outputs.scope }}' in CI
+    assert 'RUN_PYTHON: ${{ needs.change-scope.outputs.run_python }}' in CI
+    assert 'RUN_SWIFT: ${{ needs.change-scope.outputs.run_swift }}' in CI
+    assert 'case "$CI_SCOPE" in' in CI
+    assert "Inconsistent CI scope outputs" in CI
+    assert '[ "${{ needs.change-scope.outputs.run_python }}"' not in CI
+    assert '[ "${{ needs.change-scope.outputs.run_swift }}"' not in CI
+
+
 def test_ci_does_not_keep_unusable_or_duplicate_checks():
     assert "actions/cache@v6" not in CI
     assert "uv lock --check" not in CI
