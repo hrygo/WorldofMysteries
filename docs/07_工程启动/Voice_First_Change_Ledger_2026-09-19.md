@@ -32,3 +32,11 @@ Native Git网络预检失败（DNS）；通过GitHub连接器和只读Actions导
 当前仅文档静态检查：内部链接、围栏、路径/敏感信息、任务/Issue映射、变更范围。未运行产品Python/Swift测试、真实模型、麦克风、UI自动化、音色创建或声学benchmark。Markdown属于仓库元数据范围，不伪造代码Task Capsule/Work Receipt；后续代码实施必须重新pack并遵守原始门禁。
 
 GitHub PR号码、Issue链接、最终提交与CI状态以PR及本次交付索引的实际回读为准；本文不写自身commit SHA以避免自引用。不会自动合并或启用自动合并。
+
+
+## 已发布增量
+
+- 方案Draft PR：[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。
+- 首个文档提交：`9c9b3ce81eac4fb7f5e68fefb766b842c91f0aae`；6个Markdown的原子提交，tree `f94ad86ae2415abeb200007aaa2ec469e2dd55b7`。
+- 第二增量：登记[SpeechRail #62–#68](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)，关联既有#34/#44并补充导航；未提交任何SpeechRail代码变更。
+- 本地文档检查不是运行时代码验收；PR自动触发的仓库CI与其实际head绑定，结果另记在PR和交付索引，不沿用其他PR证据。

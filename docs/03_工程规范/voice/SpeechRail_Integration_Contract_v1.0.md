@@ -64,17 +64,17 @@
 
 ## 4. Issue映射与优先级
 
-当前稳定任务键如下。正式Issue号码和链接由本次提交后的映射增量补齐；任务键不会随GitHub编号变化。
+以下7项Issue已在SpeechRail登记（2026-09-19），均为open待办，**不是已实现能力**。对应下游文档PR为[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。稳定任务键不随Issue编号变化。
 
-| 键 | 优先级 | 范围 | 对WoM的依赖关系 |
+| 键 / 实际Issue | 优先级 | 范围 | 对WoM的依赖关系 |
 |---|---|---|---|
-| SR-V01 | P0 | C1有效能力snapshot | 启用v2能力自动路由前完成；legacy有界可用 |
-| SR-V02 | P0 | C2版本锁定/并发/持久幂等 | 强动态身份承诺的前置 |
-| SR-V03 | P0 | C3流完整性与resolved receipt | 完整缓存/HTTP增强；Realtime基础可先接 |
-| SR-V04 | P1 | C4交互优先与维护隔离 | 高频Story体验/并发后台任务前置 |
-| SR-V05 | P1 | C5条件特征缓存 | 优化项，不阻塞固定音色MVP |
-| SR-V06 | P1 | C6多维质量 | 专属动态音色自动发布前置 |
-| SR-V07 | P2 | C7身份保持的表达实验 | 可选增强，不阻塞中性固定身份 |
+| [SR-V01 / #62](https://github.com/hrygo/SpeechRail/issues/62) | P0 | C1有效能力snapshot | 启用v2能力自动路由前完成；legacy有界可用 |
+| [SR-V02 / #63](https://github.com/hrygo/SpeechRail/issues/63) | P0 | C2版本锁定/并发/持久幂等 | 强动态身份承诺的前置 |
+| [SR-V03 / #64](https://github.com/hrygo/SpeechRail/issues/64) | P0 | C3流完整性与resolved receipt | 完整缓存/HTTP增强；Realtime基础可先接 |
+| [SR-V04 / #65](https://github.com/hrygo/SpeechRail/issues/65) | P1 | C4交互优先与维护隔离 | 高频Story体验/并发后台任务前置 |
+| [SR-V05 / #66](https://github.com/hrygo/SpeechRail/issues/66) | P1 | C5条件特征缓存 | 优化项，不阻塞固定音色MVP |
+| [SR-V06 / #67](https://github.com/hrygo/SpeechRail/issues/67) | P1 | C6多维质量 | 专属动态音色自动发布前置 |
+| [SR-V07 / #68](https://github.com/hrygo/SpeechRail/issues/68) | P2 | C7身份保持的表达实验 | 可选增强，不阻塞中性固定身份 |
 
 现有[#34响度](https://github.com/hrygo/SpeechRail/issues/34)和[#44架构演进](https://github.com/hrygo/SpeechRail/issues/44)继续负责既有范围；不重复建响度修复或全局架构epic。所有Issue是待办，不代表创建后功能已可用。
 

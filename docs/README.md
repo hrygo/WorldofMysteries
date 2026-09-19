@@ -126,6 +126,8 @@ assets/        = audio / image / export binary assets
 
 `world.db` 使用强事务；`retrieval.db` 通过 Transactional Outbox 异步投影，不参与 Domain 原子事务。
 
+检索索引支持全文与语义检索，不拥有领域真相的独立修改权限。
+
 检索采用：
 
 ```text
@@ -301,3 +303,9 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - Narrative/TTS retry 不改变 StoryState。
 
 通过上述门槛后，系统进入可扩展内容生产阶段。
+
+
+## Voice-First v2 方案与实施入口（待实施）
+
+语音第一、动态音色与跨仓依赖的详细技术/实施/验收方案见[Voice-First v2](03_工程规范/voice/README.md)。
+本项是方案交付，不代表运行时、真实语音质量或生产接线已完成；SpeechRail需求与兼容路径在该入口统一跟踪。
