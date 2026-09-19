@@ -43,7 +43,7 @@ public struct ArtifactShowcaseView: View {
           source: .asset(.artifact),
           title: "没有匹配的特殊物品",
           message: "调整分组或搜索条件后继续浏览 15 件真实玩法组件。",
-          tone: .neutral,
+          tone: .info,
           actionTitle: "清除筛选"
         ) {
           selectedFamily = "all"
