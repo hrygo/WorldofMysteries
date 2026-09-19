@@ -31,6 +31,17 @@ final class EngineAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Deterministic synchronization point for lifecycle verification.
+    ///
+    /// This does not initiate startup; it only waits for the launch task created
+    /// by applicationDidFinishLaunching. Returning false proves no lifecycle
+    /// bootstrap was scheduled.
+    func awaitLaunchCompletion() async -> Bool {
+        guard let launchTask else { return false }
+        await launchTask.value
+        return true
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !terminating else { return .terminateLater }
         terminating = true
