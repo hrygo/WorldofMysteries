@@ -82,6 +82,9 @@ class ResolutionPolicy:
                 raise ResolutionPolicyError(
                     f"Ambiguous resolution rules for intent/action signature: {rule.intent}"
                 )
+            if (len(set(rule.effect.clue_ids_add)) != len(rule.effect.clue_ids_add)
+                    or len(set(rule.effect.clue_ids_remove)) != len(rule.effect.clue_ids_remove)):
+                raise ResolutionPolicyError("Resolution clue effects must be unique")
             unknown_add = set(rule.effect.clue_ids_add) - self.known_clue_ids
             unknown_remove = set(rule.effect.clue_ids_remove) - self.known_clue_ids
             if unknown_add or unknown_remove:
