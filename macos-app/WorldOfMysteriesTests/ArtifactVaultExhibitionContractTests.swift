@@ -187,6 +187,7 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(!source.contains("ScrollView {"))
         #expect(source.contains("LazyHStack("))
         #expect(source.contains(".focusable()"))
+        #expect(source.contains(".focusEffectDisabled()"))
         #expect(source.contains("onMoveCommand"))
     }
 

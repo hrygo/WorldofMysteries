@@ -246,6 +246,8 @@ public struct ArtifactShowcaseView: View {
         )
     }
     .focusable()
+    // Keep arrow-key navigation without exposing the system blue focus ring as a vault border.
+    .focusEffectDisabled()
     .onMoveCommand { direction in
       switch direction {
       case .left:
