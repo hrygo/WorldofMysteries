@@ -67,3 +67,34 @@ def test_wire_limits_are_bounded():
     assert MAX_PAYLOAD_BYTES == 256 * 1024
     assert SCHEMA["$defs"]["open"]["properties"]["max_payload_bytes"]["maximum"] == MAX_PAYLOAD_BYTES
     assert SCHEMA["$defs"]["chunk"]["properties"]["payload_bytes"]["maximum"] == MAX_PAYLOAD_BYTES
+
+
+CONTROL_SCHEMA = json.loads(
+    (ROOT / "contracts/protocol/engine_media_control.schema.json").read_text()
+)
+CONTROL_CASES = json.loads(
+    (ROOT / "contracts/fixtures/media/control_open.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", CONTROL_CASES, ids=lambda case: case["id"])
+def test_media_open_control_payload_fixtures(case):
+    shape = case["shape"]
+    validator = Draft202012Validator(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": f"#/$defs/{shape}",
+            "$defs": CONTROL_SCHEMA["$defs"],
+        }
+    )
+    assert validator.is_valid(case["payload"]) is case["valid"]
+
+
+def test_media_open_control_contract_is_strict_and_versioned():
+    request = CONTROL_SCHEMA["$defs"]["request"]
+    grant = CONTROL_SCHEMA["$defs"]["grant"]
+    assert request["additionalProperties"] is False
+    assert grant["additionalProperties"] is False
+    assert grant["properties"]["protocol_version"] == {"const": "1.0"}
+    assert grant["properties"]["ticket"]["pattern"] == "^[0-9a-f]{64}$"
+    assert grant["properties"]["expires_in_ms"]["maximum"] == 30_000

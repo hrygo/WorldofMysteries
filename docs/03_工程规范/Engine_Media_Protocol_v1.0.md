@@ -30,7 +30,59 @@
 
 JSON header 的 Canonical Schema 为 `contracts/protocol/engine_media.schema.json`。未知字段和未知版本默认拒绝，不能用“忽略字段”把 v2 数据解释成 v1。
 
-## 3. Stream lifecycle
+## 3. Authenticated control grant: `media.open`
+
+`media.open` is an authenticated **control IPC** method, not a media-frame kind. It is advertised by the Engine handshake only when a real media session handler is installed. The current bare Engine CLI remains system-only; it must not advertise a media capability that has no consumer.
+
+Canonical payload schema: `contracts/protocol/engine_media_control.schema.json`.
+
+Request payload:
+
+```json
+{
+  "direction": "app_to_engine",
+  "generation": 4,
+  "format": {
+    "codec": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  }
+}
+```
+
+Successful response payload:
+
+```json
+{
+  "protocol_version": "1.0",
+  "socket_path": "<private runtime media UDS>",
+  "stream_id": "<server-generated>",
+  "trace_id": "<request trace id>",
+  "engine_epoch": "<server-generated process/media epoch>",
+  "generation": 4,
+  "ticket": "<64 lowercase hex, one-time>",
+  "direction": "app_to_engine",
+  "format": {
+    "codec": "pcm_s16le",
+    "sample_rate": 16000,
+    "channels": 1
+  },
+  "max_payload_bytes": 65536,
+  "initial_credit_bytes": 262144,
+  "expires_in_ms": 10000
+}
+```
+
+Rules:
+
+- The authenticated control session chooses direction, generation and PCM format; the server chooses stream ID, engine epoch, media path, limits and ticket.
+- The ticket is a short-lived bearer capability bound to all returned grant metadata. It is consumed **before** the media handler runs; replay and metadata mismatch fail closed.
+- Grant tickets are not domain credentials, are not persisted, and must not appear in logs or user-facing diagnostics.
+- `socket_path` is returned only to the authenticated local client. It is not a portable asset identifier and never enters Domain state.
+- Client and server must reject unknown request/grant fields instead of silently accepting a newer contract.
+- The App uses the grant to construct the first binary-channel OPEN header. Only then does the media stream lifecycle begin.
+
+## 4. Stream lifecycle
 
 ```text
 authenticated control IPC
@@ -51,7 +103,7 @@ disconnect before END → incomplete
 
 `generation` 是调用方可见的失效代号。用户 stop、supersede、session replacement 时，接收方先提升 generation/丢弃旧队列；迟到的旧 generation CHUNK 不得重新进入播放或 ASR 聚合。
 
-## 4. Sequence、offset 与完整性
+## 5. Sequence、offset 与完整性
 
 - `sequence` 仅属于媒体 CHUNK，首块为 0，逐块 +1；
 - `offset_frames` 是该流 PCM 的每声道 frame 坐标；v1 mono 下每 frame = 2 bytes；
@@ -62,7 +114,7 @@ disconnect before END → incomplete
 
 SpeechRail WebSocket sequence 与本媒体 CHUNK sequence 是两个独立序列，禁止互相套用。
 
-## 5. Backpressure
+## 6. Backpressure
 
 credit 只计 raw payload bytes。
 
@@ -73,7 +125,7 @@ credit 只计 raw payload bytes。
 - CANCEL / ERROR / END 等控制帧不消耗 media credit，但实现必须对控制队列另设小容量与 deadline，不能制造无界旁路；
 - 音频 render/capture callback 不等待 socket credit、JSON 编码、文件 I/O 或网络。
 
-## 6. 安全边界
+## 7. 安全边界
 
 - Media UDS 位于 App 创建的私有 runtime 目录，继续遵守现有短 AF_UNIX 路径与 0700/0600 规则；
 - peer 同 UID 不是完整授权；ticket 必须与已认证控制 session 和 engine epoch 绑定；
@@ -82,7 +134,7 @@ credit 只计 raw payload bytes。
 - OPEN 完成后 format 不可变化；若需要新格式必须开新 stream；
 - 错误信息不得回显 ticket、PCM、私人文件路径或未授权业务正文。
 
-## 7. v1 范围
+## 8. v1 范围
 
 v1 只定义安全 transport primitive，不定义：
 
@@ -95,7 +147,7 @@ v1 只定义安全 transport primitive，不定义：
 
 这些能力由后续 W-V02/W-V03/W-V04 及 SpeechRail 对应契约承担。
 
-## 8. 跨语言实现门
+## 9. 跨语言实现门
 
 后续 Python 与 Swift 必须共享 `contracts/fixtures/media/headers.json` 做 parity：
 

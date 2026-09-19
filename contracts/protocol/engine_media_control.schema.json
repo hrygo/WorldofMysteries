@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/engine_media_control.schema.json",
+  "title": "World of Mysteries media.open control payload v1.0",
+  "description": "Typed payload contract carried inside the authenticated Engine IPC request/response envelopes for media.open.",
+  "oneOf": [
+    {"$ref": "#/$defs/request"},
+    {"$ref": "#/$defs/grant"}
+  ],
+  "$defs": {
+    "format": {
+      "type": "object",
+      "required": ["codec", "sample_rate", "channels"],
+      "properties": {
+        "codec": {"const": "pcm_s16le"},
+        "sample_rate": {"enum": [16000, 24000, 48000]},
+        "channels": {"const": 1}
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "required": ["direction", "generation", "format"],
+      "properties": {
+        "direction": {"enum": ["app_to_engine", "engine_to_app"]},
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "format": {"$ref": "#/$defs/format"}
+      },
+      "additionalProperties": false
+    },
+    "grant": {
+      "type": "object",
+      "required": [
+        "protocol_version", "socket_path", "stream_id", "trace_id",
+        "engine_epoch", "generation", "ticket", "direction", "format",
+        "max_payload_bytes", "initial_credit_bytes", "expires_in_ms"
+      ],
+      "properties": {
+        "protocol_version": {"const": "1.0"},
+        "socket_path": {"type": "string", "minLength": 1, "maxLength": 511},
+        "stream_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "trace_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "engine_epoch": {"type": "string", "minLength": 1, "maxLength": 128},
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "ticket": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "direction": {"enum": ["app_to_engine", "engine_to_app"]},
+        "format": {"$ref": "#/$defs/format"},
+        "max_payload_bytes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 262144,
+          "multipleOf": 2
+        },
+        "initial_credit_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8388608,
+          "multipleOf": 2
+        },
+        "expires_in_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

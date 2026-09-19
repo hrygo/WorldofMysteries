@@ -1,0 +1,120 @@
+[
+  {
+    "id": "request_asr_valid",
+    "shape": "request",
+    "valid": true,
+    "payload": {
+      "direction": "app_to_engine",
+      "generation": 4,
+      "format": {"codec": "pcm_s16le", "sample_rate": 16000, "channels": 1}
+    }
+  },
+  {
+    "id": "request_tts_valid",
+    "shape": "request",
+    "valid": true,
+    "payload": {
+      "direction": "engine_to_app",
+      "generation": 9,
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1}
+    }
+  },
+  {
+    "id": "request_string_generation_invalid",
+    "shape": "request",
+    "valid": false,
+    "payload": {
+      "direction": "app_to_engine",
+      "generation": "4",
+      "format": {"codec": "pcm_s16le", "sample_rate": 16000, "channels": 1}
+    }
+  },
+  {
+    "id": "request_unknown_field_invalid",
+    "shape": "request",
+    "valid": false,
+    "payload": {
+      "direction": "engine_to_app",
+      "generation": 1,
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "voice": "must-not-be-here"
+    }
+  },
+  {
+    "id": "grant_valid",
+    "shape": "grant",
+    "valid": true,
+    "payload": {
+      "protocol_version": "1.0",
+      "socket_path": "/private/runtime/media.sock",
+      "stream_id": "media_0123456789abcdef",
+      "trace_id": "trace_中文",
+      "engine_epoch": "epoch_001",
+      "generation": 9,
+      "ticket": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144,
+      "expires_in_ms": 10000
+    }
+  },
+  {
+    "id": "grant_bad_ticket_invalid",
+    "shape": "grant",
+    "valid": false,
+    "payload": {
+      "protocol_version": "1.0",
+      "socket_path": "/private/runtime/media.sock",
+      "stream_id": "media_1",
+      "trace_id": "trace_1",
+      "engine_epoch": "epoch_1",
+      "generation": 1,
+      "ticket": "secret",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144,
+      "expires_in_ms": 10000
+    }
+  },
+  {
+    "id": "grant_wrong_version_invalid",
+    "shape": "grant",
+    "valid": false,
+    "payload": {
+      "protocol_version": "2.0",
+      "socket_path": "/private/runtime/media.sock",
+      "stream_id": "media_1",
+      "trace_id": "trace_1",
+      "engine_epoch": "epoch_1",
+      "generation": 1,
+      "ticket": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144,
+      "expires_in_ms": 10000
+    }
+  },
+  {
+    "id": "grant_unknown_field_invalid",
+    "shape": "grant",
+    "valid": false,
+    "payload": {
+      "protocol_version": "1.0",
+      "socket_path": "/private/runtime/media.sock",
+      "stream_id": "media_1",
+      "trace_id": "trace_1",
+      "engine_epoch": "epoch_1",
+      "generation": 1,
+      "ticket": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "direction": "engine_to_app",
+      "format": {"codec": "pcm_s16le", "sample_rate": 24000, "channels": 1},
+      "max_payload_bytes": 65536,
+      "initial_credit_bytes": 262144,
+      "expires_in_ms": 10000,
+      "secret": "must-not-pass"
+    }
+  }
+]
