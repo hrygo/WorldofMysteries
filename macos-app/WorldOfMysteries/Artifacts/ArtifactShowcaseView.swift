@@ -8,6 +8,8 @@ public struct ArtifactShowcaseView: View {
 
   @State private var selection: ArtifactID = .probabilityDie
   @State private var searchText = ""
+  @State private var selectedFamily = "all"
+  @State private var showcaseRevision = 0
 
   @State private var genericModel = ArtifactActionModel(
     resolver: PreviewArtifactResolver(),
@@ -36,48 +38,65 @@ public struct ArtifactShowcaseView: View {
     VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
       header
 
-      ScrollView(.horizontal, showsIndicators: false) {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-          ForEach(filteredDescriptors) { descriptor in
-            let isSelected = selection == descriptor.id
-
-            Button {
-              withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
-                selection = descriptor.id
-                genericModel.resetPresentation(keepHistory: false)
-              }
-            } label: {
-              HStack(spacing: DesignTokens.Spacing.xs) {
-                WOMArtworkView(
-                  assetName: descriptor.id.artworkAsset.thumbnailAssetName,
-                  fallback: .systemImage(descriptor.systemIcon),
-                  fallbackTint: descriptor.tone.accent,
-                  contentMode: .fit
-                )
-                .frame(width: 28, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
-
-                Text(descriptor.displayName)
-                  .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
-              }
-              .font(Font.Mystic.caption)
-              .padding(.horizontal, DesignTokens.Spacing.md)
-              .padding(.vertical, DesignTokens.Spacing.sm)
-              .womCardChrome(
-                tone: .card,
-                texture: .sacredSlate,
-                isSelected: isSelected,
-                cornerRadius: DesignTokens.Radii.sm
-              )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(descriptor.displayName)
-          }
+      if filteredDescriptors.isEmpty {
+        WOMEmptyState(
+          source: .asset(.artifact),
+          title: "没有匹配的特殊物品",
+          message: "调整分组或搜索条件后继续浏览 15 件真实玩法组件。",
+          tone: .neutral,
+          actionTitle: "清除筛选"
+        ) {
+          selectedFamily = "all"
+          searchText = ""
         }
-        .padding(.vertical, DesignTokens.Spacing.xs)
-      }
+      } else {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: DesignTokens.Spacing.sm) {
+            ForEach(filteredDescriptors) { descriptor in
+              let isSelected = selection == descriptor.id
 
-      selectedComponent
+              Button {
+                withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
+                  selection = descriptor.id
+                  genericModel.resetPresentation(keepHistory: false)
+                  showcaseRevision += 1
+                }
+              } label: {
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                  WOMArtworkView(
+                    assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+                    fallback: .systemImage(descriptor.systemIcon),
+                    fallbackTint: descriptor.tone.accent,
+                    contentMode: .fit
+                  )
+                  .frame(width: 28, height: 28)
+                  .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+
+                  Text(descriptor.displayName)
+                    .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+                }
+                .font(Font.Mystic.caption)
+                .padding(.horizontal, DesignTokens.Spacing.md)
+                .padding(.vertical, DesignTokens.Spacing.sm)
+                .womCardChrome(
+                  tone: .card,
+                  texture: .sacredSlate,
+                  isSelected: isSelected,
+                  cornerRadius: DesignTokens.Radii.sm
+                )
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel(descriptor.displayName)
+            }
+          }
+          .padding(.vertical, DesignTokens.Spacing.xs)
+        }
+
+        selectedArtifactContext
+
+        selectedComponent
+          .id(showcaseRevision)
+      }
     }
     .padding(DesignTokens.LayoutInsets.panelPadding)
     .background(
@@ -109,12 +128,12 @@ public struct ArtifactShowcaseView: View {
         HStack(spacing: DesignTokens.Spacing.md) {
           libraryIdentity
           Spacer(minLength: DesignTokens.Spacing.md)
-          searchField
+          searchAndFilterControls
         }
 
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
           libraryIdentity
-          searchField
+          searchAndFilterControls
         }
       }
       .padding(DesignTokens.LayoutInsets.compactCardPadding)
@@ -143,6 +162,34 @@ public struct ArtifactShowcaseView: View {
     }
   }
 
+  private var searchAndFilterControls: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: DesignTokens.Spacing.sm) {
+        familyPicker
+        searchField
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        familyPicker
+        searchField
+      }
+    }
+  }
+
+  private var familyPicker: some View {
+    Picker("物品分组", selection: $selectedFamily) {
+      Text("全部分组").tag("all")
+      ForEach(ArtifactFamily.allCases, id: \.rawValue) { family in
+        Text(family.localizedTitle).tag(family.rawValue)
+      }
+    }
+    .pickerStyle(.menu)
+    .frame(minWidth: 150, idealWidth: 170, maxWidth: 190)
+    .onChange(of: selectedFamily) { _, _ in
+      reconcileSelection()
+    }
+  }
+
   private var searchField: some View {
     HStack(spacing: DesignTokens.Spacing.xs) {
       WOMIcon(system: .search, size: .compact)
@@ -150,6 +197,9 @@ public struct ArtifactShowcaseView: View {
       TextField("搜索特殊物品", text: $searchText)
         .textFieldStyle(.plain)
         .frame(minWidth: 160, idealWidth: 190, maxWidth: 240)
+        .onChange(of: searchText) { _, _ in
+          reconcileSelection()
+        }
     }
     .padding(.horizontal, DesignTokens.Spacing.sm)
     .padding(.vertical, 6)
@@ -165,12 +215,93 @@ public struct ArtifactShowcaseView: View {
 
   private var filteredDescriptors: [ArtifactDescriptor] {
     let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !query.isEmpty else { return ArtifactRegistry.all }
-    return ArtifactRegistry.all.filter {
-      $0.displayName.localizedCaseInsensitiveContains(query)
-        || $0.subtitle.localizedCaseInsensitiveContains(query)
-        || $0.shortGameplay.localizedCaseInsensitiveContains(query)
+    return ArtifactRegistry.all.filter { descriptor in
+      let familyMatches = selectedFamily == "all" || descriptor.family.rawValue == selectedFamily
+      let queryMatches = query.isEmpty
+        || descriptor.displayName.localizedCaseInsensitiveContains(query)
+        || descriptor.subtitle.localizedCaseInsensitiveContains(query)
+        || descriptor.shortGameplay.localizedCaseInsensitiveContains(query)
+      return familyMatches && queryMatches
     }
+  }
+
+  private var selectedArtifactContext: some View {
+    let descriptor = ArtifactRegistry.descriptor(for: selection)
+
+    return ViewThatFits(in: .horizontal) {
+      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
+        artifactIdentity(descriptor)
+        Spacer(minLength: DesignTokens.Spacing.md)
+        resetShowcaseButton
+      }
+
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+        artifactIdentity(descriptor)
+        resetShowcaseButton
+      }
+    }
+    .padding(DesignTokens.LayoutInsets.compactCardPadding)
+    .background(
+      WOMPanelBackground(
+        tone: .card,
+        cornerRadius: DesignTokens.Radii.md,
+        texture: .sacredSlate,
+        textureOpacity: 0.018
+      )
+    )
+  }
+
+  private func artifactIdentity(_ descriptor: ArtifactDescriptor) -> some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+      HStack(spacing: DesignTokens.Spacing.xs) {
+        MysticBadge(descriptor.family.localizedTitle, tone: descriptor.tone, variant: .panel)
+        MysticBadge(descriptor.canonClass.localizedTitle, tone: .neutral, variant: .panel)
+      }
+
+      Text(descriptor.shortGameplay)
+        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private var resetShowcaseButton: some View {
+    Button("重置当前演示") {
+      resetShowcase()
+    }
+    .buttonStyle(WOMButtonStyle(.secondary))
+  }
+
+  private func reconcileSelection() {
+    guard let first = filteredDescriptors.first else { return }
+    guard filteredDescriptors.contains(where: { $0.id == selection }) else {
+      selection = first.id
+      resetShowcase()
+      return
+    }
+  }
+
+  private func resetShowcase() {
+    genericModel = ArtifactActionModel(
+      resolver: PreviewArtifactResolver(),
+      meters: [
+        "exchangeDebt": 0.12,
+        "rulePressure": 0.18,
+        "wishExposure": 0.08,
+        "hunger": 0.31,
+        "authorityLoad": 0.14,
+        "projectionConfidence": 0.68,
+        "purification": 0.0,
+      ]
+    )
+    dieModel = ProbabilityDieModel(
+      artifactState: .init(awakening: 0.22, resentment: 0.08, sealed: false),
+      resolver: PreviewProbabilityDieResolver()
+    )
+    quillModel = AlzuhodQuillModel(
+      artifactState: .init(awakening: 0.18, exposure: 0.12, narrativeDebt: 0.8, sealed: false),
+      orchestrator: PreviewAlzuhodQuillOrchestrator()
+    )
+    showcaseRevision += 1
   }
 
   @ViewBuilder

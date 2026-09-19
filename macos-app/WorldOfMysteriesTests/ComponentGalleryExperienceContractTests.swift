@@ -194,6 +194,21 @@ struct ComponentGalleryExperienceContractTests {
         #expect(source.contains("ComponentGallerySpecimenStage("))
     }
 
+    @Test("artifact gallery supports family filtering, context and full preview reset")
+    func artifactGalleryHasWorkbenchControls() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+
+        #expect(source.contains("Picker(\"物品分组\""))
+        #expect(source.contains("selectedFamily"))
+        #expect(source.contains("selectedArtifactContext"))
+        #expect(source.contains("Button(\"重置当前演示\")"))
+        #expect(source.contains("resetShowcase()"))
+        #expect(source.contains(".id(showcaseRevision)"))
+        #expect(source.contains("没有匹配的特殊物品"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
