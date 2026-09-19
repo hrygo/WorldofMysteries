@@ -7,6 +7,17 @@ struct PrimitivesGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "10 · 通用原语组装 (Primitives Assembly)") {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+                HStack {
+                    Text("原语行为反馈只记录在画廊本地，可随时恢复初始回执。")
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    Button("重置原语回执") {
+                        lastAction = "尚未触发"
+                        actionCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+
                 toneBadges
                 metricsAndStatus
                 metadataAndActions

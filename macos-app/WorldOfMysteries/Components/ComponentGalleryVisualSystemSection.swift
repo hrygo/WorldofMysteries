@@ -21,6 +21,20 @@ struct VisualSystemGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "11 · 视觉资产系统 (Visual Asset System)") {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+                HStack {
+                    Text("视觉系统 specimen 使用真实控件状态；重置恢复 hover、focus、模式与操作回执。")
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    Button("重置视觉样例") {
+                        isCardHovered = false
+                        lastVisualAction = "尚未触发"
+                        visualActionCount = 0
+                        advancedMode = .overview
+                        accessibilityFocus = nil
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+
                 customIconGrid
                 WOMDividerOrnament()
                 platformIconRows

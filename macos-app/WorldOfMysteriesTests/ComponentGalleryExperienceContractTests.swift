@@ -254,6 +254,28 @@ struct ComponentGalleryExperienceContractTests {
         #expect(source.contains("Button(\"重置选择\")"))
     }
 
+    @Test("system specimens expose explicit reset and recovery controls")
+    func systemSpecimensAreReplayable() throws {
+        let ux = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionSpecimenSection.swift"
+        )
+        let primitives = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryPrimitivesSection.swift"
+        )
+        let visual = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+        )
+        let recovery = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryControlRecoverySection.swift"
+        )
+
+        #expect(ux.contains("Button(\"重置 UX 样例\")"))
+        #expect(primitives.contains("Button(\"重置原语回执\")"))
+        #expect(visual.contains("Button(\"重置视觉样例\")"))
+        #expect(recovery.contains("Button(\"重置恢复样例\")"))
+        #expect(recovery.contains("WOMAdaptivePair("))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

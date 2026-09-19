@@ -9,9 +9,29 @@ struct ControlRecoveryGallerySection: View {
 
     var body: some View {
         ComponentGallerySection(title: "12 · 控件恢复与反馈边界 (Control Recovery)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                selectionSpecimen
-                feedbackSpecimens
+            ComponentGallerySpecimenStage(
+                title: "控件恢复压力台",
+                summary: "验证选项消失、空列表、窄面板反馈与辅助朗读边界；重置会恢复完整选项和零次重试。",
+                mode: .stateMatrix,
+                controls: {
+                    Button("重置恢复样例") {
+                        selection = "archive"
+                        hidesArchive = false
+                        clearsOptions = false
+                        retryCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
+                WOMAdaptivePair(
+                    trailingIdealWidth: 220,
+                    primaryIdealWidth: 320,
+                    spacing: DesignTokens.Spacing.lg
+                ) {
+                    selectionSpecimen
+                } secondary: {
+                    feedbackSpecimens
+                }
             }
         }
     }

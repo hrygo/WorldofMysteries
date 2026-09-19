@@ -9,6 +9,19 @@ struct InteractionAndTypographyGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "09 · 统一交互规范与排版标尺 (UX & Typography Specimen)") {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+                HStack {
+                    Text("交互实验台可重复验证选择、按压、按钮与长文本压力状态。")
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    Button("重置 UX 样例") {
+                        isSelected = true
+                        clickCount = 0
+                        lastControlAction = "尚未触发"
+                        controlActionCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+
                 interactionStates
                 controlAndIconSpecimen
                 compactControlStressSpecimen
