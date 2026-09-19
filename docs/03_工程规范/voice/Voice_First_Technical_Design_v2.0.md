@@ -1,9 +1,11 @@
 # Voice-First Runtime v2.0 — 技术设计
 
-日期：2026-09-19。状态：**待实现、待评审的技术契约，不是已上线能力**。
+日期：2026-09-19。状态：**架构设计基线；部分能力已实现，仍非完整上线能力**。W-V00 已合并，W-V01 正在 PR #71 收尾；后续状态见[接续指南](../../07_工程启动/Voice_First_Handoff_2026-09-19.md)。
 固定代码基线：WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。
 
-入口：[语音工作包](README.md)；[实施计划](../../07_工程启动/Voice_First_Implementation_Plan_v2.0.md)；[跨仓契约](SpeechRail_Integration_Contract_v1.0.md)；[验收矩阵](../../07_工程启动/Voice_First_Acceptance_v2.0.md)。
+入口：[语音工作包](README.md)；[当前接续指南](../../07_工程启动/Voice_First_Handoff_2026-09-19.md)；[实施计划](../../07_工程启动/Voice_First_Implementation_Plan_v2.0.md)；[跨仓契约](SpeechRail_Integration_Contract_v1.0.md)；[验收矩阵](../../07_工程启动/Voice_First_Acceptance_v2.0.md)。
+
+> **版本阅读规则**：下文“已核实的源码事实”固定于原设计基线，用于解释为何作出这些设计决策，**不是当前 main 的状态页**。例如旧基线中的 `localhost:8080/v1` 和 ASR `confidence=1.0` 已由 W-V00 修正并合入；W-V01 的实际 media contract 以 PR #71 的 contracts / tests / `Engine_Media_Protocol_v1.0.md` 为准。
 
 ## 1. 决策、继承与本轮细化
 
@@ -20,7 +22,7 @@
 | D07 非静默降级 | local-only 不上云；重要人物不随机换 default voice；未支持情绪明确降级 | 拟替代旧基线的宽松 default_voice 回退，须经评审并完成实现后生效 |
 | D08 无额外权威库 | world.db 保存绑定/音轨等持久表现元数据；assets 保存实际音频；runtime.db 仅做可重建索引 | 保持 |
 
-本轮只落文档和跨仓 Issue，不修改现有协议、数据库迁移、App 启动或 SpeechRail 运行态。所有新增名称均为待实现接口。文中的性能数字是验收目标，不是当前测量结果。
+本设计最初交付时只落文档和跨仓 Issue；后续执行阶段已经修改部分协议与 App/Engine 代码。本文仍保留原始设计语境，当前实现状态由接续指南维护。未明确标注为已实现的名称仍不得按发布 API 使用；文中的性能数字始终是验收目标，不是当前测量结果。
 
 ## 2. 已核实的源码事实
 

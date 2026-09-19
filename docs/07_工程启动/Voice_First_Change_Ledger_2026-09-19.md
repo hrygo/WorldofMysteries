@@ -62,3 +62,13 @@ GitHub PR号码、Issue链接、最终提交与CI状态以PR及本次交付索�
 - [SR-V12 / #73](https://github.com/hrygo/SpeechRail/issues/73)：可选 TTS 文本-音频时间轴 sidecar，复用已有 fixed-text alignment 接缝但不阻塞热路径。
 
 没有另建“预热 API”：冷驱逐/预热已由完成的 #9 和持续 #44/#65 覆盖。没有建立播放器、角色选角算法、剧情授权或业务数据库相关 SpeechRail issue，因为这些仍属于消费者。当前 SpeechRail issue 总数由 SR-V01..V08 扩展为 SR-V01..V12；创建 issue 不代表能力已实现。
+
+
+## 运行时实施延续
+
+原方案 PR #69 已合并。此后运行时开始按 W-Vxx 分阶段实施：
+
+- W-V00：PR #70 已合并，SpeechRail 默认连接基线、unknown ASR confidence 与保守 capability discovery 已成为 main 事实。
+- W-V01：PR #71 实施独立 media wire/control contract、Python/Swift transport primitive、一次性 media grant 与 packaging 回归；当前仍是 Draft，尚未最终放行。
+- W-V01 排查期间发现 Engine bootstrap 依赖 `ContentView.task` 的生命周期层级过低；AppDelegate process-level bootstrap 的诊断实现已通过 Swift/Xcode/Bundled Runtime，但正式 head 仍需解决 Swift 生命周期测试的确定性等待并重新跑最终门禁。
+- W-V02/W-V03 尚未进入生产接线；后续团队应从[接续指南](Voice_First_Handoff_2026-09-19.md)读取最新事实，而不是从本历史台账推断当前 head。
