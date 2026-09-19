@@ -1,0 +1,126 @@
+{
+  "receipt_id": "RCP-WORK-MAC-ART-RUNTIME-REPACK-R1-1183256134b2",
+  "receipt_type": "work",
+  "task_id": "MAC-ART-RUNTIME-REPACK-R1",
+  "capsule_id": "CAP-MAC-ART-RUNTIME-REPACK-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:1438966902a9c352850eeb4ca8bd771bbdb4687298139853854a7fa1d09b472a",
+  "diff_digest": "sha256:51cbd94acd10ed0ea41f699af7705cef916b3ea35b5da5386f8f7d4e095f96a5",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "b4a64d08d0bbe0ea513e77f8ec0e15eafdb780ea",
+  "head_commit": "1183256134b2ce73c6f17178dad0ccbf0e432a1c",
+  "target_ref": "origin/main",
+  "target_sha": "c75218944e9a8ab9bc143ee7c27a389db3935b58",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-art-runtime-repack",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:47:25.292830+00:00",
+      "finished_at": "2026-09-19T05:47:25.322828+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-art-runtime-repack/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-art-runtime-repack/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:47:25.322929+00:00",
+      "finished_at": "2026-09-19T05:47:28.202019+00:00",
+      "raw_log_digest": "sha256:544d349d428aaa8aab27c8a1e6275f4a7a3382eb4514ec39ca4bcd97057733ca",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-art-runtime-repack/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:47:28.202267+00:00",
+      "finished_at": "2026-09-19T05:47:29.564007+00:00",
+      "raw_log_digest": "sha256:8eb670c4373e8f65ea0b67e3c77143e99644f65488342048d67bc2fc38211add",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.alzuhod-quill.detail.imageset/wom.art.artifact.alzuhod-quill.detail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.alzuhod-quill.thumbnail.imageset/wom.art.artifact.alzuhod-quill.thumbnail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.creeping-hunger.detail.imageset/wom.art.artifact.creeping-hunger.detail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.magic-wishing-lamp.detail.imageset/wom.art.artifact.magic-wishing-lamp.detail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.probability-die.detail.imageset/wom.art.artifact.probability-die.detail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.probability-die.thumbnail.imageset/wom.art.artifact.probability-die.thumbnail.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.artifact-vault.imageset/wom.art.scene.artifact-vault.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.artifact-vault.wide.imageset/wom.art.scene.artifact-vault.wide.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.codex-archive.imageset/wom.art.scene.codex-archive.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.codex-archive.wide.imageset/wom.art.scene.codex-archive.wide.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.fate-worldline.imageset/wom.art.scene.fate-worldline.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.fate-worldline.wide.imageset/wom.art.scene.fate-worldline.wide.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.ritual-altar.imageset/wom.art.scene.ritual-altar.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.scene.ritual-altar.wide.imageset/wom.art.scene.ritual-altar.wide.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.world.gray-fog.imageset/wom.art.world.gray-fog.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.world.gray-fog.wide.imageset/wom.art.world.gray-fog.wide.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.world.hero.imageset/wom.art.world.hero.png",
+      "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.world.hero.wide.imageset/wom.art.world.hero.wide.png"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-art-runtime-repack"
+  },
+  "started_at": "2026-09-19T05:47:25.258606+00:00",
+  "finished_at": "2026-09-19T05:47:29.776668+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
