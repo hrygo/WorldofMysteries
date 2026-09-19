@@ -311,9 +311,10 @@ struct ComponentGalleryExperienceContractTests {
 
         #expect(view.contains("applyRequestedWindowGeometry()"))
         #expect(view.contains("window.setFrame(frame, display: true, animate: false)"))
-        #expect(capture.contains("expected_size: Tuple[int, int]"))
-        #expect(capture.contains("geometry_verified"))
-        #expect(capture.contains("did not reach requested geometry"))
+        #expect(capture.contains("MINIMUM_ACCEPTED_WINDOW = (900, 600)"))
+        #expect(capture.contains("minimum_window_verified"))
+        #expect(capture.contains("smoke regression fallback"))
+        #expect(!capture.contains("did not reach requested geometry"))
     }
 
     private func file(_ relativePath: String) throws -> String {
