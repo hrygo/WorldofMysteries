@@ -3,6 +3,8 @@ import SwiftUI
 /// Visual regression and design-system showcase for the World of Mysteries visual asset stack.
 struct VisualSystemGallerySection: View {
     @State private var isCardHovered = false
+    @State private var lastVisualAction = "尚未触发"
+    @State private var visualActionCount = 0
     @State private var advancedMode: AdvancedMode = .overview
     @FocusState private var accessibilityFocus: AccessibilityFocusTarget?
 
@@ -19,6 +21,20 @@ struct VisualSystemGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "11 · 视觉资产系统 (Visual Asset System)") {
             VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
+                HStack {
+                    Text("视觉系统 specimen 使用真实控件状态；重置恢复 hover、focus、模式与操作回执。")
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    Button("重置视觉样例") {
+                        isCardHovered = false
+                        lastVisualAction = "尚未触发"
+                        visualActionCount = 0
+                        advancedMode = .overview
+                        accessibilityFocus = nil
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+
                 customIconGrid
                 WOMDividerOrnament()
                 platformIconRows
@@ -120,27 +136,38 @@ struct VisualSystemGallerySection: View {
                 alignment: .leading,
                 spacing: DesignTokens.Spacing.sm
             ) {
-                Button("主操作") {}
+                Button("主操作") { recordVisualAction("主操作") }
                     .buttonStyle(WOMButtonStyle(.primary))
-                Button("次操作") {}
+                Button("次操作") { recordVisualAction("次操作") }
                     .buttonStyle(WOMButtonStyle(.secondary))
-                Button("低干扰") {}
+                Button("低干扰") { recordVisualAction("低干扰") }
                     .buttonStyle(WOMButtonStyle(.tertiary))
-                Button("危险") {}
+                Button("危险") { recordVisualAction("危险") }
                     .buttonStyle(WOMButtonStyle(.danger))
-                Button("仪式") {}
+                Button("仪式") { recordVisualAction("仪式") }
                     .buttonStyle(WOMButtonStyle(.ritual))
 
-                Button {} label: {
+                Button {
+                    recordVisualAction("更多")
+                } label: {
                     WOMIcon(system: .more, size: .standard, accessibilityLabel: "更多")
                 }
                 .buttonStyle(WOMIconButtonStyle())
 
-                Button {} label: {
+                Button {
+                    recordVisualAction("搜索")
+                } label: {
                     WOMIcon(system: .search, size: .compact, accessibilityLabel: "搜索")
                 }
                 .buttonStyle(WOMToolbarButtonStyle())
             }
+
+            MysticKeyValueRow(
+                key: "最近操作",
+                value: "\(lastVisualAction) · \(visualActionCount) 次",
+                tone: visualActionCount == 0 ? .neutral : .teal,
+                systemIcon: "cursorarrow.click"
+            )
         }
     }
 
@@ -219,7 +246,7 @@ struct VisualSystemGallerySection: View {
                     title: "提交被拒绝",
                     message: "领域约束未通过，世界事实没有写入。",
                     actionTitle: "查看原因"
-                ) {}
+                ) { recordVisualAction("查看拒绝原因") }
             }
 
             LazyVGrid(
@@ -240,7 +267,7 @@ struct VisualSystemGallerySection: View {
                     message: "当真实调查数据产生后，线索会在这里按世界状态呈现。",
                     tone: .info,
                     actionTitle: "返回世界"
-                ) {}
+                ) { recordVisualAction("返回世界") }
             }
         }
     }
@@ -259,7 +286,7 @@ struct VisualSystemGallerySection: View {
                 alignment: .leading,
                 spacing: DesignTokens.Spacing.sm
             ) {
-                Button("键盘焦点目标") {}
+                Button("键盘焦点目标") { recordVisualAction("键盘焦点目标") }
                     .buttonStyle(WOMButtonStyle(.primary))
                     .focused($accessibilityFocus, equals: .primaryButton)
 
@@ -272,10 +299,10 @@ struct VisualSystemGallerySection: View {
                     .buttonStyle(WOMButtonStyle(.secondary))
                     .disabled(true)
 
-                Button("危险操作") {}
+                Button("危险操作") { recordVisualAction("辅助功能危险操作") }
                     .buttonStyle(WOMButtonStyle(.danger))
 
-                Button("仪式操作") {}
+                Button("仪式操作") { recordVisualAction("辅助功能仪式操作") }
                     .buttonStyle(WOMButtonStyle(.ritual))
             }
 
@@ -456,7 +483,7 @@ struct VisualSystemGallerySection: View {
                 title: "长状态文案压力测试",
                 message: "当状态信息包含更长的中文说明、英文标识符与后续动作提示时，Banner 必须增长高度而不是覆盖右侧操作或将正文压缩到不可辨认的窄列。",
                 actionTitle: "查看完整诊断"
-            ) {}
+            ) { recordVisualAction("查看完整诊断") }
         }
     }
 
@@ -472,7 +499,9 @@ struct VisualSystemGallerySection: View {
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("保持标准字号的操作按钮") {}
+            Button("保持标准字号的操作按钮") {
+                recordVisualAction("压力样例操作")
+            }
                 .buttonStyle(WOMButtonStyle(.secondary))
         }
         .padding(DesignTokens.LayoutInsets.cardPadding)
@@ -553,6 +582,11 @@ struct VisualSystemGallerySection: View {
                 textureOpacity: 0.08
             )
         )
+    }
+
+    private func recordVisualAction(_ title: String) {
+        lastVisualAction = title
+        visualActionCount += 1
     }
 
     private func assetLabel(_ rawValue: String) -> String {

@@ -1,0 +1,81 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-COMPONENT-GALLERY-UX-R1",
+  "capsule_revision": 1,
+  "task_id": "MAC-COMPONENT-GALLERY-UX-R1",
+  "title": "组件画廊真实交互与最佳形态展示",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-19T06:24:00+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "context_snapshot": "sha256:60c4ce4aa68220ee58cb0ef1b39a3e08215ab57b8b0f7addae40b7f222577402"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "以现有真实组件与资产为事实源，优先改善 Component Gallery 的真实交互、自适应布局与主次层级；不制造新的领域事实。"
+  },
+  "impact": {
+    "symbols": [
+      "ComponentGalleryInteractionGroup",
+      "SpiritualityAndPendulumGallerySection",
+      "ComponentGalleryWorldGroup",
+      "CanonicalGeographyGallerySection",
+      "CitrinePendulumScryingCard"
+    ],
+    "contracts": [],
+    "tests": [
+      "ComponentGalleryExperienceContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "instructions": "画廊必须展示真实生产组件而非替身；真实交互只改变本地展示状态，不写领域事实。布局在默认与最小窗口宽度下保持可读、可操作、无重叠。",
+    "assertions": [
+      "INV-12",
+      "主灵摆画廊使用 PendulumCitrine 高保真资产链路",
+      "黄水晶占卜在画廊中可实际触发并产生可观察反馈",
+      "核心双栏 specimen 在空间不足时降级为纵向而非压缩内容"
+    ]
+  }
+}

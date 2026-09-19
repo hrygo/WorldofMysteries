@@ -232,7 +232,7 @@ class DatabaseManager:
         except BlockingIOError:
             raise StorageError('Another Domain Writer owns this world') from None
         self._connection = connect(self.paths.world)
-        initialize(self._connection, 'world')
+        initialize(self._connection, 'world', path=self.paths.world)
         meta = self._connection.execute('SELECT * FROM world_meta').fetchone()
         journal = self._connection.execute('SELECT count(*),coalesce(max(revision),0) FROM domain_commits').fetchone()
         outbox_count = self._connection.execute('SELECT count(*) FROM projection_outbox').fetchone()[0]

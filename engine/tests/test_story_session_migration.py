@@ -1,0 +1,149 @@
+"""Safe ordered world.db v1→v2 migration and StorySession schema tests."""
+from __future__ import annotations
+
+from contextlib import closing
+import hashlib
+from pathlib import Path
+
+import pytest
+
+from engine.infrastructure import database_schema
+from engine.infrastructure.database_schema import (
+    APPLICATION_IDS,
+    SCHEMA_VERSION,
+    SCHEMA_VERSIONS,
+    StorageError,
+    connect,
+    initialize,
+    integrity,
+    statements,
+)
+
+
+def _build_v1_world(path: Path, *, store_id: str = "store-v1") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(connect(path)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        script = Path(database_schema.__file__).with_name("migrations") / "001_world.sql"
+        for statement in statements(script.read_text(encoding="utf-8")):
+            conn.execute(statement)
+        conn.execute(f"PRAGMA application_id={APPLICATION_IDS['world']}")
+        conn.execute("PRAGMA user_version=1")
+        conn.execute("INSERT INTO world_meta VALUES (1, ?, 0)", (store_id,))
+        # Represents pre-existing specialized user data; migration must preserve it.
+        conn.execute("CREATE TABLE legacy_story_marker(id TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT")
+        conn.execute("INSERT INTO legacy_story_marker VALUES ('existing', 'preserve-me')")
+        conn.execute("COMMIT")
+        integrity(conn)
+
+
+def _version(path: Path) -> int:
+    with closing(connect(path, readonly=True)) as conn:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+
+
+def _tables(path: Path) -> set[str]:
+    with closing(connect(path, readonly=True)) as conn:
+        return {
+            row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_schema WHERE type='table'"
+            )
+        }
+
+
+def test_fresh_world_initializes_directly_to_v2_without_migration_backup(tmp_path):
+    path = tmp_path / "Worlds" / "fresh" / "world.db"
+    path.parent.mkdir(parents=True)
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 2
+        integrity(conn)
+    assert {"story_sessions", "story_state_deltas", "turn_transactions"} <= _tables(path)
+    assert not list(path.parent.glob("*.pre-migration-*.bak"))
+
+
+def test_existing_v1_world_is_backed_up_then_migrated_without_data_loss(tmp_path):
+    path = tmp_path / "Worlds" / "existing" / "world.db"
+    _build_v1_world(path)
+
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert conn.execute(
+            "SELECT value FROM legacy_story_marker WHERE id='existing'"
+        ).fetchone()[0] == "preserve-me"
+        integrity(conn)
+
+    backup = path.with_name("world.db.pre-migration-v1-to-v2.bak")
+    assert backup.is_file() and _version(backup) == 1
+    assert "story_sessions" not in _tables(backup)
+    with closing(connect(backup, readonly=True)) as snapshot:
+        assert snapshot.execute("SELECT store_id FROM world_meta").fetchone()[0] == "store-v1"
+        assert snapshot.execute("SELECT value FROM legacy_story_marker").fetchone()[0] == "preserve-me"
+        integrity(snapshot)
+
+
+def test_migration_failure_rolls_back_source_and_leaves_recoverable_snapshot(tmp_path, monkeypatch):
+    path = tmp_path / "Worlds" / "failure" / "world.db"
+    _build_v1_world(path, store_id="store-failure")
+    original = database_schema._apply_migration
+
+    def fail_after_partial_ddl(conn, role, version):
+        if role == "world" and version == 2:
+            conn.execute("CREATE TABLE must_rollback(id INTEGER) STRICT")
+            raise RuntimeError("injected migration failure")
+        return original(conn, role, version)
+
+    monkeypatch.setattr(database_schema, "_apply_migration", fail_after_partial_ddl)
+    with closing(connect(path)) as conn:
+        with pytest.raises(RuntimeError, match="injected migration failure"):
+            initialize(conn, "world", path=path)
+
+    assert _version(path) == 1
+    assert "must_rollback" not in _tables(path)
+    assert "story_sessions" not in _tables(path)
+    backup = path.with_name("world.db.pre-migration-v1-to-v2.bak")
+    assert backup.is_file() and _version(backup) == 1
+
+    monkeypatch.setattr(database_schema, "_apply_migration", original)
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+    assert _version(path) == 2
+
+
+def test_repeated_open_does_not_replace_migration_backup(tmp_path):
+    path = tmp_path / "Worlds" / "repeat" / "world.db"
+    _build_v1_world(path)
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+    backup = path.with_name("world.db.pre-migration-v1-to-v2.bak")
+    before = hashlib.sha256(backup.read_bytes()).hexdigest()
+
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+
+    assert hashlib.sha256(backup.read_bytes()).hexdigest() == before
+    assert _version(path) == 2
+
+
+@pytest.mark.parametrize("role", ["runtime", "retrieval"])
+def test_non_world_database_versions_remain_v1(tmp_path, role):
+    path = tmp_path / f"{role}.db"
+    with closing(connect(path)) as conn:
+        initialize(conn, role)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSIONS[role] == 1
+
+
+def test_future_world_schema_still_fails_closed(tmp_path):
+    path = tmp_path / "future.db"
+    with closing(connect(path)) as conn:
+        conn.execute(f"PRAGMA application_id={APPLICATION_IDS['world']}")
+        conn.execute("PRAGMA user_version=99")
+        conn.execute("CREATE TABLE future_data(id INTEGER PRIMARY KEY) STRICT")
+    before = path.read_bytes()
+
+    with closing(connect(path)) as conn:
+        with pytest.raises(StorageError, match="migration"):
+            initialize(conn, "world", path=path)
+
+    assert path.read_bytes() == before
