@@ -1,0 +1,46 @@
+name: Temporary PR82 revision3 receipt
+on:
+  push:
+    branches: [tmp/pr82-r3-receipt]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: c69fbef8a0b3f942c74c007ec853766055a50431
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact resolver source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = c69fbef8a0b3f942c74c007ec853766055a50431
+          test "$(git rev-parse origin/main)" = 675a9fbd853f9d7755d221de7225f14b001d3139
+          mkdir -p "$RUNNER_TEMP/pr82"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/pr82-spm"
+          python3 scripts/agent_capsule.py verify --capsule .agents/capsules/OUTCOME-RESOLVER-FOUNDATION.json --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/pr82/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/pr82/strict-audit.log"
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr82/receipts"
+          if [ -d .agents/receipts/OUTCOME-RESOLVER-FOUNDATION ]; then cp -R .agents/receipts/OUTCOME-RESOLVER-FOUNDATION "$RUNNER_TEMP/pr82/receipts/"; fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/pr82/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR82-r3-receipt
+          path: ${{ runner.temp }}/pr82/
+          retention-days: 7
+          include-hidden-files: true
