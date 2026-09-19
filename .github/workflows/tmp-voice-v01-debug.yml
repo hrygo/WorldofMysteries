@@ -8,7 +8,7 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -18,17 +18,17 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: false
-      - name: Focused W-V01 Python tests
+      - name: Full Python suite
         working-directory: engine
         shell: bash
         run: |
           set -o pipefail
-          uv run --locked --extra dev pytest -q             ../contracts/tests/test_media_contract.py             tests/test_audio_adapter.py             tests/test_ipc_server.py |& tee /tmp/voice-v01-python.log
+          uv run --locked --extra dev pytest -q |& tee /tmp/voice-v01-python-full.log
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: voice-v01-python-diagnostics
-          path: /tmp/voice-v01-python.log
+          name: voice-v01-python-full-diagnostics
+          path: /tmp/voice-v01-python-full.log
           retention-days: 3
           if-no-files-found: warn
