@@ -1,0 +1,107 @@
+{
+  "receipt_id": "RCP-WORK-ART-ARTIFACT-TEXT-DECISION-R1-7a8abc5bd754",
+  "receipt_type": "work",
+  "task_id": "ART-ARTIFACT-TEXT-DECISION-R1",
+  "capsule_id": "CAP-ART-ARTIFACT-TEXT-DECISION-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d68fdfe612fdc48f55985866446547e98735500fdc9677e082560aafe5fc2c7c",
+  "diff_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "high",
+  "base_commit": "b6e72faafc224bb6fef9189ff8f38c9a9a459655",
+  "head_commit": "7a8abc5bd754b89864771e375bc8406f9c47e067",
+  "target_ref": "origin/main",
+  "target_sha": "0ed684c0c8b7042e05b3273c15e7bc14f55d1382",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T04:34:41.845889+00:00",
+      "finished_at": "2026-09-19T04:34:41.871985+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        ".build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T04:34:41.872048+00:00",
+      "finished_at": "2026-09-19T04:34:44.821106+00:00",
+      "raw_log_digest": "sha256:36f78d15411380fdca7162a4f66b710e19a45758e8227e826993a7a8419d067d",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T04:34:44.821291+00:00",
+      "finished_at": "2026-09-19T04:34:46.049849+00:00",
+      "raw_log_digest": "sha256:5cee3639ccb3bf900ff9d2a207e6e82cdd91a33eaac9c484598c8d2c1d66e291",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-19T04:34:41.817539+00:00",
+  "finished_at": "2026-09-19T04:34:46.150364+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
