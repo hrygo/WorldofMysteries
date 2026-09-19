@@ -1,0 +1,46 @@
+name: Temporary PR80 revision3 receipt
+on:
+  push:
+    branches: [tmp/pr80-r3-receipt-cfda5bc]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: a01bfa8748ff11a08cd968dbfda5247312e93a37
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = a01bfa8748ff11a08cd968dbfda5247312e93a37
+          test "$(git rev-parse origin/main)" = cfda5bc00602cf0384b61345d3ae8e6a93fca056
+          mkdir -p "$RUNNER_TEMP/pr80"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/pr80-spm"
+          python3 scripts/agent_capsule.py verify --capsule .agents/capsules/DOMAIN-CONTRACT-PARITY.json --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/pr80/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/pr80/strict-audit.log"
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr80/receipts"
+          if [ -d .agents/receipts/DOMAIN-CONTRACT-PARITY ]; then cp -R .agents/receipts/DOMAIN-CONTRACT-PARITY "$RUNNER_TEMP/pr80/receipts/"; fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/pr80/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR80-r3-receipt
+          path: ${{ runner.temp }}/pr80/
+          retention-days: 7
+          include-hidden-files: true
