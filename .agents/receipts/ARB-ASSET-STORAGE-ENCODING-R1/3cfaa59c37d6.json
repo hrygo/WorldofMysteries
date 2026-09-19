@@ -1,0 +1,164 @@
+{
+  "receipt_id": "RCP-WORK-ARB-ASSET-STORAGE-ENCODING-R1-3cfaa59c37d6",
+  "receipt_type": "work",
+  "task_id": "ARB-ASSET-STORAGE-ENCODING-R1",
+  "capsule_id": "CAP-ARB-ASSET-STORAGE-ENCODING-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:45bbff72479f6662e42bbddbe2cb448d9d8e75e9ee5ebdece6894853efe74cc5",
+  "diff_digest": "sha256:b3c1361533ff6d4e0964c3a74f1547af783bf1c0d07dab405bacda0fcd5fcebe",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "c75218944e9a8ab9bc143ee7c27a389db3935b58",
+  "head_commit": "3cfaa59c37d6a8afc6716835bdb696d242fc3c0e",
+  "target_ref": "origin/main",
+  "target_sha": "c75218944e9a8ab9bc143ee7c27a389db3935b58",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:44:03.176631+00:00",
+      "finished_at": "2026-09-19T05:44:03.206427+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:44:03.206501+00:00",
+      "finished_at": "2026-09-19T05:44:17.475096+00:00",
+      "raw_log_digest": "sha256:02cb8c343ff22aaabd3cc6a3c7c3955f75de5d3a606ce57210d2af443c9d6dee",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:44:17.475198+00:00",
+      "finished_at": "2026-09-19T05:44:20.730008+00:00",
+      "raw_log_digest": "sha256:fae543a77e84d9cfe2266b1d6cc8af809762391a4e4acbdd4098d757c0bf1ec2",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T05:44:20.730171+00:00",
+      "finished_at": "2026-09-19T05:44:22.104442+00:00",
+      "raw_log_digest": "sha256:9193a8e75513099cc97c7284c046c1da28ae16848715ef93433c3dfca54bd8cc",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      ".hacf/gates/registry.json",
+      ".hacf/gates/repo_hygiene_p0.json",
+      "docs/05_UI/UI_交互基线_v1.0.md",
+      "docs/05_UI/artwork/Asset_Storage_Policy_v1.0.md",
+      "docs/05_UI/artwork/Premium_Art_Production_Pipeline_v2.0.md",
+      "docs/05_UI/artwork/local_store_manifest.json",
+      "docs/05_UI/artwork/provenance/A02_ALZUHOD_QUILL.provenance.json",
+      "docs/05_UI/artwork/provenance/A04_MAGIC_WISHING_LAMP.provenance.json",
+      "docs/05_UI/artwork/provenance/A05_CREEPING_HUNGER.provenance.json",
+      "docs/05_UI/artwork/provenance/A07_PROBABILITY_DIE.provenance.json",
+      "docs/05_UI/artwork/provenance/W1_WORLD_HERO.provenance.json",
+      "docs/05_UI/artwork/provenance/W2_GRAY_FOG.provenance.json",
+      "docs/05_UI/artwork/provenance/W3_RITUAL_ALTAR.provenance.json",
+      "docs/05_UI/artwork/provenance/W4_CODEX_ARCHIVE.provenance.json",
+      "docs/05_UI/artwork/provenance/W5_FATE_WORLDLINE.provenance.json",
+      "docs/05_UI/artwork/provenance/W6_ARTIFACT_VAULT.provenance.json",
+      "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json",
+      "docs/05_UI/artwork/tools/finish_artifact_artwork.py",
+      "docs/05_UI/artwork/tools/finish_world_artwork.py",
+      "docs/05_UI/artwork/tools/local_store_manifest.py",
+      "docs/05_UI/artwork/tools/reencode_runtime_assets.py",
+      "docs/05_UI/assets/README.md",
+      "docs/ASSET_INDEX.md",
+      "docs/PROJECT_STATE.json",
+      "docs/README.md",
+      "scripts/check_asset_hygiene.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      ".hacf/gates/registry.json",
+      ".hacf/gates/repo_hygiene_p0.json",
+      "docs/05_UI/assets/README.md",
+      "docs/README.md",
+      "scripts/check_asset_hygiene.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding"
+  },
+  "started_at": "2026-09-19T05:44:03.142070+00:00",
+  "finished_at": "2026-09-19T05:44:22.389237+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
