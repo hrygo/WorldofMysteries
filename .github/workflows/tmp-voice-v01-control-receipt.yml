@@ -1,0 +1,30 @@
+name: Temporary Voice V01 control receipt
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-control-receipt.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 01852638388371a994bc4e83cd286820075004ac
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify control capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-CONTROL-MEDIA.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-control-receipt
+          path: .agents/receipts/VOICE-V01-CONTROL-MEDIA/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
