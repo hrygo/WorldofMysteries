@@ -1,0 +1,27 @@
+name: Temporary Voice V02 capsule pack
+on:
+  push:
+    branches: ['tmp/voice-v02-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v02-pack.yml']
+permissions:
+  contents: write
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/voice-v02-realtime-asr
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Pack W-V02 task
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'GitHub Actions'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          python3 scripts/agent_capsule.py pack             --role AGT-MAC             --task-id VOICE-V02-REALTIME-ASR             --title 'Voice V02 Realtime ASR input turn assembly'             --focus 'SpeechRail Realtime ASR,InputTurnAssembler,URLSessionWebSocketTask,PCM,partial,commit,clear,cleared,rollover'             --target-ref origin/main
+          git add .agents/capsules/
+          git commit -m 'chore(voice): pack VOICE-V02-REALTIME-ASR task capsule'
+          git push origin HEAD:refs/heads/feat/voice-v02-realtime-asr
