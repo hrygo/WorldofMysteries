@@ -337,7 +337,7 @@ public nonisolated struct MediaOpenGrant: Sendable, Equatable, CustomStringConve
         self.expiresInMs = expiresInMs
     }
 
-    package func makeOpenHeader() -> MediaOpenHeader {
+    func makeOpenHeader() -> MediaOpenHeader {
         MediaOpenHeader(
             streamId: streamId,
             traceId: traceId,
