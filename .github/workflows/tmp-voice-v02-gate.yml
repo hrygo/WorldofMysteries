@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 4be7007fe7e5c9f770d5387d0522e0714130de9b
+          ref: 0f866a92fe006de17b2b14cba21df54f9fe3bab2
           persist-credentials: false
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
