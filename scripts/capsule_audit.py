@@ -15,10 +15,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -49,17 +48,14 @@ def _is_code(path: str) -> bool:
 
 def registry_from_ref(ref: str, repo_root: Path = REPO_ROOT) -> Optional[Dict[str, Any]]:
     """读取目标分支（受保护）的 registry；不存在则返回 None。"""
-    res = subprocess.run(
-        ["git", "show", f"{ref}:.hacf/gates/registry.json"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
+    try:
+        payload = policy.run_git(
+            ["show", f"{ref}:.hacf/gates/registry.json"], cwd=repo_root
+        )
+    except policy.PolicyError:
         return None
     try:
-        return json.loads(res.stdout)
+        return json.loads(payload)
     except json.JSONDecodeError:
         return None
 
@@ -304,18 +300,21 @@ def main() -> int:
     if args.changed_files:
         changed = [f for f in args.changed_files.split(",") if f]
     else:
-        res = subprocess.run(
-            ["git", "-c", "core.quotepath=false", "diff", "--name-only", f"{args.base_ref}...{args.head_ref}"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        changed = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+        try:
+            changed_output = policy.run_git(
+                ["diff", "--name-only", f"{args.base_ref}...{args.head_ref}"],
+                cwd=repo_root,
+            )
+        except policy.PolicyError:
+            print("❌ Capsule audit failed: unable to compute the PR change set.")
+            return 1
+        changed = [line.strip() for line in changed_output.splitlines() if line.strip()]
 
-    head_sha = subprocess.run(
-        ["git", "rev-parse", args.head_ref], cwd=repo_root, capture_output=True, text=True
-    ).stdout.strip()
+    try:
+        head_sha = policy.run_git(["rev-parse", args.head_ref], cwd=repo_root)
+    except policy.PolicyError:
+        print("❌ Capsule audit failed: unable to resolve the PR head.")
+        return 1
 
     # 优先只审计本次 PR 变更集涉及的胶囊；若本次 PR 未修改胶囊，则回退至仓库现有胶囊
     changed_capsules = [

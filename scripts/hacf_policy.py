@@ -28,6 +28,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 RECEIPTS_DIR = ".agents/receipts"
 
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
+
 # 高风险面：任何角色触碰都必须在胶囊中留下显式 grant，并触发人工（CODEOWNERS）评审。
 PRIVILEGED_SURFACES: List[str] = [
     "contracts/",
@@ -110,6 +118,15 @@ def canonical_json_digest(payload: Any) -> str:
     return sha256_bytes(blob.encode("utf-8"))
 
 
+def _git_env() -> Dict[str, str]:
+    """Run git against the requested cwd, not a hook-injected repository."""
+
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
+
+
 def matches_any(path: str, patterns: Iterable[str]) -> bool:
     """路径匹配：支持目录前缀（`contracts/`）、递归通配（`engine/**/migrations/`）与文件名通配。"""
     posix = PurePosixPath(path)
@@ -139,7 +156,12 @@ def matches_any(path: str, patterns: Iterable[str]) -> bool:
 
 def run_git(args: List[str], cwd: Path = REPO_ROOT) -> str:
     res = subprocess.run(
-        ["git", "-c", "core.quotepath=false", *args], cwd=cwd, capture_output=True, text=True, check=False
+        ["git", "-c", "core.quotepath=false", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_git_env(),
     )
     if res.returncode != 0:
         raise PolicyError(f"git {' '.join(args)} failed: {res.stderr.strip()}")
@@ -147,7 +169,9 @@ def run_git(args: List[str], cwd: Path = REPO_ROOT) -> str:
 
 
 def run_git_bytes(args: List[str], cwd: Path = REPO_ROOT) -> bytes:
-    res = subprocess.run(["git", *args], cwd=cwd, capture_output=True, check=False)
+    res = subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, check=False, env=_git_env()
+    )
     if res.returncode != 0:
         raise PolicyError(f"git {' '.join(args)} failed: {res.stderr.decode('utf-8', 'replace').strip()}")
     return res.stdout
@@ -279,6 +303,7 @@ def changes_digest(base_ref: str, head_ref: str, cwd: Path = REPO_ROOT) -> str:
             capture_output=True,
             text=True,
             check=False,
+            env=_git_env(),
         )
         fields = res.stdout.split()
         object_id = fields[2] if len(fields) >= 3 else "DELETED"

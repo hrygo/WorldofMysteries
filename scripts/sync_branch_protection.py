@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +21,20 @@ from typing import Any, Dict, List
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_PATH = REPO_ROOT / ".hacf" / "required-checks.json"
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
+
+
+def _git_env() -> Dict[str, str]:
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
 
 
 def gh_api(args: List[str], payload: Any | None = None) -> Any:
@@ -45,6 +60,7 @@ def default_repo() -> str:
         capture_output=True,
         text=True,
         check=False,
+        env=_git_env(),
     )
     url = res.stdout.strip()
     if url.endswith(".git"):
