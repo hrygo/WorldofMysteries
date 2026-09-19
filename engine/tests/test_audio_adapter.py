@@ -350,3 +350,70 @@ async def test_speechrail_capability_probe_rejects_ambiguous_base_path_without_n
     assert result.status == "invalid_config"
     assert result.errors == ("base_url_invalid",)
     assert called is False
+
+
+@pytest.mark.asyncio
+async def test_openai_audio_adapter_exposes_capability_probe_on_same_config():
+    config = AudioProviderConfig(base_url="http://127.0.0.1:9000/v1")
+    adapter = create_audio_adapter(config)
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        assert timeout == config.timeout_seconds
+        if url == "http://127.0.0.1:9000/health":
+            return ProbeHttpResponse(
+                200,
+                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
+            )
+        if url == "http://127.0.0.1:9000/readyz":
+            return ProbeHttpResponse(200, {"ready": True})
+        return ProbeHttpResponse(200, {"data": []})
+
+    result = await adapter.probe_capabilities(fetch_json=fetch)
+
+    assert result.status == "ready"
+    assert result.service_version == "2.4.0"
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable():
+    config = AudioProviderConfig()
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        del url, timeout
+        raise OSError("offline")
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "unreachable"
+    assert result.ready is None
+    assert result.errors == (
+        "health_transport_error",
+        "models_transport_error",
+        "readyz_transport_error",
+        "voices_transport_error",
+    )
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_reports_partial_discovery_as_degraded():
+    config = AudioProviderConfig()
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        del timeout
+        if url.endswith("/health"):
+            return ProbeHttpResponse(
+                200,
+                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
+            )
+        if url.endswith("/readyz"):
+            return ProbeHttpResponse(200, {"ready": True})
+        if url.endswith("/models"):
+            return ProbeHttpResponse(200, {"data": "not-a-list"})
+        return ProbeHttpResponse(200, {"data": []})
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "degraded"
+    assert result.ready is True
+    assert result.model_ids == ()
+    assert result.errors == ("models_invalid",)

@@ -6,6 +6,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 
 from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTSProviderProtocol
+from .capabilities import AudioCapabilityObservation, JsonFetcher, probe_audio_capabilities
 from .config import AudioProviderConfig
 
 
@@ -50,6 +51,14 @@ class OpenAIAudioAdapter(ASRProviderProtocol, TTSProviderProtocol):
     @property
     def base_url(self) -> str:
         return self.config.base_url
+
+    async def probe_capabilities(
+        self,
+        *,
+        fetch_json: JsonFetcher | None = None,
+    ) -> AudioCapabilityObservation:
+        """Observe routing capabilities without performing inference."""
+        return await probe_audio_capabilities(self.config, fetch_json=fetch_json)
 
     async def transcribe(
         self,
