@@ -19,7 +19,7 @@ def _json_integer(value: Any) -> Any:
     return value
 
 
-JsonInteger = Annotated[int, BeforeValidator(_json_integer)]
+JsonInteger = Annotated[int, BeforeValidator(_json_integer), Field(strict=True)]
 JsonNumber = StrictInt | StrictFloat
 
 
@@ -247,7 +247,7 @@ class ActionIntent(ContractBase):
     speech_intent: str | None = None
     evidence_ids: list[str]
     expected_costs: list[ExpectedCost] | None = None
-    perceived_risks: list[PerceivedRisk] | None
+    perceived_risks: list[PerceivedRisk] | None = None
 
 
 # Beat Plan ------------------------------------------------------------------
@@ -336,7 +336,7 @@ class StoryDelta(SchemaModel):
 
     scene_id: str | None = None
     world_time_delta_minutes: JsonNumber | None = None
-    clue_ids_add: list[str] | None
+    clue_ids_add: list[str] | None = None
     clue_ids_remove: list[str] | None = None
     secret_state_updates: dict[str, SecretState] | None = None
     local_state_patches: list[StatePatch] | None = None
@@ -380,7 +380,7 @@ class WorldEventVisibility(SchemaModel):
     _nonnullable_optional_fields = ("known_by", "possibly_known_by")
     public: StrictBool
     known_by: list[str] | None = None
-    possibly_known_by: list[str] | None
+    possibly_known_by: list[str] | None = None
 
 
 class WorldEventCandidate(SchemaModel):
