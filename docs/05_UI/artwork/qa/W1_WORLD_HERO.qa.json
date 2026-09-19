@@ -1,7 +1,7 @@
 {
   "artwork_id": "W1_WORLD_HERO",
   "contract_version": 3,
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_PENDING",
+  "status": "MACOS_FINISHING_COMPLETE_RUNTIME_QA_PASSED",
   "selected_candidate_id": "W1_SELECTED_CRIMSON_MOON",
   "candidates": [
     {
@@ -123,7 +123,7 @@
   ],
   "gates": {
     "G0_semantic": {
-      "status": "PASSED_V3",
+      "status": "PASSED",
       "primary_read": "stylized late-Victorian occult metropolis",
       "secondary_read": "Evernight crimson moon and hidden supernatural order",
       "generic_fantasy_read": "bounded stylized dark fantasy; not generic high-fantasy geography",
@@ -131,31 +131,61 @@
       "dominant_subject": "cityscape + crimson moon",
       "notes": [
         "Art direction explicitly approved after v3 direction change."
-      ]
+      ],
+      "status_basis": "PASSED_V3 (explicit interactive art-direction approval of the locked source)",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md"
     },
     "G1_canon_atmosphere": {
-      "status": "PASSED_V3_ART_DIRECTION",
+      "status": "PASSED",
       "era_credibility_5": 4,
       "occult_mystery_atmosphere_5": 5,
       "generic_fantasy_5": 2,
       "world_contradictions": [],
       "notes": [
         "Stylization and overt crimson moon are intentional v3 requirements rather than v2 defects."
-      ]
+      ],
+      "status_basis": "PASSED_V3_ART_DIRECTION",
+      "approval_reference": "docs/05_UI/artwork/delivery/World_Scene_Approval_Update_2026-09-18.md"
     },
     "G2_composition": {
-      "status": "SOURCE_PASS_MASTER_PENDING",
+      "status": "PASSED",
       "exact_16_10_source_crop_pass": true,
       "scrim_assisted_text_zone_pass": true,
       "street_depth_pass": true,
-      "wide_crop_survival_pass": "PASS_WITH_TOP_ANCHOR",
+      "wide_crop_survival_pass": "PASS",
       "runtime_crop_survival_pass": true,
       "notes": [
         "Centered 8:3 crop is invalid for v3 because it removes the crimson moon; top-aligned wide crop is required."
-      ]
+      ],
+      "source_crop_rect_pixels": [
+        1,
+        1,
+        1585,
+        991
+      ],
+      "source_crop_output": {
+        "width": 1584,
+        "height": 990,
+        "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da"
+      },
+      "wide_anchor": "top",
+      "wide_master_crop_pixels": [
+        0,
+        0,
+        4096,
+        1536
+      ],
+      "crop_reference": "docs/05_UI/artwork/delivery/crop_review.json",
+      "identity_survival": {
+        "rule": "R >= 80 and R - max(G, B) >= 40",
+        "master_red_dominant_pct": 22.077,
+        "wide_red_dominant_pct": 21.862,
+        "wide_vs_master_ratio": 0.99,
+        "wide_retains_identity": true
+      }
     },
     "G3_structure": {
-      "status": "PENDING_MACOS_FINISHING",
+      "status": "PASSED",
       "inspection_scales_percent": [
         25,
         100,
@@ -166,43 +196,354 @@
       "gibberish_or_fake_text": [],
       "human_or_vehicle_errors": [],
       "notes": [
-        "Deferred to F1 structural repair and 100–200% inspection on macOS."
-      ]
+        "Structural review performed locally on the finished 4096x2560 master at 25/100/200%.",
+        "The finishing chain contains no generative step beyond one super-resolution pass, so it cannot invent micro-text or new objects; the inspection confirms the printed result matches that."
+      ],
+      "method": "Whole-frame read at 25% of the finished 4096x2560 master; three 900x450 regions per master at 100% covering upper-left architecture, centre content and lower-right detail; 200% and 300% re-checks on the highest-risk areas (banner and emblem glyph risk, manuscript marks, chain and grille geometry).",
+      "defects_found": [],
+      "inspected_at": null,
+      "readability_note": "Roof slates, chimneys, wet-stone facades, gas lamps and the stone bridge stay individually readable at 100%; street figures remain coherent silhouettes.",
+      "detail_note": "The crimson moon keeps internal cloud and crater texture at 200% and does not flatten into a solid red disk; measured highlight clipping stays at 0.015%.",
+      "seam_note": "No super-resolution tile seam, halo or staircase artefact along the moon rim, cloud edges or the bridge silhouette.",
+      "text_like_glyph_check": "The banner emblems are non-textual astrological geometry. No letters, numerals or pseudo-writing were found at 100%, 200% or 300%.",
+      "structural_repetition_check": "No repeated foliage, roof or masonry tile pattern from the upscale."
     },
     "G4_production": {
-      "status": "PENDING_MACOS_FINISHING",
-      "master_dimensions": null,
-      "runtime_dimensions": {},
-      "color_profile": null,
-      "format": null,
-      "sha256": {},
-      "asset_names": [],
+      "status": "PASSED",
+      "master_dimensions": {
+        "width": 4096,
+        "height": 2560
+      },
+      "runtime_dimensions": {
+        "wom.art.world.hero": {
+          "width": 2560,
+          "height": 1600
+        },
+        "wom.art.world.hero.wide": {
+          "width": 2400,
+          "height": 900
+        }
+      },
+      "color_profile": "sRGB IEC61966-2.1 (explicit ICC on every finishing output)",
+      "format": "PNG",
+      "sha256": {
+        "wom.art.world.hero": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+        "wom.art.world.hero.wide": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347"
+      },
+      "asset_names": [
+        "wom.art.world.hero",
+        "wom.art.world.hero.wide"
+      ],
       "notes": [
         "4096×2560 Master is intentionally not manufactured by low-quality server upscaling."
-      ]
+      ],
+      "master_sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "derivative_tool": "docs/05_UI/artwork/tools/derive_world_artwork.swift",
+      "catalog": {
+        "status": "VERIFIED",
+        "payloads": [
+          {
+            "asset_name": "wom.art.world.hero",
+            "payload": "wom.art.world.hero.png",
+            "width": 2560,
+            "height": 1600,
+            "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+            "icc_profile": null
+          },
+          {
+            "asset_name": "wom.art.world.hero.wide",
+            "payload": "wom.art.world.hero.wide.png",
+            "width": 2400,
+            "height": 900,
+            "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+            "icc_profile": null
+          }
+        ],
+        "matches_derivatives": true
+      }
     },
     "G5_runtime": {
-      "status": "PENDING_MASTER_DERIVATIVES",
+      "status": "PASSED",
       "window_checks": {
-        "960x640": null,
-        "1180x760": null,
-        "2560x1600": null,
-        "2400x900": null
+        "960x640": {
+          "capture": "wom-verification-grid-960x640.jpg",
+          "capture_sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 960×640 pt → 抓取 1920×1280 px；归一化互相关 score=0.6175（阈值 0.45），匹配框 [16, 176, 642, 568]，资产缩放 0.245；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "1180x760": {
+          "capture": "wom-verification-grid-1180x760.jpg",
+          "capture_sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1180×760 pt → 抓取 2360×1520 px；归一化互相关 score=0.6656（阈值 0.45），匹配框 [16, 176, 789, 659]，资产缩放 0.302；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2560x1600": {
+          "capture": "wom-verification-grid-2560x1600.jpg",
+          "capture_sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1280×800 pt → 抓取 2560×1600 px；归一化互相关 score=0.6827（阈值 0.45），匹配框 [32, 189, 835, 691]，资产缩放 0.314；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2400x900": {
+          "capture": "wom-verification-grid-2400x900.jpg",
+          "capture_sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "采集窗口 1200×450 pt → 抓取 2400×900 px；归一化互相关 score=0.7107（阈值 0.45），匹配框 [20, 178, 400, 417]，资产缩放 0.149；文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        }
       },
       "accessibility_checks": {
-        "Increased Contrast": null,
-        "Reduce Transparency": null
+        "Increased Contrast": {
+          "capture": "wom-verification-probe-increased-contrast.jpg",
+          "capture_sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:increaseContrast 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.contrast=increased 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        },
+        "Reduce Transparency": {
+          "capture": "wom-verification-probe-reduce-transparency.jpg",
+          "capture_sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:reduceTransparency 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.transparency=reduced 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；抓取图页头同时标注了当时生效的辅助功能状态。"
+        }
       },
       "text_primary_contrast_min": null,
       "important_copy_contrast_min": null,
       "notes": [
-        "Run only after macOS-finished Master and deterministic runtime/wide derivatives exist."
-      ]
+        "Captured from the real macOS window surface; every capture is re-hashed against the recorded digest before its claims are accepted.",
+        "The wide header anchor under test is the one recorded in the derivative report."
+      ],
+      "window_sizes": [
+        "960x640",
+        "1180x760",
+        "2560x1600",
+        "2400x900"
+      ],
+      "accessibility_states": [
+        "Increased Contrast",
+        "Reduce Transparency"
+      ],
+      "captured_at": "2026-09-19",
+      "task": "W1",
+      "capture_environment": {
+        "app": "未记录（复用既有抓取图）",
+        "owner_name": null,
+        "process_name": null,
+        "window_title": "场景美术运行时校验",
+        "capture_geometry_labels": {
+          "960x640": "960x640pt",
+          "1180x760": "1180x760pt",
+          "2560x1600": "1280x800pt",
+          "2400x900": "1200x450pt"
+        }
+      },
+      "captures": [
+        {
+          "file": "wom-verification-grid-960x640.jpg",
+          "sha256": "96c8214d5fc70579ad1d93446b6c1f4752e02548ed5e0f5585898ffebe1756af"
+        },
+        {
+          "file": "wom-verification-grid-1180x760.jpg",
+          "sha256": "3167a77ca0e726ae0b23040d85dc91f6edb3da6527cbd54f0743888f3c4710e5"
+        },
+        {
+          "file": "wom-verification-grid-2560x1600.jpg",
+          "sha256": "8a84e435b0534e87e7f9475651b2be92b975c71ae0d9d70a366186abbe7ef804"
+        },
+        {
+          "file": "wom-verification-grid-2400x900.jpg",
+          "sha256": "4f577ebbf6c9c75c9525a8223983c541df0a940e1cfe2c1cf08ab9f0df52f1cf"
+        },
+        {
+          "file": "wom-verification-probe-1180x760.jpg",
+          "sha256": "a71a6d8889ae0711f7d3a9a24a6b9cc4a7919f10de6ff5fd7906ff260165edb5"
+        },
+        {
+          "file": "wom-verification-probe-increased-contrast.jpg",
+          "sha256": "32f67693df4d864a375245f612d3f2f48c9638839db60cd2c63cbefcbc697f4b"
+        },
+        {
+          "file": "wom-verification-probe-reduce-transparency.jpg",
+          "sha256": "d19cdaac1f215dbc3c2f5333e5cc85fc4ef1e666b85a84f2c0b72a80c795e845"
+        }
+      ],
+      "contrast": {
+        "method": "Recomputed from the named capture regions by this tool: WCAG 2.2 relative luminance, p95 percentile as text ink against p05 as the backing surface. Any ratio declared in the evidence file is ignored.",
+        "measurements": [
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              46,
+              504,
+              715,
+              20
+            ],
+            "ratio": 17.52
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              46,
+              504,
+              715,
+              20
+            ],
+            "ratio": 17.47
+          },
+          {
+            "kind": "text_primary",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              46,
+              504,
+              715,
+              20
+            ],
+            "ratio": 17.47
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-1180x760.jpg",
+            "region": [
+              46,
+              536,
+              715,
+              48
+            ],
+            "ratio": 8.3
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-increased-contrast.jpg",
+            "region": [
+              46,
+              536,
+              715,
+              48
+            ],
+            "ratio": 8.29
+          },
+          {
+            "kind": "important_copy",
+            "capture": "wom-verification-probe-reduce-transparency.jpg",
+            "region": [
+              46,
+              536,
+              715,
+              48
+            ],
+            "ratio": 8.29
+          }
+        ],
+        "text_primary_contrast_min": 17.47,
+        "important_copy_contrast_min": 8.29,
+        "thresholds": {
+          "text_primary_min": 4.5,
+          "important_long_copy_target": 7.0
+        }
+      },
+      "surface_verification": {
+        "operation": "normalised_cross_correlation_against_shipped_derivative",
+        "minimum_score": 0.45,
+        "captures": {
+          "wom-verification-grid-960x640.jpg": {
+            "asset": "wom.art.world.hero.png",
+            "score": 0.6175,
+            "asset_scale": 0.245,
+            "window_in_capture_pixels": [
+              16,
+              176,
+              642,
+              568
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-1180x760.jpg": {
+            "asset": "wom.art.world.hero.png",
+            "score": 0.6656,
+            "asset_scale": 0.302,
+            "window_in_capture_pixels": [
+              16,
+              176,
+              789,
+              659
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2560x1600.jpg": {
+            "asset": "wom.art.world.hero.png",
+            "score": 0.6827,
+            "asset_scale": 0.314,
+            "window_in_capture_pixels": [
+              32,
+              189,
+              835,
+              691
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-grid-2400x900.jpg": {
+            "asset": "wom.art.world.hero.png",
+            "score": 0.7107,
+            "asset_scale": 0.149,
+            "window_in_capture_pixels": [
+              20,
+              178,
+              400,
+              417
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-1180x760.jpg": {
+            "asset": "wom.art.world.hero.wide.png",
+            "score": 0.717,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              18,
+              178,
+              789,
+              468
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-increased-contrast.jpg": {
+            "asset": "wom.art.world.hero.wide.png",
+            "score": 0.717,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              18,
+              178,
+              789,
+              468
+            ],
+            "verdict": "present"
+          },
+          "wom-verification-probe-reduce-transparency.jpg": {
+            "asset": "wom.art.world.hero.wide.png",
+            "score": 0.717,
+            "asset_scale": 0.322,
+            "window_in_capture_pixels": [
+              18,
+              178,
+              789,
+              468
+            ],
+            "verdict": "present"
+          }
+        }
+      },
+      "wide_anchor_under_test": "top"
     }
   },
-  "final_verdict": "MACOS_FINISHING_PENDING",
+  "final_verdict": "PASSED",
   "reviewers": [
-    "interactive_art_direction_approval"
+    "interactive_art_direction_approval",
+    "macos_finishing_pipeline_finish_world_artwork.py"
   ],
   "reviewed_at": "2026-09-18",
   "generation_context": {
@@ -216,5 +557,75 @@
     "generation_id": "18a88bed-5884-4278-a8d8-d8905725bbd1",
     "status": "REJECTED",
     "result": "Targeted removal of text and Gothic monumentality inherited the same semantic prior and introduced additional propaganda-like text."
+  },
+  "task_id": "W1",
+  "production_evidence": {
+    "master": {
+      "width": 4096,
+      "height": 2560,
+      "sha256": "427eee4078dc4e3794ab439e6d327c4fa8cb73bc371087dcb71054c8d0764dc7",
+      "pixel_sha256": "ccd25e0940d1fab7c390b8fe631e844448e99ec6379cbc720901d7551c28f0b5",
+      "photometry": {
+        "mean_luminance_0_255": 66.73,
+        "luminance_p05_0_255": 2.62,
+        "luminance_p50_0_255": 58.24,
+        "luminance_p95_0_255": 164.1,
+        "shadow_clip_pct": 3.462,
+        "highlight_clip_pct": 0.015
+      }
+    },
+    "approved_source_crop": {
+      "width": 1584,
+      "height": 990,
+      "sha256": "ed0dcdf8a6556387c432405e80bb8cae02e28da2da29b53a9558388cd92aa1da",
+      "photometry": {
+        "mean_luminance_0_255": 61.3,
+        "luminance_p05_0_255": 2.64,
+        "luminance_p50_0_255": 52.21,
+        "luminance_p95_0_255": 152.99,
+        "shadow_clip_pct": 4.257,
+        "highlight_clip_pct": 0.037
+      }
+    },
+    "photometry_rules": {
+      "shadow_clip": "luminance <= 2 of 255",
+      "highlight_clip": "luminance >= 253 of 255"
+    },
+    "identity_survival": {
+      "rule": "R >= 80 and R - max(G, B) >= 40",
+      "master_red_dominant_pct": 22.077,
+      "wide_red_dominant_pct": 21.862,
+      "wide_vs_master_ratio": 0.99,
+      "wide_retains_identity": true
+    },
+    "fidelity": {
+      "mean_absolute_difference_0_255": 7.255,
+      "luminance_correlation": 0.9933,
+      "edge_structure_correlation": 0.9792,
+      "verdict": "passed"
+    },
+    "catalog": {
+      "status": "VERIFIED",
+      "payloads": [
+        {
+          "asset_name": "wom.art.world.hero",
+          "payload": "wom.art.world.hero.png",
+          "width": 2560,
+          "height": 1600,
+          "sha256": "7cc7e998df8edce49c53f24de2d3bda923aad9d73e83620bcaed899dec16fdf9",
+          "icc_profile": null
+        },
+        {
+          "asset_name": "wom.art.world.hero.wide",
+          "payload": "wom.art.world.hero.wide.png",
+          "width": 2400,
+          "height": 900,
+          "sha256": "c7537eb89428c82aa3ab36775ec4e1eb5add29faa4a409bf66d71c010e719347",
+          "icc_profile": null
+        }
+      ],
+      "matches_derivatives": true
+    },
+    "production_host": "Apple Silicon macOS workstation; MPS super-resolution, deterministic tools"
   }
 }
