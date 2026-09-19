@@ -1,0 +1,46 @@
+name: Temporary PR86 revision3 receipt
+on:
+  push:
+    branches: [tmp/pr86-r3-receipt-b0d3dad]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 57a4f51493a4528ff8603f758817d7e27a79169a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = 57a4f51493a4528ff8603f758817d7e27a79169a
+          test "$(git rev-parse origin/main)" = b0d3dad6bf388c8c8122cc1678c64b5fa8091c6c
+          mkdir -p "$RUNNER_TEMP/pr86"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/pr86-spm"
+          python3 scripts/agent_capsule.py verify --capsule .agents/capsules/STORY-SESSION-CONTRACTS.json --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/pr86/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/pr86/strict-audit.log"
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr86/receipts"
+          if [ -d .agents/receipts/STORY-SESSION-CONTRACTS ]; then cp -R .agents/receipts/STORY-SESSION-CONTRACTS "$RUNNER_TEMP/pr86/receipts/"; fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/pr86/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR86-r3-receipt
+          path: ${{ runner.temp }}/pr86/
+          retention-days: 7
+          include-hidden-files: true
