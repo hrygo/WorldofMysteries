@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-ARB-ASSET-LESSON-R1-28d1113fe838",
+  "receipt_type": "work",
+  "task_id": "ARB-ASSET-LESSON-R1",
+  "capsule_id": "CAP-ARB-ASSET-LESSON-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:648aef9f112f0906042d784a7977aa2830774eab28677c6c0b2f8fbee7e667ea",
+  "diff_digest": "sha256:46afeafdf79d9b1267dd03e50578a8d509ac02365800cab74294c674e7ab558d",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "fc6cae755c339c56169252c280e86c4d074a9cec",
+  "head_commit": "28d1113fe838bb2f370ab6437808edb38f92b939",
+  "target_ref": "origin/main",
+  "target_sha": "fc6cae755c339c56169252c280e86c4d074a9cec",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T06:00:37.447845+00:00",
+      "finished_at": "2026-09-19T06:00:37.480465+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T06:00:37.480583+00:00",
+      "finished_at": "2026-09-19T06:00:51.301872+00:00",
+      "raw_log_digest": "sha256:021f56b27a00179da94b40b574f4bdc61b78a9eafb6935af6d0d5ffa7338323d",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T06:00:51.302012+00:00",
+      "finished_at": "2026-09-19T06:00:54.013871+00:00",
+      "raw_log_digest": "sha256:d25cc758375406b60c8df59942c4a9e2c16924fa445e876fd86e5bb5bc47f759",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-19T06:00:54.013968+00:00",
+      "finished_at": "2026-09-19T06:00:55.374557+00:00",
+      "raw_log_digest": "sha256:904f2ab6fe2904631d71ac0ba10c7f243018e04395d7e1a950ea836775701018",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/05_UI/artwork/Asset_Storage_Policy_v1.0.md"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (Homebrew 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-asset-storage-encoding"
+  },
+  "started_at": "2026-09-19T06:00:37.411584+00:00",
+  "finished_at": "2026-09-19T06:00:55.489621+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
