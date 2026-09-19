@@ -20,6 +20,14 @@
 
 这修订此前“首版TTS采用HTTP streaming”的建议：当前HTTP实现按BATCH_TTS准入且raw PCM缺少显式语义终态，因此先用已有Realtime的调度/取消/终态能力。不是宣称HTTP不能流式，也不是让两连接共享ASR状态。
 
+### 2.1 普通 ASR 收口的已存在路径与消费者责任
+
+已核查普通事件由 FIFO handler 串行执行，commit 等待 reader 后退出，clear 完成清理后发送 cleared。首版独立 manual/no-diarization 连接在本轮 append 全部排队完成后执行 `commit → clear → cleared`，收口期间不发送下一轮 append。不要只等某个 completed，也不要使用当前始终为空的 previous_item_id。所有 item 按 committed 的 service sequence 排序、按 connection epoch 与 item ID 配对。
+
+cleared 仅是排空栅栏；本轮任意 append/commit error、failed item、缺终态或连接缺口都必须使整体失败。clear 不能把之前失败“洗成成功”；取消时的 clear 也不能生成 FinalTranscript。该路径不声称有源采样水位证明，不替代内容正确性验收。其他 Provider 未证明同一串行语义时退回明确支持的整段模式，不猜测等价。
+
+这不是新协议提案；[SR-V08 / #69](https://github.com/hrygo/SpeechRail/issues/69) 将已有 legacy EOF 集中写入当前契约并补组合回归，保留 #10 已完成的语音准入工作。只有今后架构改变确需新 barrier 时才另行协商扩展。
+
 ## 3. 新契约草案（必须经上游评审/能力协商）
 
 ### C1 — EffectiveCapabilitySnapshot
@@ -64,7 +72,7 @@
 
 ## 4. Issue映射与优先级
 
-以下7项Issue已在SpeechRail登记（2026-09-19），均为open待办，**不是已实现能力**。对应下游文档PR为[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。稳定任务键不随Issue编号变化。
+以下8项Issue已在SpeechRail登记（2026-09-19），均为open待办，**不是已实现能力**。对应下游文档PR为[WorldofMysteries #69](https://github.com/hrygo/WorldofMysteries/pull/69)。稳定任务键不随Issue编号变化。
 
 | 键 / 实际Issue | 优先级 | 范围 | 对WoM的依赖关系 |
 |---|---|---|---|
@@ -75,6 +83,7 @@
 | [SR-V05 / #66](https://github.com/hrygo/SpeechRail/issues/66) | P1 | C5条件特征缓存 | 优化项，不阻塞固定音色MVP |
 | [SR-V06 / #67](https://github.com/hrygo/SpeechRail/issues/67) | P1 | C6多维质量 | 专属动态音色自动发布前置 |
 | [SR-V07 / #68](https://github.com/hrygo/SpeechRail/issues/68) | P2 | C7身份保持的表达实验 | 可选增强，不阻塞中性固定身份 |
+| [SR-V08 / #69](https://github.com/hrygo/SpeechRail/issues/69) | P1 | 已有普通ASR收口契约/组合回归 | W-V02安全聚合；不要求新增API |
 
 现有[#34响度](https://github.com/hrygo/SpeechRail/issues/34)和[#44架构演进](https://github.com/hrygo/SpeechRail/issues/44)继续负责既有范围；不重复建响度修复或全局架构epic。所有Issue是待办，不代表创建后功能已可用。
 

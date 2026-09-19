@@ -40,3 +40,13 @@ GitHub PR号码、Issue链接、最终提交与CI状态以PR及本次交付索�
 - 首个文档提交：`9c9b3ce81eac4fb7f5e68fefb766b842c91f0aae`；6个Markdown的原子提交，tree `f94ad86ae2415abeb200007aaa2ec469e2dd55b7`。
 - 第二增量：登记[SpeechRail #62–#68](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)，关联既有#34/#44并补充导航；未提交任何SpeechRail代码变更。
 - 本地文档检查不是运行时代码验收；PR自动触发的仓库CI与其实际head绑定，结果另记在PR和交付索引，不沿用其他PR证据。
+
+## 持续审查增量
+
+回读 PR #69 head `3103edd9174b37a4485e69d8be6f0de36cee2c83` 后继续同一文档分支，不另建PR。原有SpeechRail #62–#68保留；新增[SR-V08 / SpeechRail #69](https://github.com/hrygo/SpeechRail/issues/69)只固化普通ASR已有收口语义和组合回归，不重做#10的VAD/EOF实现，也不要求先新增finish API。
+
+具体修正：当前previous_item_id为空；采用已核验FIFO下的commit→clear/cleared栅栏。必须保留append/commit失败和每个item终态，cleared不代表成功；停止采集/写队列水位属于本机，不能冒充服务采样回执。将纯MediaStop不调用领域取消从入口澄清同步到技术正文。媒体sample_count明确为每声道帧数，媒体seq与全量WS sequence分开。
+
+增加[首批开工规格](Voice_First_Kickoff_Spec_v1.0.md)，给出W-V00/W-V02/03最小接口、失败oracle及可先行/受上游约束能力表。状态仍为文档与Issue落地，产品实现和声学目标未完成。
+
+本轮只读文档导出run `35413562495`，Artifact `10575041441`，外层ZIP SHA-256 `892164a35626d7b22ee660a09c1bdff75d65e79dadef4f44096dfb9c6086efd0`；8份原始文档按manifest逐一核对Git blob及SHA-256。临时工作流不进入方案PR；清理与最新CI结果在PR交付回读中记录，不把导出成功当作产品测试。

@@ -111,9 +111,15 @@ Turn:  RECEIVED → ... → VALIDATING → COMMITTED → EXPRESSING → DELIVERE
 Media: PREPARING → BUFFERING → PLAYING ↔ PAUSED → COMPLETED/INTERRUPTED/FAILED
 ```
 
-ASR `input_audio_buffer.committed` 是转录缓冲边界，不是游戏 COMMIT。多个 ASR item 通过 `(asr_connection_epoch,item_id)` 去重并归入一个 `input_turn_id`；按服务 sequence 和前后 item 关系排序，不按网络返回时间拼接。
+ASR `input_audio_buffer.committed` 是转录缓冲边界，不是游戏 COMMIT。多个 ASR item 通过 `(asr_connection_epoch,item_id)` 去重并归入一个 `input_turn_id`；按 `committed` 事件的服务 sequence 建立提交次序，不按 final 到达时间拼接。当前 SpeechRail 的 `previous_item_id` 固定为空，不能依赖它构造前驱链；相同文本但不同 item 也不能按文本去重。
 
-UtteranceAssembler 必须维护输入边界水位：本轮采样范围、已请求 finish 的序号、尚未得到终态的 item。所有对应终态齐备后才形成最终文本；到期缺片段返回 `TRANSCRIPT_INCOMPLETE`，不能只把最后片段当作完整建议。重连创建新 connection epoch；不重播未确认 PCM 来“猜测恢复”。
+UtteranceAssembler 维护本轮本机输入范围、已观测 committed item 集合、成功/失败终态与关闭栅栏。当前没有普通 ASR 的显式客户端 finish 水位回执，不能假设服务回传了本机采样范围。
+
+首版 manual、无 diarization 的独立连接采用已有收口路径：停止采集 → 排空本轮 append 写队列 → 串行发送唯一 commit → clear → 等待 cleared。当前服务普通事件 FIFO，commit 等待 reader，clear 清理后响应；这个顺序使 cleared 成为排空栅栏。收口完成前禁止下一轮 append 混入该连接。
+
+**cleared 不等于识别成功**：必须同时确认本轮全部已观测 committed item 成功终结、无相关 append/commit 错误、无未解决的连接/sequence 缺口。失败或缺项为 `TRANSCRIPT_INCOMPLETE`，不提交部分 Advice。空尾 item 可接受，全轮为空不制造建议。取消直接 clear 属于丢弃，不得走正常成功收口分支。该栅栏不证明文本正确或源样本逐个收到；只在已核验实现/契约的版本上启用，不因为 OpenAI-compatible 就推广到其他服务。
+
+该方案沿用 SpeechRail 历史 #10 的 legacy EOF，不要求新 API，也不启用额外 diarization 模型。公共契约与组合回归由 [SR-V08 / SpeechRail #69](https://github.com/hrygo/SpeechRail/issues/69) 固化；详见[开工规格](../../07_工程启动/Voice_First_Kickoff_Spec_v1.0.md)。重连创建新 connection epoch；不重播未确认 PCM 来“猜测恢复”。
 
 VAD 选择唯一主控：首版按键说话 + manual finish；再开放本地 endpointing，server_vad 仅为互斥配置。用户停顿、自我修正、否定句歧义不以 partial 执行。服务器产生的自动 rollover 仍纳入本轮聚合。
 
@@ -125,7 +131,9 @@ VAD 选择唯一主控：首版按键说话 + manual finish；再开放本地 en
 
 ### 5.3 必须解决的并发顺序
 
-本机停止时先增 `playback_generation`，使旧媒体块失效；再调用 `TurnControlPort.cancel_pending(turn_id, expected_revision)`。取消和 Commit 在同一领域 Writer 序列化：
+所有本机停止先增 `playback_generation`、清理旧播放队列，再取消对应表达流。**纯 MediaStop/Pause/Replay/Volume 不调用 Domain 取消，也不制造新 Advice**；声音活动本身也不是取消授权。
+
+仅当用户明确取消 pending Turn，或最终意图确认用新 Advice 替代未提交回合，才进一步调用 `TurnControlPort.cancel_pending(turn_id, expected_revision)`。取消和 Commit 在同一领域 Writer 序列化：
 
 - 取消先赢：返回 `cancelled_before_commit`；释放 pending 工作，不生成世界结果。
 - Commit 先赢：返回 `already_committed` 及 committed revision；只停止表达，新建议创建新 turn。
@@ -151,7 +159,7 @@ Engine 经鉴权控制面发出 `MediaStreamOffer`：短路径媒体 UDS、opaqu
 
 帧提案：`WOMA` magic + version(u16) + type(u16) + header_length(u32) + payload_length(u32)，整数为网络字节序；header 为 UTF-8 JSON，payload 为协商后的 PCM。首版 header 上限 4 KiB、payload 上限 256 KiB，都是工程边界，必须在分配内存前验证。帧类型 FORMAT/CHUNK/END/ERROR/CANCEL_ACK/CREDIT。
 
-CHUNK header：`stream_id / engine_epoch / unit_id / generation / seq / sample_offset / sample_count`。PCM16-LE 为初始支持，sample_rate/channels 不猜测；`bytes == sample_count * channels * 2`，offset 连续、seq 严格递增。奇数字节网络块在适配器中重组，终态有残字节即错误。
+CHUNK header：`stream_id / engine_epoch / unit_id / generation / seq / sample_offset / sample_count`。PCM16-LE 为初始支持，sample_rate/channels 不猜测；这里 `sample_count` 指每声道采样帧数，不是所有声道标量样本总数；`bytes == sample_count * channels * 2`，offset 连续、seq 严格递增。媒体 CHUNK 的 seq 是适配器分配的连续单元序号；服务 WebSocket 的 sequence 属于完整事件流，夹有非音频事件时不要求相邻音频事件的服务 sequence 连号，不能因此误报丢块。奇数字节网络块在适配器中重组，终态有残字节即错误。
 
 END 必须包含 total_samples、接收音频 digest、provider terminal kind；digest 只能证明完整接收与一致性，不证明没漏读文字。ERROR/取消不 flush 过期尾部。信用按可接纳媒体时长计算，并设置字节硬上限，避免高速推理淹没播放内存。慢消费者有界 backpressure；取消控制不能堵在 PCM 队列后。
 

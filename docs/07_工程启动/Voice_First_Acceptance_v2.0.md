@@ -20,12 +20,16 @@ SpeechRail 自动化/真实模型请求按其 AGENTS 授权执行；UI 自动化
 | ID | 操作/故障注入 | 必须断言 | 阶段 |
 |---|---|---|---|
 | V-IN-01 | partial 多次改写 | UI 更新，不发 PlayerAdvice | A |
-| V-IN-02 | 一次输入发生 rollover，final 逆序到达 | 按 item 媒体次序组成一个 Final；等全部终态 | A/B |
+| V-IN-02 | 一次输入发生多个 rollover；异步处理导致final乱序 | 按committed次序收集，等commit/clear栅栏及全部成功终态；不是网络WS乱序承诺 | A/B |
 | V-IN-03 | 重连重用 item 字符串、旧 connection 数据迟到 | epoch 隔离，不混入新轮次 | A |
 | V-IN-04 | final ACK 丢失后重试同 input_turn | 幂等返回/状态查询，世界不二次提交 | A/C |
 | V-IN-05 | “先不要…等等，改为…”及名字歧义 | 不提前行动，必要时显式确认 | B/C |
 | V-IN-06 | ASR无confidence/无valid audio | unknown/失败，不伪造1.0 | A/B |
 | V-IN-07 | 转录提示词含未公开真实身份 | 进入ASR前即拒绝/过滤 | A |
+| V-IN-08 | previous_item_id为空；最后commit产生空item | 已有片段保留；空尾段允许，不按文本去重 | A/B |
+| V-IN-09 | append/commit失败或item缺失后仍收到cleared | 整轮失败/不完整，不发布部分Final，不推进世界 | A/B |
+| V-IN-10 | 关闭栅栏未返回前用户开始下一轮 | 新采样不混入旧连接；采用显式策略，不隐式双提交 | A/C |
+| V-CTL-06 | 仅MediaStop/Pause，pending世界工作尚在进行 | 不调用Domain cancel_pending；显式取消是另一用例 | A/C |
 | V-CTL-01 | pending turn取消与Writer COMMIT同时发生 | 唯一线性化结果，commit胜出则仅停播放 | A/C |
 | V-CTL-02 | 网络cancel阻塞、服务忙 | 本机stop不等待网络或LLM | A/C |
 | V-CTL-03 | stop后收到旧generation音频 | 全部丢弃，不重新排队 | A/C |

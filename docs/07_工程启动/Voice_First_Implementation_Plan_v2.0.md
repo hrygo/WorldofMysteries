@@ -4,6 +4,8 @@
 
 固定基线：WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。技术定义见[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)，跨仓依赖见[接口与 Issue 映射](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)，验收见[验收矩阵](Voice_First_Acceptance_v2.0.md)。
 
+首批可直接转换为代码任务的输入、边界和测试 oracle 见[开工规格](Voice_First_Kickoff_Spec_v1.0.md)。该规格仍为设计，不新增公共 API 或可运行模型入口。
+
 ## 1. 交付目标与禁止的替代完成标准
 
 首个完整闭环：用户说出建议 → 确认唯一 FinalTranscript → 当前角色合法行动 → 真实持久化 COMMIT → 固定音色回应 → 用户打断 → 本机立即停止 → 继续/新建议 → 不重复提交、不播放迟到音频。
@@ -68,7 +70,7 @@ W-V09 依赖真实 Domain 持久化服务，可以与媒体实现并行开发；
 
 **拟新增模块**：`macos-app/WorldOfMysteries/Media/` 下 Capture、ASRTransport、InputTurnAssembler、EndpointPolicy；不要假定已有 WorldSession.swift 文件。
 
-**工作**：AVAudioEngine 设备实际格式、一次重采样、可验证 AEC 参考；独立 ASR Realtime 连接；首版 PTT/manual endpoint，服务 server_vad 仅作为互斥兼容模式；多个 rollover item 聚合为一个 input_turn_id；partial 仅 UI；连接 epoch 与 item 去重；否定、自我修正与实体歧义进入确认策略。首版不得依赖尚无证据的语义端点模型。
+**工作**：AVAudioEngine 设备实际格式、一次重采样、可验证 AEC 参考；独立 ASR Realtime 连接；首版 PTT/manual endpoint，服务 server_vad 仅作为互斥兼容模式；多个 rollover item 聚合为一个 input_turn_id；使用已核验的 `append drain → commit → clear/cleared` 栅栏并逐项检查失败；不依赖 previous_item_id，不按正文去重；收口期间不混入新轮次；partial 仅 UI；连接 epoch 与 item 去重；否定、自我修正与实体歧义进入确认策略。首版不得依赖尚无证据的语义端点模型。
 
 **完成标准**：“先不要……等等”不提前提交；final/rollover 乱序、重复、缺失不重复回合；断网不会自动重放未确认音频；原生采集与外放回声实测。**回退**：PTT＋文本输入；禁用不合格免按键模式。
 
@@ -163,11 +165,12 @@ W-V09 依赖真实 Domain 持久化服务，可以与媒体实现并行开发；
 
 ## 5. SpeechRail 依赖与不等待策略
 
-使用 SR-V01..SR-V07 作为稳定任务键，真实 Issue 号码在[跨仓接口文档](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)维护。
+使用 SR-V01..SR-V08 作为稳定任务键，真实 Issue 号码在[跨仓接口文档](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)维护。
 
 | WoM能力 | 上游依赖 | 在未完成前可交付什么 | 不可作出的承诺 |
 |---|---|---|---|
 | 双 Realtime 媒体 demo | 现有 Realtime | PTT、固定现有音色、原生停止 | 真正世界提交/已测声学性能 |
+| 普通ASR长发言收口 | 现有FIFO EOF；SR-V08固化回归 | 固定版本commit/clear栅栏或有界整段ASR | 单个completed/cleared保证成功或已有采样水位 |
 | 精确能力消费 | SR-V01 | legacy allowlist＋实际错误拒绝 | 仅凭模型名支持所有参数 |
 | 强声音版本锁定 | SR-V02 | 固定批准 ID，记录 legacy assurance | 跨管理更新的原子同版本保证 |
 | HTTP实时/持久完整缓存 | SR-V03/04 | Realtime terminal 后验收/缓存 | HTTP EOF 就证明内容完整 |

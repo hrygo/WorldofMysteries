@@ -8,6 +8,7 @@
 | [实施方案](../../07_工程启动/Voice_First_Implementation_Plan_v2.0.md) | W-V00–W-V10，代码落点、责任、依赖、完成标准与回退 |
 | [SpeechRail接入与Issue映射](SpeechRail_Integration_Contract_v1.0.md) | 已有能力、提议契约、上游任务与兼容路线 |
 | [验收矩阵](../../07_工程启动/Voice_First_Acceptance_v2.0.md) | 协议、取消、安全、声音身份、缓存、设备、中文听测和SLO |
+| [首批开工规格](../../07_工程启动/Voice_First_Kickoff_Spec_v1.0.md) | 连接认证、ASR收口oracle、媒体/Domain命令分流与依赖降级表 |
 | [Change Ledger](../../07_工程启动/Voice_First_Change_Ledger_2026-09-19.md) | 基线、来源、交付与验证边界 |
 
 第一目标：用户说完建议 → 唯一Final → 真实世界COMMIT → 固定角色开声 → 用户打断 → 原生停止 → 继续或新建议 → 旧音频不回流、事实不重复也不回滚。
