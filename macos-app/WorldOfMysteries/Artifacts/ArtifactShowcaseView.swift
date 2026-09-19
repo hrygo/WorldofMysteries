@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 15 件 Canon Artifact Gameplay Component 的统一预览入口。
-/// 使用 `Preview*Resolver` 仅用于画廊演示；生产态应注入 Local Engine IPC Adapter。
+/// 15 件 Canon Artifact Gameplay Component 的统一展览与预览入口。
+/// 使用 Preview*Resolver 仅用于画廊演示；生产态应注入 Local Engine IPC Adapter。
 @MainActor
 public struct ArtifactShowcaseView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,66 +36,14 @@ public struct ArtifactShowcaseView: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: DesignTokens.LayoutInsets.stackSpacingLg) {
-      header
+      vaultHeader
 
       if filteredDescriptors.isEmpty {
-        WOMEmptyState(
-          source: .asset(.artifact),
-          title: "没有匹配的特殊物品",
-          message: "调整分组或搜索条件后继续浏览 15 件真实玩法组件。",
-          tone: .info,
-          actionTitle: "清除筛选"
-        ) {
-          selectedFamily = "all"
-          searchText = ""
-        }
+        emptyVaultState
       } else {
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(spacing: DesignTokens.Spacing.sm) {
-            ForEach(filteredDescriptors) { descriptor in
-              let isSelected = selection == descriptor.id
-
-              Button {
-                withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
-                  selection = descriptor.id
-                  genericModel.resetPresentation(keepHistory: false)
-                  showcaseRevision += 1
-                }
-              } label: {
-                HStack(spacing: DesignTokens.Spacing.xs) {
-                  WOMArtworkView(
-                    assetName: descriptor.id.artworkAsset.thumbnailAssetName,
-                    fallback: .systemImage(descriptor.systemIcon),
-                    fallbackTint: descriptor.tone.accent,
-                    contentMode: .fit
-                  )
-                  .frame(width: 28, height: 28)
-                  .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
-
-                  Text(descriptor.displayName)
-                    .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
-                }
-                .font(Font.Mystic.caption)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.vertical, DesignTokens.Spacing.sm)
-                .womCardChrome(
-                  tone: .card,
-                  texture: .sacredSlate,
-                  isSelected: isSelected,
-                  cornerRadius: DesignTokens.Radii.sm
-                )
-              }
-              .buttonStyle(.plain)
-              .accessibilityLabel(descriptor.displayName)
-            }
-          }
-          .padding(.vertical, DesignTokens.Spacing.xs)
-        }
-
-        selectedArtifactContext
-
-        selectedComponent
-          .id(showcaseRevision)
+        collectionShelf
+        exhibitionDossier
+        liveExhibitStage
       }
     }
     .padding(DesignTokens.LayoutInsets.panelPadding)
@@ -107,9 +55,12 @@ public struct ArtifactShowcaseView: View {
         textureOpacity: 0.025
       )
     )
+    .accessibilityIdentifier("artifact-vault-exhibition")
   }
 
-  private var header: some View {
+  // MARK: - Vault Header
+
+  private var vaultHeader: some View {
     ZStack(alignment: .leading) {
       WOMArtworkView(
         assetName: WOMWorldArtworkAsset.artifactVault.wideHeaderAssetName,
@@ -117,46 +68,61 @@ public struct ArtifactShowcaseView: View {
         fallbackTint: Color.Mystic.brassGoldMuted,
         contentMode: .fill
       )
-      .opacity(0.24)
+      .opacity(0.28)
       .frame(maxWidth: .infinity)
-      .frame(minHeight: 168)
+      .frame(minHeight: 176)
       .allowsHitTesting(false)
 
-      WOMArtworkScrim(edge: .leading, strength: 0.92)
+      WOMArtworkScrim(edge: .leading, strength: 0.94)
 
       ViewThatFits(in: .horizontal) {
-        HStack(spacing: DesignTokens.Spacing.md) {
-          libraryIdentity
-          Spacer(minLength: DesignTokens.Spacing.md)
+        HStack(alignment: .center, spacing: DesignTokens.Spacing.lg) {
+          vaultIdentity
+          Spacer(minLength: DesignTokens.Spacing.lg)
           searchAndFilterControls
         }
 
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-          libraryIdentity
+          vaultIdentity
           searchAndFilterControls
         }
       }
-      .padding(DesignTokens.LayoutInsets.compactCardPadding)
+      .padding(DesignTokens.LayoutInsets.cardPadding)
     }
     .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.md))
     .overlay {
       RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
-        .stroke(Color.Mystic.brassGoldBorder.opacity(0.28), lineWidth: DesignTokens.Borders.hairline)
+        .stroke(
+          Color.Mystic.brassGoldBorder.opacity(0.34),
+          lineWidth: DesignTokens.Borders.hairline
+        )
     }
   }
 
-  private var libraryIdentity: some View {
+  private var vaultIdentity: some View {
     HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
       WOMIcon(.artifact, size: .prominent)
         .foregroundStyle(Color.Mystic.brassGoldPrimary)
 
       VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-        Text("Canon Artifact Component Library")
-          .font(Font.Mystic.titleMedium)
-          .foregroundStyle(Color.Mystic.textGoldAccent)
-          .fixedSize(horizontal: false, vertical: true)
-        Text("15 件原著高辨识度特殊物品 · 共用 DesignTokens 与 WOM Visual System")
-          .mysticCaptionStyle()
+        HStack(spacing: DesignTokens.Spacing.xs) {
+          Text("神器展览 · Artifact Vault")
+            .font(Font.Mystic.titleLarge)
+            .foregroundStyle(Color.Mystic.textGoldAccent)
+          MysticBadge(
+            "\(ArtifactRegistry.all.count) 件馆藏",
+            tone: .gold,
+            variant: .panel,
+            systemIcon: "archivebox"
+          )
+        }
+
+        Text("正典神器原画展陈 × 真实玩法操作台")
+          .font(Font.Mystic.monoBadge)
+          .foregroundStyle(Color.Mystic.textSecondary)
+
+        Text("展览层只负责浏览与 Preview；每件展品仍运行正式 Artifact gameplay component。")
+          .mysticCaptionStyle(color: Color.Mystic.textSecondary)
           .fixedSize(horizontal: false, vertical: true)
       }
     }
@@ -184,7 +150,7 @@ public struct ArtifactShowcaseView: View {
       }
     }
     .pickerStyle(.menu)
-    .frame(minWidth: 150, idealWidth: 170, maxWidth: 190)
+    .frame(minWidth: 150, idealWidth: 170, maxWidth: 200)
     .onChange(of: selectedFamily) { _, _ in
       reconcileSelection()
     }
@@ -194,12 +160,24 @@ public struct ArtifactShowcaseView: View {
     HStack(spacing: DesignTokens.Spacing.xs) {
       WOMIcon(system: .search, size: .compact)
         .foregroundStyle(Color.Mystic.textTertiary)
-      TextField("搜索特殊物品", text: $searchText)
+
+      TextField("搜索神器", text: $searchText)
         .textFieldStyle(.plain)
-        .frame(minWidth: 160, idealWidth: 190, maxWidth: 240)
+        .frame(minWidth: 160, idealWidth: 200, maxWidth: 260)
         .onChange(of: searchText) { _, _ in
           reconcileSelection()
         }
+
+      if !searchText.isEmpty {
+        Button {
+          searchText = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .foregroundStyle(Color.Mystic.textTertiary)
+        }
+        .buttonStyle(.plain)
+        .help("清除搜索")
+      }
     }
     .padding(.horizontal, DesignTokens.Spacing.sm)
     .padding(.vertical, 6)
@@ -213,6 +191,223 @@ public struct ArtifactShowcaseView: View {
     )
   }
 
+  // MARK: - Collection Shelf
+
+  private var collectionShelf: some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+      HStack(spacing: DesignTokens.Spacing.sm) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+          Text("馆藏展柜")
+            .font(Font.Mystic.titleSmall)
+            .foregroundStyle(Color.Mystic.textPrimary)
+          Text("\(filteredDescriptors.count) 件可浏览 · 选择展品进入真实操作台")
+            .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+        }
+
+        Spacer(minLength: DesignTokens.Spacing.sm)
+
+        if let ordinal = selectedOrdinal {
+          Text(String(format: "%02d / %02d", ordinal, ArtifactRegistry.all.count))
+            .font(Font.Mystic.monoBadge)
+            .foregroundStyle(Color.Mystic.brassGoldMuted)
+        }
+      }
+
+      ScrollView(.horizontal, showsIndicators: false) {
+        LazyHStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
+          ForEach(filteredDescriptors) { descriptor in
+            collectionCard(descriptor)
+          }
+        }
+        .padding(.vertical, DesignTokens.Spacing.xs)
+      }
+    }
+  }
+
+  private func collectionCard(_ descriptor: ArtifactDescriptor) -> some View {
+    let isSelected = selection == descriptor.id
+
+    return Button {
+      selectArtifact(descriptor.id)
+    } label: {
+      VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+        ZStack(alignment: .topTrailing) {
+          WOMArtworkView(
+            assetName: descriptor.id.artworkAsset.thumbnailAssetName,
+            fallback: .systemImage(descriptor.systemIcon),
+            fallbackTint: descriptor.tone.accent,
+            contentMode: .fit,
+            accessibilityLabel: descriptor.displayName
+          )
+          .frame(width: 118, height: 88)
+          .frame(maxWidth: .infinity)
+          .background(Color.Mystic.abyssVoid)
+          .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.sm))
+
+          if let index = ArtifactRegistry.all.firstIndex(where: { $0.id == descriptor.id }) {
+            Text(String(format: "%02d", index + 1))
+              .font(Font.Mystic.monoBadge)
+              .foregroundStyle(isSelected ? descriptor.tone.readableForeground : Color.Mystic.textTertiary)
+              .padding(.horizontal, DesignTokens.Spacing.xs)
+              .padding(.vertical, DesignTokens.Spacing.xxs)
+              .background(Color.Mystic.obsidianGlass)
+              .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.xs))
+              .padding(DesignTokens.Spacing.xs)
+          }
+        }
+
+        Text(descriptor.displayName)
+          .font(Font.Mystic.caption)
+          .foregroundStyle(isSelected ? Color.Mystic.textPrimary : Color.Mystic.textSecondary)
+          .lineLimit(2)
+          .fixedSize(horizontal: false, vertical: true)
+
+        Text(descriptor.canonClass.localizedTitle)
+          .font(Font.Mystic.monoBadge)
+          .foregroundStyle(isSelected ? descriptor.tone.accent : Color.Mystic.textTertiary)
+      }
+      .frame(width: 146, alignment: .leading)
+      .padding(DesignTokens.Spacing.sm)
+      .womCardChrome(
+        tone: .card,
+        texture: .sacredSlate,
+        isSelected: isSelected,
+        cornerRadius: DesignTokens.Radii.md
+      )
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("展品：\(descriptor.displayName)")
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
+  }
+
+  // MARK: - Selected Exhibit
+
+  private var exhibitionDossier: some View {
+    let descriptor = ArtifactRegistry.descriptor(for: selection)
+
+    return VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+      ViewThatFits(in: .horizontal) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+          exhibitIdentity(descriptor)
+          Spacer(minLength: DesignTokens.Spacing.lg)
+          exhibitControls
+        }
+
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+          exhibitIdentity(descriptor)
+          exhibitControls
+        }
+      }
+
+      MysticDivider(tone: descriptor.tone, label: "馆藏档案")
+
+      Text(descriptor.shortGameplay)
+        .font(Font.Mystic.bodyLarge)
+        .foregroundStyle(Color.Mystic.textSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .padding(DesignTokens.LayoutInsets.cardPadding)
+    .background(
+      WOMPanelBackground(
+        tone: .card,
+        cornerRadius: DesignTokens.Radii.md,
+        texture: .sacredSlate,
+        textureOpacity: 0.025
+      )
+    )
+    .overlay {
+      RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+        .stroke(descriptor.tone.accent.opacity(0.22), lineWidth: DesignTokens.Borders.hairline)
+    }
+  }
+
+  private func exhibitIdentity(_ descriptor: ArtifactDescriptor) -> some View {
+    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+      HStack(spacing: DesignTokens.Spacing.xs) {
+        MysticBadge(
+          "CURRENT EXHIBIT",
+          tone: descriptor.tone,
+          variant: .panel,
+          systemIcon: "sparkles"
+        )
+        MysticBadge(descriptor.family.localizedTitle, tone: descriptor.tone, variant: .panel)
+        MysticBadge(descriptor.canonClass.localizedTitle, tone: .neutral, variant: .panel)
+      }
+
+      Text(descriptor.displayName)
+        .font(Font.Mystic.displayLarge)
+        .foregroundStyle(Color.Mystic.textGoldAccent)
+        .fixedSize(horizontal: false, vertical: true)
+
+      Text(descriptor.subtitle)
+        .font(Font.Mystic.monoBadge)
+        .foregroundStyle(Color.Mystic.textSecondary)
+    }
+  }
+
+  private var exhibitControls: some View {
+    HStack(spacing: DesignTokens.Spacing.sm) {
+      Button {
+        selectAdjacent(offset: -1)
+      } label: {
+        Label("上一件", systemImage: "chevron.left")
+      }
+      .buttonStyle(WOMButtonStyle(.secondary))
+      .disabled(filteredDescriptors.count < 2)
+
+      Button {
+        selectAdjacent(offset: 1)
+      } label: {
+        Label("下一件", systemImage: "chevron.right")
+      }
+      .buttonStyle(WOMButtonStyle(.secondary))
+      .disabled(filteredDescriptors.count < 2)
+
+      Button("重置演示") {
+        resetShowcase()
+      }
+      .buttonStyle(WOMButtonStyle(.secondary))
+    }
+  }
+
+  private var liveExhibitStage: some View {
+    let descriptor = ArtifactRegistry.descriptor(for: selection)
+
+    return VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+      HStack(spacing: DesignTokens.Spacing.sm) {
+        MysticStatusDot(tone: .teal)
+        Text("LIVE ARTIFACT WORKBENCH")
+          .font(Font.Mystic.monoBadge)
+          .foregroundStyle(Color.Mystic.textSecondary)
+        Spacer()
+        Text("Production component · Preview resolver")
+          .font(Font.Mystic.caption)
+          .foregroundStyle(Color.Mystic.textTertiary)
+      }
+
+      selectedComponent
+        .id(showcaseRevision)
+    }
+    .padding(.top, DesignTokens.Spacing.xs)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("\(descriptor.displayName) 实时神器操作台")
+  }
+
+  private var emptyVaultState: some View {
+    WOMEmptyState(
+      source: .asset(.artifact),
+      title: "没有匹配的神器",
+      message: "调整分组或搜索条件后继续浏览 15 件真实玩法组件。",
+      tone: .info,
+      actionTitle: "清除筛选"
+    ) {
+      selectedFamily = "all"
+      searchText = ""
+    }
+  }
+
+  // MARK: - Browsing
+
   private var filteredDescriptors: [ArtifactDescriptor] {
     let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     return ArtifactRegistry.all.filter { descriptor in
@@ -225,50 +420,25 @@ public struct ArtifactShowcaseView: View {
     }
   }
 
-  private var selectedArtifactContext: some View {
-    let descriptor = ArtifactRegistry.descriptor(for: selection)
-
-    return ViewThatFits(in: .horizontal) {
-      HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
-        artifactIdentity(descriptor)
-        Spacer(minLength: DesignTokens.Spacing.md)
-        resetShowcaseButton
-      }
-
-      VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-        artifactIdentity(descriptor)
-        resetShowcaseButton
-      }
-    }
-    .padding(DesignTokens.LayoutInsets.compactCardPadding)
-    .background(
-      WOMPanelBackground(
-        tone: .card,
-        cornerRadius: DesignTokens.Radii.md,
-        texture: .sacredSlate,
-        textureOpacity: 0.018
-      )
-    )
+  private var selectedOrdinal: Int? {
+    ArtifactRegistry.all.firstIndex(where: { $0.id == selection }).map { $0 + 1 }
   }
 
-  private func artifactIdentity(_ descriptor: ArtifactDescriptor) -> some View {
-    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-      HStack(spacing: DesignTokens.Spacing.xs) {
-        MysticBadge(descriptor.family.localizedTitle, tone: descriptor.tone, variant: .panel)
-        MysticBadge(descriptor.canonClass.localizedTitle, tone: .neutral, variant: .panel)
-      }
-
-      Text(descriptor.shortGameplay)
-        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
-        .fixedSize(horizontal: false, vertical: true)
+  private func selectArtifact(_ id: ArtifactID) {
+    guard id != selection else { return }
+    withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
+      selection = id
     }
+    genericModel.resetPresentation(keepHistory: false)
+    showcaseRevision += 1
   }
 
-  private var resetShowcaseButton: some View {
-    Button("重置当前演示") {
-      resetShowcase()
-    }
-    .buttonStyle(WOMButtonStyle(.secondary))
+  private func selectAdjacent(offset: Int) {
+    guard filteredDescriptors.count > 1 else { return }
+    let current = filteredDescriptors.firstIndex(where: { $0.id == selection }) ?? 0
+    let count = filteredDescriptors.count
+    let next = (current + offset % count + count) % count
+    selectArtifact(filteredDescriptors[next].id)
   }
 
   private func reconcileSelection() {
@@ -304,6 +474,8 @@ public struct ArtifactShowcaseView: View {
     showcaseRevision += 1
   }
 
+  // MARK: - Production Components
+
   @ViewBuilder
   private var selectedComponent: some View {
     switch selection {
@@ -330,11 +502,16 @@ public struct ArtifactShowcaseView: View {
       LeymanoTravelsArtifactView(model: genericModel, context: context, pages: pages)
     case .groselleTravels:
       GroselleTravelsArtifactView(
-        model: genericModel, context: context,
-        participantIDs: ["character.demo", "character.companion"])
+        model: genericModel,
+        context: context,
+        participantIDs: ["character.demo", "character.companion"]
+      )
     case .azikCopperWhistle:
       AzikCopperWhistleArtifactView(
-        model: genericModel, context: context, recipients: ["阿兹克·艾格斯", "character.companion"])
+        model: genericModel,
+        context: context,
+        recipients: ["阿兹克·艾格斯", "character.companion"]
+      )
     case .cardsOfBlasphemy:
       CardsOfBlasphemyArtifactView(model: genericModel, context: context, cards: pathwayCards)
     case .seaGodScepter:
@@ -345,12 +522,18 @@ public struct ArtifactShowcaseView: View {
       BoxOfGreatOldOnesArtifactView(model: genericModel, context: context)
     case .deathKnell:
       DeathKnellArtifactView(
-        model: genericModel, context: context, targetID: "entity.demo.target",
-        weaknesses: weaknesses, roundsRemaining: 5)
+        model: genericModel,
+        context: context,
+        targetID: "entity.demo.target",
+        weaknesses: weaknesses,
+        roundsRemaining: 5
+      )
     case .unshadowedCrucifix:
       UnshadowedCrucifixArtifactView(
-        model: genericModel, context: context,
-        targetIDs: ["material.polluted.001", "material.characteristic.002"])
+        model: genericModel,
+        context: context,
+        targetIDs: ["material.polluted.001", "material.characteristic.002"]
+      )
     }
   }
 
@@ -367,10 +550,16 @@ public struct ArtifactShowcaseView: View {
   private var souls: [GrazedSoulSlot] {
     [
       .init(
-        id: "soul.demo.1", displayName: "示例灵魂 A", pathway: "Pathway Unknown",
-        abilityNames: ["能力 A", "能力 B"]),
+        id: "soul.demo.1",
+        displayName: "示例灵魂 A",
+        pathway: "Pathway Unknown",
+        abilityNames: ["能力 A", "能力 B"]
+      ),
       .init(
-        id: "soul.demo.2", displayName: "示例灵魂 B", pathway: "Pathway Unknown", abilityNames: ["能力 C"]
+        id: "soul.demo.2",
+        displayName: "示例灵魂 B",
+        pathway: "Pathway Unknown",
+        abilityNames: ["能力 C"]
       ),
     ]
   }
