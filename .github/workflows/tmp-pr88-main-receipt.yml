@@ -1,0 +1,46 @@
+name: Temporary PR88 consolidated receipt
+on:
+  push:
+    branches: [tmp/pr88-main-receipt-621ffd5]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 621ffd5edb0d08397d5309887b0f3a7c181278d9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact durable slice
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = 621ffd5edb0d08397d5309887b0f3a7c181278d9
+          test "$(git rev-parse origin/main)" = 82d673e57da85837ac945c4a3c47d2729498af78
+          mkdir -p "$RUNNER_TEMP/pr88"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/pr88-spm"
+          python3 scripts/agent_capsule.py verify --capsule .agents/capsules/GOLDEN-TURN1-DURABLE.json --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/pr88/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/pr88/strict-audit.log"
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr88/receipts"
+          if [ -d .agents/receipts/GOLDEN-TURN1-DURABLE ]; then cp -R .agents/receipts/GOLDEN-TURN1-DURABLE "$RUNNER_TEMP/pr88/receipts/"; fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/pr88/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR88-GOLDEN-TURN1-DURABLE-receipt
+          path: ${{ runner.temp }}/pr88/
+          retention-days: 7
+          include-hidden-files: true
