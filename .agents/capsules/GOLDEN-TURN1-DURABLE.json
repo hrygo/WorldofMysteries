@@ -1,0 +1,126 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-GOLDEN-TURN1-DURABLE",
+  "capsule_revision": 1,
+  "task_id": "GOLDEN-TURN1-DURABLE",
+  "title": "Golden 001 Turn 1 durable vertical slice",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T12:12:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "target_sha": "82d673e57da85837ac945c4a3c47d2729498af78",
+    "context_snapshot": "sha256:6d951e02db87865908ed07452d1b7c2189f7b23d07d9f04fc70190d03c7df1f0"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/application/",
+      "engine/infrastructure/",
+      "engine/contracts/",
+      "engine/tests/",
+      "fixtures/golden_001/",
+      "docs/07_工程启动/golden_001_runtime/"
+    ],
+    "write": [
+      "engine/domain/story_state_reducer.py",
+      "engine/application/story_turn_commit.py",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/tests/test_golden_turn1_durable.py",
+      ".agents/capsules/GOLDEN-TURN1-DURABLE.json"
+    ],
+    "forbidden": [
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/schemas/**",
+      "contracts/protocol/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/story_state_reducer.py",
+      "engine/application/story_turn_commit.py",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/tests/test_golden_turn1_durable.py",
+      "engine/domain/resolver.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ],
+    "related_contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json",
+      "story_state.schema.json",
+      "story_session.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "coherent-durable-vertical-slice",
+    "token_estimate": 2400,
+    "max_core_tokens": 3500,
+    "expansion_policy": "arbiter_approved",
+    "note": "Collapses the previously staged role-specific capsules into one merge-verifiable engineering objective. Role-specific capsules remain in Git history. Active diff covers only the four implementation/test files plus this capsule."
+  },
+  "impact": {
+    "symbols": [
+      "apply_story_delta",
+      "StoryTurnCommitService",
+      "StoryCommitPort",
+      "SQLiteStorySessionCommitPort",
+      "test_golden_turn1_commit_survives_close_reopen_and_replay"
+    ],
+    "contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json",
+      "story_state.schema.json",
+      "story_session.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_golden_turn1_durable.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "OUTCOME-RESOLVER-FOUNDATION",
+      "STORY-SESSION-SCHEMA-V2",
+      "STORY-SESSION-CONTRACTS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Prove the first Golden 001 turn as a durable Session fact using the real deterministic Resolver and real world.db. Persist StoryState, StateDelta, TurnTransaction, event and outbox atomically; preserve domain base revisions separately from store commit revision; reject unsupported overlays before COMMIT; verify idempotent replay and close/reopen recovery. Narrative remains post-COMMIT. No IPC/App changes.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  }
+}
