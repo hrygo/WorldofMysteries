@@ -151,3 +151,18 @@ def test_resolver_contains_no_golden_scenario_special_case():
     assert "golden_001" not in source.lower()
     assert "sqlite" not in source.lower()
     assert "agentscope" not in source.lower()
+
+def test_policy_rejects_duplicate_clue_effects_before_resolution():
+    seed = _read(FIXTURES / "seed.json")
+    duplicated = ResolutionRule(
+        "duplicate-clue",
+        "observe",
+        ("wait",),
+        StoryEffect(
+            outcome="partial_success",
+            clue_ids_add=("clue_doctor_pause", "clue_doctor_pause"),
+        ),
+    )
+    with pytest.raises(ResolutionPolicyError, match="clue effects must be unique"):
+        ResolutionPolicy.from_story_seed(seed, [duplicated])
+
