@@ -48,6 +48,51 @@ struct ComponentGalleryExperienceContractTests {
         #expect(FileManager.default.fileExists(atPath: imageURL.path))
     }
 
+    @Test("sidebar gallery uses live bindings instead of frozen constant snapshots")
+    func sidebarGalleryUsesLiveBindings() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryWorldGroup.swift"
+        )
+
+        #expect(source.contains("selection: $selection"))
+        #expect(source.contains("isCollapsed: $isCollapsed"))
+        #expect(source.contains("当前选择：\\(selection.localizedTitle)"))
+        #expect(!source.contains("selection: .constant(.fate)"))
+        #expect(!source.contains("isCollapsed: .constant(isCollapsed)"))
+    }
+
+    @Test("control specimens expose observable local feedback instead of no-op examples")
+    func controlSpecimensExposeFeedback() throws {
+        let primitives = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryPrimitivesSection.swift"
+        )
+        let interactions = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionSpecimenSection.swift"
+        )
+
+        #expect(primitives.contains("@State private var actionCount"))
+        #expect(primitives.contains("recordAction("))
+        #expect(primitives.contains("控件已响应"))
+        #expect(interactions.contains("@State private var controlActionCount"))
+        #expect(interactions.contains("recordControlAction("))
+        #expect(interactions.contains("最近交互"))
+    }
+
+    @Test("gallery specimens prefer adaptive composition under width pressure")
+    func gallerySpecimensUseAdaptiveComposition() throws {
+        let primitives = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryPrimitivesSection.swift"
+        )
+        let interactions = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionSpecimenSection.swift"
+        )
+
+        #expect(primitives.contains("LazyVGrid("))
+        #expect(primitives.contains("WOMAdaptivePair("))
+        #expect(interactions.contains("LazyVGrid("))
+        #expect(interactions.contains("ViewThatFits(in: .horizontal)"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

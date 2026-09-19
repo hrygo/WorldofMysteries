@@ -3,6 +3,8 @@ import SwiftUI
 struct InteractionAndTypographyGallerySection: View {
     @State private var isSelected = true
     @State private var clickCount = 0
+    @State private var lastControlAction = "尚未触发"
+    @State private var controlActionCount = 0
 
     var body: some View {
         ComponentGallerySection(title: "09 · 统一交互规范与排版标尺 (UX & Typography Specimen)") {
@@ -20,7 +22,16 @@ struct InteractionAndTypographyGallerySection: View {
             Text("交互状态展示 (Interaction States)：")
                 .mysticCaptionStyle(color: Color.Mystic.textSecondary)
 
-            HStack(spacing: DesignTokens.LayoutInsets.stackSpacingMd) {
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(minimum: 190, maximum: 300),
+                        spacing: DesignTokens.LayoutInsets.stackSpacingMd
+                    )
+                ],
+                alignment: .leading,
+                spacing: DesignTokens.LayoutInsets.stackSpacingMd
+            ) {
                 defaultStateCard
                 selectableStateCard
                 pressFeedbackCard
@@ -110,7 +121,16 @@ struct InteractionAndTypographyGallerySection: View {
             Text("系统按钮与图标标尺 (Controls & Icons)：")
                 .mysticCaptionStyle(color: Color.Mystic.textSecondary)
 
-            HStack(spacing: DesignTokens.Spacing.sm) {
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(minimum: 112, maximum: 180),
+                        spacing: DesignTokens.Spacing.sm
+                    )
+                ],
+                alignment: .leading,
+                spacing: DesignTokens.Spacing.sm
+            ) {
                 specimenButton("主行动", icon: .add, variant: .primary)
                 specimenButton("次行动", icon: .edit, variant: .secondary)
                 specimenButton("仪式", icon: .favorite, variant: .ritual)
@@ -120,27 +140,54 @@ struct InteractionAndTypographyGallerySection: View {
                     .disabled(true)
             }
 
-            HStack(spacing: DesignTokens.Spacing.md) {
-                iconSizeSpecimen("16", size: .compact)
-                iconSizeSpecimen("20", size: .standard)
-                iconSizeSpecimen("24", size: .prominent)
-                iconSizeSpecimen("32", size: .large)
-
-                Divider()
-                    .frame(height: 30)
-
-                Button {} label: {
-                    WOMIcon(system: .search, size: .compact, accessibilityLabel: "搜索")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.md) {
+                    iconSizeSamples
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    toolbarControls
                 }
-                .buttonStyle(WOMIconButtonStyle(.secondary))
-                .help("搜索")
 
-                Button {} label: {
-                    WOMIcon(system: .settings, size: .compact, accessibilityLabel: "设置")
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    iconSizeSamples
+                    toolbarControls
                 }
-                .buttonStyle(WOMToolbarButtonStyle(.tertiary))
-                .help("设置")
             }
+
+            MysticKeyValueRow(
+                key: "最近交互",
+                value: "\(lastControlAction) · \(controlActionCount) 次",
+                tone: controlActionCount == 0 ? .neutral : .teal,
+                systemIcon: "cursorarrow.click"
+            )
+        }
+    }
+
+    private var iconSizeSamples: some View {
+        HStack(spacing: DesignTokens.Spacing.md) {
+            iconSizeSpecimen("16", size: .compact)
+            iconSizeSpecimen("20", size: .standard)
+            iconSizeSpecimen("24", size: .prominent)
+            iconSizeSpecimen("32", size: .large)
+        }
+    }
+
+    private var toolbarControls: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            Button {
+                recordControlAction("搜索")
+            } label: {
+                WOMIcon(system: .search, size: .compact, accessibilityLabel: "搜索")
+            }
+            .buttonStyle(WOMIconButtonStyle(.secondary))
+            .help("搜索")
+
+            Button {
+                recordControlAction("设置")
+            } label: {
+                WOMIcon(system: .settings, size: .compact, accessibilityLabel: "设置")
+            }
+            .buttonStyle(WOMToolbarButtonStyle(.tertiary))
+            .help("设置")
         }
     }
 
@@ -215,7 +262,9 @@ struct InteractionAndTypographyGallerySection: View {
         icon: WOMSystemIcon,
         variant: WOMButtonVariant
     ) -> some View {
-        Button {} label: {
+        Button {
+            recordControlAction(title)
+        } label: {
             HStack(spacing: DesignTokens.Spacing.xs) {
                 WOMIcon(system: icon, size: .compact)
                 Text(title)
@@ -258,14 +307,14 @@ struct InteractionAndTypographyGallerySection: View {
                     .lineSpacing(DesignTokens.TypographyMetrics.parchmentLineSpacing)
                     .foregroundStyle(Color.Mystic.brassGoldMuted)
 
-                HStack(spacing: DesignTokens.Spacing.lg) {
-                    Text("机械等宽徽标 (Tracking +0.4pt): [SEQ-9-SEER-001]")
-                        .font(Font.Mystic.monoBadge)
-                        .tracking(DesignTokens.TypographyMetrics.monoTracking)
-                        .foregroundStyle(Color.Mystic.statusOnline)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: DesignTokens.Spacing.lg) {
+                        typographyMetadataSamples
+                    }
 
-                    Text("紧凑元数据 (行间距 2.0pt / Tracking +0.2pt)")
-                        .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        typographyMetadataSamples
+                    }
                 }
             }
             .padding(DesignTokens.LayoutInsets.cardPadding)
@@ -277,5 +326,21 @@ struct InteractionAndTypographyGallerySection: View {
                     .stroke(Color.Mystic.brassGoldBorder.opacity(0.6), lineWidth: 1)
             )
         }
+    }
+
+    @ViewBuilder
+    private var typographyMetadataSamples: some View {
+        Text("机械等宽徽标 (Tracking +0.4pt): [SEQ-9-SEER-001]")
+            .font(Font.Mystic.monoBadge)
+            .tracking(DesignTokens.TypographyMetrics.monoTracking)
+            .foregroundStyle(Color.Mystic.statusOnline)
+
+        Text("紧凑元数据 (行间距 2.0pt / Tracking +0.2pt)")
+            .mysticCaptionStyle(color: Color.Mystic.textTertiary)
+    }
+
+    private func recordControlAction(_ title: String) {
+        lastControlAction = title
+        controlActionCount += 1
     }
 }

@@ -91,19 +91,20 @@ private struct SidebarGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "07 · 侧边栏菜单系统 (Sidebar & Navigation Menu)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                Text("支持展开（224pt，含 3 大语义分组、Badge 徽标与灵性状态微卡片）与紧凑折叠（68pt）双形态：")
+                Text("两个样例都是真实绑定：可以点击导航项，也可以使用顶部按钮折叠或展开。状态变化只留在画廊会话，不改变 App 全局导航。")
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
-                        SidebarGallerySample(title: "展开形态 (Expanded · 224pt)", isCollapsed: false)
-                        SidebarGallerySample(title: "紧凑折叠 (Collapsed · 68pt)", isCollapsed: true)
+                        SidebarGallerySample(title: "展开起始态 (Expanded · 224pt)", isCollapsed: false)
+                        SidebarGallerySample(title: "折叠起始态 (Collapsed · 68pt)", isCollapsed: true)
                     }
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                        SidebarGallerySample(title: "展开形态 (Expanded · 224pt)", isCollapsed: false)
-                        SidebarGallerySample(title: "紧凑折叠 (Collapsed · 68pt)", isCollapsed: true)
+                        SidebarGallerySample(title: "展开起始态 (Expanded · 224pt)", isCollapsed: false)
+                        SidebarGallerySample(title: "折叠起始态 (Collapsed · 68pt)", isCollapsed: true)
                     }
                 }
             }
@@ -115,17 +116,33 @@ private struct SidebarGallerySample: View {
     private static let badgeCounts: [NavigationItem: Int] = [.fate: 2, .worldline: 1, .cards: 4]
 
     let title: String
-    let isCollapsed: Bool
+    @State private var selection: NavigationItem = .fate
+    @State private var isCollapsed: Bool
+
+    init(title: String, isCollapsed: Bool) {
+        self.title = title
+        self._isCollapsed = State(initialValue: isCollapsed)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-            Text(title)
-                .font(Font.Mystic.caption)
-                .foregroundStyle(Color.Mystic.brassGoldMuted)
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                Text(title)
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.brassGoldMuted)
+
+                Spacer(minLength: DesignTokens.Spacing.xs)
+
+                MysticBadge(
+                    isCollapsed ? "折叠" : "展开",
+                    tone: isCollapsed ? .neutral : .teal,
+                    systemIcon: isCollapsed ? "sidebar.right" : "sidebar.left"
+                )
+            }
 
             AppSidebarView(
-                selection: .constant(.fate),
-                isCollapsed: .constant(isCollapsed),
+                selection: $selection,
+                isCollapsed: $isCollapsed,
                 badgeCounts: Self.badgeCounts
             )
             .frame(height: 560)
@@ -134,6 +151,10 @@ private struct SidebarGallerySample: View {
                 RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
                     .stroke(Color.Mystic.brassGoldBorder.opacity(0.4), lineWidth: 1)
             )
+
+            Text("当前选择：\(selection.localizedTitle)")
+                .font(Font.Mystic.monoBadge)
+                .foregroundStyle(Color.Mystic.textSecondary)
         }
     }
 }
