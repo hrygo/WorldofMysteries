@@ -107,6 +107,29 @@ struct ComponentGalleryExperienceContractTests {
         #expect(!source.contains("actionTitle: \"查看原因\"\n                ) {}"))
     }
 
+    @Test("gallery shell lazily hosts heavy sections and keeps section order unambiguous")
+    func galleryShellIsLazyAndNumbered() throws {
+        let gallery = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryView.swift"
+        )
+        let recovery = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryControlRecoverySection.swift"
+        )
+        let artifact = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryArtifactGroup.swift"
+        )
+        let visual = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+        )
+
+        #expect(gallery.contains("LazyVStack(alignment: .leading"))
+        #expect(gallery.contains("真实组件优先 · 可交互 specimen"))
+        #expect(recovery.contains("12 · 控件恢复与反馈边界"))
+        #expect(artifact.contains("13 · 特殊物品玩法组件"))
+        #expect(visual.contains("recordVisualAction(\"查看完整诊断\")"))
+        #expect(visual.contains("recordVisualAction(\"压力样例操作\")"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

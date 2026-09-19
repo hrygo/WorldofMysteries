@@ -469,7 +469,7 @@ struct VisualSystemGallerySection: View {
                 title: "长状态文案压力测试",
                 message: "当状态信息包含更长的中文说明、英文标识符与后续动作提示时，Banner 必须增长高度而不是覆盖右侧操作或将正文压缩到不可辨认的窄列。",
                 actionTitle: "查看完整诊断"
-            ) {}
+            ) { recordVisualAction("查看完整诊断") }
         }
     }
 
@@ -485,7 +485,9 @@ struct VisualSystemGallerySection: View {
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("保持标准字号的操作按钮") {}
+            Button("保持标准字号的操作按钮") {
+                recordVisualAction("压力样例操作")
+            }
                 .buttonStyle(WOMButtonStyle(.secondary))
         }
         .padding(DesignTokens.LayoutInsets.cardPadding)

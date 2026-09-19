@@ -11,7 +11,7 @@ public struct ComponentGalleryView: View {
     public init() {}
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
+        LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.xxl) {
             ComponentGalleryHeader()
             ComponentGalleryInteractionGroup()
             ComponentGalleryWorldGroup()
@@ -30,7 +30,7 @@ private struct ComponentGalleryHeader: View {
                 .font(Font.Mystic.gothicDisplay)
                 .foregroundStyle(Color.Mystic.brassGoldPrimary)
 
-            Text("集中展示 16 大核心组件、15 件特殊物品玩法组件与 8 项通用原语 · 单一 Canvas 会话")
+            Text("真实组件优先 · 可交互 specimen · 自适应布局 · 15 件特殊物品玩法 · 单一 Canvas 会话")
                 .font(Font.Mystic.bodyMedium)
                 .foregroundStyle(Color.Mystic.textSecondary)
         }

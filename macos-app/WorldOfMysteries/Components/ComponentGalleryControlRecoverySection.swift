@@ -8,7 +8,7 @@ struct ControlRecoveryGallerySection: View {
     @State private var retryCount = 0
 
     var body: some View {
-        ComponentGallerySection(title: "控件恢复与反馈边界 (Control Recovery)") {
+        ComponentGallerySection(title: "12 · 控件恢复与反馈边界 (Control Recovery)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 selectionSpecimen
                 feedbackSpecimens
