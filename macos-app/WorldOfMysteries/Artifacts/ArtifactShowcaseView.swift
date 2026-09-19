@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// 15 件 Canon Artifact Gameplay Component 的统一展览与预览入口。
