@@ -16,7 +16,12 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from jsonschema import Draft202012Validator
 
-from infrastructure.ipc_framing import encode_frame
+from infrastructure.audio.media_protocol import (
+    MediaFormat,
+    MediaOpenHeader,
+    write_media_frame,
+)
+from infrastructure.ipc_framing import encode_frame, read_frame, write_frame
 from infrastructure.ipc_server import BootstrapError, LocalIPCServer, SocketLease, read_bootstrap_token
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -391,3 +396,176 @@ async def test_invalid_launch_parent_refuses_socket(tmp_path, parent_pid):
     with pytest.raises(BootstrapError):
         await _run(path, "a" * 64, parent_pid)
     assert not path.exists()
+
+
+@pytest.mark.asyncio
+async def test_media_capability_is_advertised_only_with_bound_handler(runtime):
+    opened_headers = []
+    handled = asyncio.Event()
+
+    async def handler(header, reader, writer):
+        del reader, writer
+        opened_headers.append(header)
+        handled.set()
+
+    server = LocalIPCServer(runtime, "a" * 64, media_session_handler=handler)
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_unix_connection(runtime)
+        await write_frame(
+            writer,
+            request(
+                "system.handshake",
+                {
+                    "app_version": "0.1.0",
+                    "app_build": "test",
+                    "supported_protocols": ["1.0"],
+                    "session_token": "a" * 64,
+                },
+            ),
+        )
+        hello = await read_frame(reader)
+        assert hello["status"] == "ok"
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            "media.open",
+        }
+
+        await write_frame(
+            writer,
+            request(
+                "media.open",
+                {
+                    "direction": "app_to_engine",
+                    "generation": 4,
+                    "format": {
+                        "codec": "pcm_s16le",
+                        "sample_rate": 16000,
+                        "channels": 1,
+                    },
+                },
+                request_id="req_media",
+            ),
+        )
+        grant_reply = await read_frame(reader)
+        assert grant_reply["status"] == "ok"
+        grant = grant_reply["payload"]
+        assert grant["stream_id"].startswith("media_")
+        assert grant["generation"] == 4
+        assert grant["direction"] == "app_to_engine"
+        assert grant["protocol_version"] == "1.0"
+        assert grant["socket_path"] == str(server.media_path)
+        assert len(grant["ticket"]) == 64
+
+        _, media_writer = await asyncio.open_unix_connection(grant["socket_path"])
+        opened = MediaOpenHeader(
+            stream_id=grant["stream_id"],
+            trace_id=grant["trace_id"],
+            engine_epoch=grant["engine_epoch"],
+            generation=grant["generation"],
+            ticket=grant["ticket"],
+            direction=grant["direction"],
+            format=MediaFormat.model_validate(grant["format"]),
+            max_payload_bytes=grant["max_payload_bytes"],
+            initial_credit_bytes=grant["initial_credit_bytes"],
+        )
+        await write_media_frame(media_writer, opened)
+        await asyncio.wait_for(handled.wait(), 1)
+        assert opened_headers == [opened]
+
+        media_writer.close()
+        writer.close()
+        await media_writer.wait_closed()
+        await writer.wait_closed()
+    finally:
+        await server.close()
+    assert not runtime.exists()
+    assert server.media_path is not None and not server.media_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_media_open_ticket_is_one_time(runtime):
+    accepted = 0
+    handled = asyncio.Event()
+
+    async def handler(header, reader, writer):
+        nonlocal accepted
+        del header, reader, writer
+        accepted += 1
+        handled.set()
+
+    server = LocalIPCServer(runtime, "b" * 64, media_session_handler=handler)
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_unix_connection(runtime)
+        await write_frame(
+            writer,
+            request(
+                "system.handshake",
+                {
+                    "app_version": "0.1.0",
+                    "app_build": "test",
+                    "supported_protocols": ["1.0"],
+                    "session_token": "b" * 64,
+                },
+            ),
+        )
+        await read_frame(reader)
+        await write_frame(
+            writer,
+            request(
+                "media.open",
+                {
+                    "direction": "engine_to_app",
+                    "generation": 9,
+                    "format": {
+                        "codec": "pcm_s16le",
+                        "sample_rate": 24000,
+                        "channels": 1,
+                    },
+                },
+                request_id="req_media_once",
+            ),
+        )
+        grant = (await read_frame(reader))["payload"]
+        opened = MediaOpenHeader(
+            stream_id=grant["stream_id"],
+            trace_id=grant["trace_id"],
+            engine_epoch=grant["engine_epoch"],
+            generation=grant["generation"],
+            ticket=grant["ticket"],
+            direction=grant["direction"],
+            format=MediaFormat.model_validate(grant["format"]),
+            max_payload_bytes=grant["max_payload_bytes"],
+            initial_credit_bytes=grant["initial_credit_bytes"],
+        )
+
+        _, writer1 = await asyncio.open_unix_connection(grant["socket_path"])
+        await write_media_frame(writer1, opened)
+        await asyncio.wait_for(handled.wait(), 1)
+        assert accepted == 1
+        writer1.close()
+        await writer1.wait_closed()
+
+        reader2, writer2 = await asyncio.open_unix_connection(grant["socket_path"])
+        await write_media_frame(writer2, opened)
+        assert await asyncio.wait_for(reader2.read(1), 1) == b""
+        assert accepted == 1
+        writer2.close()
+        writer.close()
+        await writer2.wait_closed()
+        await writer.wait_closed()
+    finally:
+        await server.close()
+
+
+@pytest.mark.asyncio
+async def test_media_open_payload_is_strict_and_default_server_stays_system_only(runtime):
+    server = LocalIPCServer(runtime, "c" * 64)
+    await server.start()
+    try:
+        assert server.media_path is None
+        assert server.capabilities == ("system.health", "system.shutdown")
+    finally:
+        await server.close()

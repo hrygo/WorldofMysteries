@@ -47,7 +47,7 @@ class MediaProtocolError(RuntimeError):
 
 
 class MediaFormat(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     codec: Literal["pcm_s16le"] = "pcm_s16le"
     sample_rate: Literal[16000, 24000, 48000]
@@ -55,7 +55,7 @@ class MediaFormat(BaseModel):
 
 
 class MediaOpenHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["open"] = "open"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
@@ -79,8 +79,50 @@ class MediaOpenHeader(BaseModel):
     )
 
 
+class MediaOpenControlRequest(BaseModel):
+    """Authenticated control-plane request for one media grant."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    direction: MediaDirection
+    generation: int = Field(ge=0, le=2**63 - 1)
+    format: MediaFormat
+
+
+class MediaOpenControlResponse(BaseModel):
+    """Grant returned over authenticated control IPC.
+
+    The ticket is a short-lived bearer credential and is intentionally hidden
+    from repr. The App echoes these values in the first media OPEN header.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
+    socket_path: str = Field(min_length=1, max_length=512)
+    stream_id: str = Field(min_length=1, max_length=128)
+    trace_id: str = Field(min_length=1, max_length=128)
+    engine_epoch: str = Field(min_length=1, max_length=128)
+    generation: int = Field(ge=0, le=2**63 - 1)
+    ticket: str = Field(
+        min_length=MEDIA_TICKET_HEX_LENGTH,
+        max_length=MEDIA_TICKET_HEX_LENGTH,
+        pattern=r"^[0-9a-f]{64}$",
+        repr=False,
+    )
+    direction: MediaDirection
+    format: MediaFormat
+    max_payload_bytes: int = Field(
+        ge=2, le=MEDIA_MAX_PAYLOAD_BYTES, multiple_of=2
+    )
+    initial_credit_bytes: int = Field(
+        ge=0, le=MEDIA_MAX_CREDIT_BYTES, multiple_of=2
+    )
+    expires_in_ms: int = Field(ge=1, le=30_000)
+
+
 class MediaChunkHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["chunk"] = "chunk"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
@@ -93,7 +135,7 @@ class MediaChunkHeader(BaseModel):
 
 
 class MediaCreditHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["credit"] = "credit"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
@@ -103,7 +145,7 @@ class MediaCreditHeader(BaseModel):
 
 
 class MediaEndHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["end"] = "end"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
@@ -115,7 +157,7 @@ class MediaEndHeader(BaseModel):
 
 
 class MediaCancelHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["cancel"] = "cancel"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION
@@ -125,7 +167,7 @@ class MediaCancelHeader(BaseModel):
 
 
 class MediaErrorHeader(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
     kind: Literal["error"] = "error"
     protocol_version: Literal["1.0"] = MEDIA_PROTOCOL_VERSION

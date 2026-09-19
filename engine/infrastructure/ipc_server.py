@@ -15,20 +15,32 @@ import hmac
 import os
 from pathlib import Path
 import re
+import secrets
 import selectors
 import signal
 import socket
 import stat
 import sys
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pydantic import ValidationError
 
 from contracts.envelope import EngineIPCEnvelope, HandshakeRequest, HandshakeResponse
+from .audio.media_protocol import (
+    MediaGrantStore,
+    MediaOpenControlRequest,
+    MediaOpenControlResponse,
+    MediaOpenHeader,
+    MediaProtocolError,
+    read_media_frame,
+)
 from .ipc_framing import FrameError, read_frame, write_frame
 
-CAPABILITIES = ("system.health", "system.shutdown")
+BASE_CAPABILITIES = ("system.health", "system.shutdown")
+CAPABILITIES = BASE_CAPABILITIES  # Backward-compatible system-only constant.
+MEDIA_CAPABILITY = "media.open"
 TOKEN_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
@@ -162,11 +174,105 @@ def response(request: EngineIPCEnvelope, *, payload: dict[str, Any] | None = Non
     return EngineIPCEnvelope.model_validate(wire).model_dump()
 
 
-class LocalIPCServer:
-    """System-only transport. Each connection authenticates, then runs bounded FIFO I/O."""
+MediaSessionHandler = Callable[
+    [MediaOpenHeader, asyncio.StreamReader, asyncio.StreamWriter],
+    Awaitable[None],
+]
 
-    def __init__(self, path: Path, token: str, *, handshake_timeout: float = 5.0,
-                 max_connections: int = 16):
+
+class _MediaIPCServer:
+    """Authenticate one-time media grants before delegating an opened stream."""
+
+    def __init__(
+        self,
+        path: Path,
+        grants: MediaGrantStore,
+        handler: MediaSessionHandler,
+        *,
+        open_timeout: float,
+        max_connections: int,
+    ) -> None:
+        self.path = Path(os.path.abspath(path))
+        self._lease = SocketLease(self.path)
+        self._grants = grants
+        self._handler = handler
+        self._open_timeout = open_timeout
+        self._max_connections = max_connections
+        self._server: asyncio.Server | None = None
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    async def start(self) -> None:
+        if self._server is not None:
+            raise BootstrapError("Media server is already active")
+        sock = self._lease.bind()
+        try:
+            self._server = await asyncio.start_unix_server(
+                self._accept, sock=sock, cleanup_socket=False
+            )
+        except BaseException:
+            sock.close()
+            self._lease.close()
+            raise
+
+    def _accept(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        if self._server is None or len(self._tasks) >= self._max_connections:
+            writer.close()
+            return
+        task = asyncio.create_task(self._handle(reader, writer))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def _handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            async with asyncio.timeout(self._open_timeout):
+                header, payload = await read_media_frame(reader)
+            if not isinstance(header, MediaOpenHeader) or payload:
+                raise MediaProtocolError("media_open_required")
+            self._grants.consume(header)
+            await self._handler(header, reader, writer)
+        except (
+            MediaProtocolError,
+            EOFError,
+            TimeoutError,
+            ConnectionError,
+            OSError,
+        ):
+            pass
+        finally:
+            writer.close()
+            with contextlib.suppress(ConnectionError, OSError, TimeoutError):
+                async with asyncio.timeout(1.0):
+                    await writer.wait_closed()
+
+    async def close(self) -> None:
+        try:
+            if self._server is not None:
+                self._server.close()
+            tasks = list(self._tasks)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if self._server is not None:
+                await self._server.wait_closed()
+                self._server = None
+        finally:
+            self._lease.close()
+
+
+class LocalIPCServer:
+    """Authenticated control transport with an optional dedicated media plane."""
+
+    def __init__(
+        self,
+        path: Path,
+        token: str,
+        *,
+        handshake_timeout: float = 5.0,
+        max_connections: int = 16,
+        media_session_handler: MediaSessionHandler | None = None,
+    ):
         if TOKEN_PATTERN.fullmatch(token) is None:
             raise BootstrapError("Invalid bootstrap credential")
         if handshake_timeout <= 0 or max_connections < 1:
@@ -176,18 +282,56 @@ class LocalIPCServer:
         self._handshake_timeout = handshake_timeout
         self._max_connections = max_connections
         self._server: asyncio.Server | None = None
+        self._engine_epoch = secrets.token_hex(16) if media_session_handler else ""
+        self._media_grants = MediaGrantStore(max_entries=128, max_ttl_seconds=30.0)
+        self._media_server = (
+            _MediaIPCServer(
+                Path(path).parent / "media.sock",
+                self._media_grants,
+                media_session_handler,
+                open_timeout=handshake_timeout,
+                max_connections=max_connections,
+            )
+            if media_session_handler is not None
+            else None
+        )
         self._tasks: set[asyncio.Task[None]] = set()
         self._stopping = asyncio.Event()
+
+    @property
+    def capabilities(self) -> tuple[str, ...]:
+        return BASE_CAPABILITIES + ((MEDIA_CAPABILITY,) if self._media_server else ())
+
+    @property
+    def media_path(self) -> Path | None:
+        return None if self._media_server is None else self._media_server.path
 
     async def start(self) -> None:
         if self._server is not None or self._stopping.is_set():
             raise BootstrapError("Server cannot be started in its current state")
-        sock = self._lease.bind()
+        media_started = False
+        sock: socket.socket | None = None
         try:
-            self._server = await asyncio.start_unix_server(self._accept, sock=sock,
-                                                           cleanup_socket=False)
+            # Start the media listener first. Once the control socket becomes
+            # visible, a successful handshake advertising media.open therefore
+            # cannot race an unbound media endpoint.
+            if self._media_server is not None:
+                await self._media_server.start()
+                media_started = True
+            sock = self._lease.bind()
+            self._server = await asyncio.start_unix_server(
+                self._accept, sock=sock, cleanup_socket=False
+            )
         except BaseException:
-            sock.close()
+            if sock is not None:
+                sock.close()
+            if self._server is not None:
+                self._server.close()
+                with contextlib.suppress(Exception):
+                    await self._server.wait_closed()
+                self._server = None
+            if media_started and self._media_server is not None:
+                await self._media_server.close()
             self._lease.close()
             raise
 
@@ -236,13 +380,15 @@ class LocalIPCServer:
                     return
                 welcome = HandshakeResponse(engine_version="0.1.0", engine_build="ipc-foundation-1",
                                             python_version=".".join(map(str, sys.version_info[:3])),
-                                            protocol_version="1.0", capabilities=list(CAPABILITIES))
+                                            protocol_version="1.0", capabilities=list(self.capabilities))
                 await write_frame(writer, response(req, payload=welcome.model_dump()))
                 del hello
             while not self._stopping.is_set():
                 req = await self._request(reader, writer)
-                if req.method not in CAPABILITIES:
+                if req.method not in self.capabilities:
                     await write_frame(writer, response(req, code="method_not_supported"))
+                elif req.method == MEDIA_CAPABILITY:
+                    await self._handle_media_open(req, writer)
                 elif req.payload:
                     await write_frame(writer, response(req, code="schema_invalid"))
                 elif req.method == "system.health":
@@ -259,6 +405,45 @@ class LocalIPCServer:
             with contextlib.suppress(ConnectionError, OSError, TimeoutError):
                 async with asyncio.timeout(1.0):
                     await writer.wait_closed()
+
+    async def _handle_media_open(
+        self, req: EngineIPCEnvelope, writer: asyncio.StreamWriter
+    ) -> None:
+        if self._media_server is None or not self._engine_epoch:
+            await write_frame(writer, response(req, code="method_not_supported"))
+            return
+        try:
+            request = MediaOpenControlRequest.model_validate(req.payload)
+            stream_id = f"media_{secrets.token_hex(12)}"
+            ttl_seconds = 10.0
+            ticket, grant = self._media_grants.mint(
+                stream_id=stream_id,
+                trace_id=req.trace_id,
+                engine_epoch=self._engine_epoch,
+                generation=request.generation,
+                direction=request.direction,
+                format=request.format,
+                max_payload_bytes=64 * 1024,
+                initial_credit_bytes=256 * 1024,
+                ttl_seconds=ttl_seconds,
+            )
+            payload = MediaOpenControlResponse(
+                socket_path=str(self._media_server.path),
+                stream_id=grant.stream_id,
+                trace_id=grant.trace_id,
+                engine_epoch=grant.engine_epoch,
+                generation=grant.generation,
+                ticket=ticket,
+                direction=grant.direction,
+                format=grant.format,
+                max_payload_bytes=grant.max_payload_bytes,
+                initial_credit_bytes=grant.initial_credit_bytes,
+                expires_in_ms=int(ttl_seconds * 1000),
+            ).model_dump(mode="json")
+        except (ValidationError, ValueError, MediaProtocolError):
+            await write_frame(writer, response(req, code="schema_invalid"))
+            return
+        await write_frame(writer, response(req, payload=payload))
 
     def request_stop(self) -> None:
         self._stopping.set()
@@ -279,8 +464,11 @@ class LocalIPCServer:
                 await self._server.wait_closed()
                 self._server = None
         finally:
+            if self._media_server is not None:
+                await self._media_server.close()
             self._lease.close()
             self._token = ""  # Best effort, not a promise of zeroized Python memory.
+            self._engine_epoch = ""
 
 
 async def _watch_parent(server: LocalIPCServer, parent_pid: int) -> None:
