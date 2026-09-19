@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 5b6afeb081b7221b3be993965cffd6e1a66eff07
+          ref: 01852638388371a994bc4e83cd286820075004ac
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@v10.1.0
