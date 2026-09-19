@@ -126,6 +126,8 @@ assets/        = audio / image / export binary assets
 
 `world.db` 使用强事务；`retrieval.db` 通过 Transactional Outbox 异步投影，不参与 Domain 原子事务。
 
+检索索引支持全文与语义检索，不拥有领域真相的独立修改权限。
+
 检索采用：
 
 ```text
@@ -213,13 +215,10 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 
 - `05_UI/UI_交互基线_v1.0.md`
 - `05_UI/Interaction_Runtime_State_v1.0.md`
-- `05_UI/assets/01_概念参考/01_世界首页_概念参考.png`
-- `05_UI/assets/01_概念参考/02_人物档案_概念参考.png`
-- `05_UI/assets/01_概念参考/05_卡牌详情_概念参考.png`
-- `05_UI/assets/01_概念参考/06_卡牌馆_概念参考.png`
-
-> 这四张高保真原型参考属于**本机资产**（`docs/05_UI/assets/` 由 `.gitignore` 排除），
-> 克隆仓库后目录为空、链接不可解析；取用与恢复方式见 [`05_UI/assets/README.md`](05_UI/assets/README.md)。
+- `05_UI/assets/01_世界首页_概念参考.png`
+- `05_UI/assets/02_人物档案_概念参考.png`
+- `05_UI/assets/05_卡牌详情_概念参考.png`
+- `05_UI/assets/06_卡牌馆_概念参考.png`
 
 命运介入页与 Story Player 当前没有被批准的视觉稿；两者以交互规范为准，不以旧图作为实现基线。
 
@@ -304,3 +303,9 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - Narrative/TTS retry 不改变 StoryState。
 
 通过上述门槛后，系统进入可扩展内容生产阶段。
+
+
+## Voice-First v2 方案与实施入口（待实施）
+
+语音第一、动态音色与跨仓依赖的详细技术/实施/验收方案见[Voice-First v2](03_工程规范/voice/README.md)。
+本项是方案交付，不代表运行时、真实语音质量或生产接线已完成；SpeechRail需求与兼容路径在该入口统一跟踪。

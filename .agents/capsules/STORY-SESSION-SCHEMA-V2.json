@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-STORY-SESSION-SCHEMA-V2-R2",
-  "capsule_revision": 2,
+  "capsule_id": "CAP-STORY-SESSION-SCHEMA-V2-R3",
+  "capsule_revision": 3,
   "task_id": "STORY-SESSION-SCHEMA-V2",
   "title": "Safe world schema v2 migration and StorySession tables",
   "assigned_role": "AGT-DATA",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
-    "target_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
-    "context_snapshot": "sha256:9e36f7b9e7314e25119d4f6106bc6a441a52f1d892f632c4b3e9f765c95d8a71"
+    "base_sha": "933ddf7b5f0c1b9b9dbbbfaa9e6d025a3bdb709c",
+    "target_sha": "933ddf7b5f0c1b9b9dbbbfaa9e6d025a3bdb709c",
+    "context_snapshot": "sha256:167ecf227e8645ef90b48632f45143526605fedc1c6e44552536a30a2fb7dc43"
   },
   "scope": {
     "read": [
@@ -60,7 +60,7 @@
     "token_estimate": 1800,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
-    "note": "Revision 2 refreshes the validation base to main@eb2bf32. StorySession schema-v2 implementation blobs are unchanged from revision 1; only task-boundary evidence is refreshed."
+    "note": "Revision 3 refreshes the validation base after #80 merged. StorySession migration, DatabaseManager and migration-test blobs are unchanged."
   },
   "impact": {
     "symbols": [
@@ -107,5 +107,5 @@
       "INV-12"
     ]
   },
-  "supersedes": "CAP-STORY-SESSION-SCHEMA-V2"
+  "supersedes": "CAP-STORY-SESSION-SCHEMA-V2-R2"
 }
