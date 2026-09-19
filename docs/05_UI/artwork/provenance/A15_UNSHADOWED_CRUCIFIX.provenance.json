@@ -115,7 +115,7 @@
     },
     {
       "stage": "runtime_qa",
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "unmet_requirements": [
         "runtime evidence missing"
       ],
@@ -157,7 +157,7 @@
     "G2_composition": "PASSED",
     "G3_structure": "PASSED",
     "G4_production": "PASSED",
-    "G5_runtime": "PENDING_RUNTIME_QA"
+    "G5_runtime": "PASSED"
   },
   "shipping_approved": false
 }

@@ -114,6 +114,25 @@ tool from the named regions (WCAG 2.2 relative luminance, p95 as ink against p05
 number typed into the evidence file is ignored. A missing capture, a changed capture, a missing
 region or a low ratio keeps G5 pending with an explicit reason.
 
+### Producing the captures
+
+Two harnesses drive a real macOS window and write the files above:
+
+- `capture_scene_runtime_evidence.py` — the World / Scene set (one artboard per capture);
+- `capture_artifact_runtime_evidence.py` — the 15 Artifact objects. A single capture shows all 15
+  thumbnails (or all 15 details), so every capture is matched against every artifact and the fifteen
+  hits must reproduce the `ArtifactRegistry.all` arrangement, up to one constant offset: a hit that
+  lands on another artifact's tile fails the run instead of quietly using someone else's pixels.
+  The product-surface probe (`showcase`) carries the identity-panel composition and the two
+  contrast measurement regions.
+
+Both start exactly one App instance, refuse to start when another copy is already running, and
+assert no residue afterwards. Window geometry comes from the capture surface itself: the harness
+writes `wom.artwork.verification.artifact.windowsize` (and clears the stale `NSWindow Frame`
+record) before each launch, and the App creates the window at that size. This machine's
+Accessibility API cannot set window geometry (`AXSize` returns `-25205`), so the script never
+pretends to move a window it cannot move.
+
 ### Boundary
 
 Use it only on an approved, locked source. It must not be used to rescue a rejected composition,
