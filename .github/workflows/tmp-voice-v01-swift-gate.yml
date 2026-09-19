@@ -1,0 +1,25 @@
+name: Temporary Voice V01 Swift gate
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-swift-gate.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 378f4d79c61e156851da5bc081f11a8f78ed892c
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Swift media tests
+        working-directory: macos-app
+        run: swift test --filter MediaProtocolTests
+      - name: Xcode app compile
+        working-directory: macos-app
+        run: xcodebuild -project WorldOfMysteries.xcodeproj -scheme WorldOfMysteries -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
