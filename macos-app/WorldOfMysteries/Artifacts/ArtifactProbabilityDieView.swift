@@ -5,136 +5,22 @@ import simd
 
 // MARK: - 概率之骰
 
-@MainActor
-private final class ProbabilityDieRealityController {
-  let root = Entity()
-  private let die = ModelEntity()
-  private var isPrepared = false
-
-  func prepare() {
-    guard !isPrepared else { return }
-    isPrepared = true
-
-    let cubeMesh = MeshResource.generateBox(size: 0.82, cornerRadius: 0.08)
-    let ivory = SimpleMaterial(
-      color: NSColor(Color.Mystic.parchmentCard),
-      roughness: 0.32,
-      isMetallic: false
-    )
-    die.model = ModelComponent(mesh: cubeMesh, materials: [ivory])
-    die.position = [0, 0.1, 0]
-    addPips()
-    root.addChild(die)
-  }
-
-  func roll(to face: ProbabilityDieFace, seed: UInt64, visualVector: CGSize) {
-    prepare()
-    die.stopAllAnimations(recursive: true)
-
-    let dx = Float(max(-1, min(1, visualVector.width / 240)))
-    let dz = Float(max(-1, min(1, visualVector.height / 180)))
-    let start = Transform(
-      scale: .one,
-      rotation: randomOrientation(seed: seed),
-      translation: [0, 0.18, 0]
-    )
-    die.transform = start
-
-    let mid = Transform(
-      scale: .one,
-      rotation: randomOrientation(seed: seed &+ 17),
-      translation: [dx * 0.22, 0.62, -dz * 0.18]
-    )
-    die.move(to: mid, relativeTo: root, duration: 0.46, timingFunction: .easeInOut)
-
-    Task { @MainActor [weak self] in
-      try? await Task.sleep(for: .milliseconds(430))
-      guard let self else { return }
-      let final = Transform(
-        scale: .one,
-        rotation: self.orientation(forTopFace: face, yaw: Float(seed % 6283) / 1000),
-        translation: [0, 0.08, 0]
-      )
-      self.die.move(to: final, relativeTo: self.root, duration: 0.52, timingFunction: .easeOut)
-    }
-  }
-
-  private func addPips() {
-    let red = UnlitMaterial(color: NSColor(Color.Mystic.crimsonStar))
-    let radius: Float = 0.038
-    let offset: Float = 0.426
-    let span: Float = 0.19
-
-    func pattern(_ face: ProbabilityDieFace) -> [SIMD2<Float>] {
-      let c = SIMD2<Float>(0, 0)
-      let tl = SIMD2<Float>(-1, 1)
-      let tr = SIMD2<Float>(1, 1)
-      let bl = SIMD2<Float>(-1, -1)
-      let br = SIMD2<Float>(1, -1)
-      let ml = SIMD2<Float>(-1, 0)
-      let mr = SIMD2<Float>(1, 0)
-      switch face {
-      case .one: return [c]
-      case .two: return [tl, br]
-      case .three: return [tl, c, br]
-      case .four: return [tl, tr, bl, br]
-      case .five: return [tl, tr, c, bl, br]
-      case .six: return [tl, tr, ml, mr, bl, br]
-      }
-    }
-
-    enum Axis { case xp, xn, yp, yn, zp, zn }
-    let faces: [(ProbabilityDieFace, Axis)] = [
-      (.one, .yp), (.six, .yn), (.two, .zp), (.five, .zn), (.three, .xp), (.four, .xn),
-    ]
-
-    for (face, axis) in faces {
-      for uv in pattern(face) {
-        let pip = ModelEntity(mesh: .generateSphere(radius: radius), materials: [red])
-        let u = uv.x * span
-        let v = uv.y * span
-        switch axis {
-        case .xp: pip.position = [offset, v, -u]
-        case .xn: pip.position = [-offset, v, u]
-        case .yp: pip.position = [u, offset, v]
-        case .yn: pip.position = [u, -offset, -v]
-        case .zp: pip.position = [u, v, offset]
-        case .zn: pip.position = [-u, v, -offset]
-        }
-        die.addChild(pip)
-      }
-    }
-  }
-
-  private func randomOrientation(seed: UInt64) -> simd_quatf {
-    let a = Float(seed % 6283) / 1000
-    let b = Float((seed >> 12) % 6283) / 1000
-    return simd_quatf(angle: a, axis: [1, 0, 0]) * simd_quatf(angle: b, axis: [0, 1, 0])
-  }
-
-  private func orientation(forTopFace face: ProbabilityDieFace, yaw: Float) -> simd_quatf {
-    let target: simd_quatf
-    switch face {
-    case .one: target = simd_quatf(angle: 0, axis: [1, 0, 0])
-    case .six: target = simd_quatf(angle: .pi, axis: [1, 0, 0])
-    case .two: target = simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])
-    case .five: target = simd_quatf(angle: .pi / 2, axis: [1, 0, 0])
-    case .three: target = simd_quatf(angle: .pi / 2, axis: [0, 0, 1])
-    case .four: target = simd_quatf(angle: -.pi / 2, axis: [0, 0, 1])
-    }
-    return simd_quatf(angle: yaw, axis: [0, 1, 0]) * target
-  }
-}
-
+/// 表现层：骰子真的滚。
+///
+/// 结果由 Domain Engine 先提交；这里只做两件事——在一族**物理合法**的投掷里挑出自然停在
+/// 该面的那一掷，然后把这族解里的那一条播放出来。视觉轨迹依然不决定 Domain face。
 @MainActor
 public struct ProbabilityDieArtifactView: View {
   @Bindable private var model: ProbabilityDieModel
   private let context: ArtifactContext
   private let stakes: ArtifactRiskBand
 
-  @State private var scene = ProbabilityDieRealityController()
+  @State private var presenter = ProbabilityDiePresenter()
+  @State private var planner = DieRollPlanner()
   @State private var dragVector = CGSize.zero
   @State private var isDragging = false
+  @State private var lastPlan: DieRollPlan?
+  @State private var planning: Task<Void, Never>?
 
   public init(
     model: ProbabilityDieModel, context: ArtifactContext, stakes: ArtifactRiskBand = .guarded
@@ -162,8 +48,8 @@ public struct ProbabilityDieArtifactView: View {
 
         ZStack {
           RealityView { content in
-            scene.prepare()
-            content.add(scene.root)
+            presenter.prepare()
+            content.add(presenter.root)
           }
           .gesture(
             DragGesture(minimumDistance: 5)
@@ -205,11 +91,14 @@ public struct ProbabilityDieArtifactView: View {
             Color.Mystic.spiritualBlue.opacity(0.25), lineWidth: DesignTokens.Borders.hairline)
         )
         .onChange(of: model.presentationRevision) { _, _ in
-          guard let resolution = model.currentResolution else { return }
-          scene.roll(
-            to: resolution.face, seed: resolution.deterministicSeed, visualVector: model.throwVector
-          )
+          beginPhysicalRoll()
         }
+        .onDisappear {
+          planning?.cancel()
+          presenter.stopPlayback()
+        }
+
+        physicalRollDiagnostics
 
         LazyVGrid(
           columns: [GridItem(.adaptive(minimum: 180), spacing: DesignTokens.Spacing.md)],
@@ -267,12 +156,67 @@ public struct ProbabilityDieArtifactView: View {
     }
   }
 
+  // MARK: 物理投掷
+
+  /// Runs the search off the main actor, then lets the physics drive the reveal.
+  private func beginPhysicalRoll() {
+    guard let resolution = model.currentResolution else { return }
+    let input = throwInput(for: model.throwVector)
+    let planner = self.planner
+    planning?.cancel()
+    planning = Task { @MainActor in
+      let plan = await Task.detached(priority: .userInitiated) {
+        planner.plan(
+          committedFace: resolution.face, seed: resolution.deterministicSeed, throwInput: input)
+      }.value
+      guard !Task.isCancelled else { return }
+      lastPlan = plan
+      if let plan {
+        presenter.present(plan) { model.presentationDidSettle() }
+      } else {
+        // 预算内没有任何一次投掷收敛：直接揭示已提交的面，绝不用动画冒充物理。
+        model.presentationDidSettle()
+      }
+    }
+  }
+
+  private func throwInput(for vector: CGSize) -> DieThrowInput {
+    let dx = Double(vector.width)
+    let dy = Double(vector.height)
+    let magnitude = (dx * dx + dy * dy).squareRoot()
+    guard magnitude > 1 else { return .neutral }
+    // 屏幕 y 向下，世界 z 朝向观察者，所以垂直分量取反。
+    let direction = SIMD2<Double>(dx / magnitude, -dy / magnitude)
+    return DieThrowInput(direction: direction, impulse: min(magnitude / 900, 1))
+  }
+
+  @ViewBuilder
+  private var physicalRollDiagnostics: some View {
+    if let plan = lastPlan {
+      HStack(spacing: DesignTokens.Spacing.sm) {
+        MysticBadge(
+          "物理候选 \(plan.candidatesEvaluated)",
+          tone: plan.landsOnCommittedFace ? .teal : .amber,
+          systemIcon: "cube.transparent")
+        MysticBadge(
+          String(format: "落定 %.2fs · 弹跳 %d", plan.outcome.settledTime, plan.outcome.bounces),
+          tone: .azure, systemIcon: "arrow.down.to.line")
+        if plan.landsOnCommittedFace {
+          MysticBadge("面吻合", tone: .teal, systemIcon: "checkmark.seal")
+        } else {
+          MysticBadge("该掷未落到裁决面", tone: .amber, systemIcon: "exclamationmark.triangle")
+        }
+      }
+      .font(Font.Mystic.monoBadge)
+    }
+  }
+
   private var dieHeaderText: some View {
     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
       Text("命运偏转")
         .font(Font.Mystic.titleMedium)
         .foregroundStyle(Color.Mystic.textGoldAccent)
-      Text("拖拽骰面后释放，或点击按钮。视觉轨迹不决定 Domain face。")
+      Text("拖拽骰面后释放，或点击按钮。引擎先裁决结果，物理再选出自然停在该面的那一掷。")
         .mysticCaptionStyle()
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -304,8 +248,7 @@ public struct ProbabilityDieArtifactView: View {
           MysticBadge(
             face.bias.localizedTitle,
             tone: face.bias.tone,
-            systemIcon: "die.face.\(face.rawValue)"
-          )
+            systemIcon: "die.face.\(face.rawValue)")
         }
       case .sealed:
         Text("封印中").mysticCaptionStyle()

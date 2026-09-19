@@ -43,10 +43,26 @@ AF_UNIX_PATH_MAX = 104
 # socket 尾部预留：`wom-ipc-XXXXXXXX/engine.sock` 这类「临时子目录 + 文件名」的嵌套余量。
 AF_UNIX_SOCKET_RESERVE = 48
 SHORT_RUNTIME_BASE = Path("/tmp")
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
+
+
+def _git_env() -> Dict[str, str]:
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
 
 
 def run_cmd(cmd: str, cwd: Path = REPO_ROOT, check: bool = True) -> subprocess.CompletedProcess:
-    res = subprocess.run(cmd, shell=True, cwd=cwd, text=True, capture_output=True)
+    res = subprocess.run(
+        cmd, shell=True, cwd=cwd, text=True, capture_output=True, env=_git_env()
+    )
     if check and res.returncode != 0:
         raise RuntimeError(
             f"Command failed [{res.returncode}]: {cmd}\nStderr: {res.stderr}\nStdout: {res.stdout}"

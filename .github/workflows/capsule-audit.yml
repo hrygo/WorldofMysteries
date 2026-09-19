@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -41,7 +42,9 @@ jobs:
           python3 scripts/gate_profile.py check
 
       - name: Audit Capsule Scope, Gate Sovereignty & Receipt Evidence
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           python3 scripts/capsule_audit.py \
-            --base-ref "origin/${{ github.base_ref }}" \
+            --base-ref "origin/$BASE_REF" \
             --head-ref HEAD

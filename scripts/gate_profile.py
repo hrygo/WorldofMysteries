@@ -34,10 +34,26 @@ REGISTRY_PATH = GATES_DIR / "registry.json"
 PYTEST_NO_TESTS_EXIT_CODE = 5
 
 _PLACEHOLDER = re.compile(r"\$\{([A-Z_][A-Z0-9_]*)(?::-([^}]*))?\}")
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
 
 
 class GateProfileError(RuntimeError):
     """门禁档案缺失、摘要不匹配或结构非法。"""
+
+
+def _git_env() -> Dict[str, str]:
+    """Run git against the requested cwd, not a hook-injected repository."""
+
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -423,7 +439,11 @@ def cmd_resolve(args: argparse.Namespace) -> int:
             capture_output=True,
             text=True,
             check=False,
+            env=_git_env(),
         )
+        if res.returncode != 0:
+            print("❌ 无法读取变更集，拒绝按轻量档案路由。")
+            return 1
         files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
 
     profile_id, reason = route_profile(files)

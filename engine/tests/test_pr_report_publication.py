@@ -71,7 +71,7 @@ def test_actual_sticky_publisher_boundaries():
     })().catch(e => {console.error(e);process.exitCode=1;});
     """
     result = subprocess.run(["node", "-e", probe, str(script)],
-                            capture_output=True, text=True, timeout=20)
+                            capture_output=True, text=True, timeout=20, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PUBLICATION_REGRESSIONS_OK" in result.stdout
 
@@ -85,3 +85,11 @@ def test_workflow_calls_tested_publisher_and_binds_snapshot():
     assert "fetch-depth: 0" in workflow
     assert "pull_request_target" not in workflow
     assert "contents: read" in workflow
+
+
+def test_reporter_does_not_run_for_description_only_edits():
+    root = Path(__file__).resolve().parents[2]
+    workflow = (root / ".github/workflows/pr-gate-reporter.yml").read_text(encoding="utf-8")
+    assert "edited" not in workflow
+    assert "synchronize" in workflow
+    assert "ready_for_review" in workflow

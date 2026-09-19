@@ -27,8 +27,8 @@ job 的下载量以及 GitHub 对仓库健康度的干预。
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -45,11 +45,29 @@ LOCAL_ONLY_DIRS = (
     "docs/05_UI/assets/02_img_gen",
     "docs/05_UI/artwork/workbench",
 )
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
+
+
+def _git_env() -> dict[str, str]:
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
 
 
 def tracked_files() -> list[str]:
     proc = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=REPO_ROOT, capture_output=True, check=True
+        ["git", "ls-files", "-z"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=True,
+        env=_git_env(),
     )
     return [item for item in proc.stdout.decode("utf-8").split("\0") if item]
 
