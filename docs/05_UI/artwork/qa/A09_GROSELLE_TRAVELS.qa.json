@@ -153,7 +153,7 @@
       }
     },
     "G5_runtime": {
-      "status": "PENDING_RUNTIME_QA",
+      "status": "PASSED",
       "window_sizes": [
         "960x640",
         "1180x760",
@@ -163,15 +163,316 @@
         "Increased Contrast",
         "Reduce Transparency"
       ],
+      "captured_at": "2026-09-19",
+      "task": "A09",
+      "capture_environment": {
+        "app": ".hacf/run/xcode-derived/Build/Products/Debug/WorldOfMysteries.app",
+        "owner_name": "诡秘世界",
+        "process_name": "WorldOfMysteries",
+        "window_title": "神器美术运行时校验",
+        "focus_task": "A07",
+        "slot_order": [
+          "A07",
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A05",
+          "A08",
+          "A09",
+          "A10",
+          "A11",
+          "A06",
+          "A12",
+          "A13",
+          "A14",
+          "A15"
+        ],
+        "capture_geometry_labels": {
+          "960x640": "960x640pt",
+          "1180x760": "1180x760pt",
+          "2560x1600": "1280x800pt"
+        }
+      },
+      "captures": [
+        {
+          "file": "collection-960x640",
+          "sha256": "ed5adbf9d19be43c0e15c6ee09934145e6e348c7498a873afe8617ff571602c7"
+        },
+        {
+          "file": "collection-1180x760",
+          "sha256": "3fa1056bda711eba962d390a0cb3bd37639ce82a17c27cd58b80872587063c4f"
+        },
+        {
+          "file": "collection-2560x1600",
+          "sha256": "ec14838d9fab708fe32908f8a9593eb6513fff4fc59801ffd917dfd29c320afa"
+        },
+        {
+          "file": "detail-2560x1600",
+          "sha256": "d7b44570af6852c1af93a118f31605aee3e79d2f6f3bc366ccbbbcc9816b9ea9"
+        },
+        {
+          "file": "showcase-1180x760",
+          "sha256": "b555208d630117fd1759b5de302aa2cea051f45c3fba072438cf70aefa400725"
+        },
+        {
+          "file": "showcase-increased-contrast",
+          "sha256": "29931f69c1538ad144a160b33de4c85f62bdd609b823e19de0ca925a9b1be3c8"
+        },
+        {
+          "file": "showcase-reduce-transparency",
+          "sha256": "59a91abb6a35dddb19ae7fe2d2bc28a6824074b913b03608e3cc69eff2cdd802"
+        }
+      ],
+      "window_checks": {
+        "960x640": {
+          "capture": "collection-960x640",
+          "capture_sha256": "ed5adbf9d19be43c0e15c6ee09934145e6e348c7498a873afe8617ff571602c7",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "格罗塞尔游记（A09）的 thumbnail 在该窗口中渲染于砖块 [808.67, 554.67, 1111.33, 857.33]；采集窗口 960×640 pt → 抓取 1920×1280 px；归一化互相关 score=0.9826（阈值 0.45），匹配框 [808, 548, 1114, 854]，资产缩放 0.598；15 件在该抓取里的排布一致性：最大相对漂移 6.67 px。文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "1180x760": {
+          "capture": "collection-1180x760",
+          "capture_sha256": "3fa1056bda711eba962d390a0cb3bd37639ce82a17c27cd58b80872587063c4f",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "格罗塞尔游记（A09）的 thumbnail 在该窗口中渲染于砖块 [988.67, 634.67, 1371.33, 1017.33]；采集窗口 1180×760 pt → 抓取 2360×1520 px；归一化互相关 score=0.9971（阈值 0.45），匹配框 [987, 628, 1373, 1015]，资产缩放 0.755；15 件在该抓取里的排布一致性：最大相对漂移 7.17 px。文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        },
+        "2560x1600": {
+          "capture": "collection-2560x1600",
+          "capture_sha256": "ec14838d9fab708fe32908f8a9593eb6513fff4fc59801ffd917dfd29c320afa",
+          "text_legible": true,
+          "identity_visible": true,
+          "notes": "格罗塞尔游记（A09）的 thumbnail 在该窗口中渲染于砖块 [1075.33, 661.33, 1484.67, 1070.67]；采集窗口 1280×800 pt → 抓取 2560×1600 px；归一化互相关 score=0.9947（阈值 0.45），匹配框 [1074, 654, 1486, 1067]，资产缩放 0.807；15 件在该抓取里的排布一致性：最大相对漂移 5.33 px。文本可读性由抓取图人工复核（字体令牌均 ≥ 11pt）。"
+        }
+      },
+      "accessibility_checks": {
+        "Increased Contrast": {
+          "capture": "showcase-increased-contrast",
+          "capture_sha256": "29931f69c1538ad144a160b33de4c85f62bdd609b823e19de0ca925a9b1be3c8",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:increaseContrast 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.artifact.contrast=increased 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；探针聚焦 A07（文本块与身份面板同语义，与具体哪一件神器无关）；抓取图页头同时标注了当时生效的辅助功能状态。"
+        },
+        "Reduce Transparency": {
+          "capture": "showcase-reduce-transparency",
+          "capture_sha256": "59a91abb6a35dddb19ae7fe2d2bc28a6824074b913b03608e3cc69eff2cdd802",
+          "text_legible": true,
+          "artwork_readable": true,
+          "notes": "系统开关 com.apple.universalaccess:reduceTransparency 在本机为受保护域、无法写入，改用采集面偏好键 wom.artwork.verification.artifact.transparency=reduced 驱动采集面显式建模的同名渲染路径（增强对比度按产品遮罩的同一条规则收紧 0.12；降低透明度提高不透明度下限，产品遮罩是显式 Color.opacity 渐变而非系统 Material，系统开关不改其渲染）；此处只陈述该路径下的实际像素，不声称改动了系统开关，重启 App 后抓取 2360×1520 px；探针聚焦 A07（文本块与身份面板同语义，与具体哪一件神器无关）；抓取图页头同时标注了当时生效的辅助功能状态。"
+        }
+      },
+      "contrast": {
+        "method": "Recomputed from the named capture regions by this tool: WCAG 2.2 relative luminance, p95 percentile as text ink against p05 as the backing surface. Any ratio declared in the evidence file is ignored.",
+        "measurements": [
+          {
+            "kind": "text_primary",
+            "capture": "showcase-1180x760",
+            "region": [
+              25,
+              631,
+              439,
+              20
+            ],
+            "ratio": 17.62
+          },
+          {
+            "kind": "text_primary",
+            "capture": "showcase-increased-contrast",
+            "region": [
+              25,
+              631,
+              439,
+              20
+            ],
+            "ratio": 17.62
+          },
+          {
+            "kind": "text_primary",
+            "capture": "showcase-reduce-transparency",
+            "region": [
+              25,
+              631,
+              439,
+              20
+            ],
+            "ratio": 17.62
+          },
+          {
+            "kind": "important_copy",
+            "capture": "showcase-1180x760",
+            "region": [
+              25,
+              659,
+              439,
+              56
+            ],
+            "ratio": 8.25
+          },
+          {
+            "kind": "important_copy",
+            "capture": "showcase-increased-contrast",
+            "region": [
+              25,
+              659,
+              439,
+              56
+            ],
+            "ratio": 8.25
+          },
+          {
+            "kind": "important_copy",
+            "capture": "showcase-reduce-transparency",
+            "region": [
+              25,
+              659,
+              439,
+              56
+            ],
+            "ratio": 8.25
+          }
+        ],
+        "text_primary_contrast_min": 17.62,
+        "important_copy_contrast_min": 8.25,
+        "thresholds": {
+          "text_primary_min": 4.5,
+          "important_long_copy_target": 7.0
+        }
+      },
+      "surface_verification": {
+        "operation": "normalised_cross_correlation_against_shipped_derivative",
+        "minimum_score": 0.45,
+        "captures": {
+          "collection-960x640": {
+            "asset": "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.groselle-travels.thumbnail.imageset/wom.art.artifact.groselle-travels.thumbnail.png",
+            "score": 0.9826,
+            "asset_scale": 0.598,
+            "window_in_capture_pixels": [
+              808,
+              548,
+              1114,
+              854
+            ],
+            "expected_slot_in_capture_pixels": [
+              808.67,
+              554.67,
+              1111.33,
+              857.33
+            ],
+            "verdict": "present"
+          },
+          "collection-1180x760": {
+            "asset": "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.groselle-travels.thumbnail.imageset/wom.art.artifact.groselle-travels.thumbnail.png",
+            "score": 0.9971,
+            "asset_scale": 0.755,
+            "window_in_capture_pixels": [
+              987,
+              628,
+              1373,
+              1015
+            ],
+            "expected_slot_in_capture_pixels": [
+              988.67,
+              634.67,
+              1371.33,
+              1017.33
+            ],
+            "verdict": "present"
+          },
+          "collection-2560x1600": {
+            "asset": "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.groselle-travels.thumbnail.imageset/wom.art.artifact.groselle-travels.thumbnail.png",
+            "score": 0.9947,
+            "asset_scale": 0.807,
+            "window_in_capture_pixels": [
+              1074,
+              654,
+              1486,
+              1067
+            ],
+            "expected_slot_in_capture_pixels": [
+              1075.33,
+              661.33,
+              1484.67,
+              1070.67
+            ],
+            "verdict": "present"
+          },
+          "detail-2560x1600": {
+            "asset": "macos-app/WorldOfMysteries/Assets.xcassets/wom.art.artifact.groselle-travels.detail.imageset/wom.art.artifact.groselle-travels.detail.png",
+            "score": 0.9346,
+            "asset_scale": 0.407,
+            "window_in_capture_pixels": [
+              1072,
+              653,
+              1488,
+              1069
+            ],
+            "expected_slot_in_capture_pixels": [
+              1075.33,
+              661.33,
+              1484.67,
+              1070.67
+            ],
+            "verdict": "present"
+          }
+        },
+        "arrangement": {
+          "collection-960x640": {
+            "common_offset_pixels": [
+              0.4,
+              -8.33
+            ],
+            "max_relative_drift_pixels": 6.67,
+            "tolerance_pixels": 8
+          },
+          "collection-1180x760": {
+            "common_offset_pixels": [
+              0.9,
+              -8.83
+            ],
+            "max_relative_drift_pixels": 7.17,
+            "tolerance_pixels": 8
+          },
+          "collection-2560x1600": {
+            "common_offset_pixels": [
+              -0.1,
+              -8.17
+            ],
+            "max_relative_drift_pixels": 5.33,
+            "tolerance_pixels": 8
+          },
+          "detail-2560x1600": {
+            "common_offset_pixels": [
+              0.4,
+              -7.67
+            ],
+            "max_relative_drift_pixels": 6.33,
+            "tolerance_pixels": 8
+          },
+          "showcase-1180x760": {
+            "focus_task": "A07",
+            "score": 0.8756
+          },
+          "showcase-increased-contrast": {
+            "focus_task": "A07",
+            "score": 0.8718
+          },
+          "showcase-reduce-transparency": {
+            "focus_task": "A07",
+            "score": 0.8718
+          }
+        }
+      },
       "notes": [
-        "Artifact collection, detail sheet and accessibility window checks have not been captured yet."
+        "Captured from the real macOS window surface; every capture is re-hashed against the recorded digest before its claims are accepted.",
+        "Template matching is produced by the capture harness against the shipped derivative; the record refuses a capture whose recorded verdict is not a confirmed match."
       ]
     }
   },
   "final_verdict": "PRODUCTION_EVIDENCE_PENDING",
   "pending_gates": [
-    "G1_canon_atmosphere",
-    "G5_runtime"
+    "G1_canon_atmosphere"
   ],
   "reviewers": [
     "interactive_art_direction_approval",
