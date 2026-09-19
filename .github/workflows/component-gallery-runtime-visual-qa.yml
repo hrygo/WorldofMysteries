@@ -1,0 +1,78 @@
+name: Component Gallery Runtime Regression QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'macos-app/WorldOfMysteries/Components/ComponentGallery*.swift'
+      - 'macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift'
+      - 'macos-app/WorldOfMysteries/MyApp.swift'
+      - 'macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py'
+      - '.github/workflows/component-gallery-runtime-visual-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  capture-gallery:
+    name: Smoke real macOS gallery surfaces
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Xcode toolchain
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_HEAD"
+          test "$(uname -m)" = arm64
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+
+      - name: Build launchable Debug app
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/wom-gallery-derived
+        run: |
+          cd macos-app
+          xcodebuild -project WorldOfMysteries.xcodeproj             -scheme WorldOfMysteries             -configuration Debug             -destination 'platform=macOS,arch=arm64'             -derivedDataPath "$DERIVED_DATA"             CODE_SIGNING_ALLOWED=NO             build
+
+          APP="$DERIVED_DATA/Build/Products/Debug/WorldOfMysteries.app"
+          test -d "$APP"
+          codesign --force --deep --sign - "$APP"
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
+          test -n "$BUNDLE_ID"
+          echo "APP_BUNDLE_ID=$BUNDLE_ID" >> "$GITHUB_ENV"
+
+      - name: Capture runtime screenshots
+        run: |
+          OUT="$RUNNER_TEMP/component-gallery-runtime"
+          mkdir -p "$OUT"
+          python3 macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py             --app "$APP_PATH"             --bundle-id "$APP_BUNDLE_ID"             --out-dir "$OUT"             --repo-root "$GITHUB_WORKSPACE"             2>&1 | tee "$OUT/capture.log"
+
+      - name: Upload runtime visual evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: component-gallery-runtime-visuals-${{ env.SOURCE_HEAD }}
+          path: ${{ runner.temp }}/component-gallery-runtime/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 6
