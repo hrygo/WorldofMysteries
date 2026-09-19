@@ -1,7 +1,7 @@
 {
   "$comment": "受保护门禁档案摘要表。本文件定义于受保护 main 分支；CI 以目标分支版本为权威校验 PR 内的 profile 文件。",
   "registry_version": 1,
-  "generated_at": "2026-09-18T11:45:21.341555+00:00",
+  "generated_at": "2026-09-19T05:40:24.605681+00:00",
   "profiles": {
     "AI_GATEWAY_P0": {
       "file": ".hacf/gates/ai_gateway_p0.json",
@@ -38,6 +38,12 @@
       "sha256": "7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
       "risk_class": "medium",
       "description": "AGT-MAC 客户端门禁：架构适应度 + Swift 6 严格并发与 IPC 契约测试 + Xcode App Target 编译"
+    },
+    "REPO_HYGIENE_P0": {
+      "file": ".hacf/gates/repo_hygiene_p0.json",
+      "sha256": "1a266ca17818c7fe1bf348a55ee92c5ec4bab19ba9550fc5a7bc7b41d0297341",
+      "risk_class": "medium",
+      "description": "仓库卫生门禁：资产体积预算 + 文档索引可解析性 + 本机资产分层（AGT-ARB 治理面）"
     },
     "VOICE_P0": {
       "file": ".hacf/gates/voice_p0.json",

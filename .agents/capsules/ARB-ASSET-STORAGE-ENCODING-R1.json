@@ -1,0 +1,176 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-ARB-ASSET-STORAGE-ENCODING-R1",
+  "capsule_revision": 1,
+  "task_id": "ARB-ASSET-STORAGE-ENCODING-R1",
+  "title": "资产存储定案 + 运行时图像编码优化 + 大文件守门 + 文档路径修正",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T05:27:05.932897+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "c75218944e9a8ab9bc143ee7c27a389db3935b58",
+    "target_sha": "c75218944e9a8ab9bc143ee7c27a389db3935b58",
+    "context_snapshot": "sha256:730ec95de421c021a77df6f01f080d58605f98c95a6477dc1ef780f1c7ccb59b"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": [
+      "macos-app/WorldOfMysteries/Assets.xcassets/**"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:test_asset_catalog_destination_refused@docs/05_UI/artwork/delivery/tests/test_intake.py:151",
+      "symbol:asset_names@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:180",
+      "symbol:expected_asset_scale@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:333",
+      "symbol:asset_path@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:401",
+      "symbol:expected_asset_scale@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:319",
+      "symbol:asset_path@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:804",
+      "symbol:asset_variant@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:127",
+      "symbol:test_asset_names_resolve_to_shipped_catalog_imagesets@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:119",
+      "symbol:test_expected_asset_scales_stay_inside_the_search_span@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:214",
+      "symbol:test_evidence_names_only_repository_relative_assets@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:472",
+      "symbol:test_every_task_gets_its_own_file_and_own_identity_asset@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:478",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206",
+      "symbol:main@docs/05_UI/artwork/delivery/intake.py:244",
+      "symbol:DeliveryRecordsTests@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:13",
+      "symbol:test_crop_source_binding@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:14",
+      "symbol:test_wide_crop_geometry@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:26",
+      "symbol:test_crop_is_not_shipping@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:38",
+      "symbol:test_attempts_cannot_become_approved_sources@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:44",
+      "symbol:test_primary_evidence_has_explicit_limits@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:55",
+      "symbol:test_scene_prompts_are_individual@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:75",
+      "symbol:test_no_local_absolute_paths_in_delivery_markdown@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:84"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 896,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "contains_asset_catalog",
+      "test_asset_catalog_destination_refused",
+      "asset_names",
+      "expected_asset_scale",
+      "asset_path",
+      "expected_asset_scale",
+      "asset_path",
+      "asset_variant",
+      "test_asset_names_resolve_to_shipped_catalog_imagesets",
+      "test_expected_asset_scales_stay_inside_the_search_span",
+      "test_evidence_names_only_repository_relative_assets",
+      "test_every_task_gets_its_own_file_and_own_identity_asset",
+      "require",
+      "safe_path",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources",
+      "main",
+      "DeliveryRecordsTests",
+      "test_crop_source_binding",
+      "test_wide_crop_geometry",
+      "test_crop_is_not_shipping",
+      "test_attempts_cannot_become_approved_sources",
+      "test_primary_evidence_has_explicit_limits",
+      "test_scene_prompts_are_individual",
+      "test_no_local_absolute_paths_in_delivery_markdown"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

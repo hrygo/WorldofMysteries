@@ -213,10 +213,13 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 
 - `05_UI/UI_交互基线_v1.0.md`
 - `05_UI/Interaction_Runtime_State_v1.0.md`
-- `05_UI/assets/01_世界首页_概念参考.png`
-- `05_UI/assets/02_人物档案_概念参考.png`
-- `05_UI/assets/05_卡牌详情_概念参考.png`
-- `05_UI/assets/06_卡牌馆_概念参考.png`
+- `05_UI/assets/01_概念参考/01_世界首页_概念参考.png`
+- `05_UI/assets/01_概念参考/02_人物档案_概念参考.png`
+- `05_UI/assets/01_概念参考/05_卡牌详情_概念参考.png`
+- `05_UI/assets/01_概念参考/06_卡牌馆_概念参考.png`
+
+> 这四张高保真原型参考属于**本机资产**（`docs/05_UI/assets/` 由 `.gitignore` 排除），
+> 克隆仓库后目录为空、链接不可解析；取用与恢复方式见 [`05_UI/assets/README.md`](05_UI/assets/README.md)。
 
 命运介入页与 Story Player 当前没有被批准的视觉稿；两者以交互规范为准，不以旧图作为实现基线。
 

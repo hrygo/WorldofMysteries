@@ -37,10 +37,13 @@
 ## UI / UX
 - `05_UI/UI_交互基线_v1.0.md`
 - `05_UI/Interaction_Runtime_State_v1.0.md`
-- `05_UI/assets/01_世界首页_概念参考.png`
-- `05_UI/assets/02_人物档案_概念参考.png`
-- `05_UI/assets/05_卡牌详情_概念参考.png`
-- `05_UI/assets/06_卡牌馆_概念参考.png`
+- `05_UI/assets/01_概念参考/01_世界首页_概念参考.png`（本机资产，不入库）
+- `05_UI/assets/01_概念参考/02_人物档案_概念参考.png`（本机资产，不入库）
+- `05_UI/assets/01_概念参考/05_卡牌详情_概念参考.png`（本机资产，不入库）
+- `05_UI/assets/01_概念参考/06_卡牌馆_概念参考.png`（本机资产，不入库）
+
+> 完整 12 张高保真原型参考与生成原图只存在于本机 `05_UI/assets/`（`.gitignore` 排除）；
+> 索引记录的是路径与用途，不是随仓库分发的二进制。参见 [`05_UI/assets/README.md`](05_UI/assets/README.md)。
 
 ## 实施
 - `06_实施基线/Executable_Baseline_v1.0.md`

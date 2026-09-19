@@ -138,9 +138,21 @@
       "asset_name": "wom.art.artifact.magic-wishing-lamp.detail",
       "width": 1024,
       "height": 1024,
-      "sha256": "40867d8bf2cc2c4231de9932dabb9db69840ac68346bd8dde2d1f6588ee70cc3",
+      "sha256": "b712257807a820aed61679ec73c420ef804f5cd059a66bab9fb8c3946c096f99",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 1587690,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=412a16ce8af422326120f8f6f4849145d7b1e85aab152bb80d222c02c8b5d1f5",
+        "bytes_before": 1589789,
+        "bytes_after": 1587690,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.artifact.magic-wishing-lamp.thumbnail",

@@ -29,10 +29,13 @@ Example:
       --weights RealESRGAN_x4plus.pth
 
     python3 docs/05_UI/artwork/tools/finish_world_artwork.py record \
-      --task W1 --work-dir .hacf/tmp/wom-art/work \
-      --runtime-evidence .hacf/tmp/wom-art/work/W1_runtime_evidence.json \
+      --task W1 --work-dir docs/05_UI/artwork/workbench/world-scenes \
+      --runtime-evidence docs/05_UI/artwork/workbench/world-scenes/W1_runtime_evidence.json \
       --qa docs/05_UI/artwork/qa/W1_WORLD_HERO.qa.json \
       --provenance docs/05_UI/artwork/provenance/W1_WORLD_HERO.provenance.json
+
+    # 工作目录长期归宿是 workbench/（本机资产，不入库）：母版必须留在项目目录内，
+    # 不能只放在 .hacf/tmp 之类的临时目录，见 ../Asset_Storage_Policy_v1.0.md。
 """
 
 from __future__ import annotations

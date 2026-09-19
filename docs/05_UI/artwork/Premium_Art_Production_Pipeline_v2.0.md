@@ -850,12 +850,14 @@ C2PA / Content Credentials 可作为后续增强，不阻塞 A1–A3。
 推荐逻辑结构：
 
 ```text
-workbench/
-  └── local only / not committed
+workbench/                      # 本机资产，留在项目目录内、由 .gitignore 排除
+  ├── world-scenes/             # W1-W6 的 crop / SR / grade / 4096x2560 master
+  ├── artifacts/                # A01-A15 的同构产物
+  └── local_store_manifest.json # 路径 + SHA256 索引（可随仓库分发）
 
 master/
   └── production masters
-      （Git LFS 或外部 artifact store，按仓库策略决定）
+      （即上述 workbench 内的 4K/6K 母版；已定案：不使用 Git LFS）
 
 provenance/
   ├── W1.json
@@ -875,10 +877,12 @@ macos-app/WorldOfMysteries/Assets.xcassets/
 
 原则：
 
-- workbench candidate 不入 Git；
+- workbench candidate 不入 Git，但必须留在项目目录内（不得只放在 /tmp 或仓库之外）；
 - 6K 中间文件不进 Asset Catalog；
 - Asset Catalog 只存运行时 derivative；
-- Master 不被 Swift selector 加载。
+- Master 不被 Swift selector 加载；
+- 策略细则、校验方式与「可校验但不可重建」的边界声明见
+  [`Asset_Storage_Policy_v1.0.md`](Asset_Storage_Policy_v1.0.md)。
 
 ---
 

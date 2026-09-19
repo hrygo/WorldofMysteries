@@ -38,10 +38,13 @@ Example:
       --input A01_ARRODES_MIRROR/source.png --output work/A01_01_square_1254x1254.png
 
     python3 docs/05_UI/artwork/tools/finish_artifact_artwork.py record \
-      --task A01 --work-dir .hacf/tmp/artifact-work/A01_ARRODES_MIRROR \
+      --task A01 --work-dir docs/05_UI/artwork/workbench/artifacts/A01_ARRODES_MIRROR \
       --inspection docs/05_UI/artwork/qa/G3_artifact_structural_inspection_2026-09-18.json \
       --qa docs/05_UI/artwork/qa/A01_ARRODES_MIRROR.qa.json \
       --provenance docs/05_UI/artwork/provenance/A01_ARRODES_MIRROR.provenance.json
+
+    # 工作目录长期归宿是 workbench/（本机资产，不入库）：母版必须留在项目目录内，
+    # 不能只放在 .hacf/tmp 之类的临时目录，见 ../Asset_Storage_Policy_v1.0.md。
 """
 
 from __future__ import annotations

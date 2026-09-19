@@ -138,17 +138,41 @@
       "asset_name": "wom.art.artifact.probability-die.detail",
       "width": 1024,
       "height": 1024,
-      "sha256": "42739c9b9586706da8bfa9b71dbb69d5b63b233c56ffce7b9eef8154ac50d077",
+      "sha256": "d209ddafb15428ed04be594d3f5ad485706c47bb8443aa933cd17f6c72532b44",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 1396853,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=2250899410fb5b70a0a4ebbf22a74e3ac9c9451cfd02b6cf8936b6eee9105c0a",
+        "bytes_before": 1411054,
+        "bytes_after": 1396853,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.artifact.probability-die.thumbnail",
       "width": 512,
       "height": 512,
-      "sha256": "7fe86fa2d2ac1990e31aaddb406c38ecb5d0c94e0e1d9faa58cc20c66c2a5503",
+      "sha256": "014b3bad620a1efdd491210a168c7fa6560707e74697c7bfa5a28e83a63e1b72",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 408588,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=244026797f62ac76f7cc72d943fc379979a59537f0fe3a78370e437340b0a416",
+        "bytes_before": 409587,
+        "bytes_after": 408588,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     }
   ],
   "gates": {
