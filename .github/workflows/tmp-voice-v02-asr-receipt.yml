@@ -1,0 +1,34 @@
+name: Temporary Voice V02 ASR receipt
+on:
+  push:
+    branches: ['tmp/voice-v02-asr-receipt-20260919']
+    paths: ['.github/workflows/tmp-voice-v02-asr-receipt.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 215222d5311d8a8f310b50946537c6aa2ed49951
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify W-V02 Realtime ASR capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/agent_capsule.py verify             --capsule .agents/capsules/VOICE-V02-REALTIME-ASR.json             --cwd "$GITHUB_WORKSPACE"
+      - name: Upload receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: voice-v02-realtime-asr-receipt
+          path: .agents/receipts/VOICE-V02-REALTIME-ASR/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
