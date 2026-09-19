@@ -1,0 +1,54 @@
+name: Temporary PR88 revision2 receipts
+on:
+  push:
+    branches: [tmp/pr88-r2-receipt]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        capsule:
+          - TURN1-DOMAIN-REDUCER
+          - TURN1-APPLICATION-COMMIT
+          - TURN1-DATA-ADAPTER
+          - TURN1-DURABLE-QA
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 84cfa45fb3d76bc08b3452b3da916faf11946a22
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = 84cfa45fb3d76bc08b3452b3da916faf11946a22
+          test "$(git rev-parse origin/main)" = 82d673e57da85837ac945c4a3c47d2729498af78
+          mkdir -p "$RUNNER_TEMP/evidence"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/spm"
+          python3 scripts/agent_capsule.py verify --capsule ".agents/capsules/${{ matrix.capsule }}.json" --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/evidence/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/evidence/strict-audit.log"
+      - name: Collect receipts
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence/receipts"
+          if [ -d ".agents/receipts/${{ matrix.capsule }}" ]; then cp -R ".agents/receipts/${{ matrix.capsule }}" "$RUNNER_TEMP/evidence/receipts/"; fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/evidence/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR88-${{ matrix.capsule }}-r2
+          path: ${{ runner.temp }}/evidence/
+          retention-days: 7
+          include-hidden-files: true
