@@ -1,0 +1,52 @@
+name: Temporary Voice V01 final slice receipts
+on:
+  push:
+    branches: ['tmp/voice-v01-pack-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-final-receipts.yml']
+permissions:
+  contents: read
+jobs:
+  swift-connect:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: c1186ebebab565ea2674c82b8eba12c508ab00e2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify Swift connect capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-SWIFT-CONNECT.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-swift-connect-receipt
+          path: .agents/receipts/VOICE-V01-SWIFT-CONNECT/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
+  contract-close:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: b1acd20b074edd8d85e530d79509d2b488099fe7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify contract close capsule
+        run: python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-CONTRACT-CLOSE.json --cwd "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: voice-v01-contract-close-receipt
+          path: .agents/receipts/VOICE-V01-CONTRACT-CLOSE/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
