@@ -11,9 +11,12 @@ struct ComponentGalleryWorldGroup: View {
 }
 
 private struct GrayFogAndRitualGallerySection: View {
+    @State private var lastRitualAction = "尚未触发"
+    @State private var ritualActionCount = 0
+
     var body: some View {
         ComponentGallerySection(title: "05 · 灰雾深红星辰与仪式魔法 (Above Gray Fog & Ritual)") {
-            VStack(spacing: DesignTokens.Spacing.lg) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                 LazyVGrid(
                     columns: [
                         GridItem(
@@ -27,26 +30,49 @@ private struct GrayFogAndRitualGallerySection: View {
                     CrimsonStarBeaconView(
                         starName: "深红星辰 · 正义小姐",
                         prayerPreview: "请求愚者先生指引贝克兰德非凡聚会情报...",
-                        unheardEchoesCount: 2
+                        unheardEchoesCount: 2,
+                        onTapStar: {
+                            recordRitualAction("聆听正义小姐祈祷")
+                        }
                     )
                     CrimsonStarBeaconView(
                         starName: "深红星辰 · 倒吊人",
                         prayerPreview: "苏尼亚海发现了幽灵船行踪...",
-                        unheardEchoesCount: 0
+                        unheardEchoesCount: 0,
+                        onTapStar: {
+                            recordRitualAction("聆听倒吊人祈祷")
+                        }
                     )
                 }
 
                 BronzeAltarPrayerCard(
                     deityTitle: "不属于这个时代的愚者",
                     domainName: "灰雾之上的神秘主宰",
-                    blessingTitle: "执掌好运的黄黑之王"
+                    blessingTitle: "执掌好运的黄黑之王",
+                    onChantPrayer: {
+                        recordRitualAction("吟诵愚者尊名")
+                    }
+                )
+
+                MysticKeyValueRow(
+                    key: "仪式回执",
+                    value: "\(lastRitualAction) · \(ritualActionCount) 次",
+                    tone: ritualActionCount == 0 ? .neutral : .crimson,
+                    systemIcon: "sparkles"
                 )
             }
         }
     }
+
+    private func recordRitualAction(_ title: String) {
+        lastRitualAction = title
+        ritualActionCount += 1
+    }
 }
 
 private struct CodexAndDatabaseGallerySection: View {
+    @State private var characterAdviceCount = 0
+
     var body: some View {
         ComponentGallerySection(title: "06 · 人物档案与四库内核 (Codex & Database)") {
             WOMAdaptivePair(
@@ -54,12 +80,26 @@ private struct CodexAndDatabaseGallerySection: View {
                 primaryIdealWidth: 520,
                 spacing: DesignTokens.Spacing.lg
             ) {
-                CharacterCodexCard(
-                    characterName: "克莱恩·莫雷蒂",
-                    pathwayTitle: "占卜家途径 · 序列 9",
-                    occupation: "值夜者文职人员",
-                    location: "佐特兰街36号"
-                )
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    CharacterCodexCard(
+                        characterName: "克莱恩·莫雷蒂",
+                        pathwayTitle: "占卜家途径 · 序列 9",
+                        occupation: "值夜者文职人员",
+                        location: "佐特兰街36号",
+                        onVoiceAdviceTapped: {
+                            characterAdviceCount += 1
+                        }
+                    )
+
+                    MysticKeyValueRow(
+                        key: "Advice 入口",
+                        value: characterAdviceCount == 0
+                            ? "尚未触发"
+                            : "已触发 \(characterAdviceCount) 次",
+                        tone: characterAdviceCount == 0 ? .neutral : .teal,
+                        systemIcon: "waveform.badge.mic"
+                    )
+                }
             } secondary: {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                     // 组件样例：显式并列「探针已接入」与「未接入」两种合法状态，
@@ -160,6 +200,8 @@ private struct SidebarGallerySample: View {
 }
 
 private struct CanonicalGeographyGallerySection: View {
+    @State private var lastGeographySelection = "尚未选择"
+
     var body: some View {
         ComponentGallerySection(title: "08 · 原著正典地域档案 (Canonical Geography)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
@@ -173,12 +215,23 @@ private struct CanonicalGeographyGallerySection: View {
                     primaryIdealWidth: 420,
                     spacing: DesignTokens.Spacing.lg
                 ) {
-                    TingenCityDossierCard()
-                        .frame(maxWidth: .infinity)
+                    TingenCityDossierCard { location in
+                        lastGeographySelection = "廷根 · \(location.rawValue)"
+                    }
+                    .frame(maxWidth: .infinity)
                 } secondary: {
-                    BacklundMetropolisCard()
-                        .frame(maxWidth: .infinity)
+                    BacklundMetropolisCard { district in
+                        lastGeographySelection = "贝克兰德 · \(district.rawValue)"
+                    }
+                    .frame(maxWidth: .infinity)
                 }
+
+                MysticKeyValueRow(
+                    key: "地域选择",
+                    value: lastGeographySelection,
+                    tone: lastGeographySelection == "尚未选择" ? .neutral : .gold,
+                    systemIcon: "map"
+                )
             }
         }
     }

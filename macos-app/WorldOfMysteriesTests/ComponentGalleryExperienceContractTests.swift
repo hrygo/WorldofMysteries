@@ -130,6 +130,27 @@ struct ComponentGalleryExperienceContractTests {
         #expect(visual.contains("recordVisualAction(\"压力样例操作\")"))
     }
 
+    @Test("production component callbacks are wired in gallery instead of left disabled")
+    func productionCallbacksAreWired() throws {
+        let interactions = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionGroup.swift"
+        )
+        let world = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryWorldGroup.swift"
+        )
+
+        #expect(interactions.contains("onVoiceTapped:"))
+        #expect(interactions.contains("onSubmitAdvice:"))
+        #expect(interactions.contains("onNodeTapped:"))
+        #expect(interactions.contains("onSelect:"))
+        #expect(interactions.contains("ListeningRingView(state: .idle) {"))
+        #expect(world.contains("onTapStar:"))
+        #expect(world.contains("onChantPrayer:"))
+        #expect(world.contains("onVoiceAdviceTapped:"))
+        #expect(world.contains("TingenCityDossierCard { location in"))
+        #expect(world.contains("BacklundMetropolisCard { district in"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

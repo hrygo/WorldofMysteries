@@ -12,6 +12,8 @@ struct ComponentGalleryInteractionGroup: View {
 
 private struct ListeningAndAdviceGallerySection: View {
     @State private var adviceDraft = "小心身后的红月，屏住呼吸离开房间。"
+    @State private var lastInteraction = "尚未触发"
+    @State private var interactionCount = 0
 
     var body: some View {
         ComponentGallerySection(title: "01 · 声纹交互与干预输入 (Listening & Advice)") {
@@ -26,22 +28,50 @@ private struct ListeningAndAdviceGallerySection: View {
                     alignment: .leading,
                     spacing: DesignTokens.Spacing.md
                 ) {
-                    ListeningRingView(state: .idle)
-                    ListeningRingView(state: .listening)
-                    ListeningRingView(state: .deciding)
-                    ListeningRingView(state: .speaking)
+                    ListeningRingView(state: .idle) {
+                        recordInteraction("静息语音环")
+                    }
+                    ListeningRingView(state: .listening) {
+                        recordInteraction("监听语音环")
+                    }
+                    ListeningRingView(state: .deciding) {
+                        recordInteraction("思考语音环")
+                    }
+                    ListeningRingView(state: .speaking) {
+                        recordInteraction("播报语音环")
+                    }
                 }
 
                 AdviceInputField(
                     text: $adviceDraft,
-                    targetCharacter: "克莱恩·莫雷蒂"
+                    targetCharacter: "克莱恩·莫雷蒂",
+                    onVoiceTapped: {
+                        recordInteraction("语音建议入口")
+                    },
+                    onSubmitAdvice: { _ in
+                        recordInteraction("提交 Advice")
+                    }
+                )
+
+                MysticKeyValueRow(
+                    key: "最近交互",
+                    value: "\(lastInteraction) · \(interactionCount) 次",
+                    tone: interactionCount == 0 ? .neutral : .teal,
+                    systemIcon: "waveform"
                 )
             }
         }
     }
+
+    private func recordInteraction(_ title: String) {
+        lastInteraction = title
+        interactionCount += 1
+    }
 }
 
 private struct CardsAndCluesGallerySection: View {
+    @State private var selectedClue = "尚未选择"
+
     var body: some View {
         ComponentGallerySection(title: "02 · 容器材质与调查卷宗 (Cards & Clues)") {
             WOMAdaptivePair(
@@ -59,10 +89,22 @@ private struct CardsAndCluesGallerySection: View {
                     }
                 }
             } secondary: {
-                CluePinboardNodeView(
-                    title: "自杀的手枪",
-                    note: "转轮手枪内缺少一颗子弹。弹壳掉落在书桌右侧脚垫旁。"
-                )
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    CluePinboardNodeView(
+                        title: "自杀的手枪",
+                        note: "转轮手枪内缺少一颗子弹。弹壳掉落在书桌右侧脚垫旁。",
+                        onNodeTapped: {
+                            selectedClue = "自杀的手枪"
+                        }
+                    )
+
+                    MysticKeyValueRow(
+                        key: "调查选择",
+                        value: selectedClue,
+                        tone: selectedClue == "尚未选择" ? .neutral : .gold,
+                        systemIcon: "pin.fill"
+                    )
+                }
             }
         }
     }
@@ -140,22 +182,37 @@ private struct SpiritualityAndPendulumGallerySection: View {
 }
 
 private struct WorldlineGallerySection: View {
+    @State private var selectedWorldline = "尚未选择"
+
     var body: some View {
         ComponentGallerySection(title: "04 · 世界线演化与因果分叉 (Worldline Nexus)") {
-            VStack(spacing: DesignTokens.Spacing.md) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 WorldlineNodeView(
                     title: "正典主轴：廷根市的枪声",
                     worldTime: "第五纪 1349年 6月28日 晨",
                     status: .canonical,
                     causeSummary: "既定历史：克莱恩·莫雷蒂自杀苏醒，笔记不知所踪。",
-                    turnIndex: 0
+                    turnIndex: 0,
+                    onSelect: {
+                        selectedWorldline = "正典主轴：廷根市的枪声"
+                    }
                 )
                 WorldlineNodeView(
                     title: "分支 A：提前上报值夜者小队",
                     worldTime: "第五纪 1349年 6月28日 午",
                     status: .active,
                     causeSummary: "因果偏离：向邓恩汇报日记疑点，码头提前戒严。",
-                    turnIndex: 3
+                    turnIndex: 3,
+                    onSelect: {
+                        selectedWorldline = "分支 A：提前上报值夜者小队"
+                    }
+                )
+
+                MysticKeyValueRow(
+                    key: "当前世界线",
+                    value: selectedWorldline,
+                    tone: selectedWorldline == "尚未选择" ? .neutral : .teal,
+                    systemIcon: "point.topleft.down.to.point.bottomright.curvepath"
                 )
             }
         }
