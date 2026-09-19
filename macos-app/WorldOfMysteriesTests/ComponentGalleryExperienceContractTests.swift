@@ -317,6 +317,26 @@ struct ComponentGalleryExperienceContractTests {
         #expect(!capture.contains("did not reach requested geometry"))
     }
 
+    @Test("citrine card exposes direct drag, release velocity and reduced-motion fallback")
+    func citrineDirectInteractionIsWired() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/CitrinePendulumScryingCard.swift"
+        )
+        let interaction = try file(
+            "macos-app/WorldOfMysteries/DesignSystem/CitrinePendulumInteraction.swift"
+        )
+
+        #expect(source.contains("DragGesture("))
+        #expect(source.contains("value.velocity"))
+        #expect(source.contains("CitrinePendulumInteraction.dragAngle("))
+        #expect(source.contains("angularVelocityDegreesPerSecond("))
+        #expect(source.contains(".interpolatingSpring("))
+        #expect(source.contains("isPendulumDragging"))
+        #expect(source.contains("allowsHitTesting(!isScrying)"))
+        #expect(interaction.contains("tanh(rawDegrees / limit)"))
+        #expect(interaction.contains("remainingDistance = -angleDegrees"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
