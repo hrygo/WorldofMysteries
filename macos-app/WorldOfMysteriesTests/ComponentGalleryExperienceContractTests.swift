@@ -209,6 +209,23 @@ struct ComponentGalleryExperienceContractTests {
         #expect(source.contains("没有匹配的特殊物品"))
     }
 
+    @Test("gallery supports focused browsing without introducing a second scroll owner")
+    func gallerySupportsFocusedBrowsing() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryView.swift"
+        )
+
+        #expect(source.contains("@State private var focus: ComponentGalleryFocus = .all"))
+        #expect(source.contains("case interaction"))
+        #expect(source.contains("case world"))
+        #expect(source.contains("case system"))
+        #expect(source.contains("case artifacts"))
+        #expect(source.contains("Picker(\"画廊范围\""))
+        #expect(source.contains("focusPicker(style: .segmented)"))
+        #expect(source.contains("focusPicker(style: .menu)"))
+        #expect(!source.contains("ScrollView {"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
