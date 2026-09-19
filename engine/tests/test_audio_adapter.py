@@ -10,7 +10,9 @@ from infrastructure.audio import (
     AudioProviderConfig,
     MockAudioAdapter,
     OpenAIAudioAdapter,
+    ProbeHttpResponse,
     create_audio_adapter,
+    probe_audio_capabilities,
 )
 
 
@@ -187,3 +189,164 @@ async def test_mock_audio_adapter_deterministic():
     tts_res = await mock_adapter.synthesize("文字", voice="test")
     assert tts_res.audio_bytes == b"MOCK_MP3_AUDIO_HEADER_AND_FRAMES"
     assert mock_adapter.synthesize_call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_observes_only_safe_routing_fields():
+    config = AudioProviderConfig()
+    seen_urls: list[str] = []
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        assert timeout == config.timeout_seconds
+        seen_urls.append(url)
+        payloads = {
+            "http://127.0.0.1:8201/health": {
+                "version": "2.4.0",
+                "profile": "quality",
+                "asr_ready": True,
+                "tts_ready": True,
+            },
+            "http://127.0.0.1:8201/readyz": {"ready": True},
+            "http://127.0.0.1:8201/v1/models": {
+                "object": "list",
+                "data": [{"id": "whisper-1"}, {"id": "tts-1"}],
+            },
+            "http://127.0.0.1:8201/v1/voices": {
+                "object": "list",
+                "data": [
+                    {
+                        "id": "serena",
+                        "available": True,
+                        "variant": "custom_voice",
+                        "capabilities": {
+                            "supports_speaker": True,
+                            "supports_instruction": False,
+                            "supports_clone": False,
+                        },
+                        "ref_text": "private reference text must not escape the probe",
+                        "audio_path": "/private/reference.wav",
+                    }
+                ],
+            },
+        }
+        return ProbeHttpResponse(200, payloads[url])
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "ready"
+    assert result.assurance == "legacy_observed"
+    assert result.ready is True
+    assert result.service_version == "2.4.0"
+    assert result.profile == "quality"
+    assert result.asr_ready is True
+    assert result.tts_ready is True
+    assert result.model_ids == ("tts-1", "whisper-1")
+    assert len(result.voices) == 1
+    voice = result.voices[0]
+    assert voice.voice_id == "serena"
+    assert voice.available is True
+    assert voice.variant == "custom_voice"
+    assert voice.supports_speaker is True
+    assert voice.supports_instruction is False
+    assert voice.supports_clone is False
+    assert not hasattr(voice, "ref_text")
+    assert not hasattr(voice, "audio_path")
+    assert result.errors == ()
+    assert set(seen_urls) == {
+        "http://127.0.0.1:8201/health",
+        "http://127.0.0.1:8201/readyz",
+        "http://127.0.0.1:8201/v1/models",
+        "http://127.0.0.1:8201/v1/voices",
+    }
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_keeps_missing_fields_unknown():
+    config = AudioProviderConfig()
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        del timeout
+        if url.endswith("/health"):
+            return ProbeHttpResponse(200, {})
+        if url.endswith("/readyz"):
+            return ProbeHttpResponse(200, {"ready": True})
+        if url.endswith("/models"):
+            return ProbeHttpResponse(200, {"data": []})
+        return ProbeHttpResponse(
+            200,
+            {"data": [{"id": "legacy_voice", "capabilities": {}}]},
+        )
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "ready"
+    assert result.service_version is None
+    assert result.profile is None
+    assert result.asr_ready is None
+    assert result.tts_ready is None
+    assert result.voices[0].available is None
+    assert result.voices[0].variant is None
+    assert result.voices[0].supports_instruction is None
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_preserves_not_ready_and_catalog_evidence():
+    config = AudioProviderConfig()
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        del timeout
+        if url.endswith("/health"):
+            return ProbeHttpResponse(
+                200,
+                {"version": "2.4.0", "asr_ready": False, "tts_ready": False},
+            )
+        if url.endswith("/readyz"):
+            return ProbeHttpResponse(503, {"error": {"code": "backend_not_ready"}})
+        if url.endswith("/models"):
+            return ProbeHttpResponse(200, {"data": [{"id": "tts-1"}]})
+        return ProbeHttpResponse(200, {"data": []})
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "not_ready"
+    assert result.ready is False
+    assert result.model_ids == ("tts-1",)
+    assert "readyz_http_503" in result.errors
+
+
+@pytest.mark.asyncio
+async def test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party():
+    config = AudioProviderConfig(
+        provider_name="groq",
+        base_url="https://api.groq.com/openai/v1",
+        api_key="test",
+    )
+    called = False
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        nonlocal called
+        called = True
+        raise AssertionError((url, timeout))
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "not_applicable"
+    assert result.assurance == "not_applicable"
+    assert called is False
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network():
+    config = AudioProviderConfig(base_url="http://127.0.0.1:8201/api")
+    called = False
+
+    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+        nonlocal called
+        called = True
+        raise AssertionError((url, timeout))
+
+    result = await probe_audio_capabilities(config, fetch_json=fetch)
+
+    assert result.status == "invalid_config"
+    assert result.errors == ("base_url_invalid",)
+    assert called is False
