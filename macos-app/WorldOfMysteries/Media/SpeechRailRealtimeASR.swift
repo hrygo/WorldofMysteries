@@ -6,6 +6,7 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
     case unsupportedMessage
     case sessionRejected(code: String)
     case audioFrameInvalid
+    case captureFailure
     case transportFailure
     case finalizationTimedOut
     case invalidEnvelope

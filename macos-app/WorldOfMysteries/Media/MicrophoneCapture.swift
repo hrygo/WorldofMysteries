@@ -238,3 +238,12 @@ public final class MicrophoneCaptureSession {
         streamStorage = nil
     }
 }
+
+
+@MainActor
+public protocol MicrophonePCMSource: AnyObject {
+    func start() throws -> AsyncThrowingStream<MicrophonePCM16Chunk, any Error>
+    func stop()
+}
+
+extension MicrophoneCaptureSession: MicrophonePCMSource {}
