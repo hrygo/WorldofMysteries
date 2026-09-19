@@ -1,0 +1,102 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-OUTCOME-RESOLVER-FOUNDATION",
+  "capsule_revision": 1,
+  "task_id": "OUTCOME-RESOLVER-FOUNDATION",
+  "title": "Deterministic Outcome Resolver foundation and Golden Turn 1",
+  "assigned_role": "AGT-DOM",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:00:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "7c558f39ada34dd8f4ba8b1112f8860388bf50fc",
+    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "context_snapshot": "sha256:72e24fb11aa42dd5bc3883b7c7d34ae61c8583d4c55a8e22e4994b89d7a33741"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/contracts/",
+      "engine/tests/",
+      "contracts/schemas/",
+      "fixtures/golden_001/",
+      "docs/07_工程启动/golden_001_runtime/"
+    ],
+    "write": [
+      "engine/domain/resolver.py",
+      "engine/domain/resolution_policy.py",
+      "engine/tests/test_outcome_resolver.py",
+      ".agents/capsules/OUTCOME-RESOLVER-FOUNDATION.json"
+    ],
+    "forbidden": [
+      "contracts/**",
+      "engine/application/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/resolver.py",
+      "engine/contracts/models.py",
+      "contracts/schemas/action_intent.schema.json",
+      "contracts/schemas/state_delta.schema.json",
+      "fixtures/golden_001/seed.json",
+      "docs/07_工程启动/golden_001_runtime/mock/01_action_intent.json"
+    ],
+    "related_contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json"
+    ],
+    "slice_strategy": "explicit-domain-vertical-slice",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Stacked on #80 canonical Python contract parity. Resolver remains pure Domain logic and receives prevalidated policy; Golden rules stay in tests, not production branches."
+  },
+  "impact": {
+    "symbols": [
+      "ResolutionPolicy",
+      "ResolutionRule",
+      "StoryEffect",
+      "DeterministicOutcomeResolver"
+    ],
+    "contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_outcome_resolver.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": ["DOMAIN-CONTRACT-PARITY"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [1, 2, 4, 5, 6, 7, 9, 12],
+    "instructions": "Pure deterministic Resolver only. No Golden scenario special cases, DB writes, AI calls or post-commit narrative decisions. Policy must be validated against declared StorySeed clue/secret registries and unmatched/ambiguous actions fail closed.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}
