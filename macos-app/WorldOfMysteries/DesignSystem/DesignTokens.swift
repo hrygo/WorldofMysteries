@@ -139,6 +139,9 @@ public nonisolated enum DesignTokens: Sendable {
             
             /// 标准视窗宽度（高度按原画比例推导，确保整幅原画无裁切）
             public static let panelWidth: CGFloat = 156
+
+            /// 黄水晶直接拖拽命中区：仅覆盖水晶附近，避免抢占 Gallery 纵向滚动手势。
+            public static let dragHitDiameter: CGFloat = 72
             
             /// 覆盖安全系数：抵消像素取整造成的边缘缝隙
             public static let coverageGuard: CGFloat = 1.01
@@ -158,6 +161,9 @@ public nonisolated enum DesignTokens: Sendable {
         public static let typewriterInterval: Double = 0.04
         public static let pendulumSwingMaxDegrees: Double = 6.0
         public static let pendulumSwingInterval: Double = 0.85
+        /// 手动释放后的阻尼回摆：保持小角度、短时、可被后续占卜动画安全接管。
+        public static let pendulumManualReleaseDuration: Double = 1.45
+        public static let pendulumManualReleaseBounce: Double = 0.42
         public static let listeningRippleDuration: Double = 0.8
         public static let listeningDecisionRotationDuration: Double = 3.0
         

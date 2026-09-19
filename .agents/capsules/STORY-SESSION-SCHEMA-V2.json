@@ -1,7 +1,7 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-STORY-SESSION-SCHEMA-V2",
-  "capsule_revision": 1,
+  "capsule_id": "CAP-STORY-SESSION-SCHEMA-V2-R2",
+  "capsule_revision": 2,
   "task_id": "STORY-SESSION-SCHEMA-V2",
   "title": "Safe world schema v2 migration and StorySession tables",
   "assigned_role": "AGT-DATA",
@@ -10,9 +10,9 @@
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
-    "context_snapshot": "sha256:bea1a592f6d7ba10b53357d5882f5734b6b3d07c03e488938368d54625cf6e27"
+    "base_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
+    "target_sha": "eb2bf327ddf094bfc880238619a9bfc12a8eb123",
+    "context_snapshot": "sha256:9e36f7b9e7314e25119d4f6106bc6a441a52f1d892f632c4b3e9f765c95d8a71"
   },
   "scope": {
     "read": [
@@ -60,15 +60,32 @@
     "token_estimate": 1800,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
-    "note": "Issue #83. Automated migration is user-invisible and preserves data: Online Backup before ordered migration, transaction rollback on failure, integrity checks before open."
+    "note": "Revision 2 refreshes the validation base to main@eb2bf32. StorySession schema-v2 implementation blobs are unchanged from revision 1; only task-boundary evidence is refreshed."
   },
   "impact": {
-    "symbols": ["initialize", "_ensure_world_migration_backup"],
-    "contracts": ["story_session.schema.json", "story_state.schema.json", "turn_transaction.schema.json"],
-    "tests": ["engine/tests/test_story_session_migration.py"],
-    "migrations": ["engine/infrastructure/migrations/002_world_story_sessions.sql"]
+    "symbols": [
+      "initialize",
+      "_ensure_world_migration_backup"
+    ],
+    "contracts": [
+      "story_session.schema.json",
+      "story_state.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ]
   },
-  "dependencies": {"depends_on": ["M2-DATA-KERNEL-FOUNDATION","M2-SQLITE-3534-RUNTIME"],"conflicts_with":[]},
+  "dependencies": {
+    "depends_on": [
+      "M2-DATA-KERNEL-FOUNDATION",
+      "M2-SQLITE-3534-RUNTIME"
+    ],
+    "conflicts_with": []
+  },
   "gates": {
     "profile": "FULL_P0",
     "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
@@ -76,8 +93,19 @@
     "risk_class": "high"
   },
   "acceptance": {
-    "invariants": [9,10,11,12],
+    "invariants": [
+      9,
+      10,
+      11,
+      12
+    ],
     "instructions": "Never reset or silently overwrite an existing world. world.db migration order is backup → ordered migration → integrity → open. Preserve runtime/retrieval schema versions and use specialized Story tables, not generic facts.",
-    "assertions": ["INV-09","INV-10","INV-11","INV-12"]
-  }
+    "assertions": [
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-STORY-SESSION-SCHEMA-V2"
 }
