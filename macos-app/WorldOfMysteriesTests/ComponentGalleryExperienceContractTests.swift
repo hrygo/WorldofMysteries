@@ -240,6 +240,20 @@ struct ComponentGalleryExperienceContractTests {
         #expect(source.contains("ComponentGallerySpecimenStage("))
     }
 
+    @Test("interaction specimens reset draft, clue and high-fidelity sessions")
+    func interactionSpecimensExposeResetPaths() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionGroup.swift"
+        )
+
+        #expect(source.contains("Button(\"重置输入\")"))
+        #expect(source.contains("adviceDraft = initialAdviceDraft"))
+        #expect(source.contains("Button(\"重置线索\")"))
+        #expect(source.contains("selectedClue = \"尚未选择\""))
+        #expect(source.contains("Button(\"重置仪轨\")"))
+        #expect(source.contains("Button(\"重置选择\")"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

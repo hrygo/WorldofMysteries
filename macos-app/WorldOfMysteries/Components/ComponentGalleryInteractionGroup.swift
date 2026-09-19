@@ -11,13 +11,27 @@ struct ComponentGalleryInteractionGroup: View {
 }
 
 private struct ListeningAndAdviceGallerySection: View {
+    private let initialAdviceDraft = "小心身后的红月，屏住呼吸离开房间。"
     @State private var adviceDraft = "小心身后的红月，屏住呼吸离开房间。"
     @State private var lastInteraction = "尚未触发"
     @State private var interactionCount = 0
 
     var body: some View {
         ComponentGallerySection(title: "01 · 声纹交互与干预输入 (Listening & Advice)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+            ComponentGallerySpecimenStage(
+                title: "声纹状态与 Advice 输入",
+                summary: "四个 ListeningRing 正式状态与 AdviceInputField 在同一会话中真实响应；重置会恢复初始草稿和交互回执。",
+                mode: .live,
+                controls: {
+                    Button("重置输入") {
+                        adviceDraft = initialAdviceDraft
+                        lastInteraction = "尚未触发"
+                        interactionCount = 0
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                 LazyVGrid(
                     columns: [
                         GridItem(
@@ -59,6 +73,7 @@ private struct ListeningAndAdviceGallerySection: View {
                     tone: interactionCount == 0 ? .neutral : .teal,
                     systemIcon: "waveform"
                 )
+                }
             }
         }
     }
@@ -76,6 +91,17 @@ private struct CardsAndCluesGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "02 · 容器材质与调查卷宗 (Cards & Clues)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                ComponentGallerySpecimenStage(
+                    title: "调查线索与材质容器",
+                    summary: "线索节点使用正式点击回调；VictorianCard 保持材质展示尺度，不用缩略图替代。",
+                    mode: .live,
+                    controls: {
+                        Button("重置线索") {
+                            selectedClue = "尚未选择"
+                        }
+                        .buttonStyle(WOMButtonStyle(.secondary))
+                    }
+                ) {
                 WOMAdaptivePair(
                     trailingIdealWidth: 320,
                     primaryIdealWidth: 360
@@ -107,6 +133,7 @@ private struct CardsAndCluesGallerySection: View {
                             systemIcon: "pin.fill"
                         )
                     }
+                }
                 }
 
                 ComponentGallerySpecimenStage(
