@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_REPO_ROOT = HERE.parents[1]
+DEFAULT_REPO_ROOT = HERE.parents[2]
 SCENE_HELPER = DEFAULT_REPO_ROOT / "docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py"
 DEFAULT_WINDOW_TOOL = HERE / "window_identity_by_pid.swift"
 

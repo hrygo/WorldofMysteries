@@ -282,7 +282,7 @@ struct ComponentGalleryExperienceContractTests {
             "macos-app/WorldOfMysteries/Components/ComponentGalleryRuntimeVerificationView.swift"
         )
         let app = try file("macos-app/WorldOfMysteries/MyApp.swift")
-        let capture = try file("macos-app/Tools/capture_component_gallery_runtime.py")
+        let capture = try file("macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py")
 
         #expect(view.contains("CitrinePendulumScryingCard("))
         #expect(view.contains("TarotCardView(stage: .unknown)"))
