@@ -69,6 +69,41 @@ public actor EngineIPCClient {
         return try await connection.request(envelope, timeout: requestTimeout)
     }
 
+
+    public func openMedia(
+        direction: MediaDirection,
+        generation: Int64,
+        format: MediaFormat,
+        traceId: String = UUID().uuidString
+    ) async throws -> MediaOpenGrant {
+        guard generation >= 0, generation <= Int64(Int.max) else {
+            throw EngineConnectionError.invalidConfiguration
+        }
+        let request = IPCEnvelope(
+            kind: "request",
+            traceId: traceId,
+            requestId: UUID().uuidString,
+            method: "media.open",
+            payload: [
+                "direction": .string(direction.rawValue),
+                "generation": .int(Int(generation)),
+                "format": .object([
+                    "codec": .string(format.codec),
+                    "sample_rate": .int(format.sampleRate),
+                    "channels": .int(format.channels),
+                ]),
+            ]
+        )
+        let response = try await send(envelope: request)
+        guard response.status == "ok", let payload = response.payload else {
+            if response.error?.code == "method_not_supported" {
+                throw EngineConnectionError.methodUnavailable
+            }
+            throw EngineConnectionError.invalidFrame
+        }
+        return try MediaOpenGrant(payload: payload)
+    }
+
     public func health() async throws -> EngineHealth {
         let response = try await send(envelope: IPCEnvelope(kind: "request", traceId: UUID().uuidString,
             requestId: UUID().uuidString, method: "system.health"))

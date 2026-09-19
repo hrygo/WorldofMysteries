@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/engine_media.schema.json",
+  "title": "World of Mysteries Media Header v1.0",
+  "description": "JSON header for the dedicated binary media channel. The wire prefix is 4-byte big-endian header length + 4-byte big-endian payload length; raw PCM payload follows the UTF-8 JSON header and is never base64 encoded.",
+  "oneOf": [
+    {"$ref": "#/$defs/open"},
+    {"$ref": "#/$defs/chunk"},
+    {"$ref": "#/$defs/credit"},
+    {"$ref": "#/$defs/end"},
+    {"$ref": "#/$defs/cancel"},
+    {"$ref": "#/$defs/error"}
+  ],
+  "$defs": {
+    "protocol_version": {"const": "1.0"},
+    "stream_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "trace_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "generation": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "format": {
+      "type": "object",
+      "required": ["codec", "sample_rate", "channels"],
+      "properties": {
+        "codec": {"const": "pcm_s16le"},
+        "sample_rate": {"enum": [16000, 24000, 48000]},
+        "channels": {"const": 1}
+      },
+      "additionalProperties": false
+    },
+    "open": {
+      "type": "object",
+      "required": [
+        "kind", "protocol_version", "stream_id", "trace_id", "engine_epoch",
+        "generation", "ticket", "direction", "format", "max_payload_bytes",
+        "initial_credit_bytes"
+      ],
+      "properties": {
+        "kind": {"const": "open"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "trace_id": {"$ref": "#/$defs/trace_id"},
+        "engine_epoch": {"type": "string", "minLength": 1, "maxLength": 128},
+        "generation": {"$ref": "#/$defs/generation"},
+        "ticket": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "One-time bearer credential minted over authenticated control IPC; never log or persist."
+        },
+        "direction": {"enum": ["app_to_engine", "engine_to_app"]},
+        "format": {"$ref": "#/$defs/format"},
+        "max_payload_bytes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 262144,
+          "multipleOf": 2
+        },
+        "initial_credit_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8388608,
+          "multipleOf": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "chunk": {
+      "type": "object",
+      "required": [
+        "kind", "protocol_version", "stream_id", "generation", "sequence",
+        "offset_frames", "frame_count", "payload_bytes"
+      ],
+      "properties": {
+        "kind": {"const": "chunk"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "generation": {"$ref": "#/$defs/generation"},
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "offset_frames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 131072
+        },
+        "payload_bytes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 262144,
+          "multipleOf": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "credit": {
+      "type": "object",
+      "required": ["kind", "protocol_version", "stream_id", "generation", "credit_bytes"],
+      "properties": {
+        "kind": {"const": "credit"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "generation": {"$ref": "#/$defs/generation"},
+        "credit_bytes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 8388608,
+          "multipleOf": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "end": {
+      "type": "object",
+      "required": [
+        "kind", "protocol_version", "stream_id", "generation",
+        "total_frames", "total_bytes"
+      ],
+      "properties": {
+        "kind": {"const": "end"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "generation": {"$ref": "#/$defs/generation"},
+        "total_frames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807,
+          "multipleOf": 2
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cancel": {
+      "type": "object",
+      "required": ["kind", "protocol_version", "stream_id", "generation", "reason"],
+      "properties": {
+        "kind": {"const": "cancel"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "generation": {"$ref": "#/$defs/generation"},
+        "reason": {
+          "enum": ["user_stop", "superseded", "session_closed", "timeout", "shutdown"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "kind", "protocol_version", "stream_id", "generation",
+        "code", "message", "retryable"
+      ],
+      "properties": {
+        "kind": {"const": "error"},
+        "protocol_version": {"$ref": "#/$defs/protocol_version"},
+        "stream_id": {"$ref": "#/$defs/stream_id"},
+        "generation": {"$ref": "#/$defs/generation"},
+        "code": {"type": "string", "minLength": 1, "maxLength": 128},
+        "message": {"type": "string", "maxLength": 512},
+        "retryable": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

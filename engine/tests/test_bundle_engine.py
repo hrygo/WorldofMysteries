@@ -14,6 +14,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT/'scripts'))
 import bundle_engine as bundler
+import build_macos_package as package_builder
 
 
 def make_archive(tmp_path, items):
@@ -244,3 +245,20 @@ def test_runtime_stager_requires_private_data_sqlite_probe():
     assert 'stage_data_sqlite(runtime, logs, env=env)' in source
     assert "_wom_sqlite3.sqlite_version == '3.53.4'" in source
     assert "'data_sqlite': data_sqlite" in source
+
+
+def test_packaged_probe_source_closure_tracks_media_protocol_dependency():
+    names = package_builder.PACKAGE_PROBE_SWIFT_SOURCES
+    required = {
+        "IPCEnvelope",
+        "IPCFrameCodec",
+        "EngineRuntimeModels",
+        "EngineSocketTransport",
+        "MediaProtocol",
+        "EngineIPCClient",
+        "EngineProcessManager",
+    }
+    assert set(names) == required
+    assert names.index("MediaProtocol") < names.index("EngineIPCClient")
+    swift_root = ROOT / "macos-app" / "WorldOfMysteries"
+    assert all((swift_root / f"{name}.swift").is_file() for name in names)

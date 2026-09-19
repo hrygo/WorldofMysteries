@@ -30,6 +30,16 @@ from bundle_engine import BundleError, ROOT, run, sha256, source_inventory, stag
 MAGICS = {b'\xcf\xfa\xed\xfe', b'\xfe\xed\xfa\xcf', b'\xce\xfa\xed\xfe', b'\xfe\xed\xfa\xce',
           b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca', b'\xca\xfe\xba\xbf', b'\xbf\xba\xfe\xca'}
 
+PACKAGE_PROBE_SWIFT_SOURCES = (
+    'IPCEnvelope',
+    'IPCFrameCodec',
+    'EngineRuntimeModels',
+    'EngineSocketTransport',
+    'MediaProtocol',
+    'EngineIPCClient',
+    'EngineProcessManager',
+)
+
 
 def macho_files(root: Path) -> list[Path]:
     values = []
@@ -236,8 +246,7 @@ def packaged_probe(bundle: Path, work: Path, logs: Path) -> dict:
     probe = work/'Probe.app'
     shutil.copytree(bundle, probe, symlinks=True)
     swift = ROOT/'macos-app/WorldOfMysteries'
-    names = ['IPCEnvelope','IPCFrameCodec','EngineRuntimeModels','EngineSocketTransport',
-             'EngineIPCClient','EngineProcessManager']
+    names = PACKAGE_PROBE_SWIFT_SOURCES
     executable = probe/'Contents/MacOS/WorldOfMysteries'
     executable.unlink()
     run(['swiftc','-swift-version','6','-strict-concurrency=complete',

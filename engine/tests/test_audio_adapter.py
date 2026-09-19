@@ -1,6 +1,10 @@
 """Test suite for Audio Voice Engine OpenAI SDK Adapter & SpeechRail integration."""
 
+import asyncio
+import hashlib
+import json
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,8 +12,21 @@ import pytest
 from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTSProviderProtocol
 from infrastructure.audio import (
     AudioProviderConfig,
+    MEDIA_MAX_HEADER_BYTES,
+    MediaChunkHeader,
+    MediaCreditHeader,
+    MediaCreditWindow,
+    MediaEndHeader,
+    MediaFormat,
+    MediaGrantStore,
+    MediaOpenHeader,
+    MediaProtocolError,
+    MediaReceiveState,
     MockAudioAdapter,
     OpenAIAudioAdapter,
+    encode_media_frame,
+    parse_media_header,
+    read_media_frame,
     ProbeHttpResponse,
     create_audio_adapter,
     probe_audio_capabilities,
@@ -417,3 +434,237 @@ async def test_speechrail_capability_probe_reports_partial_discovery_as_degraded
     assert result.ready is True
     assert result.model_ids == ()
     assert result.errors == ("models_invalid",)
+
+
+MEDIA_FIXTURES = json.loads(
+    (
+        Path(__file__).resolve().parents[2]
+        / "contracts"
+        / "fixtures"
+        / "media"
+        / "headers.json"
+    ).read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize(
+    "case",
+    MEDIA_FIXTURES,
+    ids=lambda case: f"python_{case['id']}",
+)
+def test_media_header_python_parity_with_contract_fixtures(case):
+    if case["valid"]:
+        parsed = parse_media_header(case["header"])
+        assert parsed.kind == case["header"]["kind"]
+    else:
+        # Some invalid fixtures are schema-valid headers with invalid framing.
+        # The encode path performs both checks.
+        try:
+            parsed = parse_media_header(case["header"])
+        except MediaProtocolError:
+            return
+        payload = b"\x00" * case["payload_length"]
+        with pytest.raises(MediaProtocolError):
+            encode_media_frame(parsed, payload)
+
+
+@pytest.mark.asyncio
+async def test_media_frame_roundtrip_is_raw_pcm_not_base64():
+    payload = (b"\x01\x02" * 960)
+    header = MediaChunkHeader(
+        stream_id="stream_1",
+        generation=4,
+        sequence=0,
+        offset_frames=0,
+        frame_count=960,
+        payload_bytes=len(payload),
+    )
+    wire = encode_media_frame(header, payload)
+    assert payload in wire
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(wire)
+    reader.feed_eof()
+    decoded, decoded_payload = await read_media_frame(reader)
+
+    assert decoded == header
+    assert decoded_payload == payload
+
+
+@pytest.mark.asyncio
+async def test_media_reader_rejects_oversize_header_before_body_allocation():
+    reader = asyncio.StreamReader()
+    reader.feed_data((MEDIA_MAX_HEADER_BYTES + 1).to_bytes(4, "big") + (0).to_bytes(4, "big"))
+    reader.feed_eof()
+
+    with pytest.raises(MediaProtocolError, match="media_header_too_large"):
+        await read_media_frame(reader)
+
+
+def test_media_grant_is_one_time_bound_and_does_not_retain_ticket_plaintext():
+    now = 100.0
+    store = MediaGrantStore(clock=lambda: now)
+    fmt = MediaFormat(sample_rate=24000)
+    ticket, grant = store.mint(
+        stream_id="tts_1",
+        trace_id="trace_1",
+        engine_epoch="epoch_1",
+        generation=9,
+        direction="engine_to_app",
+        format=fmt,
+    )
+    assert ticket not in repr(store)
+    assert ticket not in repr(grant)
+
+    opened = MediaOpenHeader(
+        stream_id=grant.stream_id,
+        trace_id=grant.trace_id,
+        engine_epoch=grant.engine_epoch,
+        generation=grant.generation,
+        ticket=ticket,
+        direction=grant.direction,
+        format=grant.format,
+        max_payload_bytes=grant.max_payload_bytes,
+        initial_credit_bytes=grant.initial_credit_bytes,
+    )
+    assert store.consume(opened) == grant
+    with pytest.raises(MediaProtocolError, match="media_ticket_invalid"):
+        store.consume(opened)
+
+
+def test_media_grant_mismatch_burns_ticket():
+    store = MediaGrantStore()
+    fmt = MediaFormat(sample_rate=16000)
+    ticket, grant = store.mint(
+        stream_id="asr_1",
+        trace_id="trace_2",
+        engine_epoch="epoch_2",
+        generation=1,
+        direction="app_to_engine",
+        format=fmt,
+    )
+    wrong = MediaOpenHeader(
+        stream_id=grant.stream_id,
+        trace_id=grant.trace_id,
+        engine_epoch=grant.engine_epoch,
+        generation=2,
+        ticket=ticket,
+        direction=grant.direction,
+        format=grant.format,
+        max_payload_bytes=grant.max_payload_bytes,
+        initial_credit_bytes=grant.initial_credit_bytes,
+    )
+    with pytest.raises(MediaProtocolError, match="media_grant_mismatch"):
+        store.consume(wrong)
+    with pytest.raises(MediaProtocolError, match="media_ticket_invalid"):
+        store.consume(wrong)
+
+
+def test_media_credit_window_is_bounded():
+    credit = MediaCreditWindow(4096)
+    credit.consume(2048)
+    assert credit.available_bytes == 2048
+    credit.grant(1024)
+    assert credit.available_bytes == 3072
+    with pytest.raises(MediaProtocolError, match="media_credit_exhausted"):
+        credit.consume(4096)
+
+
+def test_media_receive_state_validates_sequence_offsets_totals_and_digest():
+    opened = MediaOpenHeader(
+        stream_id="tts_1",
+        trace_id="trace_1",
+        engine_epoch="epoch_1",
+        generation=3,
+        ticket="a" * 64,
+        direction="engine_to_app",
+        format=MediaFormat(sample_rate=24000),
+        max_payload_bytes=4096,
+        initial_credit_bytes=4096,
+    )
+    state = MediaReceiveState(opened)
+    p0 = b"\x00\x01" * 100
+    p1 = b"\x02\x03" * 50
+    state.accept_chunk(
+        MediaChunkHeader(
+            stream_id="tts_1",
+            generation=3,
+            sequence=0,
+            offset_frames=0,
+            frame_count=100,
+            payload_bytes=len(p0),
+        ),
+        p0,
+    )
+    state.accept_chunk(
+        MediaChunkHeader(
+            stream_id="tts_1",
+            generation=3,
+            sequence=1,
+            offset_frames=100,
+            frame_count=50,
+            payload_bytes=len(p1),
+        ),
+        p1,
+    )
+    digest = hashlib.sha256(p0 + p1).hexdigest()
+    state.accept_end(
+        MediaEndHeader(
+            stream_id="tts_1",
+            generation=3,
+            total_frames=150,
+            total_bytes=300,
+            sha256=digest,
+        )
+    )
+    assert state.total_frames == 150
+    assert state.total_bytes == 300
+
+
+def test_media_receive_state_rejects_late_generation_and_gap():
+    opened = MediaOpenHeader(
+        stream_id="tts_1",
+        trace_id="trace_1",
+        engine_epoch="epoch_1",
+        generation=8,
+        ticket="b" * 64,
+        direction="engine_to_app",
+        format=MediaFormat(sample_rate=24000),
+        max_payload_bytes=4096,
+        initial_credit_bytes=4096,
+    )
+    state = MediaReceiveState(opened)
+    with pytest.raises(MediaProtocolError, match="media_stream_identity_mismatch"):
+        state.accept_chunk(
+            MediaChunkHeader(
+                stream_id="tts_1",
+                generation=7,
+                sequence=0,
+                offset_frames=0,
+                frame_count=1,
+                payload_bytes=2,
+            ),
+            b"\x00\x00",
+        )
+    with pytest.raises(MediaProtocolError, match="media_chunk_sequence_mismatch"):
+        state.accept_chunk(
+            MediaChunkHeader(
+                stream_id="tts_1",
+                generation=8,
+                sequence=1,
+                offset_frames=0,
+                frame_count=1,
+                payload_bytes=2,
+            ),
+            b"\x00\x00",
+        )
+
+
+def test_media_control_frames_reject_binary_payload():
+    header = MediaCreditHeader(
+        stream_id="tts_1",
+        generation=1,
+        credit_bytes=1024,
+    )
+    with pytest.raises(MediaProtocolError, match="media_control_payload_forbidden"):
+        encode_media_frame(header, b"\x00\x00")

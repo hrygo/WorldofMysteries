@@ -1,5 +1,8 @@
 import Foundation
 import Testing
+#if canImport(AppKit)
+import AppKit
+#endif
 @testable import WorldOfMysteriesCore
 
 @Suite("Local Engine session boundaries")
@@ -28,6 +31,21 @@ struct EngineSessionTests {
         #expect(throws: EngineConnectionError.invalidFrame) { try EngineHealth(payload: invalid) }
         #expect(!EngineConnectionState.transportReady.isReady)
         #expect(!EngineConnectionState.unavailable.isReady)
+    }
+
+    @Test("Handshake capability remains the authority for media.open")
+    func mediaCapabilityGate() async {
+        let client = EngineIPCClient(requestTimeout: 0.1)
+        do {
+            _ = try await client.openMedia(
+                direction: .engineToApp,
+                generation: 1,
+                format: MediaFormat(sampleRate: 24000)
+            )
+            Issue.record("Media opened without an authenticated control connection")
+        } catch {
+            #expect(error as? EngineConnectionError == .notConnected)
+        }
     }
 
     @Test("Production connection cannot succeed without a socket")
@@ -61,3 +79,40 @@ struct EngineSessionTests {
         #expect(app.connectionError == nil)
     }
 }
+
+
+#if canImport(AppKit)
+extension EngineSessionTests {
+    @Test("Process lifecycle owns Engine bootstrap instead of a SwiftUI view")
+    @MainActor
+    func appDelegateOwnsBootstrap() async throws {
+        let config = EngineLaunchConfiguration(
+            executableURL: URL(fileURLWithPath: "/nonexistent/wom/python3"),
+            moduleDirectory: URL(fileURLWithPath: "/nonexistent/wom/engine")
+        )
+        let state = AppState(processManager: EngineProcessManager(configuration: config))
+        let delegate = EngineAppDelegate(appState: state)
+
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification)
+        )
+
+        #expect(await delegate.awaitLaunchCompletion())
+        #expect(state.connectionState == .unavailable)
+        await state.shutdown()
+        #expect(state.connectionState == .idle)
+    }
+
+    @Test("ContentView no longer owns process bootstrap")
+    func viewSourceDoesNotStartEngine() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("WorldOfMysteries/ContentView.swift"),
+            encoding: .utf8
+        )
+        #expect(!source.contains("await appState.startAndConnect()"))
+    }
+}
+#endif
