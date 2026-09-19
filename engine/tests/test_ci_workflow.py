@@ -41,3 +41,26 @@ def test_aggregate_validates_scope_and_keeps_outputs_out_of_shell_source():
 def test_ci_does_not_keep_unusable_or_duplicate_checks():
     assert "actions/cache@v6" not in CI
     assert "uv lock --check" not in CI
+
+
+def test_capsule_audit_does_not_interpolate_branch_input_into_shell_source():
+    capsule_audit = (ROOT / ".github/workflows/capsule-audit.yml").read_text(encoding="utf-8")
+    assert "BASE_REF: ${{ github.base_ref }}" in capsule_audit
+    assert '--base-ref "origin/$BASE_REF"' in capsule_audit
+    assert '--base-ref "origin/${{ github.base_ref }}"' not in capsule_audit
+
+
+def test_workflows_do_not_persist_checkout_credentials():
+    workflow_paths = (
+        ".github/workflows/ci.yml",
+        ".github/workflows/capsule-audit.yml",
+        ".github/workflows/pr-gate-reporter.yml",
+        ".github/workflows/bundled-engine.yml",
+        ".github/workflows/component-gallery-runtime-visual-qa.yml",
+        ".github/workflows/nightly-golden-audit.yml",
+    )
+    for relative_path in workflow_paths:
+        workflow = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert workflow.count("uses: actions/checkout@v7") == workflow.count(
+            "persist-credentials: false"
+        ), relative_path

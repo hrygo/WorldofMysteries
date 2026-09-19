@@ -31,6 +31,7 @@ jobs:
           # 默认浅克隆（fetch-depth: 1）会让 diff 以 "no merge base" 失败并被误判为
           # 「本 PR 未附带胶囊」。此处与 capsule-audit.yml 保持一致的完整历史口径。
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v7

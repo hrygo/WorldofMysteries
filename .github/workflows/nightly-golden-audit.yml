@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install uv with Cache Enabled
         uses: astral-sh/setup-uv@v10.1.0

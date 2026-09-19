@@ -56,3 +56,11 @@ def test_summary_escapes_untrusted_reason_text():
         output,
     )
     assert "<code>未知路径: `evil` ## forged &lt;tag&gt;</code>" in output.getvalue()
+
+
+def test_summary_rejects_invalid_scope():
+    output = StringIO()
+    decision = ScopeDecision(False, False, "bad`scope", "reason")
+
+    with pytest.raises(ValueError, match="unsupported scope"):
+        write_summary(decision, output)

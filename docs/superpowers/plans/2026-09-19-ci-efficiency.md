@@ -15,10 +15,12 @@
 - `All Quality Gates Passed` 与 `Capsule Gate` 是 branch protection 公开检查名，禁止重命名或改动其 required-check 契约。
 - `architecture-and-contracts` 始终运行；只有变更面明确不需要时才跳过 Python/Swift job。
 - 变更面为空、未知或解析异常时选择 full：`run_python=true` 且 `run_swift=true`。
+- PR 事件优先使用目标分支 SHA 中受信任的分类器；目标分支缺少该脚本时直接 full，不能执行 PR 提交中的分类器。
 - 不使用核心 CI 的 workflow-level `paths` 过滤；使用 job-level `if`，避免 required workflow 进入 Pending。
 - `ci_changed_scope.py` 只使用 Python 标准库，不新增产品依赖或修改 `engine/uv.lock`。
 - 保留 `actions/checkout@v7`、`actions/setup-python@v7`、`astral-sh/setup-uv@v10.1.0`、`macos-latest` 与现有 timeout/concurrency 配置。
 - 删除 SPM `.build` cache；Swift 测试继续使用 `${RUNNER_TEMP}/wom-spm-scratch`。
+- 所有 workflow 的 `actions/checkout@v7` 显式设置 `persist-credentials: false`，避免后续 PR 代码读取 checkout token。
 - 文档中的命令使用可移植原生命令，不写本机 `rtk` 前缀；临时输出只写入 `.hacf/tmp/`。
 - 不修改当前主工作区中已有的未提交文件，不触碰领域代码、Schema、门禁 profile 或分支保护配置。
 
@@ -107,24 +109,38 @@ Implement the following decision order in `scripts/ci_changed_scope.py`:
 
 ```python
 FULL_PREFIXES = ("scripts/", ".hacf/", ".github/")
-PYTHON_PREFIXES = ("engine/", "contracts/", "fixtures/")
+CROSS_LANGUAGE_PREFIXES = ("contracts/",)
+PYTHON_PREFIXES = ("engine/", "fixtures/")
 SWIFT_PREFIXES = ("macos-app/",)
+FULL_FILES = {"engine/uv.lock", "engine/pyproject.toml"}
 META_PREFIXES = ("docs/", ".agents/")
 META_FILES = {"README.md", "AGENTS.md", "CONTRIBUTING.md", "SECURITY.md", ".gitignore"}
+VALID_SCOPES = {"meta", "python", "swift", "full"}
+
+
+def _normalize_path(path: str) -> str:
+    while path.startswith("./"):
+        path = path[2:]
+    return path
 
 
 def classify_paths(paths: Iterable[str]) -> ScopeDecision:
-    normalized = [path.lstrip("./") for path in paths if path]
+    normalized = [_normalize_path(path) for path in paths if path]
     if not normalized:
-        return ScopeDecision.full("变更面为空，按 full 运行")
+        return ScopeDecision.full("变更面为空, 按 full 运行")
 
     run_python = False
     run_swift = False
     saw_code = False
     for path in normalized:
-        if path.startswith(FULL_PREFIXES):
-            return ScopeDecision.full(f"命中治理路径: {path}")
-        if path.startswith("macos-app/Packaging/"):
+        if path in FULL_FILES or path.startswith(FULL_PREFIXES):
+            return ScopeDecision.full(f"命中治理或工具链路径: {path}")
+        if path.startswith(CROSS_LANGUAGE_PREFIXES):
+            run_python = True
+            run_swift = True
+            saw_code = True
+            continue
+        if path == "macos-app/Packaging" or path.startswith("macos-app/Packaging/"):
             return ScopeDecision.full(f"命中打包路径: {path}")
         if path.startswith(PYTHON_PREFIXES):
             run_python = True

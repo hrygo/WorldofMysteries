@@ -49,7 +49,7 @@ def classify_paths(paths: Iterable[str]) -> ScopeDecision:
     normalized = [_normalize_path(path) for path in paths if path]
     file_count = len(normalized)
     if not normalized:
-        return ScopeDecision.full("变更面为空，按 full 运行", file_count)
+        return ScopeDecision.full("变更面为空, 按 full 运行", file_count)
 
     run_python = False
     run_swift = False
@@ -90,8 +90,8 @@ def decision_from_nul_bytes(raw: bytes) -> ScopeDecision:
 
     try:
         decoded = raw.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        return ScopeDecision.full(f"变更路径编码异常，按 full 运行: {exc}")
+    except UnicodeDecodeError:
+        return ScopeDecision.full("invalid path encoding; fail closed to full")
 
     paths = decoded.split("\0")
     if paths and paths[-1] == "":
@@ -120,6 +120,8 @@ def write_github_output(decision: ScopeDecision, stream: TextIO) -> None:
 def write_summary(decision: ScopeDecision, stream: TextIO) -> None:
     """Write human-readable classification evidence to the step summary."""
 
+    if decision.scope not in VALID_SCOPES:
+        raise ValueError(f"unsupported scope: {decision.scope}")
     safe_reason = escape(decision.reason.replace("\r", " ").replace("\n", " "), quote=True)
     stream.write(f"### CI change scope: `{decision.scope}`\n\n")
     stream.write(f"- Changed paths: `{decision.file_count}`\n")
