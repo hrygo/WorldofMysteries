@@ -1,0 +1,48 @@
+name: Temporary PR71 final2 Voice V01 receipt
+on:
+  push:
+    branches: [tmp/pr71-final2-receipt-cd147a9]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: cd147a9cb3b3e34811c018c6634e799f61e2d223
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: engine/uv.lock
+      - name: Verify exact final Voice V01 source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = cd147a9cb3b3e34811c018c6634e799f61e2d223
+          test "$(git rev-parse origin/main)" = 2b40d66fa93ce8aa2c6c2e540c13a002b9c313ac
+          mkdir -p "$RUNNER_TEMP/pr71"
+          export WOM_SPM_SCRATCH="$RUNNER_TEMP/pr71-spm"
+          python3 scripts/agent_capsule.py verify --capsule .agents/capsules/VOICE-V01-MEDIA-FOUNDATION.json --cwd "$PWD" 2>&1 | tee "$RUNNER_TEMP/pr71/verify.log"
+          HACF_STRICT_EVIDENCE=1 python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD 2>&1 | tee "$RUNNER_TEMP/pr71/strict-audit.log"
+      - name: Collect evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr71/receipts"
+          if [ -d .agents/receipts/VOICE-V01-MEDIA-FOUNDATION ]; then
+            cp -R .agents/receipts/VOICE-V01-MEDIA-FOUNDATION "$RUNNER_TEMP/pr71/receipts/"
+          fi
+          if [ -d .hacf/logs ]; then cp -R .hacf/logs "$RUNNER_TEMP/pr71/"; fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: PR71-final-VOICE-V01-MEDIA-FOUNDATION-receipt
+          path: ${{ runner.temp }}/pr71/
+          retention-days: 7
+          include-hidden-files: true
