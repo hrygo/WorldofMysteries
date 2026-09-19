@@ -29,7 +29,7 @@ def app_driver(tmp_path_factory):
     compiler = shutil.which('swiftc')
     assert compiler, 'Production App–Engine integration requires the target Swift toolchain'
     binary = tmp_path_factory.mktemp('swift-engine') / 'driver'
-    sources = ['IPCEnvelope', 'IPCFrameCodec', 'EngineRuntimeModels',
+    sources = ['IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
                'EngineSocketTransport', 'EngineIPCClient', 'EngineProcessManager', 'EngineConnectionState', 'AppState']
     # The production ArtifactContext declaration is Foundation-only but shares a
     # file with SwiftUI-dependent artwork. Extract that declaration byte-for-byte;
