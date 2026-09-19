@@ -1,0 +1,103 @@
+# SpeechRail 接入契约与跨仓依赖 v1.0
+
+日期：2026-09-19。状态：**提议的接入与演进合同；下列新字段/操作尚非当前SpeechRail API**。
+
+消费者基线 WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；供应者基线 SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。总设计见[Voice-First技术方案](Voice_First_Technical_Design_v2.0.md)。两仓无共享Python环境和文件路径依赖。
+
+## 1. 已有契约与不能假定的能力
+
+已存在：`/health`、`/readyz`、`/v1/models`、`/v1/voices`、HTTP audio、独立Realtime ASR/TTS；voice级available/variant/capabilities；规范参考注册；Base与VoiceDesign独立worker；资源准入、取消与流式PCM校验。**不提出“重新实现流式TTS/基础调度”的重复任务。**
+
+尚不能据此保证：所有发现信息来自同一可锁定snapshot、合成精确绑定不可变voice revision、HTTP raw PCM EOF具有语义完整证明、已实现speaker/acoustic条件缓存、质量总pass证明身份/自然度、Base接受任意emotion/instructions。
+
+## 2. 首版直接接线：两个独立Realtime连接
+
+- App负责ASR连接，Engine负责TTS连接；每条连接有独立connection_epoch、服务会话ID和单调sequence。
+- ASR按实际协商格式append，在manual/null模式由唯一应用端点器commit；把多个item聚合成一个input_turn，partial不进入Domain。
+- TTS使用一个text item和一个活动response，明确voice；当前支持的audio事件组归一成PCM；收到正常`response.done`并校验流后才允许发布完整take。
+- 本机stop不依赖`response.cancel`成功；独立generation避免旧块回流。`conversation.item.truncate`不支持且不需要用于本游戏事实回滚。
+- 请求被拒绝、连接终止、超时或无正常终态时清理临时流；已经完成的独立单元可继续合法回放。
+
+这修订此前“首版TTS采用HTTP streaming”的建议：当前HTTP实现按BATCH_TTS准入且raw PCM缺少显式语义终态，因此先用已有Realtime的调度/取消/终态能力。不是宣称HTTP不能流式，也不是让两连接共享ASR状态。
+
+## 3. 新契约草案（必须经上游评审/能力协商）
+
+### C1 — EffectiveCapabilitySnapshot
+
+建议通过SpeechRail专有discover能力或对已有发现响应作经审查的加法演进提供：`schema_version/service_instance_epoch/catalog_revision`、resolved model/artifact/variant、voice ID/revision、availability/reason、真实支持的参数取值域、输入输出格式、stream terminal证据能力、可用调度类别。
+
+同一snapshot内的信息必须一致；不把description存在当成支持。读取不加载/卸载模型、不下载模型；缓存ETag或opaque snapshot ID仅供版本比较，不携带reference路径。标准SDK的旧请求不带这些私有字段；未知扩展先走legacy路径。
+
+### C2 — ImmutableVoiceRevision与条件渲染
+
+建议`voice_id`作为友好别名，revision作为不可变制品；生成/录音来源、参考音频与准确文本hash、preprocess/model身份、许可状态与质量报告绑定版本。别名CAS更新与immutable修订创建分开。
+
+合成可选的expected revision必须在registry/model租约内原子解析并锁定，首PCM之前拒绝不一致；出站结果回传实际resolved identity。API名称/字段放在哪个SR命名空间需评审，不能在未支持的`/v1/audio/speech`中直接发送自造参数。
+
+创建幂等建议按(owner, operation, key, canonical payload fingerprint)保存有界durable记录；同key不同payload明确冲突，未知完成状态先查询；并发ID不覆盖，重启不重复发布。现有clone内存幂等只能作为legacy优化，不是强保证。
+
+### C3 — 可核验的语音交付
+
+已有Realtime events保留。建议可选metadata记录实际resolved voice/model、format、累计sample count和已交付PCM digest、终态completed/cancelled/error及稳定失败码；HTTP通过独立可协商元数据/receipt能力提供同等证据，raw audio body保持兼容。
+
+摘要仅证明该次流的完整生成/传输边界，不证明所有文字正确朗读，更不证明扬声器已输出。确认正常终态后应用仍执行本地PCM/时长/尾部检查；音质由质量门决定。取消不得伪造成功END；慢消费者和断流均有单一deadline与清理。
+
+### C4 — 交互调度与维护隔离
+
+建议经协商的purpose类别：interactive_asr、interactive_tts、playback_prefetch、voice_creation、quality_validation；普通旧请求保留原语义。客户端提供相对`timeout_ms`/budget，服务取min(请求预算,服务上限)，不比较不同进程的单调时钟绝对值。
+
+现有governor保留为唯一资源事实源；低优先工作在真实可中断的单元边界让出，不能承诺抢占正在执行的Metal kernel。维护操作在活动流期间不得无条件驱逐整组模型；有界队列、aging、取消后租约回收和重试提示。与现有#44的调度/测量工作关联，而不是再建一套调度器。
+
+### C5 — ReferenceCondition缓存
+
+已有`_reference_audio_cache`缓存解码波形；本提案只增加实际模型API支持的不可变speaker/reference acoustic条件。key绑定内容hash、文本hash、preprocess、model/tokenizer/encoder revision、mode；限条目且限bytes；in-flight保护、LRU、重启/换模/撤销失效。
+
+若固定MLX-Audio版本无公开且正确的预计算接口，记录该限制并保持波形缓存，不调用不匹配的VoiceDesign私有ICL、不共享目标文本mutable decoder/KV、不冒充完成。
+
+### C6 — 多维质量与可审计发布
+
+注册、参考、合成可懂度、跨文本身份、自然度、重复性分别报告状态与实际模型/声音revision；missing为unevaluated。固定seed和PCM重复性不是身份判据；没有声明确定性保证时，正常随机差异不自动等于不可用声音。独立speaker验证按真实语料校准，人工盲听是产品发布条件。参考/输出增益复用#34，不另设矛盾响度管线。
+
+### C7 — 身份保持的表演能力实验
+
+先如实声明Base clone不支持instructions和非1.0 speed，再评估有限参考变体或真实支持表达的后端。输出effective performance与不支持项；不支持则同身份中性合成，由App处理pause/安全volume。不能以逐句VoiceDesign重新设计来假装稳定人物表达。
+
+## 4. Issue映射与优先级
+
+当前稳定任务键如下。正式Issue号码和链接由本次提交后的映射增量补齐；任务键不会随GitHub编号变化。
+
+| 键 | 优先级 | 范围 | 对WoM的依赖关系 |
+|---|---|---|---|
+| SR-V01 | P0 | C1有效能力snapshot | 启用v2能力自动路由前完成；legacy有界可用 |
+| SR-V02 | P0 | C2版本锁定/并发/持久幂等 | 强动态身份承诺的前置 |
+| SR-V03 | P0 | C3流完整性与resolved receipt | 完整缓存/HTTP增强；Realtime基础可先接 |
+| SR-V04 | P1 | C4交互优先与维护隔离 | 高频Story体验/并发后台任务前置 |
+| SR-V05 | P1 | C5条件特征缓存 | 优化项，不阻塞固定音色MVP |
+| SR-V06 | P1 | C6多维质量 | 专属动态音色自动发布前置 |
+| SR-V07 | P2 | C7身份保持的表达实验 | 可选增强，不阻塞中性固定身份 |
+
+现有[#34响度](https://github.com/hrygo/SpeechRail/issues/34)和[#44架构演进](https://github.com/hrygo/SpeechRail/issues/44)继续负责既有范围；不重复建响度修复或全局架构epic。所有Issue是待办，不代表创建后功能已可用。
+
+## 5. 责任、版本和联调
+
+| 环节 | SpeechRail负责 | WorldofMysteries负责 |
+|---|---|---|
+| 输入 | 实际ASR、服务item/sequence、工作队列 | 采集/AEC、发言结束、input_turn/Advice |
+| 输出 | 模型合成、参数执行、服务取消/terminal | seal/disclosure、播放generation、设备停止 |
+| 音色 | Provider制品、版本/参考/质量证据 | Persona/Binding/场景选角/匿名身份 |
+| 缓存 | 模型参考条件及worker生命周期 | take/音轨、pin/授权、干声/效果分离 |
+| 观测 | queue/compute/send与服务版本 | first audible/stop/交付游标/每回合体验 |
+
+先锁定API contract和最小能力版本，再写服务端契约/回归，消费者使用captured fake response验证退化路径；最后在用户批准的真实服务/设备上验收。服务升级不在请求路径发生。独立发布/回滚，两仓互不触发无授权代码写入或模型操作。
+
+## 6. 源码依据
+
+均固定SpeechRail `28755de8`，具体行为以上游当前代码和契约为准：
+
+- [voice字段与参数能力](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/domain/tts.py)
+- [voice发现/注册/内存幂等/质量run](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/system.py)
+- [HTTP TTS准入与StreamingResponse](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/audio.py)
+- [已有PCM验证与deadline](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/application/tts_delivery.py)
+- [已有资源governor](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/runtime/resource_governor.py)
+- [Base generate与decoded-waveform cache](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/backends/qwen3_tts_worker.py)
+- [Realtime公共边界](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/contracts/realtime-openai.md)
