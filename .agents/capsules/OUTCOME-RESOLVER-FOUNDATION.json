@@ -1,0 +1,114 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-OUTCOME-RESOLVER-FOUNDATION-R3",
+  "capsule_revision": 3,
+  "task_id": "OUTCOME-RESOLVER-FOUNDATION",
+  "title": "Deterministic Outcome Resolver foundation and Golden Turn 1",
+  "assigned_role": "AGT-DOM",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:00:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "675a9fbd853f9d7755d221de7225f14b001d3139",
+    "target_sha": "675a9fbd853f9d7755d221de7225f14b001d3139",
+    "context_snapshot": "sha256:7bb2dc13c6b51041a09d944390a2bd9dbf8f94e4b835b3f83303e01d88634d3e"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/contracts/",
+      "engine/tests/",
+      "contracts/schemas/",
+      "fixtures/golden_001/",
+      "docs/07_工程启动/golden_001_runtime/"
+    ],
+    "write": [
+      "engine/domain/resolver.py",
+      "engine/domain/resolution_policy.py",
+      "engine/tests/test_outcome_resolver.py",
+      ".agents/capsules/OUTCOME-RESOLVER-FOUNDATION.json"
+    ],
+    "forbidden": [
+      "contracts/**",
+      "engine/application/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/resolver.py",
+      "engine/contracts/models.py",
+      "contracts/schemas/action_intent.schema.json",
+      "contracts/schemas/state_delta.schema.json",
+      "fixtures/golden_001/seed.json",
+      "docs/07_工程启动/golden_001_runtime/mock/01_action_intent.json"
+    ],
+    "related_contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json"
+    ],
+    "slice_strategy": "explicit-domain-vertical-slice",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 3 rebases the resolver slice onto current main after #80/#84/#86 landed. Resolver implementation/test blobs are unchanged; previously stacked prerequisite diffs are no longer part of this PR."
+  },
+  "impact": {
+    "symbols": [
+      "ResolutionPolicy",
+      "ResolutionRule",
+      "StoryEffect",
+      "DeterministicOutcomeResolver"
+    ],
+    "contracts": [
+      "action_intent.schema.json",
+      "state_delta.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_outcome_resolver.py"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "DOMAIN-CONTRACT-PARITY"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      9,
+      12
+    ],
+    "instructions": "Pure deterministic Resolver only. No Golden scenario special cases, DB writes, AI calls or post-commit narrative decisions. Policy must be validated against declared StorySeed clue/secret registries and unmatched/ambiguous actions fail closed.",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-09",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-OUTCOME-RESOLVER-FOUNDATION-R2"
+}

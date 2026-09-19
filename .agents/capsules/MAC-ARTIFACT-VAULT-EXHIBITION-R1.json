@@ -1,0 +1,78 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-ARTIFACT-VAULT-EXHIBITION-R1",
+  "capsule_revision": 1,
+  "task_id": "MAC-ARTIFACT-VAULT-EXHIBITION-R1",
+  "title": "神器展览 Artifact Vault 高保真展陈与操作台",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:58:00+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b0d3dad6bf388c8c8122cc1678c64b5fa8091c6c",
+    "target_sha": "b0d3dad6bf388c8c8122cc1678c64b5fa8091c6c",
+    "context_snapshot": "sha256:499abe7979ad62aa7a9ab413da368bf4873f20479cbfcc7e6092b326292f86ac"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      "contracts/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [],
+    "slice_strategy": "empty",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "只重构 Artifact Gallery 的展览层级与本地展示交互；复用 15 件正式 Artifact 组件、Artwork 与 Preview Resolver，不制造领域事实，不改 Engine/IPC。"
+  },
+  "impact": {
+    "symbols": [
+      "ArtifactShowcaseView",
+      "ArtifactRegistry",
+      "ArtifactComponentShell",
+      "ComponentGalleryArtifactGroup"
+    ],
+    "contracts": [],
+    "tests": [
+      "ArtifactVaultExhibitionContractTests",
+      "ComponentGalleryExperienceContractTests"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [12],
+    "instructions": "Artifact Vault 必须复用真实 production artifact components；展览层只拥有筛选、选择、浏览与本地 Preview reset，不直接写数据库或领域事实。宽屏与最小窗口都必须可读可操作。",
+    "assertions": [
+      "INV-12",
+      "15 件 Artifact 仍由 ArtifactRegistry 单一事实源驱动",
+      "概率之骰 RealityKit 交互仍使用 ProbabilityDieArtifactView",
+      "展览层提供主展台、藏品轨、筛选搜索、上一件下一件和重置演示",
+      "最小窗口下通过 ViewThatFits/自适应布局降级，不通过缩字或负边距硬塞"
+    ]
+  }
+}

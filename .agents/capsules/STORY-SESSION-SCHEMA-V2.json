@@ -1,0 +1,111 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-STORY-SESSION-SCHEMA-V2-R3",
+  "capsule_revision": 3,
+  "task_id": "STORY-SESSION-SCHEMA-V2",
+  "title": "Safe world schema v2 migration and StorySession tables",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-19T10:06:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "933ddf7b5f0c1b9b9dbbbfaa9e6d025a3bdb709c",
+    "target_sha": "933ddf7b5f0c1b9b9dbbbfaa9e6d025a3bdb709c",
+    "context_snapshot": "sha256:167ecf227e8645ef90b48632f45143526605fedc1c6e44552536a30a2fb7dc43"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/schemas/",
+      "docs/03_工程规范/Data_Architecture_v1.0.md"
+    ],
+    "write": [
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/002_world_story_sessions.sql",
+      "engine/tests/test_story_session_migration.py",
+      ".agents/capsules/STORY-SESSION-SCHEMA-V2.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "contracts/**",
+      "macos-app/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/001_world.sql",
+      "docs/03_工程规范/Data_Architecture_v1.0.md",
+      "contracts/schemas/story_session.schema.json",
+      "contracts/schemas/story_state.schema.json",
+      "contracts/schemas/turn_transaction.schema.json"
+    ],
+    "related_contracts": [
+      "story_session.schema.json",
+      "story_state.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "explicit-safe-migration-slice",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Revision 3 refreshes the validation base after #80 merged. StorySession migration, DatabaseManager and migration-test blobs are unchanged."
+  },
+  "impact": {
+    "symbols": [
+      "initialize",
+      "_ensure_world_migration_backup"
+    ],
+    "contracts": [
+      "story_session.schema.json",
+      "story_state.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "M2-DATA-KERNEL-FOUNDATION",
+      "M2-SQLITE-3534-RUNTIME"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Never reset or silently overwrite an existing world. world.db migration order is backup → ordered migration → integrity → open. Preserve runtime/retrieval schema versions and use specialized Story tables, not generic facts.",
+    "assertions": [
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  },
+  "supersedes": "CAP-STORY-SESSION-SCHEMA-V2-R2"
+}

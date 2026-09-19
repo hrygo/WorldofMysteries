@@ -8,6 +8,28 @@ struct WorldOfMysteriesApp: App {
     @State private var isSidebarCollapsed: Bool = false
     @State private var adviceFocusRequestID: Int = 0
 
+    private var galleryRuntimeVerificationEnabled: Bool {
+        UserDefaults.standard.bool(
+            forKey: ComponentGalleryRuntimeVerificationView.enabledPreferenceKey
+        )
+    }
+
+    private var primaryWindowWidth: CGFloat {
+        guard galleryRuntimeVerificationEnabled else { return WOMWindowMetrics.defaultWidth }
+        let requested = UserDefaults.standard.double(
+            forKey: ComponentGalleryRuntimeVerificationView.widthPreferenceKey
+        )
+        return requested > 0 ? CGFloat(requested) : WOMWindowMetrics.defaultWidth
+    }
+
+    private var primaryWindowHeight: CGFloat {
+        guard galleryRuntimeVerificationEnabled else { return WOMWindowMetrics.defaultHeight }
+        let requested = UserDefaults.standard.double(
+            forKey: ComponentGalleryRuntimeVerificationView.heightPreferenceKey
+        )
+        return requested > 0 ? CGFloat(requested) : WOMWindowMetrics.defaultHeight
+    }
+
     init() {
         // 视觉系统为暗色单一样式：把窗口背板、标题栏与系统控件一并声明为暗色，
         // 避免系统浅色外观给暗色画布配上浅色窗口装饰与浅色系统控件。
@@ -16,20 +38,24 @@ struct WorldOfMysteriesApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(
-                currentNavigation: $currentNavigation,
-                isSidebarCollapsed: $isSidebarCollapsed
-            )
-            .environment(engineDelegate.appState)
-            .environment(\.adviceFocusRequestID, adviceFocusRequestID)
-            // 视觉系统为暗色单一样式（obsidian 画布 + 黄铜金层级）。
-            // 在场景根声明暗色外观，避免系统浅色外观把窗口背板、滚动容器与系统控件
-            // 换成浅色表面，从而出现「浅底浅字」一类不可读事故。
-            .preferredColorScheme(.dark)
+            if galleryRuntimeVerificationEnabled {
+                ComponentGalleryRuntimeVerificationView()
+            } else {
+                ContentView(
+                    currentNavigation: $currentNavigation,
+                    isSidebarCollapsed: $isSidebarCollapsed
+                )
+                .environment(engineDelegate.appState)
+                .environment(\.adviceFocusRequestID, adviceFocusRequestID)
+                // 视觉系统为暗色单一样式（obsidian 画布 + 黄铜金层级）。
+                // 在场景根声明暗色外观，避免系统浅色外观把窗口背板、滚动容器与系统控件
+                // 换成浅色表面，从而出现「浅底浅字」一类不可读事故。
+                .preferredColorScheme(.dark)
+            }
         }
         .defaultSize(
-            width: WOMWindowMetrics.defaultWidth,
-            height: WOMWindowMetrics.defaultHeight
+            width: primaryWindowWidth,
+            height: primaryWindowHeight
         )
         // G5 运行时取证窗口：把出厂的派生图按未裁切方式呈现，供采集脚本复算。
         Window(

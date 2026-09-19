@@ -1,0 +1,144 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V01-MEDIA-FOUNDATION",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V01-MEDIA-FOUNDATION",
+  "title": "Voice V01 secure cross-language media channel foundation",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T12:18:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "2b40d66fa93ce8aa2c6c2e540c13a002b9c313ac",
+    "target_sha": "2b40d66fa93ce8aa2c6c2e540c13a002b9c313ac",
+    "context_snapshot": "sha256:5ef14711aab96b83f68bd50d6b087755fe2106c9ed8ba20d2b2fcbab80b5078a"
+  },
+  "scope": {
+    "read": [
+      "contracts/protocol/",
+      "contracts/fixtures/media/",
+      "contracts/tests/",
+      "engine/infrastructure/audio/",
+      "engine/infrastructure/ipc_server.py",
+      "engine/tests/",
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/",
+      "scripts/build_macos_package.py",
+      "docs/03_工程规范/Engine_Media_Protocol_v1.0.md"
+    ],
+    "write": [
+      "contracts/fixtures/media/control_open.json",
+      "contracts/fixtures/media/headers.json",
+      "contracts/protocol/engine_media.schema.json",
+      "contracts/protocol/engine_media_control.schema.json",
+      "contracts/tests/test_media_contract.py",
+      "docs/03_工程规范/Engine_Media_Protocol_v1.0.md",
+      "engine/infrastructure/audio/__init__.py",
+      "engine/infrastructure/audio/media_protocol.py",
+      "engine/infrastructure/ipc_server.py",
+      "engine/tests/test_app_engine_session.py",
+      "engine/tests/test_audio_adapter.py",
+      "engine/tests/test_bundle_engine.py",
+      "engine/tests/test_ipc_server.py",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/EngineAppDelegate.swift",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/MediaProtocol.swift",
+      "macos-app/WorldOfMysteries/MyApp.swift",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/MediaProtocolTests.swift",
+      "scripts/build_macos_package.py",
+      ".agents/capsules/VOICE-V01-MEDIA-FOUNDATION.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "engine/ai/**",
+      "contracts/schemas/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": [
+      "contracts/protocol/engine_media.schema.json",
+      "contracts/protocol/engine_media_control.schema.json",
+      "scripts/build_macos_package.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "contracts/protocol/engine_ipc.schema.json",
+      "contracts/protocol/engine_media.schema.json",
+      "contracts/protocol/engine_media_control.schema.json",
+      "engine/infrastructure/ipc_server.py",
+      "engine/infrastructure/audio/media_protocol.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/MediaProtocol.swift",
+      "macos-app/WorldOfMysteries/EngineAppDelegate.swift",
+      "scripts/build_macos_package.py"
+    ],
+    "related_contracts": [
+      "engine_media.schema.json",
+      "engine_media_control.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "coherent-voice-v01-foundation",
+    "token_estimate": 3600,
+    "max_core_tokens": 5000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Consolidates the historical Voice V01 role-specific capsules and receipts into one merge-verifiable objective on current main. Preserves the component-gallery/runtime-verification additions in MyApp while keeping Engine bootstrap delegate-owned. Historical role receipts remain in Git history."
+  },
+  "impact": {
+    "symbols": [
+      "MediaGrantStore",
+      "MediaFrame",
+      "LocalIPCServer",
+      "EngineIPCClient.openMedia",
+      "EngineAppDelegate",
+      "MediaProtocol"
+    ],
+    "contracts": [
+      "engine_media.schema.json",
+      "engine_media_control.schema.json"
+    ],
+    "tests": [
+      "contracts/tests/test_media_contract.py",
+      "engine/tests/test_app_engine_session.py",
+      "engine/tests/test_audio_adapter.py",
+      "engine/tests/test_bundle_engine.py",
+      "engine/tests/test_ipc_server.py",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/MediaProtocolTests.swift"
+    ],
+    "migrations": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Deliver only the Voice V01 local media transport foundation: strict cross-language frame/control contracts, authenticated one-time media.open grants, bounded credit/continuity/digest checks, Swift parity, and process-owned Engine bootstrap. Default Engine CLI must remain system-only unless a real media handler is installed. Preserve Sandbox/Hardened Runtime and current UI/gallery runtime behavior. No microphone capture, real ASR/TTS playback, Story voice path, model calls, database writes or user-visible permissions are introduced.",
+    "assertions": [
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  }
+}

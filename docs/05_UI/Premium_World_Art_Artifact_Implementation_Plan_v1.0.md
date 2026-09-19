@@ -8,6 +8,8 @@
 
 ---
 
+> Artifact Vault 展览层的长期设计事实源见 [Artifact_Vault_Exhibition_Design_v1.0.md](Artifact_Vault_Exhibition_Design_v1.0.md)。该文档负责馆藏浏览、展品档案、LIVE Workbench、展陈 archetype、响应式与可访问性规则；本文件继续负责 Premium World/Artifact Art 生产与资产治理。
+>
 ## 1. 结论先行
 
 当前项目已经完成成熟的 UI 工程底座：typed icon、Button/Surface/Overlay、响应式布局、Window/Inspector、15 件 Artifact gameplay component、Visual QA / Contrast / Typography Guard 都已建立。

@@ -1,0 +1,76 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-HACF-COMPONENT-GALLERY-RUNTIME-QA-R1",
+  "capsule_revision": 1,
+  "task_id": "HACF-COMPONENT-GALLERY-RUNTIME-QA-R1",
+  "title": "Component Gallery macOS 运行时视觉 QA 工作流",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-19T07:24:00+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "target_sha": "a9c7233594c4619cbedc02fe344c4d5d2fd1ebe7",
+    "context_snapshot": "sha256:3e2b896687690453dd6ed3f2e0e540ffb98b6e5848c33ceaf95aa59dd59dc74b"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      ".github/workflows/component-gallery-runtime-visual-qa.yml",
+      ".agents/capsules/HACF-COMPONENT-GALLERY-RUNTIME-QA-R1.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "contracts/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      ".github/workflows/component-gallery-runtime-visual-qa.yml"
+    ]
+  },
+  "context": {
+    "core_manifest": [],
+    "related_contracts": [
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 0,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "只授权新增 Component Gallery 运行时视觉 QA workflow；不改 required checks、不改 gate profile、不改产品领域契约。"
+  },
+  "impact": {
+    "symbols": [],
+    "contracts": [
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "MAC-COMPONENT-GALLERY-UX-R1"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+    "instructions": "新增只读运行时视觉 QA workflow：固定 commit、构建真实 macOS App、采集真实窗口截图并上传 Artifact；不得写 main、不得接触用户数据、不得改变 required checks。",
+    "assertions": [
+      "workflow uses contents: read",
+      "workflow pins SOURCE_HEAD to PR head",
+      "workflow uploads screenshots only as evidence",
+      "workflow does not mutate repository or product data"
+    ]
+  }
+}
