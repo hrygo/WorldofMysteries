@@ -3,6 +3,7 @@ import Testing
 @testable import WorldOfMysteriesCore
 
 @Suite("Voice microphone capture boundaries")
+@MainActor
 struct MicrophoneCaptureTests {
     @Test("PCM16 quantizer clips, preserves sign and uses little endian samples")
     func pcm16Quantizer() {
