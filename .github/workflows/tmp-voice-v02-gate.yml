@@ -12,10 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 215222d5311d8a8f310b50946537c6aa2ed49951
+          ref: ac4a670dd2a34ce5f6ab0408b01b0f6fd593a001
           persist-credentials: false
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: Swift tests
         working-directory: macos-app
         run: swift test --scratch-path "$RUNNER_TEMP/wom-v02-spm"
+      - name: Xcode App build
+        working-directory: macos-app
+        run: |
+          xcodebuild -project WorldOfMysteries.xcodeproj -scheme WorldOfMysteries             -configuration Debug -destination 'platform=macOS,arch=arm64'             -derivedDataPath "$RUNNER_TEMP/wom-v02-xcode" build
