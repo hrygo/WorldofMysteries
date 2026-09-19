@@ -1,7 +1,7 @@
 {
   "artwork_id": "A02_ALZUHOD_QUILL",
   "artifact_id": "alzuhodQuill",
-  "status": "SELECTED_SOURCE_LOCKED_MACOS_FINISHING_COMPLETE_RUNTIME_QA_PENDING",
+  "status": "APPROVED",
   "source": {
     "source_id": "A02_ALZUHOD_QUILL",
     "sha256": "dd6c4cd3f43375314b5108f4b292724fcec3394fe736282c5e8ec42f34567509",
@@ -152,12 +152,25 @@
     }
   ],
   "gates": {
-    "G0_semantic": "PENDING_MACOS_FINISHING",
+    "G0_semantic": "PASSED",
     "G1_canon_atmosphere": "PASSED",
     "G2_composition": "PASSED",
-    "G3_structure": "PENDING_MACOS_FINISHING",
+    "G3_structure": "PASSED",
     "G4_production": "PASSED",
     "G5_runtime": "PASSED"
   },
-  "shipping_approved": false
+  "shipping_approved": false,
+  "text_policy_decision": {
+    "record": "docs/05_UI/artwork/contracts/art_direction_text_decision.json",
+    "sha256": "0518186fe9fdb2605b7c0e9c7d96f77d34814b9801fc308cc8c44211719bf081",
+    "decision": "ACCEPT_DECORATIVE_INSCRIPTIONAL_TEXT",
+    "decided_at": "2026-09-19",
+    "decided_by": "user",
+    "applied_to": [
+      "G0_semantic",
+      "G3_structure"
+    ],
+    "applied_at": "2026-09-19",
+    "revised_from_record_sha256": "19ef1f87fbcd1ce8e9dd750967c4817f5754c9ea57f3b935dd75a285ea1ed432"
+  }
 }
