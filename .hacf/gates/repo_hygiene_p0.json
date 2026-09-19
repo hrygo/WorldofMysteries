@@ -1,0 +1,14 @@
+{
+  "gate_profile_id": "REPO_HYGIENE_P0",
+  "description": "仓库卫生门禁：资产体积预算 + 文档索引可解析性 + 本机资产分层（AGT-ARB 治理面）",
+  "risk_class": "medium",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Asset Size Budget & Local-only Store Hygiene",
+      "cwd": ".",
+      "command": ["python3", "scripts/check_asset_hygiene.py"],
+      "expects": ["scripts/check_asset_hygiene.py"]
+    }
+  ]
+}

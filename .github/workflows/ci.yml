@@ -54,6 +54,12 @@ jobs:
           print(f'Validated {len(product)} product + {len(protocol)} protocol + {len(engineering)} engineering schemas.')
           "
 
+      - name: Check Asset Size Budget & Store Layering
+        # 治理入口：防止二进制资产无声把仓库撑大（单文件预算 + 二进制总量预算）。
+        # 判据与分层策略见 docs/05_UI/artwork/Asset_Storage_Policy_v1.0.md。
+        run: |
+          python3 scripts/check_asset_hygiene.py
+
       - name: Verify Protected Gate Profile Registry
         run: |
           python3 scripts/gate_profile.py check

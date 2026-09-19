@@ -124,18 +124,42 @@
       "asset_name": "wom.art.scene.ritual-altar",
       "width": 2560,
       "height": 1600,
-      "sha256": "2b851c67f7d1b662db1165064a9d21888ef8e7195eabcd0956e7266adea02fb5",
+      "sha256": "7352be20d5482f98248bb9312f70eafd6b91c7a88dc9131eb854ee5e9f41e477",
       "derivation": "full_frame_downsample_from_master",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 6188096,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=250f6ca382cc10e65f9c3b4c47695d51bffdc8019eb06794d165f1f06256a330",
+        "bytes_before": 8006405,
+        "bytes_after": 6188096,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     },
     {
       "asset_name": "wom.art.scene.ritual-altar.wide",
       "width": 2400,
       "height": 900,
-      "sha256": "bf184396701b6ed0de7c7e3755d14e8fb03b45d9745d1d078651a1047379e0fb",
+      "sha256": "b6f17d8fd401327ca85ea9104a952ceb6d2cef4257a3d5055949f5f6da5ae7f0",
       "derivation": "center_aligned_4096x1536_crop_from_master_then_downsample",
       "crop_anchor": "center",
-      "catalog_payload_verified": true
+      "catalog_payload_verified": true,
+      "bytes": 3337158,
+      "lossless_repack": {
+        "stage": "runtime_catalog_lossless_repack",
+        "encoder": "ffmpeg png (zlib level 9)",
+        "alpha_channel_removed": true,
+        "alpha_was_uniformly_opaque": true,
+        "pixel_identity": "rgb24_plane_sha256=175d925943e7bdd535b1773aab49d22994f83537a390da4784103b8e582a256d",
+        "bytes_before": 4292244,
+        "bytes_after": 3337158,
+        "recorded_at": "2026-09-19T05:34:15+00:00",
+        "evidence_report": "docs/05_UI/artwork/qa/runtime_lossless_repack_2026-09-19.json"
+      }
     }
   ],
   "qa_record": "docs/05_UI/artwork/qa/W3_RITUAL_ALTAR.qa.json",
