@@ -93,6 +93,20 @@ struct ComponentGalleryExperienceContractTests {
         #expect(interactions.contains("ViewThatFits(in: .horizontal)"))
     }
 
+    @Test("visual-system controls report activation instead of swallowing clicks")
+    func visualSystemControlsReportActivation() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryVisualSystemSection.swift"
+        )
+
+        #expect(source.contains("@State private var visualActionCount"))
+        #expect(source.contains("recordVisualAction("))
+        #expect(source.contains("最近操作"))
+        #expect(!source.contains("Button(\"主操作\") {}"))
+        #expect(!source.contains("Button(\"危险操作\") {}"))
+        #expect(!source.contains("actionTitle: \"查看原因\"\n                ) {}"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
