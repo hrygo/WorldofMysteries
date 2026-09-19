@@ -168,6 +168,32 @@ struct ComponentGalleryExperienceContractTests {
         #expect(world.contains("scene: .worldObservation"))
     }
 
+    @Test("specimen stage provides context chrome without taking over component state")
+    func specimenStageContract() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGallerySpecimenStage.swift"
+        )
+
+        #expect(source.contains("enum ComponentGallerySpecimenMode"))
+        #expect(source.contains("case live"))
+        #expect(source.contains("case stateMatrix"))
+        #expect(source.contains("ViewThatFits(in: .horizontal)"))
+        #expect(source.contains("private let controls: Controls"))
+    }
+
+    @Test("high-value interactive specimens expose replayable reset paths")
+    func interactiveSpecimensAreReplayable() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionGroup.swift"
+        )
+
+        #expect(source.contains("Button(\"重置仪轨\")"))
+        #expect(source.contains(".id(scrySessionID)"))
+        #expect(source.contains("scrySessionID = UUID()"))
+        #expect(source.contains("Button(\"重置选择\")"))
+        #expect(source.contains("ComponentGallerySpecimenStage("))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

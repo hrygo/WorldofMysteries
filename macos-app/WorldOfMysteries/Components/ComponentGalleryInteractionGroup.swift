@@ -109,15 +109,17 @@ private struct CardsAndCluesGallerySection: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    Text("塔罗发现阶段 · 保持真实卡牌比例")
-                        .font(Font.Mystic.titleSmall)
-                        .foregroundStyle(Color.Mystic.textPrimary)
-
-                    Text("横向浏览避免把固定比例卡牌压成缩略图；每张卡都使用正式 TarotCardView 的 focus、press 与发现态逻辑。")
-                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
+                ComponentGallerySpecimenStage(
+                    title: "塔罗发现态",
+                    summary: "固定比例卡牌用横向舞台保留完整构图；四个正式发现阶段都可以实际点击与聚焦。",
+                    mode: .stateMatrix,
+                    controls: {
+                        Button("重置选择") {
+                            selectedTarotStage = "尚未选择"
+                        }
+                        .buttonStyle(WOMButtonStyle(.secondary))
+                    }
+                ) {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
                             TarotCardView(stage: .unknown) {
@@ -151,15 +153,23 @@ private struct CardsAndCluesGallerySection: View {
 private struct SpiritualityAndPendulumGallerySection: View {
     @State private var scryCount = 0
     @State private var latestStatement = "尚未执链"
+    @State private var scrySessionID = UUID()
 
     var body: some View {
         ComponentGallerySection(title: "03 · 灵性状态与灵摆占卜 (Spirituality & Pendulum)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                Text("真实组件优先：直接使用 PendulumCitrine 高保真原画与正式灵摆交互，不再以矢量替身代表黄水晶占卜。")
-                    .font(Font.Mystic.bodyMedium)
-                    .foregroundStyle(Color.Mystic.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
+            ComponentGallerySpecimenStage(
+                title: "黄水晶吊坠 · 实际仪轨",
+                summary: "直接运行 PendulumCitrine 高保真原画、正式输入与灵摆摆动。重置会重建整个卡片会话，便于反复验证从静止到启示的完整过程。",
+                mode: .live,
+                controls: {
+                    Button("重置仪轨") {
+                        scrySessionID = UUID()
+                        scryCount = 0
+                        latestStatement = "尚未执链"
+                    }
+                    .buttonStyle(WOMButtonStyle(.secondary))
+                }
+            ) {
                 WOMAdaptivePair(
                     trailingIdealWidth: 220,
                     primaryIdealWidth: 620,
@@ -172,6 +182,7 @@ private struct SpiritualityAndPendulumGallerySection: View {
                             latestStatement = statement
                         }
                     )
+                    .id(scrySessionID)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } secondary: {
                     spiritualityCompanionPanel
@@ -226,7 +237,18 @@ private struct WorldlineGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "04 · 世界线演化与因果分叉 (Worldline Nexus)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                ComponentGallerySpecimenStage(
+                    title: "世界线选择",
+                    summary: "使用正式 WorldlineNodeView 比较正典与分支状态；选择只更新画廊会话，不写入世界事实。",
+                    mode: .live,
+                    controls: {
+                        Button("重置选择") {
+                            selectedWorldline = "尚未选择"
+                        }
+                        .buttonStyle(WOMButtonStyle(.secondary))
+                    }
+                ) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                     WorldlineNodeView(
                         title: "正典主轴：廷根市的枪声",
                         worldTime: "第五纪 1349年 6月28日 晨",
@@ -254,6 +276,7 @@ private struct WorldlineGallerySection: View {
                         tone: selectedWorldline == "尚未选择" ? .neutral : .teal,
                         systemIcon: "point.topleft.down.to.point.bottomright.curvepath"
                     )
+                    }
                 }
 
                 WOMDividerOrnament(opacity: 0.42)
