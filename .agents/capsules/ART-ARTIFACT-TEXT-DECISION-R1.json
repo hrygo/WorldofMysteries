@@ -6,13 +6,13 @@
   "title": "装饰性铭刻文字批准与 A02/A03 记录收口",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-19T04:31:01.511529+00:00",
+  "created_at": "2026-09-19T04:34:08.890590+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "0ed684c0c8b7042e05b3273c15e7bc14f55d1382",
+    "base_sha": "b6e72faafc224bb6fef9189ff8f38c9a9a459655",
     "target_sha": "0ed684c0c8b7042e05b3273c15e7bc14f55d1382",
-    "context_snapshot": "sha256:ae6ff886111242dc73bff5715d1476e5738fb6d3094d7b50d3ada44a8dafadaa"
+    "context_snapshot": "sha256:d5fafec418ce25a9e27025d97b8a545713966ba45331f5cf2dd5dfe286da79dd"
   },
   "scope": {
     "read": [
@@ -21,6 +21,7 @@
       "docs/03_工程规范/"
     ],
     "write": [
+      "docs/05_UI/artwork/",
       "macos-app/WorldOfMysteries/",
       "macos-app/WorldOfMysteriesTests/"
     ],
