@@ -74,6 +74,17 @@ struct ArtifactVaultExhibitionContractTests {
         #expect(source.contains("ArtifactShelfCardMetrics.cardHeight"))
     }
 
+    @Test("shelf selection delegates its visual state to the system card chrome tokens")
+    func shelfSelectionUsesSystemTokens() throws {
+        let source = try file(
+            "macos-app/WorldOfMysteries/Artifacts/ArtifactShowcaseView.swift"
+        )
+
+        #expect(source.contains(".womCardChrome("))
+        #expect(source.contains("isSelected: isSelected"))
+        #expect(!source.contains("color: isSelected ? descriptor.tone.accent.opacity(0.35) : Color.clear"))
+    }
+
     @Test("vault preserves all production artifact gameplay components")
     func productionComponentsRemainCanonical() throws {
         let source = try file(

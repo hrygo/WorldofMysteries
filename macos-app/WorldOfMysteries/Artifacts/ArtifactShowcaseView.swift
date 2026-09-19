@@ -205,7 +205,7 @@ public struct ArtifactShowcaseView: View {
           Text("馆藏展柜")
             .font(Font.Mystic.titleSmall)
             .foregroundStyle(Color.Mystic.textPrimary)
-          Text("\(filteredDescriptors.count) 件可浏览 · 选择展品进入真实操作台")
+          Text("\(filteredDescriptors.count) 件可浏览 · 点选切换展台与操作台 · 再次点击放大特写")
             .mysticCaptionStyle(color: Color.Mystic.textTertiary)
         }
 
@@ -426,6 +426,14 @@ public struct ArtifactShowcaseView: View {
         }
       }
 
+      // 内嵌 2.5D 高精度实体展台（保持 1:1 方形物件、台座、微视差与柔和环境色）
+      ArtifactObjectStage(
+        artifactID: selection,
+        revision: showcaseRevision,
+        stageAspectRatio: ArtifactObjectStageMetrics.aspectRatio,
+        mountScale: 1.0
+      )
+
       MysticDivider(tone: descriptor.tone, label: "馆藏档案")
 
       Text(descriptor.shortGameplay)
@@ -489,6 +497,14 @@ public struct ArtifactShowcaseView: View {
       }
       .buttonStyle(WOMButtonStyle(.secondary))
       .disabled(filteredDescriptors.count < 2)
+
+      Button {
+        isObjectPreviewPresented = true
+      } label: {
+        Label("全景特写", systemImage: "arrow.up.left.and.arrow.down.right")
+      }
+      .buttonStyle(WOMButtonStyle(.secondary))
+      .help("在独立高精度浮层中放大鉴赏")
 
       Button("重置演示") {
         resetShowcase()
@@ -560,7 +576,6 @@ public struct ArtifactShowcaseView: View {
     withAnimation(reduceMotion ? nil : DesignTokens.Interaction.selectionSpring) {
       selection = id
     }
-    isObjectPreviewPresented = true
     resetShowcase()
   }
 
@@ -579,7 +594,6 @@ public struct ArtifactShowcaseView: View {
     }
     guard filteredDescriptors.contains(where: { $0.id == selection }) else {
       selection = first.id
-      isObjectPreviewPresented = true
       resetShowcase()
       return
     }
