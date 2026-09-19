@@ -71,38 +71,76 @@ private struct ListeningAndAdviceGallerySection: View {
 
 private struct CardsAndCluesGallerySection: View {
     @State private var selectedClue = "尚未选择"
+    @State private var selectedTarotStage = "尚未选择"
 
     var body: some View {
         ComponentGallerySection(title: "02 · 容器材质与调查卷宗 (Cards & Clues)") {
-            WOMAdaptivePair(
-                trailingIdealWidth: 320,
-                primaryIdealWidth: 360
-            ) {
-                VictorianCard(style: .obsidianGlass) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("黑曜石玻璃卡片")
-                            .font(Font.Mystic.titleSmall)
-                            .foregroundStyle(Color.Mystic.brassGoldPrimary)
-                        Text("80% 不透明度磨砂亚克力微光材质。")
-                            .font(Font.Mystic.bodyMedium)
-                            .foregroundStyle(Color.Mystic.textSecondary)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                WOMAdaptivePair(
+                    trailingIdealWidth: 320,
+                    primaryIdealWidth: 360
+                ) {
+                    VictorianCard(style: .obsidianGlass) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("黑曜石玻璃卡片")
+                                .font(Font.Mystic.titleSmall)
+                                .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                            Text("80% 不透明度磨砂亚克力微光材质。")
+                                .font(Font.Mystic.bodyMedium)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                        }
+                    }
+                } secondary: {
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                        CluePinboardNodeView(
+                            title: "自杀的手枪",
+                            note: "转轮手枪内缺少一颗子弹。弹壳掉落在书桌右侧脚垫旁。",
+                            onNodeTapped: {
+                                selectedClue = "自杀的手枪"
+                            }
+                        )
+
+                        MysticKeyValueRow(
+                            key: "调查选择",
+                            value: selectedClue,
+                            tone: selectedClue == "尚未选择" ? .neutral : .gold,
+                            systemIcon: "pin.fill"
+                        )
                     }
                 }
-            } secondary: {
+
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                    CluePinboardNodeView(
-                        title: "自杀的手枪",
-                        note: "转轮手枪内缺少一颗子弹。弹壳掉落在书桌右侧脚垫旁。",
-                        onNodeTapped: {
-                            selectedClue = "自杀的手枪"
+                    Text("塔罗发现阶段 · 保持真实卡牌比例")
+                        .font(Font.Mystic.titleSmall)
+                        .foregroundStyle(Color.Mystic.textPrimary)
+
+                    Text("横向浏览避免把固定比例卡牌压成缩略图；每张卡都使用正式 TarotCardView 的 focus、press 与发现态逻辑。")
+                        .mysticCaptionStyle(color: Color.Mystic.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
+                            TarotCardView(stage: .unknown) {
+                                selectedTarotStage = "未知 · Unknown"
+                            }
+                            TarotCardView(stage: .silhouette) {
+                                selectedTarotStage = "轮廓 · Silhouette"
+                            }
+                            TarotCardView(stage: .identified) {
+                                selectedTarotStage = "已识别 · Identified"
+                            }
+                            TarotCardView(stage: .established) {
+                                selectedTarotStage = "已确立 · Established"
+                            }
                         }
-                    )
+                        .padding(.vertical, DesignTokens.Spacing.xs)
+                    }
 
                     MysticKeyValueRow(
-                        key: "调查选择",
-                        value: selectedClue,
-                        tone: selectedClue == "尚未选择" ? .neutral : .gold,
-                        systemIcon: "pin.fill"
+                        key: "卡牌选择",
+                        value: selectedTarotStage,
+                        tone: selectedTarotStage == "尚未选择" ? .neutral : .gold,
+                        systemIcon: "rectangle.portrait.on.rectangle.portrait"
                     )
                 }
             }
@@ -183,37 +221,67 @@ private struct SpiritualityAndPendulumGallerySection: View {
 
 private struct WorldlineGallerySection: View {
     @State private var selectedWorldline = "尚未选择"
+    @State private var chronicleReplayCount = 0
 
     var body: some View {
         ComponentGallerySection(title: "04 · 世界线演化与因果分叉 (Worldline Nexus)") {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                WorldlineNodeView(
-                    title: "正典主轴：廷根市的枪声",
-                    worldTime: "第五纪 1349年 6月28日 晨",
-                    status: .canonical,
-                    causeSummary: "既定历史：克莱恩·莫雷蒂自杀苏醒，笔记不知所踪。",
-                    turnIndex: 0,
-                    onSelect: {
-                        selectedWorldline = "正典主轴：廷根市的枪声"
-                    }
-                )
-                WorldlineNodeView(
-                    title: "分支 A：提前上报值夜者小队",
-                    worldTime: "第五纪 1349年 6月28日 午",
-                    status: .active,
-                    causeSummary: "因果偏离：向邓恩汇报日记疑点，码头提前戒严。",
-                    turnIndex: 3,
-                    onSelect: {
-                        selectedWorldline = "分支 A：提前上报值夜者小队"
-                    }
-                )
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+                    WorldlineNodeView(
+                        title: "正典主轴：廷根市的枪声",
+                        worldTime: "第五纪 1349年 6月28日 晨",
+                        status: .canonical,
+                        causeSummary: "既定历史：克莱恩·莫雷蒂自杀苏醒，笔记不知所踪。",
+                        turnIndex: 0,
+                        onSelect: {
+                            selectedWorldline = "正典主轴：廷根市的枪声"
+                        }
+                    )
+                    WorldlineNodeView(
+                        title: "分支 A：提前上报值夜者小队",
+                        worldTime: "第五纪 1349年 6月28日 午",
+                        status: .active,
+                        causeSummary: "因果偏离：向邓恩汇报日记疑点，码头提前戒严。",
+                        turnIndex: 3,
+                        onSelect: {
+                            selectedWorldline = "分支 A：提前上报值夜者小队"
+                        }
+                    )
 
-                MysticKeyValueRow(
-                    key: "当前世界线",
-                    value: selectedWorldline,
-                    tone: selectedWorldline == "尚未选择" ? .neutral : .teal,
-                    systemIcon: "point.topleft.down.to.point.bottomright.curvepath"
-                )
+                    MysticKeyValueRow(
+                        key: "当前世界线",
+                        value: selectedWorldline,
+                        tone: selectedWorldline == "尚未选择" ? .neutral : .teal,
+                        systemIcon: "point.topleft.down.to.point.bottomright.curvepath"
+                    )
+                }
+
+                WOMDividerOrnament(opacity: 0.42)
+
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    Text("已提交叙事 · Chronicle")
+                        .font(Font.Mystic.titleSmall)
+                        .foregroundStyle(Color.Mystic.textPrimary)
+
+                    NarrativeChronicleView(
+                        role: .character("克莱恩·莫雷蒂"),
+                        content: "“这不是梦境……那颗子弹确实穿过了我的太阳穴。先确认桌面、手枪和那本失踪的笔记。”",
+                        timestamp: "1349-06-28 · 晨",
+                        isAudioPlaying: chronicleReplayCount.isMultiple(of: 2) == false,
+                        onReplayAudio: {
+                            chronicleReplayCount += 1
+                        }
+                    )
+
+                    MysticKeyValueRow(
+                        key: "原声回放",
+                        value: chronicleReplayCount == 0
+                            ? "尚未触发"
+                            : "已触发 \(chronicleReplayCount) 次",
+                        tone: chronicleReplayCount == 0 ? .neutral : .azure,
+                        systemIcon: "speaker.wave.2"
+                    )
+                }
             }
         }
     }

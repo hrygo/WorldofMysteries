@@ -151,6 +151,23 @@ struct ComponentGalleryExperienceContractTests {
         #expect(world.contains("BacklundMetropolisCard { district in"))
     }
 
+    @Test("standalone production views missing from the old gallery now have contextual showcases")
+    func missingProductionViewsAreShowcased() throws {
+        let interactions = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryInteractionGroup.swift"
+        )
+        let world = try file(
+            "macos-app/WorldOfMysteries/Components/ComponentGalleryWorldGroup.swift"
+        )
+
+        #expect(interactions.contains("TarotCardView(stage: .unknown)"))
+        #expect(interactions.contains("TarotCardView(stage: .established)"))
+        #expect(interactions.contains("NarrativeChronicleView("))
+        #expect(interactions.contains("onReplayAudio:"))
+        #expect(world.contains("WOMSceneHeroHeader("))
+        #expect(world.contains("scene: .worldObservation"))
+    }
+
     private func file(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

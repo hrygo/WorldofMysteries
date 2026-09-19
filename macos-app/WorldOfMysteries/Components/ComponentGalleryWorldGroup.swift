@@ -205,7 +205,13 @@ private struct CanonicalGeographyGallerySection: View {
     var body: some View {
         ComponentGallerySection(title: "08 · 原著正典地域档案 (Canonical Geography)") {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-                Text("地域组件在这里保留完整档案尺度；黄水晶占卜已提升到 03 交互主展区，避免同一真实组件重复占据两个画廊层级。")
+                WOMSceneHeroHeader(
+                    scene: .worldObservation,
+                    icon: .asset(.world),
+                    title: "世界观察 · 运行时场景页头"
+                )
+
+                Text("场景页头直接加载已批准的 wideHeader 派生图；地域组件保留完整档案尺度。黄水晶占卜已提升到 03 交互主展区，避免同一真实组件重复占据两个画廊层级。")
                     .font(Font.Mystic.bodyMedium)
                     .foregroundStyle(Color.Mystic.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
