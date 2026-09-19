@@ -1,0 +1,37 @@
+name: Temporary Voice V01 regression verification
+on:
+  push:
+    branches: ['tmp/voice-v01-debug-20260919']
+    paths: ['.github/workflows/tmp-voice-v01-qa-verify.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 8e4b5117557d4f63d60f0de7e8b0090c833dee95
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: false
+      - name: Verify regression capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/agent_capsule.py verify             --capsule .agents/capsules/VOICE-V01-REGRESSION.json             --cwd "$GITHUB_WORKSPACE"
+      - name: Upload receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: voice-v01-regression-receipt
+          path: .agents/receipts/VOICE-V01-REGRESSION/
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
