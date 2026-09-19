@@ -164,6 +164,7 @@ public struct ContentView: View {
     private var workspaceScroll: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
+                sceneHeroHeader
                 mainContentForCurrentNavigation
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,6 +172,21 @@ public struct ContentView: View {
             .padding(.bottom, workspaceBottomInset)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 场景页头：把已批准的 W1–W6 场景美术放进真实导航场景的入口。
+    ///
+    /// 命运页不在这里挂页头：`FateArtifactInterventionView` 的 scene 页头已经是同一场景的
+    /// 入口，重复叠一张灰雾只会让同一场景出现两次身份条。
+    @ViewBuilder
+    private var sceneHeroHeader: some View {
+        if let scene = WOMSceneArtworkRegistry.scene(for: currentNavigation) {
+            WOMSceneHeroHeader(
+                scene: scene,
+                icon: currentNavigation.iconSource,
+                title: currentNavigation.localizedTitle
+            )
+        }
     }
 
     /// 建议台存在时额外留出底部呼吸空间，滚动到底时最后一张卡片不会贴在面板边缘。
@@ -493,25 +509,12 @@ public struct ContentView: View {
     private var plannedModuleBlueprint: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    WOMIcon(
-                        source: currentNavigation.iconSource,
-                        size: .prominent,
-                        accessibilityLabel: currentNavigation.localizedTitle
-                    )
-                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
-
-                    Text(currentNavigation.localizedTitle)
-                        .font(Font.Mystic.titleMedium)
-                        .foregroundStyle(Color.Mystic.textGoldAccent)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text("规划中")
-                        .font(Font.Mystic.caption)
-                        .foregroundStyle(Color.Mystic.parchmentInk)
-                        .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal)
-                        .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical)
-                        .background(Capsule().fill(Color.Mystic.parchmentCard))
+                // 场景页头已经承担图标与标题的入口页，只补状态徽章：
+                // 同一个模块名在首屏出现两次会把页头降级成装饰。
+                if WOMSceneArtworkRegistry.scene(for: currentNavigation) == nil {
+                    plannedModuleIdentityRow
+                } else {
+                    plannedModuleStatusBadge
                 }
 
                 Text(ModuleBlueprintCatalog.purpose(for: currentNavigation))
@@ -569,6 +572,34 @@ public struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    /// 未挂场景页头的规划页保留完整的图标 + 标题行。
+    private var plannedModuleIdentityRow: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
+            WOMIcon(
+                source: currentNavigation.iconSource,
+                size: .prominent,
+                accessibilityLabel: currentNavigation.localizedTitle
+            )
+            .foregroundStyle(Color.Mystic.brassGoldPrimary)
+
+            Text(currentNavigation.localizedTitle)
+                .font(Font.Mystic.titleMedium)
+                .foregroundStyle(Color.Mystic.textGoldAccent)
+                .fixedSize(horizontal: false, vertical: true)
+
+            plannedModuleStatusBadge
+        }
+    }
+
+    private var plannedModuleStatusBadge: some View {
+        Text("规划中")
+            .font(Font.Mystic.caption)
+            .foregroundStyle(Color.Mystic.parchmentInk)
+            .padding(.horizontal, DesignTokens.LayoutInsets.badgePaddingHorizontal)
+            .padding(.vertical, DesignTokens.LayoutInsets.badgePaddingVertical)
+            .background(Capsule().fill(Color.Mystic.parchmentCard))
     }
 }
 
