@@ -360,8 +360,7 @@ public nonisolated struct InputTurnAssembler: Sendable {
             return
 
         case .sessionCreated,
-             .conversationCreated,
-             .sessionUpdated,
+             .transcriptionSessionUpdated,
              .itemCreated,
              .other:
             break
