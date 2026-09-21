@@ -76,8 +76,7 @@ private actor CoordinatorTTSTransport: SpeechRailRealtimeTTSTransport {
         }
     }
 
-    func push(_ object: [String: Any]) {
-        let data = try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+    func push(_ data: Data) {
         if !waiting.isEmpty { waiting.removeFirst().resume(returning: data) }
         else { inbound.append(data) }
     }
@@ -91,7 +90,7 @@ struct SpeechRailTTSPlaybackCoordinatorTests {
         _ type: String,
         sequence: Int64,
         extra: [String: Any] = [:]
-    ) -> [String: Any] {
+    ) -> Data {
         var object: [String: Any] = [
             "type": type,
             "event_id": "evt-\(sequence)",
@@ -99,7 +98,7 @@ struct SpeechRailTTSPlaybackCoordinatorTests {
             "sequence": sequence,
         ]
         extra.forEach { object[$0.key] = $0.value }
-        return object
+        return try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
 
     private func primeHandshake(_ transport: CoordinatorTTSTransport) async {
@@ -141,7 +140,7 @@ struct SpeechRailTTSPlaybackCoordinatorTests {
         itemID: String,
         pcm: Data,
         startSequence: Int64 = 3
-    ) -> [[String: Any]] {
+    ) -> [Data] {
         let digest = SHA256.hash(data: pcm).map { String(format: "%02x", $0) }.joined()
         return [
             event(
