@@ -29,7 +29,7 @@ struct MicrophoneCaptureTests {
     func captureConfigurationBounds() throws {
         _ = try MicrophoneCaptureSession(
             configuration: .init(
-                targetSampleRate: 24_000,
+                targetSampleRate: 16_000,
                 tapFrameCount: 960,
                 bufferedChunkLimit: 8
             )

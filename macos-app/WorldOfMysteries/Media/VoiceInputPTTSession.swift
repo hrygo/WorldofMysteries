@@ -71,7 +71,7 @@ public final class VoiceInputPTTSession {
             do {
                 for try await chunk in stream {
                     guard chunk.channels == 1,
-                          [16_000, 24_000].contains(chunk.sampleRate),
+                          chunk.sampleRate == 16_000,
                           chunk.frameCount > 0,
                           chunk.data.count == chunk.frameCount * MemoryLayout<Int16>.size
                     else {

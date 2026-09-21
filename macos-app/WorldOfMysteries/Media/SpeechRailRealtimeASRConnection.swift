@@ -70,7 +70,7 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
         baseURL: URL = URL(string: "http://127.0.0.1:8201/v1")!,
         apiKey: String? = nil,
         model: String = "whisper-1",
-        sampleRate: Int = 24_000,
+        sampleRate: Int = 16_000,
         language: String? = "zh",
         prompt: String? = nil,
         keywords: [String] = [],
@@ -91,7 +91,7 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
     }
 
     fileprivate func makeRequest() throws -> URLRequest {
-        guard [16_000, 24_000].contains(sampleRate),
+        guard sampleRate == 16_000,
               !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               prompt.map({ $0.count <= 2_000 }) ?? true,
               keywords.count <= 128,
@@ -142,7 +142,7 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
         return request
     }
 
-    fileprivate func sessionUpdateText(eventID: String) throws -> String {
+    fileprivate func transcriptionSessionUpdateText(eventID: String) throws -> String {
         var transcription: [String: Any] = ["model": model]
         if let language, !language.isEmpty {
             transcription["language"] = language
@@ -154,20 +154,13 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
             transcription["keywords"] = keywords
         }
         let payload: [String: Any] = [
-            "type": "session.update",
+            "type": "transcription_session.update",
             "event_id": eventID,
             "session": [
                 "type": "transcription",
-                "audio": [
-                    "input": [
-                        "format": [
-                            "type": "audio/pcm",
-                            "rate": sampleRate,
-                        ],
-                        "transcription": transcription,
-                        "turn_detection": NSNull(),
-                    ]
-                ],
+                "input_audio_format": "pcm16",
+                "input_audio_transcription": transcription,
+                "turn_detection": NSNull(),
             ],
         ]
         return try Self.encodeJSONObject(payload)
@@ -233,20 +226,12 @@ public actor SpeechRailRealtimeASRConnection {
                 throw SpeechRailRealtimeASRFailure.invalidEnvelope
             }
 
-            let conversation = try await receiveValidated()
-            guard conversation.event == .conversationCreated else {
-                if case .error(let code, _) = conversation.event {
-                    throw SpeechRailRealtimeASRFailure.sessionRejected(code: code)
-                }
-                throw SpeechRailRealtimeASRFailure.invalidEnvelope
-            }
-
             let updateID = "wom-session-\(UUID().uuidString)"
             try await transport.sendText(
-                configuration.sessionUpdateText(eventID: updateID)
+                configuration.transcriptionSessionUpdateText(eventID: updateID)
             )
             let updated = try await receiveValidated()
-            guard updated.event == .sessionUpdated else {
+            guard updated.event == .transcriptionSessionUpdated else {
                 if case .error(let code, _) = updated.event {
                     throw SpeechRailRealtimeASRFailure.sessionRejected(code: code)
                 }

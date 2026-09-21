@@ -63,8 +63,7 @@ struct SpeechRailRealtimeASRConnectionTests {
 
     private func primeHandshake(_ transport: FakeSpeechRailRealtimeTransport) async {
         await transport.push(server("session.created", sequence: 1, eventID: "s1"))
-        await transport.push(server("conversation.created", sequence: 2, eventID: "s2"))
-        await transport.push(server("session.updated", sequence: 3, eventID: "s3"))
+        await transport.push(server("transcription_session.updated", sequence: 2, eventID: "s2"))
     }
 
     @Test("Connection uses current nested transcription session and redacts API key")
@@ -74,7 +73,7 @@ struct SpeechRailRealtimeASRConnectionTests {
         let configuration = SpeechRailRealtimeASRConfiguration(
             apiKey: "local-secret",
             model: "gpt-4o-transcribe",
-            sampleRate: 24_000,
+            sampleRate: 16_000,
             language: "zh",
             prompt: "只转写玩家说话",
             keywords: ["克莱恩", "源堡"]
@@ -86,8 +85,8 @@ struct SpeechRailRealtimeASRConnectionTests {
 
         let info = try await connection.connect()
         #expect(info.serviceSessionID == "sess-1")
-        #expect(info.lastServerSequence == 3)
-        #expect(info.sampleRate == 24_000)
+        #expect(info.lastServerSequence == 2)
+        #expect(info.sampleRate == 16_000)
         #expect(!configuration.description.contains("local-secret"))
 
         let requests = await transport.requests()
@@ -99,17 +98,16 @@ struct SpeechRailRealtimeASRConnectionTests {
         #expect(sent.count == 1)
         let data = Data(sent[0].utf8)
         let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["type"] as? String == "transcription_session.update")
         let session = try #require(object["session"] as? [String: Any])
         #expect(session["type"] as? String == "transcription")
-        let audio = try #require(session["audio"] as? [String: Any])
-        let input = try #require(audio["input"] as? [String: Any])
-        let format = try #require(input["format"] as? [String: Any])
-        #expect(format["type"] as? String == "audio/pcm")
-        #expect(format["rate"] as? Int == 24_000)
-        let transcription = try #require(input["transcription"] as? [String: Any])
+        #expect(session["input_audio_format"] as? String == "pcm16")
+        let transcription = try #require(
+            session["input_audio_transcription"] as? [String: Any]
+        )
         #expect(transcription["model"] as? String == "gpt-4o-transcribe")
         #expect(transcription["language"] as? String == "zh")
-        #expect(input["turn_detection"] is NSNull)
+        #expect(session["turn_detection"] is NSNull)
     }
 
     @Test("Append commit clear remain ordered and use text JSON events")
@@ -132,7 +130,7 @@ struct SpeechRailRealtimeASRConnectionTests {
             return try #require(object["type"] as? String)
         }
         #expect(types == [
-            "session.update",
+            "transcription_session.update",
             "input_audio_buffer.append",
             "input_audio_buffer.commit",
             "input_audio_buffer.clear",
@@ -154,21 +152,21 @@ struct SpeechRailRealtimeASRConnectionTests {
         await transport.push(
             server(
                 "input_audio_buffer.committed",
-                sequence: 4,
-                eventID: "e4",
+                sequence: 3,
+                eventID: "e3",
                 extra: #""item_id":"a""#
             )
         )
         await transport.push(
             server(
                 "conversation.item.input_audio_transcription.completed",
-                sequence: 5,
-                eventID: "e5",
+                sequence: 4,
+                eventID: "e4",
                 extra: #""item_id":"a","transcript":"先观察""#
             )
         )
         await transport.push(
-            server("input_audio_buffer.cleared", sequence: 6, eventID: "e6")
+            server("input_audio_buffer.cleared", sequence: 5, eventID: "e5")
         )
 
         for _ in 0..<3 {
@@ -192,7 +190,7 @@ struct SpeechRailRealtimeASRConnectionTests {
         await transport.push(
             server(
                 "input_audio_buffer.committed",
-                sequence: 5,
+                sequence: 4,
                 eventID: "gap",
                 extra: #""item_id":"a""#
             )
@@ -202,7 +200,7 @@ struct SpeechRailRealtimeASRConnectionTests {
             _ = try await connection.receiveEnvelope()
             Issue.record("Sequence gap was accepted")
         } catch let failure as SpeechRailRealtimeASRFailure {
-            #expect(failure == .sequenceGap(expected: 4, actual: 5))
+            #expect(failure == .sequenceGap(expected: 3, actual: 4))
         }
     }
 

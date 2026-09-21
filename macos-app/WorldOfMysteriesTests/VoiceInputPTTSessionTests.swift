@@ -22,7 +22,7 @@ private final class FakeMicrophonePCMSource: MicrophonePCMSource {
         continuation?.yield(
             MicrophonePCM16Chunk(
                 data: data,
-                sampleRate: 24_000,
+                sampleRate: 16_000,
                 channels: 1,
                 frameCount: data.count / 2
             )
@@ -55,7 +55,6 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
         sequence = 0
         sessionID = UUID().uuidString
         emit("session.created")
-        emit("conversation.created")
     }
 
     func sendText(_ text: String) async throws {
@@ -65,8 +64,8 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
         let type = try #require(object["type"] as? String)
         sentTypes.append(type)
         switch type {
-        case "session.update":
-            emit("session.updated")
+        case "transcription_session.update":
+            emit("transcription_session.updated")
         case "input_audio_buffer.append":
             let encoded = try #require(object["audio"] as? String)
             appendPayloads.append(try #require(Data(base64Encoded: encoded)))
@@ -144,7 +143,7 @@ struct VoiceInputPTTSessionTests {
 
         let snapshot = await transport.snapshot()
         #expect(snapshot.types == [
-            "session.update",
+            "transcription_session.update",
             "input_audio_buffer.append",
             "input_audio_buffer.append",
             "input_audio_buffer.commit",
