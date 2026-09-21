@@ -45,6 +45,7 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
         var writeSuspended = false
         var incoming = [UInt8]()
         var outgoing = Data()
+        var pendingSends: [CheckedContinuation<Void, any Error>] = []
         var frameGeneration: UInt64 = 0
     }
 
@@ -126,12 +127,15 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
                         return
                     }
                     state.outgoing.append(encoded)
+                    state.pendingSends.append(continuation)
                     if state.writeSuspended {
                         state.writeSuspended = false
                         state.writeSource?.resume()
                     }
+                    // send() is a delivery barrier, not merely an enqueue call:
+                    // Stop relies on CANCEL being flushed before close() tears
+                    // down the socket.
                     self.flush(&state)
-                    continuation.resume()
                 }
             }
         }
@@ -277,6 +281,11 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
                 return
             }
         }
+        let completed = state.pendingSends
+        state.pendingSends.removeAll(keepingCapacity: true)
+        for continuation in completed {
+            continuation.resume()
+        }
         if !state.writeSuspended {
             state.writeSuspended = true
             state.writeSource?.suspend()
@@ -375,6 +384,11 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
         state.connected = false
         state.connecting?.resume(throwing: error)
         state.connecting = nil
+        let pendingSends = state.pendingSends
+        state.pendingSends.removeAll()
+        for continuation in pendingSends {
+            continuation.resume(throwing: error)
+        }
         state.incoming.removeAll()
         state.outgoing.removeAll()
         if state.writeSuspended {
@@ -395,6 +409,11 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
 
     deinit {
         state.withLock { state in
+            let pendingSends = state.pendingSends
+            state.pendingSends.removeAll()
+            for continuation in pendingSends {
+                continuation.resume(throwing: MediaSocketTransportFailure.disconnected)
+            }
             if state.writeSuspended {
                 state.writeSource?.resume()
             }
