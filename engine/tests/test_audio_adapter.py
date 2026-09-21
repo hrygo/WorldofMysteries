@@ -5,6 +5,7 @@ import base64
 import hashlib
 import json
 import os
+import struct
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,6 +34,8 @@ from infrastructure.audio import (
     RealtimeTTSRequest,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
+    StdlibJSONWebSocketTransport,
+    create_realtime_tts_adapter,
     create_audio_adapter,
     probe_audio_capabilities,
 )
@@ -1045,3 +1048,120 @@ def test_realtime_tts_rejects_plaintext_remote_endpoint():
     )
     with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_insecure_remote_endpoint"):
         asyncio.run(adapter.connect())
+
+
+async def _read_masked_client_websocket_frame(reader):
+    first, second = await reader.readexactly(2)
+    fin = bool(first & 0x80)
+    opcode = first & 0x0F
+    assert second & 0x80, "RFC 6455 clients must mask frames"
+    length = second & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", await reader.readexactly(2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", await reader.readexactly(8))[0]
+    mask = await reader.readexactly(4)
+    encoded = await reader.readexactly(length)
+    payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(encoded))
+    return fin, opcode, payload
+
+
+def _server_websocket_frame(opcode, payload, *, fin=True):
+    first = (0x80 if fin else 0) | opcode
+    length = len(payload)
+    if length <= 125:
+        prefix = bytes([first, length])
+    elif length <= 0xFFFF:
+        prefix = bytes([first, 126]) + struct.pack("!H", length)
+    else:
+        prefix = bytes([first, 127]) + struct.pack("!Q", length)
+    return prefix + payload
+
+
+@pytest.mark.asyncio
+async def test_stdlib_websocket_transport_performs_real_masked_current_wire_roundtrip():
+    observed = {}
+    server_done = asyncio.Event()
+
+    async def handler(reader, writer):
+        try:
+            request = await reader.readuntil(b"\r\n\r\n")
+            lines = request.decode("ascii").split("\r\n")
+            observed["request_line"] = lines[0]
+            headers = {}
+            for line in lines[1:]:
+                if ":" in line:
+                    name, value = line.split(":", 1)
+                    headers[name.lower()] = value.strip()
+            observed["authorization"] = headers.get("authorization")
+            accept = base64.b64encode(
+                hashlib.sha1(
+                    (
+                        headers["sec-websocket-key"]
+                        + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                    ).encode("ascii")
+                ).digest()
+            ).decode("ascii")
+            writer.write(
+                (
+                    "HTTP/1.1 101 Switching Protocols\r\n"
+                    "Upgrade: websocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    f"Sec-WebSocket-Accept: {accept}\r\n\r\n"
+                ).encode("ascii")
+            )
+            await writer.drain()
+
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            assert fin and opcode == 0x1
+            observed["client_json"] = json.loads(payload.decode("utf-8"))
+
+            writer.write(_server_websocket_frame(0x9, b"ping"))
+            await writer.drain()
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            observed["pong"] = (fin, opcode, payload)
+
+            response = json.dumps(
+                {"type": "server.test", "message": "你好"},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            split = len(response) // 2
+            writer.write(_server_websocket_frame(0x1, response[:split], fin=False))
+            writer.write(_server_websocket_frame(0x0, response[split:], fin=True))
+            await writer.drain()
+
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            observed["close"] = (fin, opcode, payload)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+            server_done.set()
+
+    server = await asyncio.start_server(handler, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    transport = StdlibJSONWebSocketTransport(timeout_seconds=2)
+    async with server:
+        await transport.open(
+            f"ws://127.0.0.1:{port}/v1/realtime?model=whisper-1",
+            {"Authorization": "Bearer test-secret"},
+        )
+        await transport.send_json({"type": "speechrail.tts.cancel", "request_id": "r1"})
+        response = await transport.receive_json()
+        await transport.close()
+        await asyncio.wait_for(server_done.wait(), timeout=2)
+
+    assert observed["request_line"] == "GET /v1/realtime?model=whisper-1 HTTP/1.1"
+    assert observed["authorization"] == "Bearer test-secret"
+    assert observed["client_json"] == {
+        "type": "speechrail.tts.cancel",
+        "request_id": "r1",
+    }
+    assert observed["pong"] == (True, 0xA, b"ping")
+    assert response == {"type": "server.test", "message": "你好"}
+    assert observed["close"][0:2] == (True, 0x8)
+
+
+def test_realtime_tts_factory_has_dependency_free_production_transport():
+    adapter = create_realtime_tts_adapter(AudioProviderConfig())
+    assert isinstance(adapter, SpeechRailRealtimeTTSAdapter)

@@ -28,6 +28,7 @@ from .media_protocol import (
 )
 from .mock_adapter import MockAudioAdapter
 from .openai_adapter import OpenAIAudioAdapter, create_audio_adapter
+from .websocket_transport import JSONWebSocketTransportError, StdlibJSONWebSocketTransport
 from .realtime_tts import (
     REALTIME_TTS_SAMPLE_RATE,
     RealtimeTTSChunk,
@@ -36,6 +37,7 @@ from .realtime_tts import (
     RealtimeTTSTransport,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
+    create_realtime_tts_adapter,
 )
 
 __all__ = [
@@ -69,6 +71,9 @@ __all__ = [
     "VoiceCapabilityObservation",
     "SpeechRailRealtimeTTSAdapter",
     "SpeechRailRealtimeTTSError",
+    "JSONWebSocketTransportError",
+    "StdlibJSONWebSocketTransport",
     "create_audio_adapter",
+    "create_realtime_tts_adapter",
     "probe_audio_capabilities",
 ]

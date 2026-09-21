@@ -498,3 +498,16 @@ class SpeechRailRealtimeTTSAdapter:
         self._active_item_id = None
         self._render_receipts_enabled = False
         await self._transport.close()
+
+
+def create_realtime_tts_adapter(
+    config: AudioProviderConfig | None = None,
+    transport: RealtimeTTSTransport | None = None,
+) -> SpeechRailRealtimeTTSAdapter:
+    """Create the production current-only SpeechRail Realtime TTS adapter."""
+    resolved = config or AudioProviderConfig.from_env()
+    if transport is None:
+        from .websocket_transport import StdlibJSONWebSocketTransport
+
+        transport = StdlibJSONWebSocketTransport(timeout_seconds=resolved.timeout_seconds)
+    return SpeechRailRealtimeTTSAdapter(resolved, transport)
