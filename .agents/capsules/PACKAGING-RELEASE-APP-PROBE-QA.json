@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PACKAGING-RELEASE-APP-PROBE-QA",
+  "capsule_revision": 1,
+  "task_id": "PACKAGING-RELEASE-APP-PROBE-QA",
+  "title": "Packaging Release App probe regression coverage",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-21T23:48:20.215679+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "d788984a101c38eaeb445b0f033db99868ad0724",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:6afeffbdc24c2f77da77c2681a13bed6c7854b770a33544ee26bdd620ae97dc2"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:app_driver@engine/tests/test_app_engine_session.py:28",
+      "symbol:test_real_swift_app_engine_lifecycle@engine/tests/test_app_engine_session.py:54",
+      "symbol:test_engine_stops_when_swift_parent_is_force_quit@engine/tests/test_app_engine_session.py:63",
+      "symbol:_receive@engine/tests/test_app_engine_session.py:97",
+      "symbol:_frame@engine/tests/test_app_engine_session.py:109",
+      "symbol:test_production_client_rejects_bad_peers@engine/tests/test_app_engine_session.py:116",
+      "symbol:exact@engine/tests/test_app_engine_session.py:98",
+      "symbol:serve@engine/tests/test_app_engine_session.py:126",
+      "symbol:test_speechrail_capability_probe_observes_only_safe_routing_fields@engine/tests/test_audio_adapter.py:212",
+      "symbol:test_speechrail_capability_probe_keeps_missing_fields_unknown@engine/tests/test_audio_adapter.py:281",
+      "symbol:test_speechrail_capability_probe_preserves_not_ready_and_catalog_evidence@engine/tests/test_audio_adapter.py:310",
+      "symbol:test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party@engine/tests/test_audio_adapter.py:335",
+      "symbol:test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network@engine/tests/test_audio_adapter.py:356",
+      "symbol:test_openai_audio_adapter_exposes_capability_probe_on_same_config@engine/tests/test_audio_adapter.py:373",
+      "symbol:test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable@engine/tests/test_audio_adapter.py:395",
+      "symbol:test_speechrail_capability_probe_reports_partial_discovery_as_degraded@engine/tests/test_audio_adapter.py:415",
+      "symbol:test_runtime_stager_requires_private_data_sqlite_probe@engine/tests/test_bundle_engine.py:243",
+      "symbol:test_packaged_probe_source_closure_tracks_media_protocol_dependency@engine/tests/test_bundle_engine.py:250",
+      "symbol:test_context_openai_append_retains_previous_breakpoint@engine/tests/test_context_cache_providers.py:26",
+      "symbol:test_context_epoch_append_only_and_idempotent@engine/tests/test_context_epoch.py:20",
+      "symbol:test_database_exclusive_writer_and_lease_release@engine/tests/test_database_manager.py:144",
+      "symbol:apply@engine/tests/test_database_manager.py:240",
+      "symbol:apply@engine/tests/test_database_manager.py:251",
+      "symbol:apply@engine/tests/test_database_manager.py:262",
+      "symbol:apply@engine/tests/test_database_manager.py:280",
+      "symbol:apply@engine/tests/test_database_manager.py:304",
+      "symbol:test_gameplay_gateway_applies_cache_economics_and_authorization_override@engine/tests/test_gameplay_cache.py:89",
+      "symbol:test_gameplay_profile_is_application_owned_and_consumer_bound@engine/tests/test_gameplay_context.py:196",
+      "symbol:test_only_relocatable_or_os_libraries_accepted@engine/tests/test_macos_packaging.py:17",
+      "symbol:test_host_specific_dependencies_rejected@engine/tests/test_macos_packaging.py:23"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 903,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "app_driver",
+      "test_real_swift_app_engine_lifecycle",
+      "test_engine_stops_when_swift_parent_is_force_quit",
+      "_receive",
+      "_frame",
+      "test_production_client_rejects_bad_peers",
+      "exact",
+      "serve",
+      "test_speechrail_capability_probe_observes_only_safe_routing_fields",
+      "test_speechrail_capability_probe_keeps_missing_fields_unknown",
+      "test_speechrail_capability_probe_preserves_not_ready_and_catalog_evidence",
+      "test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party",
+      "test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network",
+      "test_openai_audio_adapter_exposes_capability_probe_on_same_config",
+      "test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable",
+      "test_speechrail_capability_probe_reports_partial_discovery_as_degraded",
+      "test_runtime_stager_requires_private_data_sqlite_probe",
+      "test_packaged_probe_source_closure_tracks_media_protocol_dependency",
+      "test_context_openai_append_retains_previous_breakpoint",
+      "test_context_epoch_append_only_and_idempotent",
+      "test_database_exclusive_writer_and_lease_release",
+      "apply",
+      "apply",
+      "apply",
+      "apply",
+      "apply",
+      "test_gameplay_gateway_applies_cache_economics_and_authorization_override",
+      "test_gameplay_profile_is_application_owned_and_consumer_bound",
+      "test_only_relocatable_or_os_libraries_accepted",
+      "test_host_specific_dependencies_rejected"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "PACKAGING-RELEASE-APP-PROBE-R2"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
