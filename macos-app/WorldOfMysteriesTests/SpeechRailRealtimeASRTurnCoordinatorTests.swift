@@ -28,7 +28,6 @@ private actor ScriptedASRTurnTransport: SpeechRailRealtimeASRTransport {
         sequence = 0
         sessionID = "sess-turn-\(connectionCount)"
         emit(type: "session.created")
-        emit(type: "conversation.created")
     }
 
     func sendText(_ text: String) async throws {
@@ -39,8 +38,8 @@ private actor ScriptedASRTurnTransport: SpeechRailRealtimeASRTransport {
         sentTypes.append(type)
 
         switch type {
-        case "session.update":
-            emit(type: "session.updated")
+        case "transcription_session.update":
+            emit(type: "transcription_session.updated")
         case "input_audio_buffer.commit":
             let itemID = "tail"
             emit(
@@ -225,15 +224,14 @@ struct SpeechRailRealtimeASRTurnCoordinatorTests {
             func open(_ request: URLRequest) async throws {
                 _ = request
                 emit("session.created")
-                emit("conversation.created")
             }
 
             func sendText(_ text: String) async throws {
                 let object = try #require(
                     try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any]
                 )
-                if object["type"] as? String == "session.update" {
-                    emit("session.updated")
+                if object["type"] as? String == "transcription_session.update" {
+                    emit("transcription_session.updated")
                 }
             }
 

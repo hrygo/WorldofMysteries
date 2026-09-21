@@ -49,7 +49,7 @@ public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     public let bufferedChunkLimit: Int
 
     public init(
-        targetSampleRate: Int = 24_000,
+        targetSampleRate: Int = 16_000,
         tapFrameCount: AVAudioFrameCount = 960,
         bufferedChunkLimit: Int = 8
     ) {
@@ -59,7 +59,7 @@ public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     }
 
     fileprivate func validate() throws {
-        guard [16_000, 24_000].contains(targetSampleRate),
+        guard targetSampleRate == 16_000,
               (128...4096).contains(tapFrameCount),
               (2...32).contains(bufferedChunkLimit)
         else {

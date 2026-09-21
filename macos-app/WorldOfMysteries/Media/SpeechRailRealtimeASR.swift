@@ -28,8 +28,7 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
 
 public nonisolated enum SpeechRailASRServerEvent: Sendable, Equatable {
     case sessionCreated
-    case conversationCreated
-    case sessionUpdated
+    case transcriptionSessionUpdated
     case committed(itemID: String)
     case itemCreated(itemID: String?)
     case partial(itemID: String, delta: String)
@@ -42,8 +41,7 @@ public nonisolated enum SpeechRailASRServerEvent: Sendable, Equatable {
     fileprivate var typeName: String {
         switch self {
         case .sessionCreated: "session.created"
-        case .conversationCreated: "conversation.created"
-        case .sessionUpdated: "session.updated"
+        case .transcriptionSessionUpdated: "transcription_session.updated"
         case .committed: "input_audio_buffer.committed"
         case .itemCreated: "conversation.item.created"
         case .partial: "conversation.item.input_audio_transcription.delta"
@@ -121,10 +119,8 @@ public nonisolated struct SpeechRailASRServerEnvelope: Sendable, Equatable {
         switch base.type {
         case "session.created":
             event = .sessionCreated
-        case "conversation.created":
-            event = .conversationCreated
-        case "session.updated":
-            event = .sessionUpdated
+        case "transcription_session.updated":
+            event = .transcriptionSessionUpdated
         case "input_audio_buffer.committed":
             event = .committed(itemID: try requiredString("item_id"))
         case "conversation.item.created":
