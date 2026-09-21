@@ -15,6 +15,7 @@ from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTS
 from infrastructure.audio import (
     AudioProviderConfig,
     MEDIA_MAX_HEADER_BYTES,
+    MediaCancelHeader,
     MediaChunkHeader,
     MediaCreditHeader,
     MediaCreditWindow,
@@ -30,8 +31,12 @@ from infrastructure.audio import (
     parse_media_header,
     read_media_frame,
     ProbeHttpResponse,
+    EngineRealtimeTTSMediaStream,
     REALTIME_TTS_SAMPLE_RATE,
+    RealtimeTTSChunk,
+    RealtimeTTSMediaBridgeError,
     RealtimeTTSRequest,
+    RealtimeTTSTerminal,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
     StdlibJSONWebSocketTransport,
@@ -1165,3 +1170,182 @@ async def test_stdlib_websocket_transport_performs_real_masked_current_wire_roun
 def test_realtime_tts_factory_has_dependency_free_production_transport():
     adapter = create_realtime_tts_adapter(AudioProviderConfig())
     assert isinstance(adapter, SpeechRailRealtimeTTSAdapter)
+
+
+class _MemoryMediaWriter:
+    def __init__(self) -> None:
+        self.data = bytearray()
+
+    def write(self, data: bytes) -> None:
+        self.data.extend(data)
+
+    async def drain(self) -> None:
+        return None
+
+
+def _tts_media_open(*, credit: int = 16, max_payload: int = 4) -> MediaOpenHeader:
+    return MediaOpenHeader(
+        stream_id="tts-media",
+        trace_id="trace-media",
+        engine_epoch="engine-media",
+        generation=3,
+        ticket="a" * 64,
+        direction="engine_to_app",
+        format=MediaFormat(sample_rate=24_000),
+        max_payload_bytes=max_payload,
+        initial_credit_bytes=credit,
+    )
+
+
+async def _decode_media_frames(data: bytes, count: int):
+    reader = asyncio.StreamReader()
+    reader.feed_data(data)
+    reader.feed_eof()
+    return [await read_media_frame(reader) for _ in range(count)]
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_rechunks_and_finishes():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(_tts_media_open(), reader, writer)  # type: ignore[arg-type]
+    await stream.start()
+    pcm = bytes([1, 0, 2, 0, 3, 0, 4, 0])
+    await stream.push(
+        RealtimeTTSChunk(
+            response_id="resp",
+            item_id="item",
+            sequence=10,
+            offset_frames=0,
+            frame_count=4,
+            pcm16=pcm,
+        )
+    )
+    digest = hashlib.sha256(pcm).hexdigest()
+    await stream.finish_completed(
+        RealtimeTTSTerminal(
+            request_id="req",
+            response_id="resp",
+            status="completed",
+            total_frames=4,
+            total_bytes=8,
+            pcm_sha256=digest,
+            voice_revision="vr_" + "a" * 40,
+            receipt_id="receipt",
+        )
+    )
+    frames = await _decode_media_frames(bytes(writer.data), 3)
+    assert [header.kind for header, _ in frames] == ["chunk", "chunk", "end"]
+    assert [header.offset_frames for header, _ in frames[:2]] == [0, 2]
+    assert frames[-1][0].sha256 == digest
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_waits_for_full_chunk_credit():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(
+        _tts_media_open(credit=2, max_payload=4), reader, writer  # type: ignore[arg-type]
+    )
+    await stream.start()
+    task = asyncio.create_task(
+        stream.push(
+            RealtimeTTSChunk(
+                response_id="resp",
+                item_id="item",
+                sequence=1,
+                offset_frames=0,
+                frame_count=2,
+                pcm16=bytes([1, 0, 2, 0]),
+            )
+        )
+    )
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    assert writer.data == b""
+    reader.feed_data(
+        encode_media_frame(
+            MediaCreditHeader(
+                stream_id="tts-media",
+                generation=3,
+                credit_bytes=2,
+            )
+        )
+    )
+    await asyncio.wait_for(task, timeout=1)
+    frames = await _decode_media_frames(bytes(writer.data), 1)
+    assert len(frames[0][1]) == 4
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_peer_cancel_unblocks_backpressure():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(
+        _tts_media_open(credit=0, max_payload=4), reader, writer  # type: ignore[arg-type]
+    )
+    await stream.start()
+    task = asyncio.create_task(
+        stream.push(
+            RealtimeTTSChunk(
+                response_id="resp",
+                item_id="item",
+                sequence=1,
+                offset_frames=0,
+                frame_count=1,
+                pcm16=b"\x00\x00",
+            )
+        )
+    )
+    await asyncio.sleep(0.01)
+    reader.feed_data(
+        encode_media_frame(
+            MediaCancelHeader(
+                stream_id="tts-media",
+                generation=3,
+                reason="user_stop",
+            )
+        )
+    )
+    with pytest.raises(RealtimeTTSMediaBridgeError, match="media_peer_cancelled"):
+        await asyncio.wait_for(task, timeout=1)
+    stop = await stream.wait_peer_stop()
+    assert stop.kind == "cancel"
+    assert stop.reason == "user_stop"
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_terminal_mismatch_never_emits_end():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(_tts_media_open(), reader, writer)  # type: ignore[arg-type]
+    await stream.start()
+    await stream.push(
+        RealtimeTTSChunk(
+            response_id="resp",
+            item_id="item",
+            sequence=1,
+            offset_frames=0,
+            frame_count=1,
+            pcm16=b"\x01\x00",
+        )
+    )
+    with pytest.raises(RealtimeTTSMediaBridgeError, match="media_bridge_terminal_mismatch"):
+        await stream.finish_completed(
+            RealtimeTTSTerminal(
+                request_id="req",
+                response_id="resp",
+                status="completed",
+                total_frames=1,
+                total_bytes=2,
+                pcm_sha256="0" * 64,
+                voice_revision=None,
+                receipt_id=None,
+            )
+        )
+    frames = await _decode_media_frames(bytes(writer.data), 1)
+    assert frames[0][0].kind == "chunk"
+    await stream.close()

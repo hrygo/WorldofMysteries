@@ -39,6 +39,12 @@ from .realtime_tts import (
     SpeechRailRealtimeTTSError,
     create_realtime_tts_adapter,
 )
+from .media_bridge import (
+    EngineRealtimeTTSMediaStream,
+    MediaPeerStop,
+    RealtimeTTSMediaBridgeError,
+    render_realtime_tts_to_media,
+)
 
 __all__ = [
     "AudioCapabilityObservation",
@@ -63,6 +69,9 @@ __all__ = [
     "write_media_frame",
     "OpenAIAudioAdapter",
     "ProbeHttpResponse",
+    "EngineRealtimeTTSMediaStream",
+    "MediaPeerStop",
+    "RealtimeTTSMediaBridgeError",
     "REALTIME_TTS_SAMPLE_RATE",
     "RealtimeTTSChunk",
     "RealtimeTTSRequest",
@@ -75,5 +84,6 @@ __all__ = [
     "StdlibJSONWebSocketTransport",
     "create_audio_adapter",
     "create_realtime_tts_adapter",
+    "render_realtime_tts_to_media",
     "probe_audio_capabilities",
 ]
