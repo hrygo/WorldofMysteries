@@ -28,6 +28,15 @@ from .media_protocol import (
 )
 from .mock_adapter import MockAudioAdapter
 from .openai_adapter import OpenAIAudioAdapter, create_audio_adapter
+from .realtime_tts import (
+    REALTIME_TTS_SAMPLE_RATE,
+    RealtimeTTSChunk,
+    RealtimeTTSRequest,
+    RealtimeTTSTerminal,
+    RealtimeTTSTransport,
+    SpeechRailRealtimeTTSAdapter,
+    SpeechRailRealtimeTTSError,
+)
 
 __all__ = [
     "AudioCapabilityObservation",
@@ -52,7 +61,14 @@ __all__ = [
     "write_media_frame",
     "OpenAIAudioAdapter",
     "ProbeHttpResponse",
+    "REALTIME_TTS_SAMPLE_RATE",
+    "RealtimeTTSChunk",
+    "RealtimeTTSRequest",
+    "RealtimeTTSTerminal",
+    "RealtimeTTSTransport",
     "VoiceCapabilityObservation",
+    "SpeechRailRealtimeTTSAdapter",
+    "SpeechRailRealtimeTTSError",
     "create_audio_adapter",
     "probe_audio_capabilities",
 ]
