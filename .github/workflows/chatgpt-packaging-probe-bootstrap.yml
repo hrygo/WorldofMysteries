@@ -1,0 +1,39 @@
+name: ChatGPT Packaging Probe Bootstrap
+
+on:
+  push:
+    branches:
+      - fix/packaging-release-app-probe
+    paths:
+      - .github/workflows/chatgpt-packaging-probe-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Generate repository-native task capsule
+        run: |
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-ARB \
+            --task-id PACKAGING-RELEASE-APP-PROBE-R1 \
+            --title "Make Release App Engine bootstrap probe deterministic" \
+            --focus "build_macos_package,release_app_probe,await_engine,packaging" \
+            --risk-class high
+          python3 scripts/agent_capsule.py show \
+            --capsule .agents/capsules/PACKAGING-RELEASE-APP-PROBE-R1.json
+      - name: Commit capsule and remove bootstrap workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/capsules/PACKAGING-RELEASE-APP-PROBE-R1.json
+          git rm .github/workflows/chatgpt-packaging-probe-bootstrap.yml
+          git commit -m "chore(packaging): initialize release-app probe task"
+          git push origin HEAD:fix/packaging-release-app-probe
