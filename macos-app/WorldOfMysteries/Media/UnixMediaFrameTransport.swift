@@ -75,7 +75,7 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
         }
         try Task.checkCancellation()
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
                 queue.async {
                     self.state.withLock { state in
                         guard !state.closed, state.fd < 0 else {
@@ -114,7 +114,7 @@ public nonisolated final class UnixMediaFrameTransport: MediaFrameTransport, Sen
             throw MediaSocketTransportFailure.invalidFrame
         }
 
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             queue.async {
                 self.state.withLock { state in
                     guard state.connected, !state.closed else {
