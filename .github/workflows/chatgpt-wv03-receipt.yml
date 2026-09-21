@@ -1,0 +1,54 @@
+name: ChatGPT W-V03 Receipt Refresh
+
+on:
+  push:
+    branches:
+      - feat/voice-v03-realtime-tts
+    paths:
+      - .github/workflows/chatgpt-wv03-receipt.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: engine/uv.lock
+
+      - name: Remove temporary verifier before scope verification
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/chatgpt-wv03-receipt.yml
+          git commit -m "ci(voice): remove temporary W-V03 verifier"
+          git push origin HEAD:feat/voice-v03-realtime-tts
+
+      - name: Verify current W-V03 implementation with repository-native gate
+        run: |
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V03-REALTIME-TTS.json \
+            --cwd "$GITHUB_WORKSPACE"
+
+      - name: Commit fresh Work Receipt
+        run: |
+          git add .agents/receipts/VOICE-V03-REALTIME-TTS/
+          if git diff --cached --quiet; then
+            echo "No receipt change produced" >&2
+            exit 1
+          fi
+          git commit -m "chore(evidence): refresh W-V03 Work Receipt"
+          git push origin HEAD:feat/voice-v03-realtime-tts
