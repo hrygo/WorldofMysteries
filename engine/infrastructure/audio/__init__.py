@@ -10,6 +10,7 @@ from .config import AudioProviderConfig
 from .media_protocol import (
     MEDIA_MAX_HEADER_BYTES,
     MEDIA_MAX_PAYLOAD_BYTES,
+    MediaCancelHeader,
     MediaChunkHeader,
     MediaCreditHeader,
     MediaCreditWindow,
@@ -51,6 +52,7 @@ __all__ = [
     "AudioProviderConfig",
     "MEDIA_MAX_HEADER_BYTES",
     "MEDIA_MAX_PAYLOAD_BYTES",
+    "MediaCancelHeader",
     "MediaChunkHeader",
     "MediaCreditHeader",
     "MediaCreditWindow",
