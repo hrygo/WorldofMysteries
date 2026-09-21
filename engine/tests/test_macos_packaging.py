@@ -35,7 +35,8 @@ def test_entitlements_preserve_sandbox_and_do_not_disable_validation():
     app=plistlib.loads((ROOT/'macos-app/Packaging/App.entitlements').read_bytes())
     engine=plistlib.loads((ROOT/'macos-app/Packaging/Engine.entitlements').read_bytes())
     assert app == {'com.apple.security.app-sandbox':True,'com.apple.security.network.client':True,
-                   'com.apple.security.files.user-selected.read-only':True}
+                   'com.apple.security.files.user-selected.read-only':True,
+                   'com.apple.security.device.audio-input':True}
     assert engine == {'com.apple.security.app-sandbox':True,'com.apple.security.inherit':True}
 
 
