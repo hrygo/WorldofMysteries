@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
-  "capsule_id": "CAP-VOICE-V02-MIC-CAPTURE",
-  "capsule_revision": 1,
-  "task_id": "VOICE-V02-MIC-CAPTURE",
-  "title": "Voice V02 sandboxed microphone capture",
+  "capsule_id": "CAP-VOICE-V02-MIC-CAPTURE-R2",
+  "capsule_revision": 2,
+  "task_id": "VOICE-V02-MIC-CAPTURE-R2",
+  "title": "Voice V02 sandboxed microphone capture for SpeechRail 3.x",
   "assigned_role": "AGT-MAC",
   "status": "CREATED",
-  "created_at": "2026-09-19T13:39:06.400692+00:00",
+  "created_at": "2026-09-21T06:46:39.728341+00:00",
   "risk_class": "privileged",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "215222d5311d8a8f310b50946537c6aa2ed49951",
-    "target_sha": "2410d5a4e592f25878c3d10477f7982214192f32",
-    "context_snapshot": "sha256:6033ba38973cb224bfc9e48074de2014023a189c35550732e930d53484284d39"
+    "base_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:5dcf10e1f9eb3a9ab307630e7a5853f2db7f071eb3516e4affbcfd6dbe58256b"
   },
   "scope": {
     "read": [
@@ -78,7 +78,7 @@
   },
   "dependencies": {
     "depends_on": [
-      "VOICE-V02-REALTIME-ASR"
+      "VOICE-V02-REALTIME-ASR-R2"
     ],
     "conflicts_with": []
   },
@@ -96,5 +96,6 @@
     "assertions": [
       "INV-12"
     ]
-  }
+  },
+  "supersedes": "CAP-VOICE-V02-MIC-CAPTURE"
 }
