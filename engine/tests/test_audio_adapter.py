@@ -37,6 +37,7 @@ from infrastructure.audio import (
     RealtimeTTSMediaBridgeError,
     RealtimeTTSRequest,
     RealtimeTTSTerminal,
+    render_realtime_tts_to_media,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
     StdlibJSONWebSocketTransport,
@@ -1349,3 +1350,76 @@ async def test_realtime_tts_media_bridge_terminal_mismatch_never_emits_end():
     frames = await _decode_media_frames(bytes(writer.data), 1)
     assert frames[0][0].kind == "chunk"
     await stream.close()
+
+
+class _BridgeCancelAdapter:
+    def __init__(self) -> None:
+        self.cancel_calls = 0
+        self.chunk_started = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def render(self, request, on_chunk):
+        self.chunk_started.set()
+        await on_chunk(
+            RealtimeTTSChunk(
+                response_id="resp-cancel-bridge",
+                item_id="item-cancel-bridge",
+                sequence=1,
+                offset_frames=0,
+                frame_count=1,
+                pcm16=b"\x01\x00",
+            )
+        )
+        await self.cancelled.wait()
+        return RealtimeTTSTerminal(
+            request_id=request.request_id,
+            response_id="resp-cancel-bridge",
+            status="cancelled",
+            total_frames=0,
+            total_bytes=0,
+            pcm_sha256=hashlib.sha256(b"").hexdigest(),
+            voice_revision=None,
+            receipt_id=None,
+        )
+
+    async def cancel_active(self):
+        self.cancel_calls += 1
+        self.cancelled.set()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_peer_cancel_reaches_provider_while_credit_blocked():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    adapter = _BridgeCancelAdapter()
+    opened = _tts_media_open(credit=0, max_payload=4)
+    request = RealtimeTTSRequest(
+        text="停止这句",
+        voice="serena",
+        request_id="req-cancel-bridge",
+    )
+    task = asyncio.create_task(
+        render_realtime_tts_to_media(
+            adapter,  # type: ignore[arg-type]
+            request,
+            opened,
+            reader,
+            writer,  # type: ignore[arg-type]
+        )
+    )
+    await adapter.chunk_started.wait()
+    await asyncio.sleep(0)
+    reader.feed_data(
+        encode_media_frame(
+            MediaCancelHeader(
+                stream_id="tts-media",
+                generation=3,
+                reason="user_stop",
+            )
+        )
+    )
+
+    terminal = await asyncio.wait_for(task, timeout=1)
+    assert terminal.status == "cancelled"
+    assert adapter.cancel_calls == 1
+    assert writer.data == b""

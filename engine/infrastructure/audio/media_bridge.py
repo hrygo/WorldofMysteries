@@ -203,6 +203,10 @@ class EngineRealtimeTTSMediaStream:
             await write_media_frame(self._writer, header)
         self._terminal_sent = True
 
+    @property
+    def peer_stopped(self) -> bool:
+        return self._peer_stop.is_set()
+
     async def wait_peer_stop(self) -> MediaPeerStop:
         await self._peer_stop.wait()
         assert self._peer_stop_value is not None
@@ -308,8 +312,23 @@ async def render_realtime_tts_to_media(
 
     stream = EngineRealtimeTTSMediaStream(opened, reader, writer)
     await stream.start()
-    render_task = asyncio.create_task(adapter.render(request, stream.push))
     peer_task = asyncio.create_task(stream.wait_peer_stop())
+
+    async def deliver_chunk(chunk: RealtimeTTSChunk) -> None:
+        # Keep the provider reader alive long enough to send and observe
+        # speechrail.tts.cancel.  A media peer stop wakes credit waiters; that
+        # wake-up must not make adapter.render unwind and clear its active
+        # request before the provider cancel control event is sent.
+        if stream.peer_stopped:
+            return
+        try:
+            await stream.push(chunk)
+        except RealtimeTTSMediaBridgeError:
+            if stream.peer_stopped:
+                return
+            raise
+
+    render_task = asyncio.create_task(adapter.render(request, deliver_chunk))
     try:
         done, _ = await asyncio.wait(
             {render_task, peer_task}, return_when=asyncio.FIRST_COMPLETED
