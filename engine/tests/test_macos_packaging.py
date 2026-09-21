@@ -134,21 +134,22 @@ def test_runtime_setup_diagnostics_preserve_user_safe_errors():
 
 
 def test_failed_diagnostic_collection_cannot_hide_app_failure(tmp_path, monkeypatch):
-    class App:
-        pid = 123
+    class Launcher:
         def __init__(self): self.stopped = False
         def poll(self): return -9 if self.stopped else None
         def kill(self): self.stopped = True
         def wait(self, **kwargs): return -9
-    app = App()
-    monkeypatch.setattr(package.subprocess, 'Popen', lambda *a, **k: app)
+    launcher = Launcher()
+    monkeypatch.setattr(package, 'launch_release_app', lambda *a, **k: (launcher, 123))
+    monkeypatch.setattr(package, 'process_exists', lambda pid: False)
     def original_failure(*a, **k): raise package.BundleError('original launch failure')
     monkeypatch.setattr(package, 'await_engine', original_failure)
+    monkeypatch.setattr(package, '_release_observation', lambda *a, **k: (_ for _ in ()).throw(package.BundleError('diagnostic unavailable')))
     def diagnostics_fail(*a, **k): raise package.BundleError('diagnostic unavailable')
     monkeypatch.setattr(package, 'run', diagnostics_fail)
     with pytest.raises(package.BundleError, match='original launch failure'):
         package.release_app_probe(tmp_path/'App.app', tmp_path)
-    assert app.stopped
+    assert launcher.stopped
 
 
 def test_process_ancestry_never_parses_display_escaped_arguments(monkeypatch):
@@ -219,16 +220,15 @@ def test_invalid_kernel_path_is_rejected(value, length, monkeypatch):
 
 
 def test_await_engine_requires_direct_parent_and_exact_executable(tmp_path, monkeypatch):
-    class App:
-        pid = 100
-        def poll(self): return None
+    monkeypatch.setattr(package, 'process_exists', lambda pid: pid == 100)
+    monkeypatch.setattr(package, '_same_executable', lambda pid, path: pid == 100)
     monkeypatch.setattr(package, 'children', lambda pid: [101, 102])
     monkeypatch.setattr(package, 'is_bundled_engine', lambda pid, app: pid == 102)
-    assert package.await_engine(App(), tmp_path) == 102
+    assert package.await_engine(100, tmp_path) == 102
     monkeypatch.setattr(package, 'is_bundled_engine', lambda pid, app: True)
-    assert package.await_engine(App(), tmp_path, previous=101) == 102
+    assert package.await_engine(100, tmp_path, previous=101) == 102
     with pytest.raises(package.BundleError, match='duplicate'):
-        package.await_engine(App(), tmp_path)
+        package.await_engine(100, tmp_path)
 
 
 @pytest.mark.skipif(sys.platform != 'darwin', reason='Darwin kernel process identity')
@@ -242,3 +242,60 @@ def test_actual_macos_kernel_executable_identity():
         finally:
             child.terminate()
             child.wait(timeout=5)
+
+
+def test_user_process_ids_use_numeric_uid_table(monkeypatch):
+    calls = []
+    monkeypatch.setattr(package.os, 'getuid', lambda: 501)
+    def read(command, **kwargs):
+        calls.append(command)
+        return '  10 501\n  11 0\n  12 501\n'
+    monkeypatch.setattr(package.subprocess, 'check_output', read)
+    assert package.user_process_ids() == [10, 12]
+    assert calls == [['/bin/ps', '-axo', 'pid=,uid=']]
+
+
+def test_bundle_app_pids_use_kernel_executable_identity(tmp_path, monkeypatch):
+    app = tmp_path/'移动 安装目录'/'诡秘世界.app'
+    executable = app/'Contents/MacOS/WorldOfMysteries'
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b'app')
+    monkeypatch.setattr(package, 'user_process_ids', lambda: [10, 11, 12])
+    seen = []
+    def same(pid, target):
+        seen.append((pid, target))
+        return pid == 11
+    monkeypatch.setattr(package, '_same_executable', same)
+    assert package.bundle_app_pids(app) == [11]
+    assert all(target == executable for _, target in seen)
+
+
+def test_launch_release_app_uses_launchservices_and_exact_new_instance(tmp_path, monkeypatch):
+    app = tmp_path/'移动 安装目录'/'诡秘世界.app'
+    calls = []
+    class Launcher:
+        def poll(self): return None
+        def kill(self): raise AssertionError('launcher should stay alive')
+        def wait(self, **kwargs): return 0
+    launcher = Launcher()
+    def popen(command, **kwargs):
+        calls.append((command, kwargs))
+        return launcher
+    monkeypatch.setattr(package.subprocess, 'Popen', popen)
+    monkeypatch.setattr(package, 'bundle_app_pids', lambda bundle: [77])
+    def observe(value, bundle, *, preexisting):
+        assert value is launcher
+        assert bundle == app
+        assert preexisting == {77}
+        return 88
+    monkeypatch.setattr(package, 'await_app_launch', observe)
+    result_launcher, pid = package.launch_release_app(app, object())
+    assert result_launcher is launcher and pid == 88
+    assert calls[0][0] == ['/usr/bin/open', '-n', '-W', '-F', str(app)]
+    assert 'env' not in calls[0][1]
+
+
+def test_release_probe_source_does_not_launch_app_macho_directly():
+    source = (ROOT/'scripts/build_macos_package.py').read_text()
+    assert "['/usr/bin/open', '-n', '-W', '-F', str(bundle)]" in source
+    assert "subprocess.Popen([str(executable)]" not in source

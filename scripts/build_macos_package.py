@@ -154,22 +154,84 @@ def process_executable(pid: int) -> Path | None:
     return Path(os.fsdecode(value))
 
 
-def is_bundled_engine(pid: int, bundle: Path) -> bool:
-    executable = process_executable(pid)
-    if executable is None:
+def _same_executable(pid: int, executable: Path) -> bool:
+    observed = process_executable(pid)
+    if observed is None:
         return False
     try:
-        return executable.samefile(bundle/'Contents/Resources/LocalEngine/bin/python3')
+        return observed.samefile(executable)
     except FileNotFoundError:
         return False
 
 
-def await_engine(app: subprocess.Popen, bundle: Path, *, previous: int | None = None) -> int:
+def is_bundled_engine(pid: int, bundle: Path) -> bool:
+    return _same_executable(pid, bundle/'Contents/Resources/LocalEngine/bin/python3')
+
+
+def user_process_ids() -> list[int]:
+    """Return only this uid's process IDs; executable identity is checked separately."""
+    raw = subprocess.check_output(['/bin/ps', '-axo', 'pid=,uid='], text=True, timeout=5)
+    uid = os.getuid()
+    result = []
+    for line in raw.splitlines():
+        parts = line.split()
+        if len(parts) != 2 or not all(item.isdecimal() for item in parts):
+            raise BundleError('Invalid numeric process identity response')
+        if int(parts[1]) == uid:
+            result.append(int(parts[0]))
+    return result
+
+
+def bundle_app_pids(bundle: Path) -> list[int]:
+    """Find this exact bundle copy using kernel executable identity, never argv text."""
+    executable = bundle/'Contents/MacOS/WorldOfMysteries'
+    return [pid for pid in user_process_ids() if _same_executable(pid, executable)]
+
+
+def await_app_launch(
+    launcher: subprocess.Popen,
+    bundle: Path,
+    *,
+    preexisting: set[int],
+) -> int:
     end = time.monotonic() + 20
     while time.monotonic() < end:
-        if app.poll() is not None:
+        candidates = [pid for pid in bundle_app_pids(bundle) if pid not in preexisting]
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1:
+            raise BundleError('LaunchServices created duplicate Release App instances')
+        if launcher.poll() is not None:
+            raise BundleError('LaunchServices exited before the Release App became observable')
+        time.sleep(0.1)
+    raise BundleError('LaunchServices did not make the Release App observable')
+
+
+def launch_release_app(bundle: Path, log) -> tuple[subprocess.Popen, int]:
+    """Launch the product bundle through LaunchServices and bind its exact process identity."""
+    preexisting = set(bundle_app_pids(bundle))
+    launcher = subprocess.Popen(
+        ['/usr/bin/open', '-n', '-W', '-F', str(bundle)],
+        stdout=log,
+        stderr=log,
+    )
+    try:
+        return launcher, await_app_launch(launcher, bundle, preexisting=preexisting)
+    except Exception:
+        if launcher.poll() is None:
+            launcher.kill()
+            launcher.wait(timeout=5)
+        raise
+
+
+def await_engine(app_pid: int, bundle: Path, *, previous: int | None = None) -> int:
+    end = time.monotonic() + 20
+    while time.monotonic() < end:
+        if not process_exists(app_pid) or not _same_executable(
+            app_pid, bundle/'Contents/MacOS/WorldOfMysteries'
+        ):
             raise BundleError('Release App exited before Engine startup')
-        candidates = [pid for pid in children(app.pid)
+        candidates = [pid for pid in children(app_pid)
                       if pid != previous and is_bundled_engine(pid, bundle)]
         if len(candidates) == 1:
             return candidates[0]
@@ -187,30 +249,54 @@ def process_exists(pid: int) -> bool:
     return True
 
 
+def _release_observation(app_pid: int | None, bundle: Path) -> dict[str, object]:
+    if app_pid is None:
+        return {'app_observed': False}
+    alive = process_exists(app_pid)
+    exact_app = alive and _same_executable(
+        app_pid, bundle/'Contents/MacOS/WorldOfMysteries'
+    )
+    direct = children(app_pid) if exact_app else []
+    engines = [pid for pid in direct if is_bundled_engine(pid, bundle)]
+    return {
+        'app_observed': True,
+        'app_alive': alive,
+        'app_identity_exact': exact_app,
+        'direct_child_count': len(direct),
+        'bundled_engine_child_count': len(engines),
+    }
+
+
 def release_app_probe(bundle: Path, logs: Path) -> dict:
-    executable = bundle/'Contents/MacOS/WorldOfMysteries'
     started = time.monotonic()
     known_children: list[int] = []
+    launcher: subprocess.Popen | None = None
+    app_pid: int | None = None
     with (logs/'release-app.log').open('wb') as log:
-        app = subprocess.Popen([str(executable)], env=minimal_environment(), stdout=log, stderr=log)
         try:
-            first = await_engine(app, bundle)
+            launcher, app_pid = launch_release_app(bundle, log)
+            first = await_engine(app_pid, bundle)
             known_children.append(first)
             spawned_ms = (time.monotonic() - started) * 1000
             # Wait for the App to finish its normal handshake and attach recovery.
             time.sleep(2)
             if not process_exists(first):
                 raise BundleError('Bundled Engine exited after spawn')
-            if first not in children(app.pid) or not is_bundled_engine(first, bundle):
+            if first not in children(app_pid) or not is_bundled_engine(first, bundle):
                 raise BundleError('Engine identity changed before crash probe')
             os.kill(first, signal.SIGKILL)
-            second = await_engine(app, bundle, previous=first)
+            second = await_engine(app_pid, bundle, previous=first)
             known_children.append(second)
             time.sleep(2)
             if not process_exists(second):
                 raise BundleError('Recovered bundled Engine exited')
-            app.kill()
-            app.wait(timeout=5)
+            # Force-quit the exact App process. The LaunchServices waiter must
+            # then return and the child Engine must observe parent death.
+            if not _same_executable(app_pid, bundle/'Contents/MacOS/WorldOfMysteries'):
+                raise BundleError('Release App identity changed before force-quit probe')
+            os.kill(app_pid, signal.SIGKILL)
+            if launcher is not None:
+                launcher.wait(timeout=5)
             deadline = time.monotonic() + 6
             while process_exists(second) and time.monotonic() < deadline:
                 time.sleep(0.1)
@@ -218,11 +304,19 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
                 raise BundleError('Engine outlived the force-quit Release App')
             return {'release_app_started': True, 'engine_spawn_ms': spawned_ms,
                     'engine_crash_recovered': True, 'app_force_quit_cleaned_engine': True,
+                    'launch_mode': 'launchservices',
                     'process_identity': 'kernel executable file identity and direct parent',
                     'ui_interactive_acceptance': 'not-tested'}
         except Exception:
-            # Bounded public stage/code diagnostics only; do not dump process
-            # environments, payloads or private system logs into build artifacts.
+            # Keep diagnostics bounded and free of paths, argv, environment,
+            # credentials or payloads while distinguishing launch/lifecycle
+            # observation from Engine-child observation.
+            try:
+                (logs/'release-process-observation.json').write_text(
+                    json.dumps(_release_observation(app_pid, bundle), sort_keys=True) + '\n'
+                )
+            except (BundleError, OSError):
+                pass
             try:
                 run(['/usr/bin/log', 'show', '--last', '1m', '--style', 'compact',
                      '--predicate', 'subsystem == "dev.worldofmysteries"'], cwd=ROOT,
@@ -231,8 +325,15 @@ def release_app_probe(bundle: Path, logs: Path) -> dict:
                 pass  # The original launch failure remains authoritative.
             raise
         finally:
-            if app.poll() is None:
-                app.kill(); app.wait(timeout=5)
+            if app_pid is not None and process_exists(app_pid):
+                try:
+                    if _same_executable(app_pid, bundle/'Contents/MacOS/WorldOfMysteries'):
+                        os.kill(app_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if launcher is not None and launcher.poll() is None:
+                launcher.kill()
+                launcher.wait(timeout=5)
             for pid in known_children:
                 # Only children spawned by this probe are eligible for cleanup.
                 try:
