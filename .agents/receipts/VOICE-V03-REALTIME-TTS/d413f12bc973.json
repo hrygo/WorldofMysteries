@@ -1,0 +1,91 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V03-REALTIME-TTS-d413f12bc973",
+  "receipt_type": "work",
+  "task_id": "VOICE-V03-REALTIME-TTS",
+  "capsule_id": "CAP-VOICE-V03-REALTIME-TTS",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:ed2655c26b202649a13b0128919c0a6aa0b103b51e0572837bb9e0f0f909bd60",
+  "diff_digest": "sha256:da6a99641c55fbd37a8c039d3c655de7a56af1be5989e5a75fc8ec4afefda5b7",
+  "assigned_role": "AGT-VOICE",
+  "risk_class": "medium",
+  "base_commit": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+  "head_commit": "d413f12bc97317bbbb03a717bcb574855dc75210",
+  "target_ref": "origin/main",
+  "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+  "stale_context": false,
+  "gate_profile_id": "VOICE_P0",
+  "gate_profile_digest": "sha256:f8bc1e2bd98aad63fc6204e5e647a92f7916437bcde74318ef4766537f3db832",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/home/runner/work/WorldofMysteries/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-21T05:18:21.267862+00:00",
+      "finished_at": "2026-09-21T05:18:21.315363+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Audio Adapter Tests",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "tests/test_audio_adapter.py"
+      ],
+      "cwd": "/home/runner/work/WorldofMysteries/WorldofMysteries/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-21T05:18:21.315491+00:00",
+      "finished_at": "2026-09-21T05:18:27.850787+00:00",
+      "raw_log_digest": "sha256:19c395f2e2192fb45d0121e591f5867367484bf5bc8b8307535cdbe44db1f258",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/infrastructure/audio/__init__.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/infrastructure/audio/websocket_transport.py",
+      "engine/tests/test_audio_adapter.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (x86_64-unknown-linux-gnu)",
+    "swift": "Swift version 6.3.3 (swift-6.3.3-RELEASE)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "runnervmlun5p",
+    "user": "runner",
+    "role": "AGT-VOICE",
+    "cwd": "/home/runner/work/WorldofMysteries/WorldofMysteries"
+  },
+  "started_at": "2026-09-21T05:18:21.247771+00:00",
+  "finished_at": "2026-09-21T05:18:37.034764+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
