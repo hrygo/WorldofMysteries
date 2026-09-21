@@ -1,0 +1,178 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PACKAGING-RELEASE-APP-PROBE-R2",
+  "capsule_revision": 1,
+  "task_id": "PACKAGING-RELEASE-APP-PROBE-R2",
+  "title": "Make Release App Engine bootstrap probe deterministic",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-21T23:43:26.701310+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b32320379a27c7d92f1278e508f4382602fd9e74",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:c0aea9456e60f2e432721b39e0426ae0a7089a4c04e193b81197322402136f14"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": [
+      "engine/tests/test_macos_packaging.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_attempts_cannot_become_approved_sources@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:44",
+      "symbol:test_approval_is_not_shipping@docs/05_UI/artwork/delivery/tests/test_intake.py:44",
+      "symbol:test_intake_does_not_change_approval_or_originals@docs/05_UI/artwork/delivery/tests/test_intake_isolation.py:183",
+      "symbol:SceneApprovalUpdateTests@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:24",
+      "symbol:setUp@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:25",
+      "symbol:test_twenty_four_independent_user_approved_sources@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:28",
+      "symbol:test_original_six_not_replaced@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:36",
+      "symbol:test_new_sources_fill_exact_remaining_slots@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:43",
+      "symbol:test_supplemental_stays_supplemental@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:48",
+      "symbol:test_source_count_drift_fails@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:51",
+      "symbol:test_missing_visual_approval_fails@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:57",
+      "symbol:test_swapped_semantic_bindings_fail@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:61",
+      "symbol:test_partition_correct_but_wrong_role_still_fails@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:66",
+      "symbol:test_new_art_approval_is_not_canon_or_shipping@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:71",
+      "symbol:test_legacy_six_source_manifest_remains_valid@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:77",
+      "symbol:test_new_crop_geometry_and_source_hash_binding@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:87",
+      "symbol:test_artifact_objects_not_faked_by_scene_sources@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:100",
+      "symbol:test_artifact_source_cannot_fill_a_scene_target@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:105",
+      "symbol:test_every_artifact_object_binds_its_own_approved_source@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:109",
+      "symbol:test_staged_artifact_bundle_matches_the_manifest@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:117",
+      "symbol:test_approved_direction_is_explicit_not_literal_canon@docs/05_UI/artwork/delivery/tests/test_scene_approval_update.py:129",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:350",
+      "symbol:probe_layout@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:303",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:327",
+      "symbol:app_executable@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:422",
+      "symbol:app_instance_pids@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:441",
+      "symbol:launch_app@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:476",
+      "symbol:quit_app@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:519",
+      "symbol:apply_text_decision_to_gates@docs/05_UI/artwork/tools/finish_artifact_artwork.py:959",
+      "symbol:command_apply_text_decision@docs/05_UI/artwork/tools/finish_artifact_artwork.py:1796"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 1020,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_attempts_cannot_become_approved_sources",
+      "test_approval_is_not_shipping",
+      "test_intake_does_not_change_approval_or_originals",
+      "SceneApprovalUpdateTests",
+      "setUp",
+      "test_twenty_four_independent_user_approved_sources",
+      "test_original_six_not_replaced",
+      "test_new_sources_fill_exact_remaining_slots",
+      "test_supplemental_stays_supplemental",
+      "test_source_count_drift_fails",
+      "test_missing_visual_approval_fails",
+      "test_swapped_semantic_bindings_fail",
+      "test_partition_correct_but_wrong_role_still_fails",
+      "test_new_art_approval_is_not_canon_or_shipping",
+      "test_legacy_six_source_manifest_remains_valid",
+      "test_new_crop_geometry_and_source_hash_binding",
+      "test_artifact_objects_not_faked_by_scene_sources",
+      "test_artifact_source_cannot_fill_a_scene_target",
+      "test_every_artifact_object_binds_its_own_approved_source",
+      "test_staged_artifact_bundle_matches_the_manifest",
+      "test_approved_direction_is_explicit_not_literal_canon",
+      "probe_text_regions",
+      "probe_layout",
+      "probe_text_regions",
+      "app_executable",
+      "app_instance_pids",
+      "launch_app",
+      "quit_app",
+      "apply_text_decision_to_gates",
+      "command_apply_text_decision"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "PACKAGING-RELEASE-APP-PROBE-R1"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
