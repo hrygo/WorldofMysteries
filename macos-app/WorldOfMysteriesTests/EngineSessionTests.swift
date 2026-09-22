@@ -93,12 +93,22 @@ extension EngineSessionTests {
         let state = AppState(processManager: EngineProcessManager(configuration: config))
         let delegate = EngineAppDelegate(appState: state)
 
+        delegate.applicationWillFinishLaunching(
+            Notification(name: NSApplication.willFinishLaunchingNotification)
+        )
+
+        // Bootstrap must already be owned by the process lifecycle before
+        // did-finish / SwiftUI scene work. did-finish remains an idempotent
+        // fallback and must not create a second startup.
+        #expect(await delegate.awaitLaunchCompletion())
+        #expect(state.connectionState == .unavailable)
+
         delegate.applicationDidFinishLaunching(
             Notification(name: NSApplication.didFinishLaunchingNotification)
         )
-
         #expect(await delegate.awaitLaunchCompletion())
         #expect(state.connectionState == .unavailable)
+
         await state.shutdown()
         #expect(state.connectionState == .idle)
     }
