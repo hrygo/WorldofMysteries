@@ -226,3 +226,59 @@ public nonisolated struct CharacterKnowledgeDTO: Codable, Sendable, Equatable {
         case revision
     }
 }
+
+
+// MARK: - Sealed Voice Render Control DTO
+public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let speechUnitId: String
+    public let turnId: String
+    public let storyRevision: Int
+    public let narrativeBlockId: String
+    public let segmentIndex: Int
+    public let performancePlanId: String
+    public let spokenText: String
+    public let voiceId: String
+    public let expectedVoiceRevision: String
+    public let expectedModelRevision: String?
+    public let mediaStreamId: String
+    public let generation: Int
+    public let speed: Double
+    public let language: String?
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case speechUnitId = "speech_unit_id"
+        case turnId = "turn_id"
+        case storyRevision = "story_revision"
+        case narrativeBlockId = "narrative_block_id"
+        case segmentIndex = "segment_index"
+        case performancePlanId = "performance_plan_id"
+        case spokenText = "spoken_text"
+        case voiceId = "voice_id"
+        case expectedVoiceRevision = "expected_voice_revision"
+        case expectedModelRevision = "expected_model_revision"
+        case mediaStreamId = "media_stream_id"
+        case generation
+        case speed
+        case language
+    }
+}
+
+public nonisolated struct VoiceRenderAcceptedDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let renderId: String
+    public let speechUnitId: String
+    public let mediaStreamId: String
+    public let generation: Int
+    public let state: String
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case renderId = "render_id"
+        case speechUnitId = "speech_unit_id"
+        case mediaStreamId = "media_stream_id"
+        case generation
+        case state
+    }
+}
