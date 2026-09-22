@@ -1,0 +1,38 @@
+name: ChatGPT Engine Prebootstrap Capsule
+
+on:
+  push:
+    branches:
+      - fix/macos-engine-prebootstrap
+    paths:
+      - .github/workflows/chatgpt-engine-prebootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  capsule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Pack repository-native task capsule
+        run: |
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-MAC \
+            --task-id MAC-ENGINE-PREBOOTSTRAP-R1 \
+            --title "Prebootstrap bundled Engine before SwiftUI startup" \
+            --focus "EngineAppDelegate,AppState,EngineProcessManager,lifecycle,bootstrap" \
+            --risk-class medium
+
+      - name: Remove temporary workflow and commit capsule
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/chatgpt-engine-prebootstrap.yml
+          git add .agents/capsules/MAC-ENGINE-PREBOOTSTRAP-R1.json
+          git commit -m "chore(packaging): initialize Engine prebootstrap capsule"
+          git push origin HEAD:fix/macos-engine-prebootstrap
