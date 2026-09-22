@@ -1,0 +1,43 @@
+name: ChatGPT W-V03 Python Control Bootstrap
+
+on:
+  push:
+    branches:
+      - feat/voice-v03-control-python
+    paths:
+      - .github/workflows/chatgpt-wv03-python-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Pack AGT-VOICE task
+        run: |
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-VOICE \
+            --task-id VOICE-V03-CONTROL-PYTHON \
+            --title "Voice V03 sealed render Python control runtime" \
+            --focus "voice render,pending registry,revision,media_stream,realtime tts" \
+            --risk-class medium
+          python3 scripts/agent_capsule.py show \
+            --capsule .agents/capsules/VOICE-V03-CONTROL-PYTHON.json
+
+      - name: Commit capsule and remove bootstrap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/capsules/VOICE-V03-CONTROL-PYTHON.json
+          git commit -m "chore(voice): initialize Python render control capsule"
+          git push origin HEAD:feat/voice-v03-control-python
+          git rm .github/workflows/chatgpt-wv03-python-bootstrap.yml
+          git commit -m "ci(voice): remove Python render control bootstrap"
+          git push origin HEAD:feat/voice-v03-control-python
