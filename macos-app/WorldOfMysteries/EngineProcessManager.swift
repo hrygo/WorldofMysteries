@@ -158,6 +158,13 @@ nonisolated struct EngineRuntimeLease: Sendable {
 /// Owns one child process, launch token and private runtime lease. Concurrent starts
 /// coalesce; stop waits for a bounded graceful exit before SIGKILL. No login daemon.
 public actor EngineProcessManager {
+    #if canImport(OSLog)
+    private static let logger = Logger(
+        subsystem: "dev.worldofmysteries",
+        category: "EngineProcess"
+    )
+    #endif
+
     private let configuration: EngineLaunchConfiguration?
     private var process: Process?
     private var session: EngineLaunchSession?
@@ -199,10 +206,35 @@ public actor EngineProcessManager {
 
     private func launch() async throws -> EngineLaunchSession {
         try Task.checkCancellation()
-        let config = try configuration ?? EngineLaunchConfiguration.bundled()
-        try config.validate()
-        let runtime = try EngineRuntimeLease.create(root: config.runtimeRoot)
+        #if canImport(OSLog)
+        Self.logger.notice("Engine launch resolving runtime")
+        #endif
+        let config: EngineLaunchConfiguration
+        do {
+            config = try configuration ?? EngineLaunchConfiguration.bundled()
+            try config.validate()
+        } catch {
+            #if canImport(OSLog)
+            Self.logger.error("Engine launch runtime validation failed")
+            #endif
+            throw error
+        }
+        #if canImport(OSLog)
+        Self.logger.notice("Engine launch runtime validated")
+        #endif
+        let runtime: EngineRuntimeLease
+        do {
+            runtime = try EngineRuntimeLease.create(root: config.runtimeRoot)
+        } catch {
+            #if canImport(OSLog)
+            Self.logger.error("Engine launch runtime lease failed")
+            #endif
+            throw error
+        }
         lease = runtime
+        #if canImport(OSLog)
+        Self.logger.notice("Engine launch runtime lease ready")
+        #endif
         let credential = (0..<32).map { _ in String(format: "%02x", UInt8.random(in: .min ... .max)) }.joined()
         let child = Process()
         let input = Pipe()
@@ -221,9 +253,18 @@ public actor EngineProcessManager {
             child.standardInput = input
             child.standardOutput = FileHandle.nullDevice
             child.standardError = FileHandle.nullDevice
+            #if canImport(OSLog)
+            Self.logger.notice("Engine child process launch requested")
+            #endif
             try child.run()
+            #if canImport(OSLog)
+            Self.logger.notice("Engine child process started")
+            #endif
             try input.fileHandleForReading.close()
         } catch {
+            #if canImport(OSLog)
+            Self.logger.error("Engine child process launch failed")
+            #endif
             try? input.fileHandleForReading.close()
             try? input.fileHandleForWriting.close()
             if child.isRunning { await Self.stopProcess(child) }
@@ -240,13 +281,26 @@ public actor EngineProcessManager {
             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while ContinuousClock.now < deadline {
                 try Task.checkCancellation()
-                guard child.isRunning else { throw EngineConnectionError.launchFailed }
+                guard child.isRunning else {
+                    #if canImport(OSLog)
+                    Self.logger.error(
+                        "Engine child exited before socket; status \(child.terminationStatus, privacy: .public)"
+                    )
+                    #endif
+                    throw EngineConnectionError.launchFailed
+                }
                 var info = stat()
                 if lstat(runtime.socketPath, &info) == 0, (info.st_mode & 0o170000) == 0o140000 {
+                    #if canImport(OSLog)
+                    Self.logger.notice("Engine IPC socket became ready")
+                    #endif
                     return launch
                 }
                 try await Task.sleep(for: .milliseconds(20))
             }
+            #if canImport(OSLog)
+            Self.logger.error("Engine IPC socket readiness timed out")
+            #endif
             throw EngineConnectionError.timedOut
         } catch {
             await Self.stopProcess(child)
