@@ -9,6 +9,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
+from contracts.models import VoiceRenderAccepted, VoiceRenderControlRequest
 from contracts import (
     ActionIntent,
     BeatPlan,
@@ -202,3 +203,40 @@ def test_envelope_request_response_cycle_remains_unchanged():
     )
     parsed = EngineIPCEnvelope.model_validate_json(req.model_dump_json())
     assert parsed.method == "world.open"
+
+
+def test_voice_render_control_schema_and_python_parity():
+    schema = _read(ROOT / "contracts" / "protocol" / "voice_render_control.schema.json")
+    fixture = _read(ROOT / "contracts" / "fixtures" / "ipc" / "voice_render_control.json")
+    validator = Draft202012Validator(schema)
+
+    for key, model in (
+        ("request", VoiceRenderControlRequest),
+        ("accepted", VoiceRenderAccepted),
+    ):
+        payload = fixture[key]
+        validator.validate(payload)
+        parsed = model.model_validate(payload)
+        validator.validate(parsed.model_dump(mode="json", exclude_none=True))
+
+
+def test_voice_render_control_rejects_unsealed_or_unpinned_shapes():
+    schema = _read(ROOT / "contracts" / "protocol" / "voice_render_control.schema.json")
+    fixture = _read(ROOT / "contracts" / "fixtures" / "ipc" / "voice_render_control.json")
+    request = copy.deepcopy(fixture["request"])
+    request.pop("story_revision")
+    assert not Draft202012Validator(schema).is_valid(request)
+    with pytest.raises(ValidationError):
+        VoiceRenderControlRequest.model_validate(request)
+
+    request = copy.deepcopy(fixture["request"])
+    request["expected_model_revision"] = "not-a-revision"
+    assert not Draft202012Validator(schema).is_valid(request)
+    with pytest.raises(ValidationError):
+        VoiceRenderControlRequest.model_validate(request)
+
+    request = copy.deepcopy(fixture["request"])
+    request["__unknown"] = True
+    assert not Draft202012Validator(schema).is_valid(request)
+    with pytest.raises(ValidationError):
+        VoiceRenderControlRequest.model_validate(request)
