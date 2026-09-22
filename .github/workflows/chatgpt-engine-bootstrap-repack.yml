@@ -1,0 +1,63 @@
+name: ChatGPT Engine Bootstrap Repack Verify
+
+on:
+  push:
+    branches: [fix/engine-bootstrap-off-main-actor]
+    paths:
+      - .github/workflows/chatgpt-engine-bootstrap-repack.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: engine/uv.lock
+
+      - name: Repack revision 2 from clean pre-code base
+        run: |
+          current="$(git rev-parse HEAD)"
+          git checkout --detach 18120aea9706127cd3a07627d0407767963a1d82
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-MAC \
+            --task-id MAC-ENGINE-BOOTSTRAP-OFF-MAIN \
+            --title "Bootstrap bundled Engine independently of UI MainActor scheduling" \
+            --focus "EngineAppDelegate,AppState,EngineProcessManager,startAndConnect,bootstrap" \
+            --risk-class medium \
+            --supersedes CAP-MAC-ENGINE-BOOTSTRAP-OFF-MAIN \
+            --target-ref origin/main \
+            --output /tmp/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json
+          git checkout "$current"
+          cp /tmp/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json .agents/capsules/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/chatgpt-engine-bootstrap-repack.yml
+          git add .agents/capsules/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json
+          git diff --cached --check
+          git commit -m "chore(macos): refresh Engine bootstrap capsule baseline"
+          git push origin HEAD:fix/engine-bootstrap-off-main-actor
+
+      - name: Verify revised lifecycle capsule
+        run: |
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json \
+            --cwd "$GITHUB_WORKSPACE"
+
+      - name: Commit fresh receipt
+        run: |
+          git add .agents/receipts/MAC-ENGINE-BOOTSTRAP-OFF-MAIN/
+          git diff --cached --check
+          git commit -m "chore(evidence): attach Engine bootstrap Work Receipt"
+          git push origin HEAD:fix/engine-bootstrap-off-main-actor
