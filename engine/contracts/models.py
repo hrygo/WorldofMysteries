@@ -571,37 +571,3 @@ class TurnTransaction(ContractBase):
     committed_story_revision: JsonInteger | None = Field(default=None, ge=0)
     narrative_block_id: str | None = None
 
-
-
-# Voice render control -------------------------------------------------------
-class VoiceRenderControlRequest(SchemaModel):
-    """Strict Python projection of protocol/voice_render_control request."""
-
-    schema_version: Literal["1.0"]
-    speech_unit_id: str = Field(min_length=1, max_length=128)
-    turn_id: str = Field(min_length=1, max_length=128)
-    story_revision: JsonInteger = Field(ge=0)
-    narrative_block_id: str = Field(min_length=1, max_length=128)
-    segment_index: JsonInteger = Field(ge=0)
-    performance_plan_id: str = Field(min_length=1, max_length=128)
-    spoken_text: str = Field(min_length=1, max_length=4096)
-    voice_id: str = Field(min_length=1, max_length=128)
-    expected_voice_revision: str = Field(min_length=1, max_length=128)
-    expected_model_revision: str | None = Field(
-        default=None, pattern=r"^[0-9a-f]{40}$"
-    )
-    media_stream_id: str = Field(min_length=1, max_length=128)
-    generation: JsonInteger = Field(ge=0)
-    speed: JsonNumber = Field(ge=0.25, le=4.0)
-    language: str | None = Field(default=None, min_length=1, max_length=32)
-
-
-class VoiceRenderAccepted(SchemaModel):
-    """Acknowledgement that Engine accepted one sealed render request."""
-
-    schema_version: Literal["1.0"]
-    render_id: str = Field(min_length=1, max_length=128)
-    speech_unit_id: str = Field(min_length=1, max_length=128)
-    media_stream_id: str = Field(min_length=1, max_length=128)
-    generation: JsonInteger = Field(ge=0)
-    state: Literal["accepted"]
