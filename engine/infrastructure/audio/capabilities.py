@@ -1,8 +1,8 @@
-"""Conservative read-only capability discovery for the managed SpeechRail service.
+"""Atomic read-only capability discovery for SpeechRail 3.x.
 
-The probe deliberately consumes only stable, routing-relevant fields from the
-current SpeechRail read APIs. It never performs synthesis as a capability test,
-never downloads models, and never upgrades missing metadata into a guarantee.
+SpeechRail's namespaced effective capability endpoint is the routing source of
+truth. The client never rebuilds an atomic view by joining health, model and
+voice reads from different instants.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ ProbeStatus = Literal[
     "invalid_config",
     "not_applicable",
 ]
-ProbeAssurance = Literal["legacy_observed", "not_applicable"]
+ProbeAssurance = Literal["effective_capabilities_v1", "unknown", "not_applicable"]
 
 
 @dataclass(frozen=True)
@@ -36,15 +36,19 @@ class ProbeHttpResponse:
 
     status_code: int
     payload: object
+    etag: str | None = None
 
 
 @dataclass(frozen=True)
 class VoiceCapabilityObservation:
-    """Safe subset of one discovered SpeechRail voice entry."""
+    """Safe subset of one SpeechRail namespaced voice entry."""
 
     voice_id: str
     available: bool | None = None
     variant: str | None = None
+    voice_revision: str | None = None
+    voice_identity_assurance: str | None = None
+    production_ready: bool | None = None
     supports_speaker: bool | None = None
     supports_instruction: bool | None = None
     supports_clone: bool | None = None
@@ -52,11 +56,11 @@ class VoiceCapabilityObservation:
 
 @dataclass(frozen=True)
 class AudioCapabilityObservation:
-    """Point-in-time legacy discovery result.
+    """One verified effective capability generation.
 
-    The current SpeechRail endpoints are independent reads, so this result is
-    intentionally marked legacy_observed rather than pretending that models
-    and voices belong to one atomic catalog snapshot.
+    Readiness and runtime revision stay unknown unless the snapshot explicitly
+    provides equivalent evidence. A discovery snapshot is not an inference
+    lease and available is not worker residency or quality proof.
     """
 
     provider_name: str
@@ -70,10 +74,15 @@ class AudioCapabilityObservation:
     model_ids: tuple[str, ...] = ()
     voices: tuple[VoiceCapabilityObservation, ...] = ()
     errors: tuple[str, ...] = ()
+    service_instance_epoch: str | None = None
+    catalog_revision: str | None = None
+    snapshot_id: str | None = None
+    etag: str | None = None
 
 
-JsonFetcher = Callable[[str, float], Awaitable[ProbeHttpResponse]]
+JsonFetcher = Callable[[str, float, Mapping[str, str]], Awaitable[ProbeHttpResponse]]
 _MAX_DISCOVERY_BYTES = 1024 * 1024
+_SCHEMA_VERSION = "effective_capabilities_v1"
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -97,13 +106,18 @@ def _decode_json(payload: bytes) -> object:
         raise CapabilityTransportError("invalid_json") from exc
 
 
-def _sync_get_json(url: str, timeout_seconds: float) -> ProbeHttpResponse:
+def _sync_get_json(
+    url: str,
+    timeout_seconds: float,
+    headers: Mapping[str, str],
+) -> ProbeHttpResponse:
     opener = build_opener(_NoRedirect)
     request = Request(
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "WorldOfMysteries-VoiceProbe/1",
+            "User-Agent": "WorldOfMysteries-VoiceProbe/2",
+            **dict(headers),
         },
         method="GET",
     )
@@ -115,26 +129,36 @@ def _sync_get_json(url: str, timeout_seconds: float) -> ProbeHttpResponse:
             return ProbeHttpResponse(
                 status_code=int(response.status),
                 payload=_decode_json(payload),
+                etag=response.headers.get("ETag"),
             )
     except HTTPError as exc:
         payload = exc.read(_MAX_DISCOVERY_BYTES + 1)
         if len(payload) > _MAX_DISCOVERY_BYTES:
             raise CapabilityTransportError("response_too_large") from exc
-        parsed: object
-        try:
-            parsed = _decode_json(payload)
-        except CapabilityTransportError:
-            parsed = {}
-        return ProbeHttpResponse(status_code=int(exc.code), payload=parsed)
+        parsed: object = {}
+        if exc.code != 304:
+            try:
+                parsed = _decode_json(payload)
+            except CapabilityTransportError:
+                parsed = {}
+        return ProbeHttpResponse(
+            status_code=int(exc.code),
+            payload=parsed,
+            etag=exc.headers.get("ETag"),
+        )
     except (URLError, TimeoutError, OSError) as exc:
         raise CapabilityTransportError("transport_error") from exc
 
 
-async def _default_fetch_json(url: str, timeout_seconds: float) -> ProbeHttpResponse:
-    return await asyncio.to_thread(_sync_get_json, url, timeout_seconds)
+async def _default_fetch_json(
+    url: str,
+    timeout_seconds: float,
+    headers: Mapping[str, str],
+) -> ProbeHttpResponse:
+    return await asyncio.to_thread(_sync_get_json, url, timeout_seconds, headers)
 
 
-def _speechrail_urls(base_url: str) -> dict[str, str]:
+def _speechrail_capabilities_url(base_url: str) -> str:
     parts = urlsplit(base_url)
     if (
         parts.scheme not in {"http", "https"}
@@ -148,18 +172,13 @@ def _speechrail_urls(base_url: str) -> dict[str, str]:
     path = parts.path.rstrip("/")
     if not path.endswith("/v1"):
         raise ValueError("SpeechRail base URL must end with /v1")
-    root_path = path[:-3].rstrip("/")
-
-    def make(path_suffix: str) -> str:
-        target_path = f"{root_path}{path_suffix}" or "/"
-        return urlunsplit((parts.scheme, parts.netloc, target_path, "", ""))
-
-    return {
-        "health": make("/health"),
-        "readyz": make("/readyz"),
-        "models": make(f"{path}/models"[len(root_path) :]),
-        "voices": make(f"{path}/voices"[len(root_path) :]),
-    }
+    return urlunsplit((
+        parts.scheme,
+        parts.netloc,
+        f"{path}/speechrail/capabilities",
+        "",
+        "",
+    ))
 
 
 def _bool_or_none(value: object) -> bool | None:
@@ -170,56 +189,122 @@ def _str_or_none(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def _parse_model_ids(payload: object) -> tuple[str, ...] | None:
-    if not isinstance(payload, Mapping):
+def _parameter_supported(entry: Mapping[str, object], name: str) -> bool | None:
+    operations = entry.get("operations")
+    if not isinstance(operations, Mapping):
         return None
-    data = payload.get("data")
-    if not isinstance(data, list):
+    speech = operations.get("http_speech")
+    if not isinstance(speech, Mapping):
+        return None
+    parameters = speech.get("parameters")
+    if not isinstance(parameters, Mapping):
+        return None
+    parameter = parameters.get(name)
+    if not isinstance(parameter, Mapping):
+        return None
+    status = parameter.get("status")
+    if status == "supported":
+        return True
+    if status == "unsupported":
+        return False
+    return None
+
+
+def _parse_model_ids(payload: Mapping[str, object]) -> tuple[str, ...] | None:
+    models = payload.get("models")
+    if not isinstance(models, Mapping):
         return None
     ids: set[str] = set()
-    for entry in data:
-        if not isinstance(entry, Mapping):
-            continue
-        model_id = entry.get("id")
-        if isinstance(model_id, str) and model_id:
-            ids.add(model_id)
+    for key, raw in models.items():
+        if not isinstance(key, str) or not key or not isinstance(raw, Mapping):
+            return None
+        source = raw.get("source_model")
+        ids.add(source if isinstance(source, str) and source else key)
     return tuple(sorted(ids))
 
 
-def _parse_voices(payload: object) -> tuple[VoiceCapabilityObservation, ...] | None:
-    if not isinstance(payload, Mapping):
-        return None
-    data = payload.get("data")
-    if not isinstance(data, list):
+def _parse_voices(payload: Mapping[str, object]) -> tuple[VoiceCapabilityObservation, ...] | None:
+    raw_voices = payload.get("voices")
+    if not isinstance(raw_voices, list):
         return None
     voices: list[VoiceCapabilityObservation] = []
-    for entry in data:
+    for entry in raw_voices:
         if not isinstance(entry, Mapping):
-            continue
+            return None
         voice_id = entry.get("id")
         if not isinstance(voice_id, str) or not voice_id:
-            continue
-        raw_caps = entry.get("capabilities")
-        caps = raw_caps if isinstance(raw_caps, Mapping) else {}
+            return None
+        mode = entry.get("mode")
         voices.append(
             VoiceCapabilityObservation(
                 voice_id=voice_id,
                 available=_bool_or_none(entry.get("available")),
                 variant=_str_or_none(entry.get("variant")),
-                supports_speaker=_bool_or_none(caps.get("supports_speaker")),
-                supports_instruction=_bool_or_none(caps.get("supports_instruction")),
-                supports_clone=_bool_or_none(caps.get("supports_clone")),
+                voice_revision=_str_or_none(entry.get("voice_revision")),
+                voice_identity_assurance=_str_or_none(entry.get("voice_identity_assurance")),
+                production_ready=_bool_or_none(entry.get("production_ready")),
+                supports_instruction=_parameter_supported(entry, "instructions"),
+                supports_speaker=None,
+                supports_clone=(True if mode == "clone" else None),
             )
         )
     return tuple(sorted(voices, key=lambda item: item.voice_id))
+
+
+def _invalid_snapshot(config: AudioProviderConfig, code: str) -> AudioCapabilityObservation:
+    return AudioCapabilityObservation(
+        provider_name=config.provider_name,
+        status="degraded",
+        assurance="unknown",
+        errors=(code,),
+    )
+
+
+def _parse_snapshot(
+    config: AudioProviderConfig,
+    response: ProbeHttpResponse,
+) -> AudioCapabilityObservation:
+    payload = response.payload
+    if not isinstance(payload, Mapping):
+        return _invalid_snapshot(config, "capabilities_invalid")
+    if payload.get("schema_version") != _SCHEMA_VERSION:
+        return _invalid_snapshot(config, "capabilities_schema_unsupported")
+    epoch = _str_or_none(payload.get("service_instance_epoch"))
+    catalog_revision = _str_or_none(payload.get("catalog_revision"))
+    snapshot_id = _str_or_none(payload.get("snapshot_id"))
+    models = _parse_model_ids(payload)
+    voices = _parse_voices(payload)
+    if (
+        epoch is None
+        or catalog_revision is None
+        or snapshot_id is None
+        or models is None
+        or voices is None
+        or not isinstance(payload.get("operations"), Mapping)
+        or not isinstance(payload.get("guarantees"), Mapping)
+    ):
+        return _invalid_snapshot(config, "capabilities_invalid")
+    return AudioCapabilityObservation(
+        provider_name=config.provider_name,
+        status="ready",
+        assurance=_SCHEMA_VERSION,
+        profile=_str_or_none(payload.get("profile")),
+        model_ids=models,
+        voices=voices,
+        service_instance_epoch=epoch,
+        catalog_revision=catalog_revision,
+        snapshot_id=snapshot_id,
+        etag=response.etag,
+    )
 
 
 async def probe_audio_capabilities(
     config: AudioProviderConfig,
     *,
     fetch_json: JsonFetcher | None = None,
+    cached: AudioCapabilityObservation | None = None,
 ) -> AudioCapabilityObservation:
-    """Observe current SpeechRail routing capabilities without side effects."""
+    """Read one SpeechRail effective capability generation without side effects."""
 
     if config.provider_name.casefold() != "speechrail":
         return AudioCapabilityObservation(
@@ -227,94 +312,46 @@ async def probe_audio_capabilities(
             status="not_applicable",
             assurance="not_applicable",
         )
-
     try:
-        urls = _speechrail_urls(config.base_url)
+        url = _speechrail_capabilities_url(config.base_url)
     except ValueError:
         return AudioCapabilityObservation(
             provider_name=config.provider_name,
             status="invalid_config",
-            assurance="legacy_observed",
+            assurance="unknown",
             errors=("base_url_invalid",),
         )
-
+    headers: dict[str, str] = {}
+    if config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+    if cached is not None and cached.assurance == _SCHEMA_VERSION and cached.etag:
+        headers["If-None-Match"] = cached.etag
     fetch = fetch_json or _default_fetch_json
-    names = ("health", "readyz", "models", "voices")
-    results = await asyncio.gather(
-        *(fetch(urls[name], config.timeout_seconds) for name in names),
-        return_exceptions=True,
-    )
-    responses: dict[str, ProbeHttpResponse] = {}
-    errors: list[str] = []
-    transport_failures = 0
-    for name, result in zip(names, results, strict=True):
-        if isinstance(result, BaseException):
-            transport_failures += 1
-            errors.append(f"{name}_transport_error")
-            continue
-        responses[name] = result
-        if result.status_code != 200:
-            errors.append(f"{name}_http_{result.status_code}")
-
-    health_payload = responses.get("health")
-    health = health_payload.payload if health_payload is not None else {}
-    health_map = health if isinstance(health, Mapping) else {}
-    if health_payload is not None and health_payload.status_code == 200 and not isinstance(
-        health, Mapping
-    ):
-        errors.append("health_invalid")
-
-    ready_response = responses.get("readyz")
-    ready: bool | None = None
-    if ready_response is not None:
-        if ready_response.status_code == 503:
-            ready = False
-        elif ready_response.status_code == 200 and isinstance(
-            ready_response.payload, Mapping
-        ):
-            ready = _bool_or_none(ready_response.payload.get("ready"))
-            if ready is None:
-                errors.append("readyz_invalid")
-        elif ready_response.status_code == 200:
-            errors.append("readyz_invalid")
-
-    models: tuple[str, ...] = ()
-    model_response = responses.get("models")
-    if model_response is not None and model_response.status_code == 200:
-        parsed_models = _parse_model_ids(model_response.payload)
-        if parsed_models is None:
-            errors.append("models_invalid")
-        else:
-            models = parsed_models
-
-    voices: tuple[VoiceCapabilityObservation, ...] = ()
-    voice_response = responses.get("voices")
-    if voice_response is not None and voice_response.status_code == 200:
-        parsed_voices = _parse_voices(voice_response.payload)
-        if parsed_voices is None:
-            errors.append("voices_invalid")
-        else:
-            voices = parsed_voices
-
-    if transport_failures == len(names):
-        status: ProbeStatus = "unreachable"
-    elif ready is True and not errors:
-        status = "ready"
-    elif ready is False:
-        status = "not_ready"
-    else:
-        status = "degraded"
-
-    return AudioCapabilityObservation(
-        provider_name=config.provider_name,
-        status=status,
-        assurance="legacy_observed",
-        ready=ready,
-        service_version=_str_or_none(health_map.get("version")),
-        profile=_str_or_none(health_map.get("profile")),
-        asr_ready=_bool_or_none(health_map.get("asr_ready")),
-        tts_ready=_bool_or_none(health_map.get("tts_ready")),
-        model_ids=models,
-        voices=voices,
-        errors=tuple(sorted(set(errors))),
-    )
+    try:
+        response = await fetch(url, config.timeout_seconds, headers)
+    except BaseException:
+        return AudioCapabilityObservation(
+            provider_name=config.provider_name,
+            status="unreachable",
+            assurance="unknown",
+            errors=("capabilities_transport_error",),
+        )
+    if response.status_code == 304:
+        if cached is not None and cached.assurance == _SCHEMA_VERSION and cached.etag:
+            return cached
+        return _invalid_snapshot(config, "capabilities_304_without_cache")
+    if response.status_code == 503:
+        return AudioCapabilityObservation(
+            provider_name=config.provider_name,
+            status="not_ready",
+            assurance="unknown",
+            errors=("capabilities_http_503",),
+        )
+    if response.status_code != 200:
+        return AudioCapabilityObservation(
+            provider_name=config.provider_name,
+            status="degraded",
+            assurance="unknown",
+            errors=(f"capabilities_http_{response.status_code}",),
+        )
+    return _parse_snapshot(config, response)
