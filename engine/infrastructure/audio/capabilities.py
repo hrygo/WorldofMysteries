@@ -2,7 +2,8 @@
 
 SpeechRail's namespaced effective capability endpoint is the routing source of
 truth. The client never rebuilds an atomic view by joining health, model and
-voice reads from different instants.
+voice reads from different instants. Discovery remains side-effect free and
+does not imply a model residency or inference lease.
 """
 
 from __future__ import annotations
