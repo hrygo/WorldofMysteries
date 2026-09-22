@@ -312,6 +312,9 @@ public actor EngineProcessManager {
     }
 
     public func terminateEngine() async {
+        #if canImport(OSLog)
+        Self.logger.notice("Engine termination requested")
+        #endif
         if let stopping { await stopping.value; return }
         let identity = UUID()
         stopIdentity = identity
@@ -320,6 +323,9 @@ public actor EngineProcessManager {
         let task = Task {
             _ = await startup?.result
             if let child = process {
+                #if canImport(OSLog)
+                Self.logger.notice("Engine termination stopping active child")
+                #endif
                 await Self.stopProcess(child)
                 lastExitStatus = child.terminationStatus
             }
@@ -335,10 +341,18 @@ public actor EngineProcessManager {
         // Cleanup must complete even when the startup caller has been cancelled.
         await Task.detached {
             guard child.isRunning else { return }
+            #if canImport(OSLog)
+            Self.logger.notice("Engine child graceful termination requested")
+            #endif
             child.terminate()
             let deadline = ContinuousClock.now.advanced(by: .seconds(2))
             while child.isRunning, ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(20)) }
-            if child.isRunning { _ = kill(child.processIdentifier, SIGKILL) }
+            if child.isRunning {
+                #if canImport(OSLog)
+                Self.logger.error("Engine child termination escalated to SIGKILL")
+                #endif
+                _ = kill(child.processIdentifier, SIGKILL)
+            }
             // Foundation reaps the child; this wait runs on a detached cleanup task,
             // after bounded termination, never on the UI actor.
             while child.isRunning { try? await Task.sleep(for: .milliseconds(10)) }
