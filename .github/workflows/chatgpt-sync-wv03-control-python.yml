@@ -1,0 +1,34 @@
+name: ChatGPT Sync W-V03 Control Python
+
+on:
+  push:
+    branches:
+      - feat/voice-v03-control-python
+    paths:
+      - .github/workflows/chatgpt-sync-wv03-control-python.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/chatgpt-sync-wv03-control-python.yml
+          git commit -m "ci(voice): remove temporary W-V03 sync workflow"
+
+      - name: Merge latest main with native Git
+        run: |
+          git fetch origin main
+          git merge --no-edit origin/main
+          git push origin HEAD:feat/voice-v03-control-python
