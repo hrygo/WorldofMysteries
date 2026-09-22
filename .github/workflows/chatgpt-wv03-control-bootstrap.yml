@@ -1,0 +1,48 @@
+name: ChatGPT W-V03 Control Contract Bootstrap
+
+on:
+  push:
+    branches:
+      - feat/voice-v03-control-runtime
+    paths:
+      - .github/workflows/chatgpt-wv03-control-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Pack repository-native contract task
+        run: |
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-ARB \
+            --task-id VOICE-V03-CONTROL-CONTRACT \
+            --title "Voice V03 sealed speech render control contract" \
+            --focus "voice render,SpeechUnit,PerformancePlan,media.open,revision" \
+            --risk-class privileged \
+            --grant-privileged "engine/contracts/models.py,engine/tests/test_contracts_pydantic.py,macos-app/WorldOfMysteries/DomainContracts.swift,macos-app/WorldOfMysteriesTests/VoiceRenderControlTests.swift"
+          python3 scripts/agent_capsule.py show \
+            --capsule .agents/capsules/VOICE-V03-CONTROL-CONTRACT.json
+
+      - name: Commit capsule
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/capsules/VOICE-V03-CONTROL-CONTRACT.json
+          git diff --cached --check
+          git commit -m "chore(voice): initialize W-V03 control contract capsule"
+          git push origin HEAD:feat/voice-v03-control-runtime
+
+      - name: Remove bootstrap workflow from branch
+        run: |
+          git rm .github/workflows/chatgpt-wv03-control-bootstrap.yml
+          git commit -m "ci(voice): remove W-V03 control bootstrap"
+          git push origin HEAD:feat/voice-v03-control-runtime
