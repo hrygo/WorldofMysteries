@@ -1,0 +1,45 @@
+name: ChatGPT Engine Bootstrap Receipt
+
+on:
+  push:
+    branches: [fix/engine-bootstrap-off-main-actor]
+    paths:
+      - .github/workflows/chatgpt-engine-bootstrap-receipt.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14.7'
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: engine/uv.lock
+      - name: Remove temporary verifier before scope audit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/chatgpt-engine-bootstrap-receipt.yml
+          git commit -m "ci(macos): remove temporary Engine bootstrap verifier"
+          git push origin HEAD:fix/engine-bootstrap-off-main-actor
+      - name: Verify lifecycle capsule
+        run: |
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/MAC-ENGINE-BOOTSTRAP-OFF-MAIN.json \
+            --cwd "$GITHUB_WORKSPACE"
+      - name: Commit fresh receipt
+        run: |
+          git add .agents/receipts/MAC-ENGINE-BOOTSTRAP-OFF-MAIN/
+          git diff --cached --check
+          git commit -m "chore(evidence): attach Engine bootstrap Work Receipt"
+          git push origin HEAD:fix/engine-bootstrap-off-main-actor
