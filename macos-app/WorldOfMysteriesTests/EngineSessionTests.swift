@@ -5,6 +5,49 @@ import AppKit
 #endif
 @testable import WorldOfMysteriesCore
 
+private final class EngineBootstrapRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var eventsStorage: [String] = []
+
+    func record(_ event: String) {
+        lock.lock()
+        eventsStorage.append(event)
+        lock.unlock()
+    }
+
+    func snapshot() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return eventsStorage
+    }
+}
+
+private actor StubEngineProcessManager: EngineProcessManaging {
+    private let recorder: EngineBootstrapRecorder
+
+    init(recorder: EngineBootstrapRecorder) {
+        self.recorder = recorder
+    }
+
+    func startEngine() async throws -> EngineLaunchSession {
+        recorder.record("start")
+        return EngineLaunchSession(
+            identifier: UUID(),
+            processIdentifier: 4242,
+            socketPath: "/nonexistent/wom/prewarmed.sock",
+            token: String(repeating: "a", count: 64)
+        )
+    }
+
+    func terminateEngine() async {
+        recorder.record("terminate")
+    }
+}
+
+private func blockCurrentThread(for interval: TimeInterval) {
+    Thread.sleep(forTimeInterval: interval)
+}
+
 @Suite("Local Engine session boundaries")
 struct EngineSessionTests {
     @Test("A successful envelope without a valid handshake is not authentication")
@@ -83,6 +126,47 @@ struct EngineSessionTests {
 
 #if canImport(AppKit)
 extension EngineSessionTests {
+    @Test("App delegate prewarms Engine while MainActor is blocked")
+    @MainActor
+    func appDelegatePrewarmsOffMainActor() async {
+        let recorder = EngineBootstrapRecorder()
+        let manager = StubEngineProcessManager(recorder: recorder)
+        let state = AppState(processManager: manager)
+        let delegate = EngineAppDelegate(appState: state)
+
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification)
+        )
+
+        // Simulate expensive initial SwiftUI/AppKit work. A MainActor-inherited
+        // bootstrap task cannot run during this interval; the detached process
+        // prewarm must still reach the process-manager actor.
+        blockCurrentThread(for: 0.2)
+        #expect(recorder.snapshot() == ["start"])
+
+        #expect(await delegate.awaitLaunchCompletion())
+        let events = recorder.snapshot()
+        #expect(events.prefix(2) == ["start", "start"])
+        #expect(events.last == "terminate")
+        await state.shutdown()
+    }
+
+    @Test("Prewarmed process is not terminated before connection reuse")
+    @MainActor
+    func prewarmIsReusedBeforeFailureCleanup() async {
+        let recorder = EngineBootstrapRecorder()
+        let manager = StubEngineProcessManager(recorder: recorder)
+        let state = AppState(processManager: manager)
+
+        await state.prewarmEngineProcess()
+        await state.startAndConnect()
+
+        let events = recorder.snapshot()
+        #expect(events.prefix(2) == ["start", "start"])
+        #expect(events.dropFirst(2).first == "terminate")
+        await state.shutdown()
+    }
+
     @Test("Process lifecycle owns Engine bootstrap instead of a SwiftUI view")
     @MainActor
     func appDelegateOwnsBootstrap() async throws {

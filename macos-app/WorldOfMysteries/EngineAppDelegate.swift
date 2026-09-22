@@ -10,6 +10,7 @@ import AppKit
 @MainActor
 final class EngineAppDelegate: NSObject, NSApplicationDelegate {
     let appState: AppState
+    private var bootstrapTask: Task<Void, Never>?
     private var launchTask: Task<Void, Never>?
     private var terminating = false
 
@@ -24,9 +25,19 @@ final class EngineAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard launchTask == nil, !terminating else { return }
+        guard bootstrapTask == nil, launchTask == nil, !terminating else { return }
         let state = appState
+
+        // Spawn/reuse the bundled Engine independently of SwiftUI/MainActor work.
+        // The UI connection task waits for this prewarm, then reuses the same
+        // process through EngineProcessManager's coalescing startEngine().
+        let bootstrap = Task.detached(priority: .userInitiated) {
+            await state.prewarmEngineProcess()
+        }
+        bootstrapTask = bootstrap
         launchTask = Task {
+            await bootstrap.value
+            guard !Task.isCancelled else { return }
             await state.startAndConnect()
         }
     }
@@ -45,6 +56,7 @@ final class EngineAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !terminating else { return .terminateLater }
         terminating = true
+        bootstrapTask?.cancel()
         launchTask?.cancel()
         let state = appState
         Task {

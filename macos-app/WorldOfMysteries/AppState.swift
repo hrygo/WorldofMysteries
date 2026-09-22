@@ -11,7 +11,7 @@ public final class AppState {
     public private(set) var engineHealth: EngineHealth?
     public private(set) var engineHandshake: EngineHandshake?
     public let ipcClient: EngineIPCClient
-    public let processManager: EngineProcessManager
+    public nonisolated let processManager: any EngineProcessManaging
 
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var stopTask: Task<Void, Never>?
@@ -32,9 +32,21 @@ public final class AppState {
         return "模型" + (engineHealth.modelReady ? "可用" : "未连接") + " · 语音" + (engineHealth.voiceReady ? "可用" : "未连接")
     }
 
-    public init(ipcClient: EngineIPCClient = EngineIPCClient(), processManager: EngineProcessManager = EngineProcessManager()) {
+    public init(
+        ipcClient: EngineIPCClient = EngineIPCClient(),
+        processManager: any EngineProcessManaging = EngineProcessManager()
+    ) {
         self.ipcClient = ipcClient
         self.processManager = processManager
+    }
+
+    /// Process-level prewarm that is safe to call from a detached launch task.
+    ///
+    /// It intentionally does not mutate UI state or perform IPC. The later
+    /// MainActor connection path calls startEngine() again, which atomically
+    /// reuses the same running Engine/session in the concrete manager.
+    public nonisolated func prewarmEngineProcess() async {
+        _ = try? await processManager.startEngine()
     }
 
     public func startAndConnect() async {
@@ -63,8 +75,9 @@ public final class AppState {
     private func connectOnce(attempt: UInt64, remainingRetries: Int) async {
         do {
             await ipcClient.disconnect()
-            await processManager.terminateEngine()
             try Task.checkCancellation()
+            // Reuse a process-level prewarm when present. If the previous Engine
+            // crashed, EngineProcessManager.startEngine() launches a fresh one.
             let launch = try await processManager.startEngine()
             try Task.checkCancellation()
             try await ipcClient.connect(socketPath: launch.socketPath)

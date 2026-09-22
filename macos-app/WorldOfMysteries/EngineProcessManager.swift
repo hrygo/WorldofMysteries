@@ -155,9 +155,19 @@ nonisolated struct EngineRuntimeLease: Sendable {
     }
 }
 
+/// Narrow process-lifecycle port used by AppState.
+///
+/// Keeping the UI state dependent on this Sendable port lets process bootstrap
+/// begin independently of MainActor scheduling while the concrete actor remains
+/// the single owner of the child process and launch credential.
+public protocol EngineProcessManaging: Sendable {
+    func startEngine() async throws -> EngineLaunchSession
+    func terminateEngine() async
+}
+
 /// Owns one child process, launch token and private runtime lease. Concurrent starts
 /// coalesce; stop waits for a bounded graceful exit before SIGKILL. No login daemon.
-public actor EngineProcessManager {
+public actor EngineProcessManager: EngineProcessManaging {
     private let configuration: EngineLaunchConfiguration?
     private var process: Process?
     private var session: EngineLaunchSession?
