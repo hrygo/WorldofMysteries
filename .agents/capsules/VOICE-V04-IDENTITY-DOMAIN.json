@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
   "capsule_id": "CAP-VOICE-V04-IDENTITY-DOMAIN",
-  "capsule_revision": 1,
+  "capsule_revision": 2,
   "task_id": "VOICE-V04-IDENTITY-DOMAIN",
   "title": "Voice V04 immutable voice identity and binding domain",
   "assigned_role": "AGT-DOM",
   "status": "CREATED",
-  "created_at": "2026-09-22T05:44:41.512333+00:00",
+  "created_at": "2026-09-22T05:48:42.950434+00:00",
   "risk_class": "medium",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "186fbac158a870b799c26e655400196253f956d5",
+    "base_sha": "f228e4dfb8f388fc0a6341d87f81c2264c6aadd4",
     "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
-    "context_snapshot": "sha256:32c2d1152e1e983c2a809611b600f81991e91cad16d4e29beb1c255b7d0dcc9a"
+    "context_snapshot": "sha256:641414c1d6a59340f31b57c065e1fc330a23f43c89a4f339ce9197c492c15886"
   },
   "scope": {
     "read": [
@@ -148,5 +148,6 @@
       "INV-08",
       "INV-09"
     ]
-  }
+  },
+  "supersedes": "CAP-VOICE-V04-IDENTITY-DOMAIN"
 }
