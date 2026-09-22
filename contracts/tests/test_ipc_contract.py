@@ -66,3 +66,21 @@ def test_invalid_handshake_token_parity(token):
     assert not Draft202012Validator(SCHEMA["$defs"]["handshake_request"]).is_valid(data)
     with pytest.raises(ValidationError):
         HandshakeRequest.model_validate(data)
+
+
+def test_voice_render_control_protocol_fixture():
+    schema = json.loads(
+        (ROOT / "contracts" / "protocol" / "voice_render_control.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    fixture = json.loads(
+        (ROOT / "contracts" / "fixtures" / "ipc" / "voice_render_control.json")
+        .read_text(encoding="utf-8")
+    )
+    validator = Draft202012Validator(schema)
+    validator.validate(fixture["request"])
+    validator.validate(fixture["accepted"])
+
+    invalid = dict(fixture["request"])
+    invalid["display_text"] = "must not cross the render control boundary"
+    assert not validator.is_valid(invalid)

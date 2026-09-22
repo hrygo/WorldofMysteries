@@ -63,8 +63,10 @@ public final class AppState {
     private func connectOnce(attempt: UInt64, remainingRetries: Int) async {
         do {
             await ipcClient.disconnect()
-            await processManager.terminateEngine()
             try Task.checkCancellation()
+            // A process-level prebootstrap may already have started the Engine.
+            // startEngine() coalesces concurrent starts and reuses a live session;
+            // do not kill a healthy prestarted child merely to establish IPC.
             let launch = try await processManager.startEngine()
             try Task.checkCancellation()
             try await ipcClient.connect(socketPath: launch.socketPath)

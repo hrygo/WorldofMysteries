@@ -1,0 +1,179 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V03-CONTROL-CONTRACT",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V03-CONTROL-CONTRACT",
+  "title": "Voice V03 sealed speech render control contract",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-22T03:45:56.373945+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "db5ba5ef6cbf100b877a8dac02ec58dc15214729",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:dcda0f2c15e869815c352c0018f9ecdf6c8fbf5284b1563f5a033dd1dadf190d"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": [
+      "engine/contracts/models.py",
+      "engine/tests/test_contracts_pydantic.py",
+      "macos-app/WorldOfMysteries/DomainContracts.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceRenderControlTests.swift"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ArtifactVerificationContract@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:84",
+      "symbol:parse_contract@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:133",
+      "symbol:VerificationContract@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:92",
+      "symbol:parse_verification_contract@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:179",
+      "symbol:ContractTests@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:53",
+      "symbol:test_contract_mirrors_the_swift_capture_surface@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:58",
+      "symbol:test_swift_contract_test_pins_the_same_numbers@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:86",
+      "symbol:ContractTests@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:41",
+      "symbol:test_contract_mirrors_the_swift_capture_surface@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:48",
+      "symbol:test_swift_contract_test_pins_the_same_numbers@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:70",
+      "symbol:test_derive_requires_the_contract_master@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:325",
+      "symbol:test_schema_and_python_agree@contracts/tests/test_ipc_contract.py:17",
+      "symbol:test_documentation_schema_is_only_a_local_reference@contracts/tests/test_ipc_contract.py:32",
+      "symbol:test_handshake_definitions_match_python@contracts/tests/test_ipc_contract.py:39",
+      "symbol:test_invalid_handshake_response_parity@contracts/tests/test_ipc_contract.py:52",
+      "symbol:test_invalid_handshake_token_parity@contracts/tests/test_ipc_contract.py:63",
+      "symbol:_semantic_frame_valid@contracts/tests/test_media_contract.py:22",
+      "symbol:test_media_header_and_framing_fixture@contracts/tests/test_media_contract.py:48",
+      "symbol:test_media_header_schema_is_strict_and_versioned@contracts/tests/test_media_contract.py:54",
+      "symbol:test_wire_limits_are_bounded@contracts/tests/test_media_contract.py:65",
+      "symbol:test_media_open_control_payload_fixtures@contracts/tests/test_media_contract.py:81",
+      "symbol:test_media_open_control_contract_is_strict_and_versioned@contracts/tests/test_media_contract.py:93",
+      "symbol:test_python_to_canonical_json_roundtrip@contracts/tests/test_roundtrip.py:16",
+      "symbol:test_strict_envelope_rejects_unknown_kind@contracts/tests/test_roundtrip.py:29",
+      "symbol:test_strict_envelope_requires_trace_id@contracts/tests/test_roundtrip.py:41",
+      "symbol:check_contracts_schemas@scripts/check_architecture_fitness.py:64",
+      "symbol:test_all_schemas_are_valid_json_schema@engine/tests/test_contracts_schema.py:16",
+      "symbol:test_engineering_contracts_are_separated_from_product_contracts@engine/tests/test_contracts_schema.py:30",
+      "symbol:load_schema@engine/tests/test_contracts_schema.py:52",
+      "symbol:test_golden_001_character_matches_schema@engine/tests/test_contracts_schema.py:58"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 933,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ArtifactVerificationContract",
+      "parse_contract",
+      "VerificationContract",
+      "parse_verification_contract",
+      "ContractTests",
+      "test_contract_mirrors_the_swift_capture_surface",
+      "test_swift_contract_test_pins_the_same_numbers",
+      "ContractTests",
+      "test_contract_mirrors_the_swift_capture_surface",
+      "test_swift_contract_test_pins_the_same_numbers",
+      "test_derive_requires_the_contract_master",
+      "test_schema_and_python_agree",
+      "test_documentation_schema_is_only_a_local_reference",
+      "test_handshake_definitions_match_python",
+      "test_invalid_handshake_response_parity",
+      "test_invalid_handshake_token_parity",
+      "_semantic_frame_valid",
+      "test_media_header_and_framing_fixture",
+      "test_media_header_schema_is_strict_and_versioned",
+      "test_wire_limits_are_bounded",
+      "test_media_open_control_payload_fixtures",
+      "test_media_open_control_contract_is_strict_and_versioned",
+      "test_python_to_canonical_json_roundtrip",
+      "test_strict_envelope_rejects_unknown_kind",
+      "test_strict_envelope_requires_trace_id",
+      "check_contracts_schemas",
+      "test_all_schemas_are_valid_json_schema",
+      "test_engineering_contracts_are_separated_from_product_contracts",
+      "load_schema",
+      "test_golden_001_character_matches_schema"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

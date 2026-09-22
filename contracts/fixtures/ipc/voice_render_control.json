@@ -1,0 +1,27 @@
+{
+  "request": {
+    "schema_version": "1.0",
+    "speech_unit_id": "speech_001",
+    "turn_id": "turn_001",
+    "story_revision": 42,
+    "narrative_block_id": "narrative_001",
+    "segment_index": 0,
+    "performance_plan_id": "perf_001",
+    "spoken_text": "雾中的脚步声停在了门外。",
+    "voice_id": "narrator_mystic",
+    "expected_voice_revision": "vr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "expected_model_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "media_stream_id": "media_001",
+    "generation": 7,
+    "speed": 1.0,
+    "language": "zh"
+  },
+  "accepted": {
+    "schema_version": "1.0",
+    "render_id": "render_001",
+    "speech_unit_id": "speech_001",
+    "media_stream_id": "media_001",
+    "generation": 7,
+    "state": "accepted"
+  }
+}

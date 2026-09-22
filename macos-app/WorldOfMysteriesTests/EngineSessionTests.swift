@@ -93,6 +93,11 @@ extension EngineSessionTests {
         let state = AppState(processManager: EngineProcessManager(configuration: config))
         let delegate = EngineAppDelegate(appState: state)
 
+        delegate.applicationWillFinishLaunching(
+            Notification(name: NSApplication.willFinishLaunchingNotification)
+        )
+        #expect(await delegate.awaitPrebootstrapCompletion())
+
         delegate.applicationDidFinishLaunching(
             Notification(name: NSApplication.didFinishLaunchingNotification)
         )
@@ -101,6 +106,23 @@ extension EngineSessionTests {
         #expect(state.connectionState == .unavailable)
         await state.shutdown()
         #expect(state.connectionState == .idle)
+    }
+
+    @Test("AppState connection reuses process-level prebootstrap")
+    func appStateSourceDoesNotTerminateBeforeStart() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("WorldOfMysteries/AppState.swift"),
+            encoding: .utf8
+        )
+        let connectStart = try #require(source.range(of: "private func connectOnce"))
+        let launch = try #require(
+            source.range(of: "let launch = try await processManager.startEngine()", range: connectStart.lowerBound..<source.endIndex)
+        )
+        let prefix = source[connectStart.lowerBound..<launch.lowerBound]
+        #expect(!prefix.contains("processManager.terminateEngine()"))
     }
 
     @Test("ContentView no longer owns process bootstrap")
