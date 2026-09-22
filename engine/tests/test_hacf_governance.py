@@ -104,6 +104,29 @@ def test_privileged_surface_requires_explicit_grant():
     assert audit_granted["privileged_uses"] == ["contracts/schemas/world_event.schema.json"]
 
 
+def test_packaging_entitlement_requires_explicit_mac_grant():
+    """签名/沙箱 entitlement 是高风险面；AGT-MAC 只能在显式 grant 后修改。"""
+    capsule = {
+        "assigned_role": "AGT-MAC",
+        "scope": {
+            "read": ["macos-app/"],
+            "write": ["macos-app/WorldOfMysteries/", "macos-app/WorldOfMysteriesTests/"],
+            "forbidden": ["engine/**", ".hacf/**", ".github/**"],
+            "privileged_grants": [],
+        },
+    }
+    path = "macos-app/Packaging/App.entitlements"
+    denied = hacf_policy.audit_scope(capsule, [path])
+    assert denied["escalations"]
+    assert not denied["violations"]
+
+    capsule["scope"]["privileged_grants"] = [path]
+    granted = hacf_policy.audit_scope(capsule, [path])
+    assert not granted["escalations"]
+    assert not granted["violations"]
+    assert granted["privileged_uses"] == [path]
+
+
 def test_forbidden_scope_is_enforced():
     """forbidden 必须真正拦截（HACF 2.0 中该字段是死字段）。"""
     capsule = {
