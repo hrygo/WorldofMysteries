@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
   "capsule_id": "CAP-VOICE-V00-EFFECTIVE-CAPABILITIES",
-  "capsule_revision": 1,
+  "capsule_revision": 2,
   "task_id": "VOICE-V00-EFFECTIVE-CAPABILITIES",
   "title": "Voice V00 consume SpeechRail effective capability snapshot",
   "assigned_role": "AGT-VOICE",
   "status": "CREATED",
-  "created_at": "2026-09-22T03:06:09.383075+00:00",
+  "created_at": "2026-09-22T03:12:39.974271+00:00",
   "risk_class": "medium",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "2d535c0441c05c447cb451f00d83941320b7fd76",
+    "base_sha": "8b504b7c5dd1d681f3ba708216aa9679e39f7965",
     "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
-    "context_snapshot": "sha256:9ff706377092e9a6a673c4aae972fb6fd4cfaaef5f7708df0b4027000e2195b6"
+    "context_snapshot": "sha256:7f00df57b1c6fc71c7d009cb95350002bfcc8f6cb88e47d2f5fe3e7925fb4a69"
   },
   "scope": {
     "read": [
@@ -134,5 +134,6 @@
     "assertions": [
       "INV-09"
     ]
-  }
+  },
+  "supersedes": "CAP-VOICE-V00-EFFECTIVE-CAPABILITIES"
 }
