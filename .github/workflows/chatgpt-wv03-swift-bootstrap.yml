@@ -1,0 +1,43 @@
+name: ChatGPT W-V03 Swift Control Bootstrap
+
+on:
+  push:
+    branches:
+      - feat/voice-v03-control-swift
+    paths:
+      - .github/workflows/chatgpt-wv03-swift-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Pack AGT-MAC task
+        run: |
+          python3 scripts/agent_capsule.py pack \
+            --role AGT-MAC \
+            --task-id VOICE-V03-CONTROL-SWIFT \
+            --title "Voice V03 sealed render Swift DTO mirror" \
+            --focus "VoiceRenderControl,DomainContracts,spoken_text,revision,media_stream" \
+            --risk-class medium
+          python3 scripts/agent_capsule.py show \
+            --capsule .agents/capsules/VOICE-V03-CONTROL-SWIFT.json
+
+      - name: Commit capsule and remove bootstrap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/capsules/VOICE-V03-CONTROL-SWIFT.json
+          git commit -m "chore(voice): initialize Swift render control capsule"
+          git push origin HEAD:feat/voice-v03-control-swift
+          git rm .github/workflows/chatgpt-wv03-swift-bootstrap.yml
+          git commit -m "ci(voice): remove Swift render control bootstrap"
+          git push origin HEAD:feat/voice-v03-control-swift
