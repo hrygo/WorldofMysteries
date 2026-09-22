@@ -1,0 +1,95 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-MAC-ENGINE-PREBOOTSTRAP-R1",
+  "capsule_revision": 1,
+  "task_id": "MAC-ENGINE-PREBOOTSTRAP-R1",
+  "title": "Prebootstrap bundled Engine before SwiftUI startup",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-22T13:56:24.868913+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "72e5e25350f970f106b3c2fddce0f00e21d21992",
+    "target_sha": "fc40484cde99ab653990bd464c14b33a07db6ac5",
+    "context_snapshot": "sha256:56e82556b06ac26f00ae47eebb160ae6bc6c9670ff6c9852e6b0733e8dd0143b"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:CaptureSpec@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:67",
+      "symbol:capture_plan@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:79",
+      "symbol:run@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:92",
+      "symbol:write_preferences@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:96",
+      "symbol:clear_preferences@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:107",
+      "symbol:windows_for_pid@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:112",
+      "symbol:primary_window@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:122",
+      "symbol:parse_args@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:147",
+      "symbol:main@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:156",
+      "symbol:filename@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:73"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 306,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "CaptureSpec",
+      "capture_plan",
+      "run",
+      "write_preferences",
+      "clear_preferences",
+      "windows_for_pid",
+      "primary_window",
+      "parse_args",
+      "main",
+      "filename"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "instructions": "遵循 Swift 6 严格并发与 SwiftUI @Observable 规范，严格通过 UDS IPC 驱动，零直接数据库访问。",
+    "assertions": [
+      "INV-12"
+    ]
+  }
+}
