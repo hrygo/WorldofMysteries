@@ -1,0 +1,139 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V00-EFFECTIVE-CAPABILITIES-R3",
+  "capsule_revision": 2,
+  "task_id": "VOICE-V00-EFFECTIVE-CAPABILITIES-R3",
+  "title": "Voice V00 consume SpeechRail effective capability snapshot",
+  "assigned_role": "AGT-VOICE",
+  "status": "CREATED",
+  "created_at": "2026-09-22T03:29:09.056001+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:684699eaf091dc631e89eb18a7f30078e1b5e729b9a552983a548a2576d1e437"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/infrastructure/audio/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/domain/audio_voice.py",
+      "engine/infrastructure/audio/",
+      "engine/tests/test_audio_adapter.py"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ASRResult@engine/domain/audio_voice.py:11",
+      "symbol:SpeechResult@engine/domain/audio_voice.py:30",
+      "symbol:ASRProviderProtocol@engine/domain/audio_voice.py:39",
+      "symbol:TTSProviderProtocol@engine/domain/audio_voice.py:53",
+      "symbol:AudioVoiceEngineProtocol@engine/domain/audio_voice.py:68",
+      "symbol:__post_init__@engine/domain/audio_voice.py:24",
+      "symbol:transcribe@engine/domain/audio_voice.py:42",
+      "symbol:synthesize@engine/domain/audio_voice.py:56",
+      "symbol:process_user_speech@engine/domain/audio_voice.py:71",
+      "symbol:render_narrative_speech@engine/domain/audio_voice.py:75",
+      "symbol:ProbeHttpResponse@engine/infrastructure/audio/capabilities.py:34",
+      "symbol:VoiceCapabilityObservation@engine/infrastructure/audio/capabilities.py:42",
+      "symbol:AudioCapabilityObservation@engine/infrastructure/audio/capabilities.py:54",
+      "symbol:_NoRedirect@engine/infrastructure/audio/capabilities.py:79",
+      "symbol:CapabilityTransportError@engine/infrastructure/audio/capabilities.py:87",
+      "symbol:_decode_json@engine/infrastructure/audio/capabilities.py:91",
+      "symbol:_sync_get_json@engine/infrastructure/audio/capabilities.py:100",
+      "symbol:_default_fetch_json@engine/infrastructure/audio/capabilities.py:133",
+      "symbol:_speechrail_urls@engine/infrastructure/audio/capabilities.py:137",
+      "symbol:_bool_or_none@engine/infrastructure/audio/capabilities.py:165",
+      "symbol:_str_or_none@engine/infrastructure/audio/capabilities.py:169",
+      "symbol:_parse_model_ids@engine/infrastructure/audio/capabilities.py:173",
+      "symbol:_parse_voices@engine/infrastructure/audio/capabilities.py:189",
+      "symbol:probe_audio_capabilities@engine/infrastructure/audio/capabilities.py:217",
+      "symbol:redirect_request@engine/infrastructure/audio/capabilities.py:82",
+      "symbol:make@engine/infrastructure/audio/capabilities.py:153",
+      "symbol:probe_capabilities@engine/infrastructure/audio/openai_adapter.py:55",
+      "symbol:test_audio_provider_config_default_speechrail@engine/tests/test_audio_adapter.py:36",
+      "symbol:test_audio_provider_config_keeps_explicit_speechrail_override@engine/tests/test_audio_adapter.py:67",
+      "symbol:test_speechrail_capability_probe_observes_only_safe_routing_fields@engine/tests/test_audio_adapter.py:212"
+    ],
+    "related_contracts": [
+      "audio_asset_ref.schema.json",
+      "performance_plan.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 749,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ASRResult",
+      "SpeechResult",
+      "ASRProviderProtocol",
+      "TTSProviderProtocol",
+      "AudioVoiceEngineProtocol",
+      "__post_init__",
+      "transcribe",
+      "synthesize",
+      "process_user_speech",
+      "render_narrative_speech",
+      "ProbeHttpResponse",
+      "VoiceCapabilityObservation",
+      "AudioCapabilityObservation",
+      "_NoRedirect",
+      "CapabilityTransportError",
+      "_decode_json",
+      "_sync_get_json",
+      "_default_fetch_json",
+      "_speechrail_urls",
+      "_bool_or_none",
+      "_str_or_none",
+      "_parse_model_ids",
+      "_parse_voices",
+      "probe_audio_capabilities",
+      "redirect_request",
+      "make",
+      "probe_capabilities",
+      "test_audio_provider_config_default_speechrail",
+      "test_audio_provider_config_keeps_explicit_speechrail_override",
+      "test_speechrail_capability_probe_observes_only_safe_routing_fields"
+    ],
+    "contracts": [
+      "audio_asset_ref.schema.json",
+      "performance_plan.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "VOICE_P0",
+    "profile_digest": "sha256:f8bc1e2bd98aad63fc6204e5e647a92f7916437bcde74318ef4766537f3db832",
+    "profile_file": ".hacf/gates/voice_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      9
+    ],
+    "instructions": "维护 OpenAI Audio API 规范对接与 SpeechRail 热拔插，落实内容寻址缓存与静音降级。",
+    "assertions": [
+      "INV-09"
+    ]
+  },
+  "supersedes": "CAP-VOICE-V00-EFFECTIVE-CAPABILITIES"
+}
