@@ -1,0 +1,152 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V04-IDENTITY-DOMAIN",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V04-IDENTITY-DOMAIN",
+  "title": "Voice V04 immutable voice identity and binding domain",
+  "assigned_role": "AGT-DOM",
+  "status": "CREATED",
+  "created_at": "2026-09-22T05:44:41.512333+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "186fbac158a870b799c26e655400196253f956d5",
+    "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+    "context_snapshot": "sha256:32c2d1152e1e983c2a809611b600f81991e91cad16d4e29beb1c255b7d0dcc9a"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/domain/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ASRResult@engine/domain/audio_voice.py:11",
+      "symbol:SpeechResult@engine/domain/audio_voice.py:30",
+      "symbol:ASRProviderProtocol@engine/domain/audio_voice.py:39",
+      "symbol:TTSProviderProtocol@engine/domain/audio_voice.py:53",
+      "symbol:AudioVoiceEngineProtocol@engine/domain/audio_voice.py:68",
+      "symbol:__post_init__@engine/domain/audio_voice.py:24",
+      "symbol:transcribe@engine/domain/audio_voice.py:42",
+      "symbol:synthesize@engine/domain/audio_voice.py:56",
+      "symbol:process_user_speech@engine/domain/audio_voice.py:71",
+      "symbol:render_narrative_speech@engine/domain/audio_voice.py:75",
+      "symbol:CharacterEngineProtocol@engine/domain/character_engine.py:5",
+      "symbol:LoreEngineProtocol@engine/domain/lore_engine.py:5",
+      "symbol:MemoryKnowledgeEngineProtocol@engine/domain/memory_engine.py:5",
+      "symbol:ResolutionPolicyError@engine/domain/resolution_policy.py:16",
+      "symbol:StoryEffect@engine/domain/resolution_policy.py:21",
+      "symbol:ResolutionRule@engine/domain/resolution_policy.py:43",
+      "symbol:ResolutionPolicy@engine/domain/resolution_policy.py:66",
+      "symbol:story_delta@engine/domain/resolution_policy.py:29",
+      "symbol:__post_init__@engine/domain/resolution_policy.py:50",
+      "symbol:signature@engine/domain/resolution_policy.py:61",
+      "symbol:__post_init__@engine/domain/resolution_policy.py:75",
+      "symbol:from_story_seed@engine/domain/resolution_policy.py:108",
+      "symbol:match@engine/domain/resolution_policy.py:126",
+      "symbol:OutcomeResolverProtocol@engine/domain/resolver.py:16",
+      "symbol:DeterministicOutcomeResolver@engine/domain/resolver.py:26",
+      "symbol:resolve@engine/domain/resolver.py:17",
+      "symbol:resolve@engine/domain/resolver.py:29",
+      "symbol:StoryEngineProtocol@engine/domain/story_engine.py:5",
+      "symbol:StoryStateTransitionError@engine/domain/story_state_reducer.py:15",
+      "symbol:apply_story_delta@engine/domain/story_state_reducer.py:27"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 663,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ASRResult",
+      "SpeechResult",
+      "ASRProviderProtocol",
+      "TTSProviderProtocol",
+      "AudioVoiceEngineProtocol",
+      "__post_init__",
+      "transcribe",
+      "synthesize",
+      "process_user_speech",
+      "render_narrative_speech",
+      "CharacterEngineProtocol",
+      "LoreEngineProtocol",
+      "MemoryKnowledgeEngineProtocol",
+      "ResolutionPolicyError",
+      "StoryEffect",
+      "ResolutionRule",
+      "ResolutionPolicy",
+      "story_delta",
+      "__post_init__",
+      "signature",
+      "__post_init__",
+      "from_story_seed",
+      "match",
+      "OutcomeResolverProtocol",
+      "DeterministicOutcomeResolver",
+      "resolve",
+      "resolve",
+      "StoryEngineProtocol",
+      "StoryStateTransitionError",
+      "apply_story_delta"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DOMAIN_P0",
+    "profile_digest": "sha256:773c50b2f8205aa483c9f7c9573755fa3603e180e0cd2a8f8ecde1ad0ad22dd0",
+    "profile_file": ".hacf/gates/domain_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      8,
+      9
+    ],
+    "instructions": "恪守纯领域零外部依赖原则。禁止引用数据库或 AI SDK，状态提交保持确定性。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-08",
+      "INV-09"
+    ]
+  }
+}
