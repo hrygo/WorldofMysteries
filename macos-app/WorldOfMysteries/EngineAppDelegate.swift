@@ -1,5 +1,8 @@
 #if canImport(AppKit)
 import AppKit
+#if canImport(OSLog)
+import OSLog
+#endif
 
 /// Owns the process-wide Engine lifecycle.
 ///
@@ -13,6 +16,13 @@ final class EngineAppDelegate: NSObject, NSApplicationDelegate {
     private var launchTask: Task<Void, Never>?
     private var terminating = false
 
+    #if canImport(OSLog)
+    private let logger = Logger(
+        subsystem: "dev.worldofmysteries",
+        category: "EngineLifecycle"
+    )
+    #endif
+
     override init() {
         self.appState = AppState()
         super.init()
@@ -23,11 +33,33 @@ final class EngineAppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    /// Schedule Engine bootstrap at the earliest process-level AppKit lifecycle
+    /// callback. Heavy SwiftUI scene construction must not be able to postpone
+    /// local Engine startup until after the App has fully finished launching.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        scheduleEngineBootstrap()
+    }
+
+    /// Idempotent fallback for launch paths that do not deliver will-finish
+    /// before this delegate is attached.
     func applicationDidFinishLaunching(_ notification: Notification) {
+        scheduleEngineBootstrap()
+    }
+
+    private func scheduleEngineBootstrap() {
         guard launchTask == nil, !terminating else { return }
+        #if canImport(OSLog)
+        logger.notice("Engine lifecycle bootstrap scheduled")
+        #endif
         let state = appState
-        launchTask = Task {
+        launchTask = Task(priority: .userInitiated) { [weak self] in
+            #if canImport(OSLog)
+            self?.logger.notice("Engine lifecycle bootstrap started")
+            #endif
             await state.startAndConnect()
+            #if canImport(OSLog)
+            self?.logger.notice("Engine lifecycle bootstrap completed")
+            #endif
         }
     }
 
