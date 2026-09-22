@@ -28,6 +28,13 @@ from .media_protocol import (
 )
 from .mock_adapter import MockAudioAdapter
 from .openai_adapter import OpenAIAudioAdapter, create_audio_adapter
+from .voice_control import (
+    PendingVoiceRender,
+    PendingVoiceRenderRegistry,
+    VoiceRenderAccepted,
+    VoiceRenderControlError,
+    VoiceRenderControlRequest,
+)
 
 __all__ = [
     "AudioCapabilityObservation",
@@ -50,9 +57,14 @@ __all__ = [
     "parse_media_header",
     "read_media_frame",
     "write_media_frame",
+    "PendingVoiceRender",
+    "PendingVoiceRenderRegistry",
     "OpenAIAudioAdapter",
     "ProbeHttpResponse",
     "VoiceCapabilityObservation",
+    "VoiceRenderAccepted",
+    "VoiceRenderControlError",
+    "VoiceRenderControlRequest",
     "create_audio_adapter",
     "probe_audio_capabilities",
 ]
