@@ -1,0 +1,112 @@
+{
+  "receipt_id": "RCP-WORK-MAC-ENGINE-BOOTSTRAP-OFF-MAIN-1034498e2840",
+  "receipt_type": "work",
+  "task_id": "MAC-ENGINE-BOOTSTRAP-OFF-MAIN",
+  "capsule_id": "CAP-MAC-ENGINE-BOOTSTRAP-OFF-MAIN",
+  "capsule_revision": 2,
+  "capsule_digest": "sha256:ac1e65e10523de1efc1adae27f07a9d24ac5430a04371fe859cafec3f3910c76",
+  "diff_digest": "sha256:449bba9d51d865e3cdcfb3727988a1214c112b754644d1e6911574899594a2fc",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "18120aea9706127cd3a07627d0407767963a1d82",
+  "head_commit": "1034498e284046d471112cb19e5214798464ecd9",
+  "target_ref": "origin/main",
+  "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-22T05:49:24.101380+00:00",
+      "finished_at": "2026-09-22T05:49:24.174383+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        ".build"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-22T05:49:24.174549+00:00",
+      "finished_at": "2026-09-22T05:51:07.862764+00:00",
+      "raw_log_digest": "sha256:16bbf0d6b45565d925e71b9c97297c7dc6da9c22497d73fb000171f4a9316d73",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-22T05:51:07.863601+00:00",
+      "finished_at": "2026-09-22T05:51:52.645048+00:00",
+      "raw_log_digest": "sha256:fba6103b586274cbb7293a6d61307eb2e67f8db5b75752af71c47b10c9dc88b3",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/AppState.swift",
+      "macos-app/WorldOfMysteries/EngineAppDelegate.swift",
+      "macos-app/WorldOfMysteries/EngineProcessManager.swift",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.17 (635500036 2026-09-18 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "sjc20-cw715-7eeb19b5-dca5-4e62-8d2f-81dcfd9b111d-9689A5F094A2.local",
+    "user": "runner",
+    "role": "AGT-MAC",
+    "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries"
+  },
+  "started_at": "2026-09-22T05:49:24.022699+00:00",
+  "finished_at": "2026-09-22T05:51:54.678617+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
