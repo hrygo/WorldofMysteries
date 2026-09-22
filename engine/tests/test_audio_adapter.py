@@ -387,9 +387,10 @@ async def test_capability_probe_does_not_apply_speechrail_private_contract_to_th
     )
     called = False
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         nonlocal called
         called = True
+        del headers
         raise AssertionError((url, timeout))
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
@@ -404,9 +405,10 @@ async def test_speechrail_capability_probe_rejects_ambiguous_base_path_without_n
     config = AudioProviderConfig(base_url="http://127.0.0.1:8201/api")
     called = False
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         nonlocal called
         called = True
+        del headers
         raise AssertionError((url, timeout))
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
@@ -421,66 +423,76 @@ async def test_openai_audio_adapter_exposes_capability_probe_on_same_config():
     config = AudioProviderConfig(base_url="http://127.0.0.1:9000/v1")
     adapter = create_audio_adapter(config)
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         assert timeout == config.timeout_seconds
-        if url == "http://127.0.0.1:9000/health":
-            return ProbeHttpResponse(
-                200,
-                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
-            )
-        if url == "http://127.0.0.1:9000/readyz":
-            return ProbeHttpResponse(200, {"ready": True})
-        return ProbeHttpResponse(200, {"data": []})
+        assert url == "http://127.0.0.1:9000/v1/speechrail/capabilities"
+        assert headers["Authorization"] == "Bearer speechrail-local"
+        return ProbeHttpResponse(
+            200,
+            {
+                "schema_version": "effective_capabilities_v1",
+                "service_instance_epoch": "epoch-adapter",
+                "catalog_revision": "catalog-adapter",
+                "snapshot_id": "snapshot-adapter",
+                "profile": "quality",
+                "models": {},
+                "realtime": {},
+                "voices": [],
+                "operations": {},
+                "guarantees": {},
+            },
+            etag='"adapter-etag"',
+        )
 
     result = await adapter.probe_capabilities(fetch_json=fetch)
 
     assert result.status == "ready"
-    assert result.service_version == "2.4.0"
+    assert result.assurance == "effective_capabilities_v1"
+    assert result.snapshot_id == "snapshot-adapter"
 
 
 @pytest.mark.asyncio
 async def test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable():
     config = AudioProviderConfig()
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del url, timeout
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
         raise OSError("offline")
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
 
     assert result.status == "unreachable"
     assert result.ready is None
-    assert result.errors == (
-        "health_transport_error",
-        "models_transport_error",
-        "readyz_transport_error",
-        "voices_transport_error",
-    )
+    assert result.errors == ("capabilities_transport_error",)
 
 
 @pytest.mark.asyncio
 async def test_speechrail_capability_probe_reports_partial_discovery_as_degraded():
     config = AudioProviderConfig()
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del timeout
-        if url.endswith("/health"):
-            return ProbeHttpResponse(
-                200,
-                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
-            )
-        if url.endswith("/readyz"):
-            return ProbeHttpResponse(200, {"ready": True})
-        if url.endswith("/models"):
-            return ProbeHttpResponse(200, {"data": "not-a-list"})
-        return ProbeHttpResponse(200, {"data": []})
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del timeout, headers
+        assert url.endswith("/v1/speechrail/capabilities")
+        return ProbeHttpResponse(
+            200,
+            {
+                "schema_version": "effective_capabilities_v1",
+                "service_instance_epoch": "epoch",
+                "catalog_revision": "catalog",
+                "snapshot_id": "snapshot",
+                "models": "not-a-mapping",
+                "voices": [],
+                "operations": {},
+                "guarantees": {},
+            },
+        )
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
 
     assert result.status == "degraded"
-    assert result.ready is True
+    assert result.ready is None
     assert result.model_ids == ()
-    assert result.errors == ("models_invalid",)
+    assert result.errors == ("capabilities_invalid",)
 
 
 MEDIA_FIXTURES = json.loads(
