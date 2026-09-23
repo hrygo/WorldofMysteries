@@ -276,7 +276,9 @@ class SceneCastingPlanner:
     tie-break. This planner intentionally stays small and exact.
     """
 
-    MAX_ROLES = 8
+    MAX_SCENE_ROLES = 12
+    MAX_UNBOUND_ROLES = 5
+    MAX_CANDIDATES_PER_ROLE = 12
 
     def __init__(self, policy: VoiceCastingPolicy | None = None) -> None:
         self._policy = policy or VoiceCastingPolicy()
@@ -284,8 +286,12 @@ class SceneCastingPlanner:
     def plan(
         self, roles: tuple[SceneCastingRole, ...]
     ) -> tuple[SceneCastingDecision, ...]:
-        if not roles or len(roles) > self.MAX_ROLES:
+        if not roles or len(roles) > self.MAX_SCENE_ROLES:
             raise VoiceCastingPolicyError("invalid_scene_role_count")
+        if any(
+            len(role.candidates) > self.MAX_CANDIDATES_PER_ROLE for role in roles
+        ):
+            raise VoiceCastingPolicyError("scene_candidate_limit_exceeded")
 
         ordered = tuple(sorted(roles, key=lambda item: item.role_id))
         if len({role.role_id for role in ordered}) != len(ordered):
@@ -318,6 +324,9 @@ class SceneCastingPlanner:
             )
             locked.append(SceneCastingDecision(role.role_id, decision))
             locked_audible.add(audible_voice_key(decision.provider))
+
+        if len(unbound) > self.MAX_UNBOUND_ROLES:
+            raise VoiceCastingPolicyError("scene_unbound_role_limit_exceeded")
 
         base_occupied = frozenset(externally_occupied | locked_audible)
         memo: dict[

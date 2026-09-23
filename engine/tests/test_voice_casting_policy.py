@@ -414,3 +414,38 @@ def test_scene_casting_rejects_cross_worldline_or_duplicate_roles():
 
     with pytest.raises(VoiceCastingPolicyError, match="duplicate_scene_role"):
         planner.plan((role_a, role_a))
+
+
+def test_scene_casting_search_space_is_explicitly_bounded():
+    candidates = tuple(_candidate(chr(97 + index)) for index in range(13))
+    oversized_pool = SceneCastingRole(
+        "role-a",
+        _request(
+            candidates,
+            scope=_scope(presentation_identity="role-a"),
+        ),
+        candidates,
+    )
+    planner = SceneCastingPlanner()
+
+    with pytest.raises(
+        VoiceCastingPolicyError, match="scene_candidate_limit_exceeded"
+    ):
+        planner.plan((oversized_pool,))
+
+    small_candidate = (_candidate("z"),)
+    too_many_unbound = tuple(
+        SceneCastingRole(
+            f"role-{index}",
+            _request(
+                small_candidate,
+                scope=_scope(presentation_identity=f"role-{index}"),
+            ),
+            small_candidate,
+        )
+        for index in range(SceneCastingPlanner.MAX_UNBOUND_ROLES + 1)
+    )
+    with pytest.raises(
+        VoiceCastingPolicyError, match="scene_unbound_role_limit_exceeded"
+    ):
+        planner.plan(too_many_unbound)
