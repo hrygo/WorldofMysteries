@@ -212,6 +212,7 @@ async def test_worldline_fork_snapshot_is_idempotent_and_rejects_conflict(databa
     with pytest.raises(VoiceBindingConflict, match="different voice binding snapshot"):
         await repo.fork_scope_snapshot(
             scope(),
+            expected_source_binding_revision=2,
             target_worldline_id="line-2",
             target_binding_id="another-binding-line-2",
         )
