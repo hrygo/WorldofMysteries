@@ -103,17 +103,24 @@ class SQLiteVoiceBindingRepository:
         self,
         source: VoiceBindingScope,
         *,
+        expected_source_binding_revision: int,
         target_worldline_id: str,
         target_binding_id: str,
     ) -> VoiceBinding:
-        """Atomically freeze the source world's visible binding into a child worldline.
+        """Freeze exactly the binding revision authorized at a worldline fork boundary.
 
-        The snapshot copies the exact persisted presentation revision while holding
-        the presentation writer transaction. Later parent rebinds therefore cannot
-        leak into the child worldline.
+        The caller carries the source binding revision observed for the fork. If the
+        parent binding moves before the snapshot is persisted, the operation fails
+        closed instead of inheriting a future voice revision. A previously completed
+        request remains idempotent by its stable target binding id.
         """
         if source.worldline_id == target_worldline_id:
             raise StorageError("VoiceBinding fork target must be a different worldline")
+        if (
+            type(expected_source_binding_revision) is not int
+            or expected_source_binding_revision < 1
+        ):
+            raise StorageError("VoiceBinding fork requires a positive source revision")
         target_scope = VoiceBindingScope(
             owner_id=source.owner_id,
             world_id=source.world_id,
@@ -124,6 +131,26 @@ class SQLiteVoiceBindingRepository:
         )
 
         def apply(tx: PresentationTransaction):
+            target_rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
+                "AND presentation_identity=? AND phase=? AND locale=?",
+                (
+                    target_scope.owner_id,
+                    target_scope.world_id,
+                    target_scope.worldline_id,
+                    target_scope.presentation_identity,
+                    target_scope.phase,
+                    target_scope.locale,
+                ),
+            )
+            if target_rows:
+                current = _from_row(target_rows[0])
+                if current.binding_id == target_binding_id:
+                    return current
+                raise VoiceBindingConflict(
+                    "target worldline already has a different voice binding snapshot"
+                )
+
             source_rows = tx.execute(
                 "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
                 "AND presentation_identity=? AND phase=? AND locale=?",
@@ -139,6 +166,10 @@ class SQLiteVoiceBindingRepository:
             if len(source_rows) != 1:
                 raise StorageError("VoiceBinding fork source must resolve exactly once")
             source_binding = _from_row(source_rows[0])
+            if source_binding.binding_revision != expected_source_binding_revision:
+                raise VoiceBindingConflict(
+                    "source voice binding moved after fork snapshot authorization"
+                )
             inherited = VoiceBinding(
                 binding_id=target_binding_id,
                 scope=target_scope,
@@ -148,26 +179,6 @@ class SQLiteVoiceBindingRepository:
                 status=source_binding.status,
                 reserved_at_world_revision=source_binding.reserved_at_world_revision,
             )
-
-            target_rows = tx.execute(
-                "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
-                "AND presentation_identity=? AND phase=? AND locale=?",
-                (
-                    target_scope.owner_id,
-                    target_scope.world_id,
-                    target_scope.worldline_id,
-                    target_scope.presentation_identity,
-                    target_scope.phase,
-                    target_scope.locale,
-                ),
-            )
-            if target_rows:
-                current = _from_row(target_rows[0])
-                if current == inherited:
-                    return current
-                raise VoiceBindingConflict(
-                    "target worldline already has a different voice binding snapshot"
-                )
 
             binding_rows = tx.execute(
                 "SELECT * FROM voice_bindings WHERE binding_id=?", (target_binding_id,)
