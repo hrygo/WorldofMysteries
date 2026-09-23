@@ -1,0 +1,95 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-AUTHORIZED-CASTING-POLICY",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-AUTHORIZED-CASTING-POLICY",
+  "title": "Voice V05 authorization-first casting policy",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-23T14:41:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "8369e6c35df737a43fd94fbabbf3d2532ff52d66",
+    "target_sha": "8369e6c35df737a43fd94fbabbf3d2532ff52d66",
+    "context_snapshot": "sha256:voice-v05-authorized-casting-policy-8369e6c35df737a43fd94fbabbf3d2532ff52d66"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/voice_identity.py",
+      "engine/application/voice_casting.py",
+      "engine/application/context_plan.py",
+      "engine/tests/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/voice_casting_policy.py",
+      "engine/tests/test_voice_casting_policy.py",
+      ".agents/capsules/VOICE-V05-AUTHORIZED-CASTING-POLICY.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/voice_identity.py",
+      "engine/application/voice_casting.py",
+      "engine/application/context_plan.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "authorization-first-hard-filter-and-deterministic-tie-break",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Casting policy consumes only freshly authorized provider voice revisions and public presentation traits. Hidden/canonical identity is structurally absent."
+  },
+  "impact": {
+    "symbols": [
+      "VoiceCandidate",
+      "CastingPolicyRequest",
+      "VoiceCastingPolicy"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_voice_casting_policy.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V04-IDENTITY-DOMAIN",
+      "VOICE-V04-BINDING-PERSISTENCE",
+      "VOICE-V04-CASTING-COMMANDS",
+      "VOICE-V04-WORLDLINE-FORK-SNAPSHOT"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9
+    ],
+    "instructions": "Only fresh authorization grants and public presentation metadata may influence casting. Rights/locale/availability/quality are hard filters; existing authorized bindings are hard locks; masked or hidden identity cannot authorize a familiar voice; ties are deterministic.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  }
+}
