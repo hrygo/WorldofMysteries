@@ -1,0 +1,72 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V04-CASTING-COMMANDS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V04-CASTING-COMMANDS",
+  "title": "Voice V04 application casting durability barrier",
+  "assigned_role": "AGT-VOICE",
+  "status": "CREATED",
+  "created_at": "2026-09-23T13:36:00+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "054cadfc8a6281420f3c387d64d5f94fe1de3a6c",
+    "target_sha": "054cadfc8a6281420f3c387d64d5f94fe1de3a6c",
+    "context_snapshot": "sha256:4b21f8a77573df568ac8a9cb61556f0581b7616cdb8c738ef55e19591728be67"
+  },
+  "scope": {
+    "read": [
+      "engine/application/",
+      "engine/domain/voice_identity.py",
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/tests/"
+    ],
+    "write": [
+      "engine/application/voice_casting.py",
+      "engine/tests/test_voice_casting.py",
+      ".agents/capsules/VOICE-V04-CASTING-COMMANDS.json"
+    ],
+    "forbidden": [
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/voice_identity.py",
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/application/story_turn_commit.py"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "explicit-application-durability-barrier",
+    "token_estimate": 1400,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Application coordinates persisted binding lifecycle; it does not choose candidate voices."
+  },
+  "impact": {
+    "symbols": ["VoiceBindingPort", "VoiceCastingService"],
+    "contracts": [],
+    "tests": ["engine/tests/test_voice_casting.py"]
+  },
+  "dependencies": {
+    "depends_on": ["VOICE-V04-IDENTITY-DOMAIN", "VOICE-V04-BINDING-PERSISTENCE"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [9],
+    "instructions": "Persist one binding winner before synthesis. Races/restarts must recover that winner; revoked bindings block new renders; replacement is explicit.",
+    "assertions": ["INV-09"]
+  }
+}
