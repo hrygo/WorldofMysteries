@@ -1,0 +1,100 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-AUDIO-AUTHORIZATION",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-AUDIO-AUTHORIZATION",
+  "title": "Voice V05 post-commit audio disclosure authorization",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-24T07:10:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "7144e00591c10b10aff2782b98e6f175f98f8037",
+    "target_sha": "7144e00591c10b10aff2782b98e6f175f98f8037",
+    "context_snapshot": "sha256:voice-v05-audio-authorization-7144e00591c10b10aff2782b98e6f175f98f8037"
+  },
+  "scope": {
+    "read": [
+      "contracts/schemas/narrative_block.schema.json",
+      "contracts/schemas/turn_transaction.schema.json",
+      "engine/contracts/",
+      "engine/application/audio_disclosure.py",
+      "engine/tests/test_audio_disclosure.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/audio_disclosure.py",
+      "engine/tests/test_audio_disclosure.py",
+      ".agents/capsules/VOICE-V05-AUDIO-AUTHORIZATION.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/audio_disclosure.py",
+      "engine/contracts/models.py",
+      "engine/application/story_turn_commit.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "exact-post-commit-narrative-segment-authorization",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Audio authorization follows the authoritative TurnTransaction narrative_block_id and verifies committed story revision, session, StateDelta and narrative-ready status. There is no default production fake port."
+  },
+  "impact": {
+    "symbols": [
+      "SpokenTextCompiler",
+      "AudioDisclosurePort",
+      "AudioDisclosureAuthorizer",
+      "AuthorizedAudioSegment"
+    ],
+    "contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_audio_disclosure.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-AUDIO-DISCLOSURE"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9
+    ],
+    "instructions": "Production audio disclosure must be authorized from the exact NarrativeBlock referenced by a post-COMMIT TurnTransaction. Story revision, session, StateDelta and segment index must match; arbitrary caller text or alternate narrative blocks are not accepted. Missing real authorization fails closed.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  }
+}
