@@ -342,20 +342,22 @@ class DatabaseManager:
         tx = PresentationTransaction(conn)
         conn.set_authorizer(_presentation_authorizer)
         try:
-            value = apply(tx)
-            if inspect.isawaitable(value):
-                if inspect.iscoroutine(value):
-                    value.close()
-                raise StorageError('Presentation repository transaction must not suspend')
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError('Presentation repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
             conn.execute('COMMIT')
             return value
         except BaseException:
+            conn.set_authorizer(None)
             if conn.in_transaction:
                 conn.execute('ROLLBACK')
             raise
-        finally:
-            tx._active = False
-            conn.set_authorizer(None)
 
     async def commit_resolved(self, request: CommitRequest,
                               apply: Callable[[DomainTransaction], object] | None = None) -> CommitResult:

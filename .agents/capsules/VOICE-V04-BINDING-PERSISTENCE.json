@@ -22,6 +22,7 @@
       "engine/infrastructure/migrations/003_world_voice_bindings.sql",
       "engine/infrastructure/voice_binding_repository.py",
       "engine/tests/test_voice_binding_repository.py",
+      "engine/tests/test_story_session_migration.py",
       ".agents/capsules/VOICE-V04-BINDING-PERSISTENCE.json"
     ],
     "forbidden": ["engine/ai/**", "macos-app/**", "contracts/**", ".github/**", ".hacf/gates/**"],
@@ -44,7 +45,7 @@
   "impact": {
     "symbols": ["PresentationTransaction", "presentation_write", "SQLiteVoiceBindingRepository"],
     "contracts": [],
-    "tests": ["engine/tests/test_voice_binding_repository.py"],
+    "tests": ["engine/tests/test_voice_binding_repository.py", "engine/tests/test_story_session_migration.py"],
     "migrations": ["engine/infrastructure/migrations/003_world_voice_bindings.sql"]
   },
   "dependencies": {
