@@ -1,4 +1,4 @@
-name: Temporary Voice V05 Policy Receipt Verification
+name: Temporary Voice V05 Swift Diagnostics
 
 on:
   pull_request:
@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  diagnose-swift:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - name: Checkout exact Voice V05 policy head
         uses: actions/checkout@v7
@@ -18,27 +18,18 @@ jobs:
           ref: c81312d4f0abfe4e33b810a58717c079de118b80
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          enable-cache: auto
-          cache-dependency-glob: "engine/uv.lock"
       - name: Select Xcode toolchain
         run: |
           sudo xcode-select -s /Applications/Xcode.app
           swift --version
-      - name: Verify capsule and print Work Receipt
+      - name: Run Swift tests with full diagnostics
+        working-directory: macos-app
         run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "c81312d4f0abfe4e33b810a58717c079de118b80"
-          python3 scripts/agent_capsule.py verify \
-            --capsule .agents/capsules/VOICE-V05-AUTHORIZED-CASTING-POLICY.json
-          receipt=".agents/receipts/VOICE-V05-AUTHORIZED-CASTING-POLICY/c81312d4f0ab.json"
-          test -f "$receipt"
-          echo "===WORK_RECEIPT_BEGIN==="
-          cat "$receipt"
-          echo "===WORK_RECEIPT_END==="
+          set -o pipefail
+          swift test --scratch-path .build 2>&1 | tee /tmp/swift-test.log
+          status=${PIPESTATUS[0]}
+          echo "===SWIFT_FAILURE_CONTEXT==="
+          grep -nE "fail|error|Issue recorded|Expectation failed|Test Case|✘|XCTAssert|timed out|signal|fatal" /tmp/swift-test.log || true
+          echo "===SWIFT_LOG_TAIL==="
+          tail -n 500 /tmp/swift-test.log
+          exit "$status"
