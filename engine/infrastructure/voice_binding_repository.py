@@ -99,6 +99,106 @@ class SQLiteVoiceBindingRepository:
             raise StorageError("VoiceBinding scope uniqueness is corrupted")
         return _from_row(rows[0])
 
+    async def fork_scope_snapshot(
+        self,
+        source: VoiceBindingScope,
+        *,
+        expected_source_binding_revision: int,
+        target_worldline_id: str,
+        target_binding_id: str,
+    ) -> VoiceBinding:
+        """Freeze exactly the binding revision authorized at a worldline fork boundary.
+
+        The caller carries the source binding revision observed for the fork. If the
+        parent binding moves before the snapshot is persisted, the operation fails
+        closed instead of inheriting a future voice revision. A previously completed
+        request remains idempotent by its stable target binding id.
+        """
+        if source.worldline_id == target_worldline_id:
+            raise StorageError("VoiceBinding fork target must be a different worldline")
+        if (
+            type(expected_source_binding_revision) is not int
+            or expected_source_binding_revision < 1
+        ):
+            raise StorageError("VoiceBinding fork requires a positive source revision")
+        target_scope = VoiceBindingScope(
+            owner_id=source.owner_id,
+            world_id=source.world_id,
+            worldline_id=target_worldline_id,
+            presentation_identity=source.presentation_identity,
+            phase=source.phase,
+            locale=source.locale,
+        )
+
+        def apply(tx: PresentationTransaction):
+            target_rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
+                "AND presentation_identity=? AND phase=? AND locale=?",
+                (
+                    target_scope.owner_id,
+                    target_scope.world_id,
+                    target_scope.worldline_id,
+                    target_scope.presentation_identity,
+                    target_scope.phase,
+                    target_scope.locale,
+                ),
+            )
+            if target_rows:
+                current = _from_row(target_rows[0])
+                if current.binding_id == target_binding_id:
+                    return current
+                raise VoiceBindingConflict(
+                    "target worldline already has a different voice binding snapshot"
+                )
+
+            source_rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
+                "AND presentation_identity=? AND phase=? AND locale=?",
+                (
+                    source.owner_id,
+                    source.world_id,
+                    source.worldline_id,
+                    source.presentation_identity,
+                    source.phase,
+                    source.locale,
+                ),
+            )
+            if len(source_rows) != 1:
+                raise StorageError("VoiceBinding fork source must resolve exactly once")
+            source_binding = _from_row(source_rows[0])
+            if source_binding.binding_revision != expected_source_binding_revision:
+                raise VoiceBindingConflict(
+                    "source voice binding moved after fork snapshot authorization"
+                )
+            inherited = VoiceBinding(
+                binding_id=target_binding_id,
+                scope=target_scope,
+                persona=source_binding.persona,
+                provider=source_binding.provider,
+                binding_revision=source_binding.binding_revision,
+                status=source_binding.status,
+                reserved_at_world_revision=source_binding.reserved_at_world_revision,
+            )
+
+            binding_rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE binding_id=?", (target_binding_id,)
+            )
+            if binding_rows:
+                raise VoiceBindingConflict(
+                    "target binding id is already used by another voice binding"
+                )
+            tx.execute(
+                "INSERT INTO voice_bindings("
+                "binding_id,owner_id,world_id,worldline_id,presentation_identity,phase,locale,"
+                "logical_voice_id,persona_revision,provider_instance,provider_voice_id,assurance,"
+                "voice_revision,model_catalog_revision,provider_revoked,binding_revision,status,"
+                "reserved_at_world_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                _values(inherited),
+            )
+            return inherited
+
+        return await self.database.presentation_write(apply)
+
     async def reserve(self, candidate: VoiceBinding) -> VoiceBinding:
         if candidate.status is not VoiceBindingStatus.RESERVED or candidate.binding_revision != 1:
             raise StorageError("VoiceBinding reservation must begin at revision 1")

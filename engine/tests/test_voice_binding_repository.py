@@ -153,3 +153,104 @@ async def test_rebind_then_revoke_preserves_history_fields_and_blocks_new_render
     assert revoked.provider.voice_revision == "voice-" + "d" * 40
     assert not revoked.permits_new_render
     assert await world_revision(database) == 0
+
+
+async def test_worldline_fork_freezes_exact_binding_revision_and_isolates_parent(database):
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate())
+    parent_at_fork = await repo.activate("binding-1", expected_binding_revision=1)
+
+    child = await repo.fork_scope_snapshot(
+        scope(),
+        expected_source_binding_revision=2,
+        target_worldline_id="line-2",
+        target_binding_id="binding-line-2",
+    )
+
+    assert child.scope.worldline_id == "line-2"
+    assert child.binding_revision == parent_at_fork.binding_revision == 2
+    assert child.persona == parent_at_fork.persona
+    assert child.provider == parent_at_fork.provider
+    assert child.status is VoiceBindingStatus.ACTIVE
+
+    rebound = await repo.rebind(
+        "binding-1",
+        expected_binding_revision=2,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+    )
+    parent_after_fork = await repo.activate(
+        "binding-1", expected_binding_revision=rebound.binding_revision
+    )
+
+    assert parent_after_fork.binding_revision == 4
+    assert parent_after_fork.provider.voice_revision == "voice-" + "d" * 40
+    assert await repo.load("binding-line-2") == child
+    assert child.provider.voice_revision == "voice-" + "a" * 40
+    assert await world_revision(database) == 0
+
+
+async def test_worldline_fork_snapshot_is_idempotent_and_rejects_conflict(database):
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate())
+    await repo.activate("binding-1", expected_binding_revision=1)
+
+    first = await repo.fork_scope_snapshot(
+        scope(),
+        expected_source_binding_revision=2,
+        target_worldline_id="line-2",
+        target_binding_id="binding-line-2",
+    )
+    repeated = await repo.fork_scope_snapshot(
+        scope(),
+        expected_source_binding_revision=2,
+        target_worldline_id="line-2",
+        target_binding_id="binding-line-2",
+    )
+    assert repeated == first
+
+    with pytest.raises(VoiceBindingConflict, match="different voice binding snapshot"):
+        await repo.fork_scope_snapshot(
+            scope(),
+            expected_source_binding_revision=2,
+            target_worldline_id="line-2",
+            target_binding_id="another-binding-line-2",
+        )
+
+
+async def test_worldline_fork_rejects_parent_revision_drift_before_snapshot(database):
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate())
+    fork_point = await repo.activate("binding-1", expected_binding_revision=1)
+    assert fork_point.binding_revision == 2
+
+    rebound = await repo.rebind(
+        "binding-1",
+        expected_binding_revision=fork_point.binding_revision,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+    )
+    await repo.activate(
+        "binding-1", expected_binding_revision=rebound.binding_revision
+    )
+
+    with pytest.raises(
+        VoiceBindingConflict, match="moved after fork snapshot authorization"
+    ):
+        await repo.fork_scope_snapshot(
+            scope(),
+            expected_source_binding_revision=fork_point.binding_revision,
+            target_worldline_id="line-2",
+            target_binding_id="binding-line-2",
+        )
+
+    child_scope = VoiceBindingScope(
+        owner_id="player",
+        world_id="voice-world",
+        worldline_id="line-2",
+        presentation_identity="klein-visible",
+        phase="default",
+        locale="zh-CN",
+    )
+    assert await repo.load_scope(child_scope) is None
+    assert await world_revision(database) == 0

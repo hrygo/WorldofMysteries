@@ -1,0 +1,92 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V04-WORLDLINE-FORK-SNAPSHOT",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V04-WORLDLINE-FORK-SNAPSHOT",
+  "title": "Voice V04 worldline fork binding snapshot",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-23T14:00:30+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b0d841b13ca7a2c5865c7c22e6ba8d9270e46e80",
+    "target_sha": "b0d841b13ca7a2c5865c7c22e6ba8d9270e46e80",
+    "context_snapshot": "sha256:voice-v04-worldline-fork-snapshot-b0d841b13ca7a2c5865c7c22e6ba8d9270e46e80"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/voice_identity.py",
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/tests/test_voice_binding_repository.py",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/tests/test_voice_binding_repository.py",
+      ".agents/capsules/VOICE-V04-WORLDLINE-FORK-SNAPSHOT.json"
+    ],
+    "forbidden": [
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**",
+      "engine/infrastructure/migrations/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/voice_identity.py",
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/tests/test_voice_binding_repository.py"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "explicit-worldline-binding-snapshot",
+    "token_estimate": 1400,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Snapshot the source worldline's currently persisted binding revision atomically at fork time; never follow later parent rebinds."
+  },
+  "impact": {
+    "symbols": [
+      "SQLiteVoiceBindingRepository.fork_scope_snapshot"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_voice_binding_repository.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V04-IDENTITY-DOMAIN",
+      "VOICE-V04-BINDING-PERSISTENCE",
+      "VOICE-V04-CASTING-COMMANDS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      10,
+      11,
+      12,
+      15
+    ],
+    "instructions": "A worldline fork must atomically inherit the source line's visible VoiceBinding revision at the fork boundary. Parent rebinds after the fork must not mutate the child snapshot; presentation-only snapshotting must not advance world_meta.revision.",
+    "assertions": [
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-15"
+    ]
+  }
+}
