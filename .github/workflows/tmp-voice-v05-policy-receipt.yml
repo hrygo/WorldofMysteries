@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact Voice V05 policy head
         uses: actions/checkout@v7
         with:
-          ref: 89c32eadc841758a96e349e51e720c77c92bd0c2
+          ref: c81312d4f0abfe4e33b810a58717c079de118b80
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
@@ -34,10 +34,10 @@ jobs:
       - name: Verify capsule and print Work Receipt
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "89c32eadc841758a96e349e51e720c77c92bd0c2"
+          test "$(git rev-parse HEAD)" = "c81312d4f0abfe4e33b810a58717c079de118b80"
           python3 scripts/agent_capsule.py verify \
             --capsule .agents/capsules/VOICE-V05-AUTHORIZED-CASTING-POLICY.json
-          receipt=".agents/receipts/VOICE-V05-AUTHORIZED-CASTING-POLICY/89c32eadc841.json"
+          receipt=".agents/receipts/VOICE-V05-AUTHORIZED-CASTING-POLICY/c81312d4f0ab.json"
           test -f "$receipt"
           echo "===WORK_RECEIPT_BEGIN==="
           cat "$receipt"
