@@ -1,0 +1,90 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-SCENE-CASTING",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-SCENE-CASTING",
+  "title": "Voice V05 deterministic joint scene casting",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-24T06:58:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b17f1554f499dab552c8127be9e234e5981fb992",
+    "target_sha": "b17f1554f499dab552c8127be9e234e5981fb992",
+    "context_snapshot": "sha256:voice-v05-scene-casting-b17f1554f499dab552c8127be9e234e5981fb992"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/voice_identity.py",
+      "engine/application/voice_casting_policy.py",
+      "engine/tests/test_voice_casting_policy.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/voice_casting_policy.py",
+      "engine/tests/test_voice_casting_policy.py",
+      ".agents/capsules/VOICE-V05-SCENE-CASTING.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/voice_identity.py",
+      "engine/application/voice_casting_policy.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "small-set-joint-distinct-casting",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Existing authorized bindings stay hard locks. Unbound co-scene roles are optimized jointly under the same hard filters, with audible identity uniqueness and deterministic tie-breaking."
+  },
+  "impact": {
+    "symbols": [
+      "VoiceCastingPolicy.rank_candidates",
+      "SceneCastingRole",
+      "SceneCastingPlanner"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_voice_casting_policy.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-AUTHORIZED-CASTING-POLICY"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9
+    ],
+    "instructions": "After authorization/rights/locale/availability/quality hard filters, jointly assign distinct audible identities to unbound co-scene roles. Existing bindings remain hard locks; hidden identity is absent; assignment and tie-breaking must be deterministic and input-order independent.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  }
+}
