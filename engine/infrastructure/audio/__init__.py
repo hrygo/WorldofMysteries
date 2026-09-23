@@ -47,6 +47,14 @@ from .media_bridge import (
     render_realtime_tts_to_media,
 )
 
+from .voice_control import (
+    PendingVoiceRender,
+    PendingVoiceRenderRegistry,
+    VoiceRenderAccepted,
+    VoiceRenderControlError,
+    VoiceRenderControlRequest,
+)
+
 __all__ = [
     "AudioCapabilityObservation",
     "AudioProviderConfig",
@@ -70,6 +78,11 @@ __all__ = [
     "read_media_frame",
     "write_media_frame",
     "OpenAIAudioAdapter",
+    "PendingVoiceRender",
+    "PendingVoiceRenderRegistry",
+    "VoiceRenderAccepted",
+    "VoiceRenderControlError",
+    "VoiceRenderControlRequest",
     "ProbeHttpResponse",
     "EngineRealtimeTTSMediaStream",
     "MediaPeerStop",

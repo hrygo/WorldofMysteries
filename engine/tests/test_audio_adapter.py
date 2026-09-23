@@ -30,6 +30,9 @@ from infrastructure.audio import (
     encode_media_frame,
     parse_media_header,
     read_media_frame,
+    PendingVoiceRenderRegistry,
+    VoiceRenderControlError,
+    VoiceRenderControlRequest,
     ProbeHttpResponse,
     EngineRealtimeTTSMediaStream,
     REALTIME_TTS_SAMPLE_RATE,
@@ -1468,3 +1471,107 @@ async def test_realtime_tts_media_bridge_peer_cancel_reaches_provider_while_cred
     assert terminal.status == "cancelled"
     assert adapter.cancel_calls == 1
     assert writer.data == b""
+
+
+def _voice_render_request(**overrides):
+    payload = {
+        "schema_version": "1.0",
+        "speech_unit_id": "speech_001",
+        "turn_id": "turn_001",
+        "story_revision": 42,
+        "narrative_block_id": "narrative_001",
+        "segment_index": 0,
+        "performance_plan_id": "perf_001",
+        "spoken_text": "雾中的脚步声停在了门外。",
+        "voice_id": "narrator_mystic",
+        "expected_voice_revision": "vr_" + "a" * 40,
+        "expected_model_revision": "b" * 40,
+        "media_stream_id": "media_001",
+        "generation": 7,
+        "speed": 1.0,
+        "language": "zh",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_voice_render_control_provider_projection_is_minimal():
+    request = VoiceRenderControlRequest.model_validate(_voice_render_request())
+    assert request.provider_tts_fields() == {
+        "text": "雾中的脚步声停在了门外。",
+        "voice": "narrator_mystic",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_" + "a" * 40,
+    }
+    projected = request.provider_tts_fields()
+    assert "turn_id" not in projected
+    assert "story_revision" not in projected
+    assert "media_stream_id" not in projected
+    assert "expected_model_revision" not in projected
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"__unknown": True},
+        {"story_revision": -1},
+        {"expected_model_revision": "bad"},
+        {"spoken_text": "   "},
+        {"speed": 4.1},
+    ],
+)
+def test_voice_render_control_rejects_invalid_execution_shapes(patch):
+    with pytest.raises(Exception):
+        VoiceRenderControlRequest.model_validate(_voice_render_request(**patch))
+
+
+def test_pending_voice_render_registry_is_one_time_and_generation_bound():
+    registry = PendingVoiceRenderRegistry()
+    accepted = registry.register(_voice_render_request())
+    assert accepted.speech_unit_id == "speech_001"
+    assert accepted.media_stream_id == "media_001"
+    assert accepted.generation == 7
+    assert len(registry) == 1
+
+    pending = registry.consume("media_001", 7)
+    assert pending.render_id == accepted.render_id
+    assert pending.request.spoken_text == "雾中的脚步声停在了门外。"
+    assert pending.request.expected_voice_revision == "vr_" + "a" * 40
+    assert pending.request.provider_tts_fields() == {
+        "text": "雾中的脚步声停在了门外。",
+        "voice": "narrator_mystic",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_" + "a" * 40,
+    }
+    assert "turn_id" not in pending.request.provider_tts_fields()
+    assert "story_revision" not in pending.request.provider_tts_fields()
+    assert "media_stream_id" not in pending.request.provider_tts_fields()
+    assert len(registry) == 0
+
+    with pytest.raises(VoiceRenderControlError, match="voice_render_not_found"):
+        registry.consume("media_001", 7)
+
+
+def test_pending_voice_render_generation_mismatch_burns_entry():
+    registry = PendingVoiceRenderRegistry()
+    registry.register(_voice_render_request())
+    with pytest.raises(VoiceRenderControlError, match="voice_render_generation_mismatch"):
+        registry.consume("media_001", 8)
+    assert len(registry) == 0
+
+
+def test_pending_voice_render_registry_expires_and_is_bounded():
+    now = [100.0]
+    registry = PendingVoiceRenderRegistry(
+        max_entries=1,
+        ttl_seconds=5,
+        clock=lambda: now[0],
+    )
+    registry.register(_voice_render_request())
+    with pytest.raises(VoiceRenderControlError, match="voice_render_registry_capacity"):
+        registry.register(_voice_render_request(media_stream_id="media_002"))
+
+    now[0] = 106.0
+    assert len(registry) == 0
+    accepted = registry.register(_voice_render_request(media_stream_id="media_002"))
+    assert accepted.media_stream_id == "media_002"
