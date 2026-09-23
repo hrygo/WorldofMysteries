@@ -1,4 +1,4 @@
-name: Temporary Voice V04 Fork Receipt Verification R2
+name: Temporary Voice V04 Fork Receipt Verification Final
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact Voice fork head
         uses: actions/checkout@v7
         with:
-          ref: 8472a32004944655f19aa82dd438c7ba4894d54d
+          ref: 30b14dbfecebe018cddf8877774fcc3e683b1345
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
@@ -34,7 +34,7 @@ jobs:
       - name: Verify capsule and print Work Receipt
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "8472a32004944655f19aa82dd438c7ba4894d54d"
+          test "$(git rev-parse HEAD)" = "30b14dbfecebe018cddf8877774fcc3e683b1345"
           python3 scripts/agent_capsule.py verify \
             --capsule .agents/capsules/VOICE-V04-WORLDLINE-FORK-SNAPSHOT.json
           receipt="$(find .agents/receipts/VOICE-V04-WORLDLINE-FORK-SNAPSHOT -name '*.json' -type f | sort | tail -1)"
