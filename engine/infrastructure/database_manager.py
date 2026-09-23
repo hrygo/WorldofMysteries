@@ -154,6 +154,34 @@ _PROTECTED = frozenset({'world_meta', 'domain_commits', 'domain_events', 'projec
                         'sqlite_master', 'sqlite_schema', 'sqlite_sequence'})
 
 
+class PresentationTransaction:
+    """Synchronous presentation-state transaction with no world revision authority."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
+_PRESENTATION_TABLES = frozenset({'voice_bindings'})
+
+
+def _presentation_authorizer(action, table, _column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    if action in (sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE):
+        return sqlite3.SQLITE_OK if table.lower() in _PRESENTATION_TABLES else sqlite3.SQLITE_DENY
+    if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, sqlite3.SQLITE_RECURSIVE):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 class DomainTransaction:
     """Synchronous, scoped SQL facade for trusted repositories; never given to AI.
 
@@ -300,6 +328,36 @@ class DatabaseManager:
 
     async def read_canon(self, sql: str, parameters: tuple = ()) -> list[dict]:
         return await self._submit(lambda: read_rows(self.paths.canon, sql, tuple(parameters)), read=True)
+
+    async def presentation_write(self, apply: Callable[[PresentationTransaction], object]) -> object:
+        """Persist presentation-only state without advancing Domain world revision."""
+        if not callable(apply):
+            raise StorageError('Presentation write requires a synchronous repository operation')
+        return await self._submit(lambda: self._presentation_write(apply))
+
+    def _presentation_write(self, apply):
+        self._check_world_identity()
+        conn = self._connection
+        conn.execute('BEGIN IMMEDIATE')
+        tx = PresentationTransaction(conn)
+        conn.set_authorizer(_presentation_authorizer)
+        try:
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError('Presentation repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
+            conn.execute('COMMIT')
+            return value
+        except BaseException:
+            conn.set_authorizer(None)
+            if conn.in_transaction:
+                conn.execute('ROLLBACK')
+            raise
 
     async def commit_resolved(self, request: CommitRequest,
                               apply: Callable[[DomainTransaction], object] | None = None) -> CommitResult:

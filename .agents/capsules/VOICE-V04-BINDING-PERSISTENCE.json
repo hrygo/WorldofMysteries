@@ -1,0 +1,66 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V04-BINDING-PERSISTENCE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V04-BINDING-PERSISTENCE",
+  "title": "Voice V04 durable binding persistence and CAS",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-23T13:20:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "9278eeac1153e0e7ffdf2a77c891e7d680ed5630",
+    "target_sha": "9278eeac1153e0e7ffdf2a77c891e7d680ed5630",
+    "context_snapshot": "sha256:voice-v04-binding-persistence-9278eeac1153e0e7ffdf2a77c891e7d680ed5630"
+  },
+  "scope": {
+    "read": ["engine/domain/", "engine/infrastructure/", "engine/tests/", "docs/03_工程规范/voice/"],
+    "write": [
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/003_world_voice_bindings.sql",
+      "engine/infrastructure/voice_binding_repository.py",
+      "engine/tests/test_voice_binding_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      ".agents/capsules/VOICE-V04-BINDING-PERSISTENCE.json"
+    ],
+    "forbidden": ["engine/ai/**", "macos-app/**", "contracts/**", ".github/**", ".hacf/gates/**"],
+    "privileged_grants": ["engine/infrastructure/migrations/003_world_voice_bindings.sql"]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/domain/voice_identity.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "explicit-voice-binding-persistence",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Persist presentation identity in world.db without advancing world fact revision."
+  },
+  "impact": {
+    "symbols": ["PresentationTransaction", "presentation_write", "SQLiteVoiceBindingRepository"],
+    "contracts": [],
+    "tests": ["engine/tests/test_voice_binding_repository.py", "engine/tests/test_story_session_migration.py"],
+    "migrations": ["engine/infrastructure/migrations/003_world_voice_bindings.sql"]
+  },
+  "dependencies": {
+    "depends_on": ["VOICE-V04-IDENTITY-DOMAIN"],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [9, 10, 11, 12],
+    "instructions": "Voice binding persistence is presentation state. It must survive restart and CAS races without incrementing world_meta.revision or writing Domain commit journals.",
+    "assertions": ["INV-09", "INV-10", "INV-11", "INV-12"]
+  }
+}
