@@ -1,9 +1,11 @@
 """Test suite for Audio Voice Engine OpenAI SDK Adapter & SpeechRail integration."""
 
 import asyncio
+import base64
 import hashlib
 import json
 import os
+import struct
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,6 +15,7 @@ from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTS
 from infrastructure.audio import (
     AudioProviderConfig,
     MEDIA_MAX_HEADER_BYTES,
+    MediaCancelHeader,
     MediaChunkHeader,
     MediaCreditHeader,
     MediaCreditWindow,
@@ -27,7 +30,21 @@ from infrastructure.audio import (
     encode_media_frame,
     parse_media_header,
     read_media_frame,
+    PendingVoiceRenderRegistry,
+    VoiceRenderControlError,
+    VoiceRenderControlRequest,
     ProbeHttpResponse,
+    EngineRealtimeTTSMediaStream,
+    REALTIME_TTS_SAMPLE_RATE,
+    RealtimeTTSChunk,
+    RealtimeTTSMediaBridgeError,
+    RealtimeTTSRequest,
+    RealtimeTTSTerminal,
+    render_realtime_tts_to_media,
+    SpeechRailRealtimeTTSAdapter,
+    SpeechRailRealtimeTTSError,
+    StdlibJSONWebSocketTransport,
+    create_realtime_tts_adapter,
     create_audio_adapter,
     probe_audio_capabilities,
 )
@@ -209,127 +226,160 @@ async def test_mock_audio_adapter_deterministic():
 
 
 @pytest.mark.asyncio
-async def test_speechrail_capability_probe_observes_only_safe_routing_fields():
+async def test_speechrail_capability_probe_consumes_one_atomic_safe_snapshot():
     config = AudioProviderConfig()
-    seen_urls: list[str] = []
+    calls: list[tuple[str, dict[str, str]]] = []
+    revision = "vr_" + "a" * 32
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         assert timeout == config.timeout_seconds
-        seen_urls.append(url)
-        payloads = {
-            "http://127.0.0.1:8201/health": {
-                "version": "2.4.0",
-                "profile": "quality",
-                "asr_ready": True,
-                "tts_ready": True,
-            },
-            "http://127.0.0.1:8201/readyz": {"ready": True},
-            "http://127.0.0.1:8201/v1/models": {
-                "object": "list",
-                "data": [{"id": "whisper-1"}, {"id": "tts-1"}],
-            },
-            "http://127.0.0.1:8201/v1/voices": {
-                "object": "list",
-                "data": [
-                    {
-                        "id": "serena",
-                        "available": True,
-                        "variant": "custom_voice",
-                        "capabilities": {
-                            "supports_speaker": True,
-                            "supports_instruction": False,
-                            "supports_clone": False,
-                        },
-                        "ref_text": "private reference text must not escape the probe",
-                        "audio_path": "/private/reference.wav",
-                    }
-                ],
-            },
-        }
-        return ProbeHttpResponse(200, payloads[url])
-
-    result = await probe_audio_capabilities(config, fetch_json=fetch)
-
-    assert result.status == "ready"
-    assert result.assurance == "legacy_observed"
-    assert result.ready is True
-    assert result.service_version == "2.4.0"
-    assert result.profile == "quality"
-    assert result.asr_ready is True
-    assert result.tts_ready is True
-    assert result.model_ids == ("tts-1", "whisper-1")
-    assert len(result.voices) == 1
-    voice = result.voices[0]
-    assert voice.voice_id == "serena"
-    assert voice.available is True
-    assert voice.variant == "custom_voice"
-    assert voice.supports_speaker is True
-    assert voice.supports_instruction is False
-    assert voice.supports_clone is False
-    assert not hasattr(voice, "ref_text")
-    assert not hasattr(voice, "audio_path")
-    assert result.errors == ()
-    assert set(seen_urls) == {
-        "http://127.0.0.1:8201/health",
-        "http://127.0.0.1:8201/readyz",
-        "http://127.0.0.1:8201/v1/models",
-        "http://127.0.0.1:8201/v1/voices",
-    }
-
-
-@pytest.mark.asyncio
-async def test_speechrail_capability_probe_keeps_missing_fields_unknown():
-    config = AudioProviderConfig()
-
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del timeout
-        if url.endswith("/health"):
-            return ProbeHttpResponse(200, {})
-        if url.endswith("/readyz"):
-            return ProbeHttpResponse(200, {"ready": True})
-        if url.endswith("/models"):
-            return ProbeHttpResponse(200, {"data": []})
+        calls.append((url, dict(headers)))
         return ProbeHttpResponse(
             200,
-            {"data": [{"id": "legacy_voice", "capabilities": {}}]},
+            {
+                "schema_version": "effective_capabilities_v1",
+                "service_instance_epoch": "epoch-1",
+                "catalog_revision": "catalog-1",
+                "snapshot_id": "snapshot-1",
+                "profile": "quality",
+                "models": {
+                    "asr": {"source_model": "speechrail/qwen3-asr-1.7b"},
+                    "tts": {"source_model": "speechrail/qwen3-tts-1.7b"},
+                },
+                "realtime": {
+                    "orchestration": "caller",
+                    "server_llm": False,
+                    "conversation_state": False,
+                    "websocket_path": "/v1/realtime",
+                    "mcp_realtime": False,
+                },
+                "voices": [{
+                    "id": "serena",
+                    "available": True,
+                    "variant": "custom_voice",
+                    "mode": "system",
+                    "voice_revision": revision,
+                    "voice_identity_assurance": "content_addressed",
+                    "production_ready": True,
+                    "operations": {
+                        "http_speech": {
+                            "parameters": {"instructions": {"status": "unsupported"}}
+                        }
+                    },
+                    "ref_text": "must never be consumed",
+                    "audio_path": "/private/must-not-escape.wav",
+                }],
+                "operations": {"tts_text_planner": {"version": "tts_bounded_v1"}},
+                "guarantees": {
+                    "inference_version_pin": False,
+                    "admission_reserved": False,
+                },
+            },
+            etag='"snapshot-etag"',
         )
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
-
     assert result.status == "ready"
-    assert result.service_version is None
-    assert result.profile is None
-    assert result.asr_ready is None
-    assert result.tts_ready is None
-    assert result.voices[0].available is None
-    assert result.voices[0].variant is None
-    assert result.voices[0].supports_instruction is None
+    assert result.assurance == "effective_capabilities_v1"
+    assert result.ready is None
+    assert result.service_instance_epoch == "epoch-1"
+    assert result.catalog_revision == "catalog-1"
+    assert result.snapshot_id == "snapshot-1"
+    assert result.etag == '"snapshot-etag"'
+    assert result.profile == "quality"
+    assert result.model_ids == (
+        "speechrail/qwen3-asr-1.7b",
+        "speechrail/qwen3-tts-1.7b",
+    )
+    voice = result.voices[0]
+    assert voice.voice_id == "serena"
+    assert voice.voice_revision == revision
+    assert voice.voice_identity_assurance == "content_addressed"
+    assert voice.production_ready is True
+    assert voice.supports_instruction is False
+    assert voice.supports_speaker is None
+    assert calls == [(
+        "http://127.0.0.1:8201/v1/speechrail/capabilities",
+        {"Authorization": "Bearer speechrail-local"},
+    )]
 
 
 @pytest.mark.asyncio
-async def test_speechrail_capability_probe_preserves_not_ready_and_catalog_evidence():
+async def test_speechrail_capability_probe_uses_etag_304_only_with_verified_cache():
     config = AudioProviderConfig()
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del timeout
-        if url.endswith("/health"):
-            return ProbeHttpResponse(
-                200,
-                {"version": "2.4.0", "asr_ready": False, "tts_ready": False},
-            )
-        if url.endswith("/readyz"):
-            return ProbeHttpResponse(503, {"error": {"code": "backend_not_ready"}})
-        if url.endswith("/models"):
-            return ProbeHttpResponse(200, {"data": [{"id": "tts-1"}]})
-        return ProbeHttpResponse(200, {"data": []})
+    async def first_fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
+        return ProbeHttpResponse(200, {
+            "schema_version": "effective_capabilities_v1",
+            "service_instance_epoch": "epoch",
+            "catalog_revision": "catalog",
+            "snapshot_id": "snapshot",
+            "profile": "balanced",
+            "models": {},
+            "realtime": {},
+            "voices": [],
+            "operations": {},
+            "guarantees": {},
+        }, etag='"etag-1"')
 
-    result = await probe_audio_capabilities(config, fetch_json=fetch)
+    cached = await probe_audio_capabilities(config, fetch_json=first_fetch)
 
+    async def unchanged(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout
+        assert headers["If-None-Match"] == '"etag-1"'
+        assert headers["Authorization"] == "Bearer speechrail-local"
+        return ProbeHttpResponse(304, {})
+
+    again = await probe_audio_capabilities(config, fetch_json=unchanged, cached=cached)
+    assert again is cached
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_rejects_unknown_or_incomplete_schema():
+    config = AudioProviderConfig()
+
+    async def wrong_schema(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
+        return ProbeHttpResponse(200, {"schema_version": "future_capabilities_v9"})
+
+    result = await probe_audio_capabilities(config, fetch_json=wrong_schema)
+    assert result.status == "degraded"
+    assert result.assurance == "unknown"
+    assert result.errors == ("capabilities_schema_unsupported",)
+
+    async def invalid_snapshot(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
+        return ProbeHttpResponse(200, {
+            "schema_version": "effective_capabilities_v1",
+            "service_instance_epoch": "epoch",
+        })
+
+    result = await probe_audio_capabilities(config, fetch_json=invalid_snapshot)
+    assert result.status == "degraded"
+    assert result.errors == ("capabilities_invalid",)
+
+
+@pytest.mark.asyncio
+async def test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence():
+    config = AudioProviderConfig()
+
+    async def unavailable(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
+        return ProbeHttpResponse(503, {})
+
+    result = await probe_audio_capabilities(config, fetch_json=unavailable)
     assert result.status == "not_ready"
-    assert result.ready is False
-    assert result.model_ids == ("tts-1",)
-    assert "readyz_http_503" in result.errors
+    assert result.assurance == "unknown"
+    assert result.errors == ("capabilities_http_503",)
 
+    async def broken(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
+        raise OSError("offline")
+
+    result = await probe_audio_capabilities(config, fetch_json=broken)
+    assert result.status == "unreachable"
+    assert result.errors == ("capabilities_transport_error",)
 
 @pytest.mark.asyncio
 async def test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party():
@@ -340,9 +390,10 @@ async def test_capability_probe_does_not_apply_speechrail_private_contract_to_th
     )
     called = False
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         nonlocal called
         called = True
+        del headers
         raise AssertionError((url, timeout))
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
@@ -357,9 +408,10 @@ async def test_speechrail_capability_probe_rejects_ambiguous_base_path_without_n
     config = AudioProviderConfig(base_url="http://127.0.0.1:8201/api")
     called = False
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         nonlocal called
         called = True
+        del headers
         raise AssertionError((url, timeout))
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
@@ -374,66 +426,76 @@ async def test_openai_audio_adapter_exposes_capability_probe_on_same_config():
     config = AudioProviderConfig(base_url="http://127.0.0.1:9000/v1")
     adapter = create_audio_adapter(config)
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
         assert timeout == config.timeout_seconds
-        if url == "http://127.0.0.1:9000/health":
-            return ProbeHttpResponse(
-                200,
-                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
-            )
-        if url == "http://127.0.0.1:9000/readyz":
-            return ProbeHttpResponse(200, {"ready": True})
-        return ProbeHttpResponse(200, {"data": []})
+        assert url == "http://127.0.0.1:9000/v1/speechrail/capabilities"
+        assert headers["Authorization"] == "Bearer speechrail-local"
+        return ProbeHttpResponse(
+            200,
+            {
+                "schema_version": "effective_capabilities_v1",
+                "service_instance_epoch": "epoch-adapter",
+                "catalog_revision": "catalog-adapter",
+                "snapshot_id": "snapshot-adapter",
+                "profile": "quality",
+                "models": {},
+                "realtime": {},
+                "voices": [],
+                "operations": {},
+                "guarantees": {},
+            },
+            etag='"adapter-etag"',
+        )
 
     result = await adapter.probe_capabilities(fetch_json=fetch)
 
     assert result.status == "ready"
-    assert result.service_version == "2.4.0"
+    assert result.assurance == "effective_capabilities_v1"
+    assert result.snapshot_id == "snapshot-adapter"
 
 
 @pytest.mark.asyncio
 async def test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable():
     config = AudioProviderConfig()
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del url, timeout
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del url, timeout, headers
         raise OSError("offline")
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
 
     assert result.status == "unreachable"
     assert result.ready is None
-    assert result.errors == (
-        "health_transport_error",
-        "models_transport_error",
-        "readyz_transport_error",
-        "voices_transport_error",
-    )
+    assert result.errors == ("capabilities_transport_error",)
 
 
 @pytest.mark.asyncio
 async def test_speechrail_capability_probe_reports_partial_discovery_as_degraded():
     config = AudioProviderConfig()
 
-    async def fetch(url: str, timeout: float) -> ProbeHttpResponse:
-        del timeout
-        if url.endswith("/health"):
-            return ProbeHttpResponse(
-                200,
-                {"version": "2.4.0", "asr_ready": True, "tts_ready": True},
-            )
-        if url.endswith("/readyz"):
-            return ProbeHttpResponse(200, {"ready": True})
-        if url.endswith("/models"):
-            return ProbeHttpResponse(200, {"data": "not-a-list"})
-        return ProbeHttpResponse(200, {"data": []})
+    async def fetch(url: str, timeout: float, headers) -> ProbeHttpResponse:
+        del timeout, headers
+        assert url.endswith("/v1/speechrail/capabilities")
+        return ProbeHttpResponse(
+            200,
+            {
+                "schema_version": "effective_capabilities_v1",
+                "service_instance_epoch": "epoch",
+                "catalog_revision": "catalog",
+                "snapshot_id": "snapshot",
+                "models": "not-a-mapping",
+                "voices": [],
+                "operations": {},
+                "guarantees": {},
+            },
+        )
 
     result = await probe_audio_capabilities(config, fetch_json=fetch)
 
     assert result.status == "degraded"
-    assert result.ready is True
+    assert result.ready is None
     assert result.model_ids == ()
-    assert result.errors == ("models_invalid",)
+    assert result.errors == ("capabilities_invalid",)
 
 
 MEDIA_FIXTURES = json.loads(
@@ -668,3 +730,848 @@ def test_media_control_frames_reject_binary_payload():
     )
     with pytest.raises(MediaProtocolError, match="media_control_payload_forbidden"):
         encode_media_frame(header, b"\x00\x00")
+
+
+class _FakeRealtimeTTSTransport:
+    def __init__(self) -> None:
+        self.opened: list[tuple[str, dict[str, str]]] = []
+        self.sent: list[dict[str, object]] = []
+        self.closed = False
+        self.session_id = "sess-tts-1"
+        self.sequence = 0
+        self.inbound: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+        self.script_on_create = None
+
+    async def open(self, url, headers):
+        self.opened.append((url, dict(headers)))
+        await self.emit(
+            {
+                "type": "session.created",
+                "session": {
+                    "id": self.session_id,
+                    "type": "transcription",
+                    "input_audio_format": "pcm16",
+                    "speechrail": {"tts": {"enabled": False}},
+                },
+            }
+        )
+
+    async def send_json(self, payload):
+        message = dict(payload)
+        self.sent.append(message)
+        if message["type"] == "transcription_session.update":
+            session = message["session"]
+            speechrail = session["speechrail"]
+            await self.emit(
+                {
+                    "type": "transcription_session.updated",
+                    "session": {
+                        "id": self.session_id,
+                        "type": "transcription",
+                        "input_audio_format": "pcm16",
+                        "input_audio_transcription": {"model": "whisper-1"},
+                        "turn_detection": None,
+                        "speechrail": {
+                            "tts": {"enabled": True},
+                            "render_receipts": {
+                                "enabled": bool(
+                                    speechrail.get("render_receipts", {}).get("enabled")
+                                )
+                            },
+                        },
+                    },
+                }
+            )
+        elif message["type"] == "speechrail.tts.create" and self.script_on_create:
+            await self.script_on_create(self, message)
+        elif message["type"] == "speechrail.tts.cancel":
+            await self.emit(
+                {
+                    "type": "response.done",
+                    "response": {
+                        "id": message.get("response_id", "resp-cancel"),
+                        "object": "realtime.response",
+                        "status": "cancelled",
+                        "output": [],
+                    },
+                    "speechrail": {
+                        "kind": "tts",
+                        "orchestration": "caller",
+                        "request_id": message["request_id"],
+                    },
+                }
+            )
+
+    async def receive_json(self):
+        return await self.inbound.get()
+
+    async def close(self):
+        self.closed = True
+
+    async def emit(self, payload):
+        self.sequence += 1
+        event = dict(payload)
+        event.setdefault("event_id", f"srv-{self.sequence}")
+        event.setdefault("session_id", self.session_id)
+        event.setdefault("sequence", self.sequence)
+        await self.inbound.put(event)
+
+
+def _receipt(*, request_id, response_id, pcm, voice="serena"):
+    return {
+        "receipt_id": "rr_" + "a" * 32,
+        "request_id": request_id,
+        "response_id": response_id,
+        "status": "completed",
+        "voice": {"id": voice, "revision": "vr_test"},
+        "model": {
+            "artifact": "tts",
+            "source_model": "speechrail/qwen3-tts",
+            "variant": "base",
+            "catalog_revision": "b" * 40,
+            "runtime_revision": None,
+        },
+        "audio": {
+            "format": "pcm16",
+            "pcm_sample_rate": REALTIME_TTS_SAMPLE_RATE,
+            "channels": 1,
+            "integrity_boundary": "pcm16_after_websocket_send",
+            "sample_count": len(pcm) // 2,
+            "pcm_sha256": hashlib.sha256(pcm).hexdigest(),
+        },
+        "error_code": None,
+    }
+
+
+async def _script_completed_tts(transport, message, chunks=(b"\x01\x00\x02\x00", b"\x03\x00")):
+    response_id = "resp-1"
+    item_id = "item-1"
+    await transport.emit(
+        {
+            "type": "response.created",
+            "response": {
+                "id": response_id,
+                "object": "realtime.response",
+                "status": "in_progress",
+                "output": [],
+            },
+        }
+    )
+    await transport.emit(
+        {
+            "type": "response.output_item.added",
+            "response_id": response_id,
+            "output_index": 0,
+            "item": {
+                "id": item_id,
+                "object": "realtime.item",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+            },
+        }
+    )
+    await transport.emit(
+        {
+            "type": "response.content_part.added",
+            "response_id": response_id,
+            "item_id": item_id,
+            "output_index": 0,
+            "content_index": 0,
+            "part": {"type": "audio"},
+        }
+    )
+    for chunk in chunks:
+        await transport.emit(
+            {
+                "type": "response.output_audio.delta",
+                "response_id": response_id,
+                "item_id": item_id,
+                "output_index": 0,
+                "content_index": 0,
+                "delta": base64.b64encode(chunk).decode("ascii"),
+            }
+        )
+    await transport.emit(
+        {
+            "type": "response.output_audio.done",
+            "response_id": response_id,
+            "item_id": item_id,
+            "output_index": 0,
+            "content_index": 0,
+        }
+    )
+    await transport.emit(
+        {
+            "type": "response.output_item.done",
+            "response_id": response_id,
+            "output_index": 0,
+            "item": {"id": item_id},
+        }
+    )
+    pcm = b"".join(chunks)
+    await transport.emit(
+        {
+            "type": "response.done",
+            "response": {
+                "id": response_id,
+                "object": "realtime.response",
+                "status": "completed",
+                "output": [],
+            },
+            "speechrail": {
+                "kind": "tts",
+                "orchestration": "caller",
+                "request_id": message["request_id"],
+                "voice_revision": "vr_test",
+                "render_receipt": _receipt(
+                    request_id=message["request_id"], response_id=response_id, pcm=pcm
+                ),
+            },
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_uses_current_only_handshake_and_streams_verified_pcm():
+    transport = _FakeRealtimeTTSTransport()
+    transport.script_on_create = _script_completed_tts
+    config = AudioProviderConfig(default_voice="serena")
+    adapter = SpeechRailRealtimeTTSAdapter(config, transport)
+
+    await adapter.connect(expected_model_revision="b" * 40)
+    chunks = []
+
+    async def collect(chunk):
+        chunks.append(chunk)
+
+    request = RealtimeTTSRequest(
+        text="向前走。",
+        voice="serena",
+        request_id="wom-turn-1-sentence-1",
+        expected_voice_revision="vr_test",
+    )
+    terminal = await adapter.render(request, collect)
+
+    assert transport.opened == [
+        (
+            "ws://127.0.0.1:8201/v1/realtime?model=whisper-1",
+            {"Authorization": "Bearer speechrail-local"},
+        )
+    ]
+    session_update = transport.sent[0]
+    assert session_update["type"] == "transcription_session.update"
+    assert session_update["session"]["input_audio_format"] == "pcm16"
+    assert session_update["session"]["speechrail"] == {
+        "tts": {"enabled": True},
+        "render_receipts": {"enabled": True},
+        "model_revision": {"expected": "b" * 40},
+    }
+    create = transport.sent[1]
+    assert create == {
+        "type": "speechrail.tts.create",
+        "request_id": "wom-turn-1-sentence-1",
+        "text": "向前走。",
+        "voice": "serena",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_test",
+    }
+    assert [chunk.offset_frames for chunk in chunks] == [0, 2]
+    assert [chunk.frame_count for chunk in chunks] == [2, 1]
+    assert b"".join(chunk.pcm16 for chunk in chunks) == b"\x01\x00\x02\x00\x03\x00"
+    assert terminal.status == "completed"
+    assert terminal.total_frames == 3
+    assert terminal.total_bytes == 6
+    assert terminal.receipt_id == "rr_" + "a" * 32
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_fails_closed_when_receipt_disagrees_with_received_pcm():
+    async def bad_receipt(transport, message):
+        await _script_completed_tts(transport, message)
+        events = []
+        while not transport.inbound.empty():
+            events.append(await transport.inbound.get())
+        events[-1]["speechrail"]["render_receipt"]["audio"]["sample_count"] = 999
+        for event in events:
+            await transport.inbound.put(event)
+
+    transport = _FakeRealtimeTTSTransport()
+    transport.script_on_create = bad_receipt
+    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+    await adapter.connect()
+
+    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_mismatch"):
+        await adapter.render(
+            RealtimeTTSRequest(
+                text="测试",
+                voice="serena",
+                request_id="req-bad-receipt",
+            ),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_odd_pcm_before_it_reaches_media_sink():
+    async def odd_audio(transport, message):
+        await transport.emit(
+            {
+                "type": "response.created",
+                "response": {"id": "resp-odd", "status": "in_progress"},
+            }
+        )
+        await transport.emit(
+            {
+                "type": "response.output_item.added",
+                "response_id": "resp-odd",
+                "item": {"id": "item-odd"},
+            }
+        )
+        await transport.emit(
+            {
+                "type": "response.output_audio.delta",
+                "response_id": "resp-odd",
+                "item_id": "item-odd",
+                "delta": base64.b64encode(b"\x00").decode("ascii"),
+            }
+        )
+
+    transport = _FakeRealtimeTTSTransport()
+    transport.script_on_create = odd_audio
+    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+    await adapter.connect()
+    sink = AsyncMock()
+
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_invalid_audio"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-odd"),
+            sink,
+        )
+    sink.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_cancel_uses_namespaced_cancel_and_terminal_is_cancelled():
+    created = asyncio.Event()
+
+    async def wait_for_cancel(transport, message):
+        await transport.emit(
+            {
+                "type": "response.created",
+                "response": {"id": "resp-cancel", "status": "in_progress"},
+            }
+        )
+        await transport.emit(
+            {
+                "type": "response.output_item.added",
+                "response_id": "resp-cancel",
+                "item": {"id": "item-cancel"},
+            }
+        )
+        created.set()
+
+    transport = _FakeRealtimeTTSTransport()
+    transport.script_on_create = wait_for_cancel
+    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+    await adapter.connect()
+    render_task = asyncio.create_task(
+        adapter.render(
+            RealtimeTTSRequest(text="停止前的句子", voice="serena", request_id="req-cancel"),
+            AsyncMock(),
+        )
+    )
+    await created.wait()
+    await asyncio.sleep(0)
+    await adapter.cancel_active()
+    terminal = await render_task
+
+    assert transport.sent[-1] == {
+        "type": "speechrail.tts.cancel",
+        "request_id": "req-cancel",
+        "response_id": "resp-cancel",
+    }
+    assert terminal.status == "cancelled"
+    assert terminal.total_frames == 0
+
+
+def test_realtime_tts_rejects_plaintext_remote_endpoint():
+    adapter = SpeechRailRealtimeTTSAdapter(
+        AudioProviderConfig(base_url="http://speech.example.test:8201/v1"),
+        _FakeRealtimeTTSTransport(),
+    )
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_insecure_remote_endpoint"):
+        asyncio.run(adapter.connect())
+
+
+async def _read_masked_client_websocket_frame(reader):
+    first, second = await reader.readexactly(2)
+    fin = bool(first & 0x80)
+    opcode = first & 0x0F
+    assert second & 0x80, "RFC 6455 clients must mask frames"
+    length = second & 0x7F
+    if length == 126:
+        length = struct.unpack("!H", await reader.readexactly(2))[0]
+    elif length == 127:
+        length = struct.unpack("!Q", await reader.readexactly(8))[0]
+    mask = await reader.readexactly(4)
+    encoded = await reader.readexactly(length)
+    payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(encoded))
+    return fin, opcode, payload
+
+
+def _server_websocket_frame(opcode, payload, *, fin=True):
+    first = (0x80 if fin else 0) | opcode
+    length = len(payload)
+    if length <= 125:
+        prefix = bytes([first, length])
+    elif length <= 0xFFFF:
+        prefix = bytes([first, 126]) + struct.pack("!H", length)
+    else:
+        prefix = bytes([first, 127]) + struct.pack("!Q", length)
+    return prefix + payload
+
+
+@pytest.mark.asyncio
+async def test_stdlib_websocket_transport_performs_real_masked_current_wire_roundtrip():
+    observed = {}
+    server_done = asyncio.Event()
+
+    async def handler(reader, writer):
+        try:
+            request = await reader.readuntil(b"\r\n\r\n")
+            lines = request.decode("ascii").split("\r\n")
+            observed["request_line"] = lines[0]
+            headers = {}
+            for line in lines[1:]:
+                if ":" in line:
+                    name, value = line.split(":", 1)
+                    headers[name.lower()] = value.strip()
+            observed["authorization"] = headers.get("authorization")
+            accept = base64.b64encode(
+                hashlib.sha1(
+                    (
+                        headers["sec-websocket-key"]
+                        + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                    ).encode("ascii")
+                ).digest()
+            ).decode("ascii")
+            writer.write(
+                (
+                    "HTTP/1.1 101 Switching Protocols\r\n"
+                    "Upgrade: websocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    f"Sec-WebSocket-Accept: {accept}\r\n\r\n"
+                ).encode("ascii")
+            )
+            await writer.drain()
+
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            assert fin and opcode == 0x1
+            observed["client_json"] = json.loads(payload.decode("utf-8"))
+
+            writer.write(_server_websocket_frame(0x9, b"ping"))
+            await writer.drain()
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            observed["pong"] = (fin, opcode, payload)
+
+            response = json.dumps(
+                {"type": "server.test", "message": "你好"},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            split = len(response) // 2
+            writer.write(_server_websocket_frame(0x1, response[:split], fin=False))
+            writer.write(_server_websocket_frame(0x0, response[split:], fin=True))
+            await writer.drain()
+
+            fin, opcode, payload = await _read_masked_client_websocket_frame(reader)
+            observed["close"] = (fin, opcode, payload)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+            server_done.set()
+
+    server = await asyncio.start_server(handler, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    transport = StdlibJSONWebSocketTransport(timeout_seconds=2)
+    async with server:
+        await transport.open(
+            f"ws://127.0.0.1:{port}/v1/realtime?model=whisper-1",
+            {"Authorization": "Bearer test-secret"},
+        )
+        await transport.send_json({"type": "speechrail.tts.cancel", "request_id": "r1"})
+        response = await transport.receive_json()
+        await transport.close()
+        await asyncio.wait_for(server_done.wait(), timeout=2)
+
+    assert observed["request_line"] == "GET /v1/realtime?model=whisper-1 HTTP/1.1"
+    assert observed["authorization"] == "Bearer test-secret"
+    assert observed["client_json"] == {
+        "type": "speechrail.tts.cancel",
+        "request_id": "r1",
+    }
+    assert observed["pong"] == (True, 0xA, b"ping")
+    assert response == {"type": "server.test", "message": "你好"}
+    assert observed["close"][0:2] == (True, 0x8)
+
+
+def test_realtime_tts_factory_has_dependency_free_production_transport():
+    adapter = create_realtime_tts_adapter(AudioProviderConfig())
+    assert isinstance(adapter, SpeechRailRealtimeTTSAdapter)
+
+
+class _MemoryMediaWriter:
+    def __init__(self) -> None:
+        self.data = bytearray()
+
+    def write(self, data: bytes) -> None:
+        self.data.extend(data)
+
+    async def drain(self) -> None:
+        return None
+
+
+def _tts_media_open(*, credit: int = 16, max_payload: int = 4) -> MediaOpenHeader:
+    return MediaOpenHeader(
+        stream_id="tts-media",
+        trace_id="trace-media",
+        engine_epoch="engine-media",
+        generation=3,
+        ticket="a" * 64,
+        direction="engine_to_app",
+        format=MediaFormat(sample_rate=24_000),
+        max_payload_bytes=max_payload,
+        initial_credit_bytes=credit,
+    )
+
+
+async def _decode_media_frames(data: bytes, count: int):
+    reader = asyncio.StreamReader()
+    reader.feed_data(data)
+    reader.feed_eof()
+    return [await read_media_frame(reader) for _ in range(count)]
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_rechunks_and_finishes():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(_tts_media_open(), reader, writer)  # type: ignore[arg-type]
+    await stream.start()
+    pcm = bytes([1, 0, 2, 0, 3, 0, 4, 0])
+    await stream.push(
+        RealtimeTTSChunk(
+            response_id="resp",
+            item_id="item",
+            sequence=10,
+            offset_frames=0,
+            frame_count=4,
+            pcm16=pcm,
+        )
+    )
+    digest = hashlib.sha256(pcm).hexdigest()
+    await stream.finish_completed(
+        RealtimeTTSTerminal(
+            request_id="req",
+            response_id="resp",
+            status="completed",
+            total_frames=4,
+            total_bytes=8,
+            pcm_sha256=digest,
+            voice_revision="vr_" + "a" * 40,
+            receipt_id="receipt",
+        )
+    )
+    frames = await _decode_media_frames(bytes(writer.data), 3)
+    assert [header.kind for header, _ in frames] == ["chunk", "chunk", "end"]
+    assert [header.offset_frames for header, _ in frames[:2]] == [0, 2]
+    assert frames[-1][0].sha256 == digest
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_waits_for_full_chunk_credit():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(
+        _tts_media_open(credit=2, max_payload=4), reader, writer  # type: ignore[arg-type]
+    )
+    await stream.start()
+    task = asyncio.create_task(
+        stream.push(
+            RealtimeTTSChunk(
+                response_id="resp",
+                item_id="item",
+                sequence=1,
+                offset_frames=0,
+                frame_count=2,
+                pcm16=bytes([1, 0, 2, 0]),
+            )
+        )
+    )
+    await asyncio.sleep(0.01)
+    assert not task.done()
+    assert writer.data == b""
+    reader.feed_data(
+        encode_media_frame(
+            MediaCreditHeader(
+                stream_id="tts-media",
+                generation=3,
+                credit_bytes=2,
+            )
+        )
+    )
+    await asyncio.wait_for(task, timeout=1)
+    frames = await _decode_media_frames(bytes(writer.data), 1)
+    assert len(frames[0][1]) == 4
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_peer_cancel_unblocks_backpressure():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(
+        _tts_media_open(credit=0, max_payload=4), reader, writer  # type: ignore[arg-type]
+    )
+    await stream.start()
+    task = asyncio.create_task(
+        stream.push(
+            RealtimeTTSChunk(
+                response_id="resp",
+                item_id="item",
+                sequence=1,
+                offset_frames=0,
+                frame_count=1,
+                pcm16=b"\x00\x00",
+            )
+        )
+    )
+    await asyncio.sleep(0.01)
+    reader.feed_data(
+        encode_media_frame(
+            MediaCancelHeader(
+                stream_id="tts-media",
+                generation=3,
+                reason="user_stop",
+            )
+        )
+    )
+    with pytest.raises(RealtimeTTSMediaBridgeError, match="media_peer_cancelled"):
+        await asyncio.wait_for(task, timeout=1)
+    stop = await stream.wait_peer_stop()
+    assert stop.kind == "cancel"
+    assert stop.reason == "user_stop"
+    await stream.close()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_terminal_mismatch_never_emits_end():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    stream = EngineRealtimeTTSMediaStream(_tts_media_open(), reader, writer)  # type: ignore[arg-type]
+    await stream.start()
+    await stream.push(
+        RealtimeTTSChunk(
+            response_id="resp",
+            item_id="item",
+            sequence=1,
+            offset_frames=0,
+            frame_count=1,
+            pcm16=b"\x01\x00",
+        )
+    )
+    with pytest.raises(RealtimeTTSMediaBridgeError, match="media_bridge_terminal_mismatch"):
+        await stream.finish_completed(
+            RealtimeTTSTerminal(
+                request_id="req",
+                response_id="resp",
+                status="completed",
+                total_frames=1,
+                total_bytes=2,
+                pcm_sha256="0" * 64,
+                voice_revision=None,
+                receipt_id=None,
+            )
+        )
+    frames = await _decode_media_frames(bytes(writer.data), 1)
+    assert frames[0][0].kind == "chunk"
+    await stream.close()
+
+
+class _BridgeCancelAdapter:
+    def __init__(self) -> None:
+        self.cancel_calls = 0
+        self.chunk_started = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def render(self, request, on_chunk):
+        self.chunk_started.set()
+        await on_chunk(
+            RealtimeTTSChunk(
+                response_id="resp-cancel-bridge",
+                item_id="item-cancel-bridge",
+                sequence=1,
+                offset_frames=0,
+                frame_count=1,
+                pcm16=b"\x01\x00",
+            )
+        )
+        await self.cancelled.wait()
+        return RealtimeTTSTerminal(
+            request_id=request.request_id,
+            response_id="resp-cancel-bridge",
+            status="cancelled",
+            total_frames=0,
+            total_bytes=0,
+            pcm_sha256=hashlib.sha256(b"").hexdigest(),
+            voice_revision=None,
+            receipt_id=None,
+        )
+
+    async def cancel_active(self):
+        self.cancel_calls += 1
+        self.cancelled.set()
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_media_bridge_peer_cancel_reaches_provider_while_credit_blocked():
+    reader = asyncio.StreamReader()
+    writer = _MemoryMediaWriter()
+    adapter = _BridgeCancelAdapter()
+    opened = _tts_media_open(credit=0, max_payload=4)
+    request = RealtimeTTSRequest(
+        text="停止这句",
+        voice="serena",
+        request_id="req-cancel-bridge",
+    )
+    task = asyncio.create_task(
+        render_realtime_tts_to_media(
+            adapter,  # type: ignore[arg-type]
+            request,
+            opened,
+            reader,
+            writer,  # type: ignore[arg-type]
+        )
+    )
+    await adapter.chunk_started.wait()
+    await asyncio.sleep(0)
+    reader.feed_data(
+        encode_media_frame(
+            MediaCancelHeader(
+                stream_id="tts-media",
+                generation=3,
+                reason="user_stop",
+            )
+        )
+    )
+
+    terminal = await asyncio.wait_for(task, timeout=1)
+    assert terminal.status == "cancelled"
+    assert adapter.cancel_calls == 1
+    assert writer.data == b""
+
+
+def _voice_render_request(**overrides):
+    payload = {
+        "schema_version": "1.0",
+        "speech_unit_id": "speech_001",
+        "turn_id": "turn_001",
+        "story_revision": 42,
+        "narrative_block_id": "narrative_001",
+        "segment_index": 0,
+        "performance_plan_id": "perf_001",
+        "spoken_text": "雾中的脚步声停在了门外。",
+        "voice_id": "narrator_mystic",
+        "expected_voice_revision": "vr_" + "a" * 40,
+        "expected_model_revision": "b" * 40,
+        "media_stream_id": "media_001",
+        "generation": 7,
+        "speed": 1.0,
+        "language": "zh",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_voice_render_control_provider_projection_is_minimal():
+    request = VoiceRenderControlRequest.model_validate(_voice_render_request())
+    assert request.provider_tts_fields() == {
+        "text": "雾中的脚步声停在了门外。",
+        "voice": "narrator_mystic",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_" + "a" * 40,
+    }
+    projected = request.provider_tts_fields()
+    assert "turn_id" not in projected
+    assert "story_revision" not in projected
+    assert "media_stream_id" not in projected
+    assert "expected_model_revision" not in projected
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"__unknown": True},
+        {"story_revision": -1},
+        {"expected_model_revision": "bad"},
+        {"spoken_text": "   "},
+        {"speed": 4.1},
+    ],
+)
+def test_voice_render_control_rejects_invalid_execution_shapes(patch):
+    with pytest.raises(Exception):
+        VoiceRenderControlRequest.model_validate(_voice_render_request(**patch))
+
+
+def test_pending_voice_render_registry_is_one_time_and_generation_bound():
+    registry = PendingVoiceRenderRegistry()
+    accepted = registry.register(_voice_render_request())
+    assert accepted.speech_unit_id == "speech_001"
+    assert accepted.media_stream_id == "media_001"
+    assert accepted.generation == 7
+    assert len(registry) == 1
+
+    pending = registry.consume("media_001", 7)
+    assert pending.render_id == accepted.render_id
+    assert pending.request.spoken_text == "雾中的脚步声停在了门外。"
+    assert pending.request.expected_voice_revision == "vr_" + "a" * 40
+    assert pending.request.provider_tts_fields() == {
+        "text": "雾中的脚步声停在了门外。",
+        "voice": "narrator_mystic",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_" + "a" * 40,
+    }
+    assert "turn_id" not in pending.request.provider_tts_fields()
+    assert "story_revision" not in pending.request.provider_tts_fields()
+    assert "media_stream_id" not in pending.request.provider_tts_fields()
+    assert len(registry) == 0
+
+    with pytest.raises(VoiceRenderControlError, match="voice_render_not_found"):
+        registry.consume("media_001", 7)
+
+
+def test_pending_voice_render_generation_mismatch_burns_entry():
+    registry = PendingVoiceRenderRegistry()
+    registry.register(_voice_render_request())
+    with pytest.raises(VoiceRenderControlError, match="voice_render_generation_mismatch"):
+        registry.consume("media_001", 8)
+    assert len(registry) == 0
+
+
+def test_pending_voice_render_registry_expires_and_is_bounded():
+    now = [100.0]
+    registry = PendingVoiceRenderRegistry(
+        max_entries=1,
+        ttl_seconds=5,
+        clock=lambda: now[0],
+    )
+    registry.register(_voice_render_request())
+    with pytest.raises(VoiceRenderControlError, match="voice_render_registry_capacity"):
+        registry.register(_voice_render_request(media_stream_id="media_002"))
+
+    now[0] = 106.0
+    assert len(registry) == 0
+    accepted = registry.register(_voice_render_request(media_stream_id="media_002"))
+    assert accepted.media_stream_id == "media_002"

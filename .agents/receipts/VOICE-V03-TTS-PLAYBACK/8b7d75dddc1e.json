@@ -1,0 +1,91 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V03-TTS-PLAYBACK-8b7d75dddc1e",
+  "receipt_type": "work",
+  "task_id": "VOICE-V03-TTS-PLAYBACK",
+  "capsule_id": "CAP-VOICE-V03-TTS-PLAYBACK",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:ec8af31c8195a2cca376534626b1ee6fd59fe4285f73ac3d5abc1a080be19d18",
+  "diff_digest": "sha256:4d2743e525b1457ed221540b5d4b47103b057e0a3ff237fb7b15c4dd0b673b9f",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+  "head_commit": "8b7d75dddc1ef88aff62a4e9fbad36e1fe846b75",
+  "target_ref": "origin/main",
+  "target_sha": "40a5985016dc069fb9c1387bfe6fbca52885e6dd",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": ["python3", "scripts/check_architecture_fitness.py"],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-21T23:31:03.191977+00:00",
+      "finished_at": "2026-09-21T23:31:03.266969+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": ["swift", "test", "--scratch-path", ".build"],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-21T23:31:03.267361+00:00",
+      "finished_at": "2026-09-21T23:33:48.321992+00:00",
+      "raw_log_digest": "sha256:c75484ecdbb1ab1615854648517ad1acc6d0099d5f151763d5c2aa1d545786d0",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": ["xcodebuild", "-project", "WorldOfMysteries.xcodeproj", "-scheme", "WorldOfMysteries", "-configuration", "Debug", "-destination", "platform=macOS,arch=arm64", "-derivedDataPath", "../.hacf/run/xcode-derived", "build"],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-21T23:33:48.323560+00:00",
+      "finished_at": "2026-09-21T23:35:08.101698+00:00",
+      "raw_log_digest": "sha256:60086661154fcd89585950864bfb03a64f6eec3656b3564b4b48807afa02a493",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/Media/UnixMediaFrameTransport.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/NativePlaybackTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "sjc22-be108-63a291c9-6c12-4dcb-85d0-5a21a3d06343-72E1A04645A7.local",
+    "user": "runner",
+    "role": "AGT-MAC",
+    "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries"
+  },
+  "started_at": "2026-09-21T23:31:02.976819+00:00",
+  "finished_at": "2026-09-21T23:35:10.950064+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

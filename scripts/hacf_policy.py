@@ -49,6 +49,7 @@ PRIVILEGED_SURFACES: List[str] = [
     "engine/pyproject.toml",
     "macos-app/Package.swift",
     "macos-app/WorldOfMysteries.xcodeproj/project.pbxproj",
+    "macos-app/Packaging/*.entitlements",
     "engine/**/migrations/",
 ]
 
