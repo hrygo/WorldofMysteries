@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   verify:
@@ -31,13 +32,18 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode.app
           swift --version
-      - name: Verify capsule and sign Work Receipt
+      - name: Verify capsule, sign and publish Work Receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "475ff63cdf3f0848fc4e071a6f0664f789ba9a0c"
-          python3 scripts/agent_capsule.py verify             --capsule .agents/capsules/VOICE-V04-CASTING-COMMANDS.json
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V04-CASTING-COMMANDS.json
           receipt="$(find .agents/receipts/VOICE-V04-CASTING-COMMANDS -name '*.json' -type f | sort | tail -1)"
           test -n "$receipt"
-          echo "===WORK_RECEIPT_BEGIN==="
-          cat "$receipt"
-          echo "===WORK_RECEIPT_END==="
+          body="$(printf '<!-- voice-v04-casting-work-receipt -->\n## Generated Work Receipt\n\n\`\`\`json\n%s\n\`\`\`' "$(cat "$receipt")")"
+          gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -X POST \
+            -f body="$body"
