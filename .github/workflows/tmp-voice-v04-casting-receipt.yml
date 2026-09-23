@@ -1,0 +1,43 @@
+name: Temporary Voice V04 Casting Receipt Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact Voice casting head
+        uses: actions/checkout@v7
+        with:
+          ref: 475ff63cdf3f0848fc4e071a6f0664f789ba9a0c
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify capsule and sign Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "475ff63cdf3f0848fc4e071a6f0664f789ba9a0c"
+          python3 scripts/agent_capsule.py verify             --capsule .agents/capsules/VOICE-V04-CASTING-COMMANDS.json
+          receipt="$(find .agents/receipts/VOICE-V04-CASTING-COMMANDS -name '*.json' -type f | sort | tail -1)"
+          test -n "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
