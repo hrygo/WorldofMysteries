@@ -1536,6 +1536,16 @@ def test_pending_voice_render_registry_is_one_time_and_generation_bound():
     pending = registry.consume("media_001", 7)
     assert pending.render_id == accepted.render_id
     assert pending.request.spoken_text == "雾中的脚步声停在了门外。"
+    assert pending.request.expected_voice_revision == "vr_" + "a" * 40
+    assert pending.request.provider_tts_fields() == {
+        "text": "雾中的脚步声停在了门外。",
+        "voice": "narrator_mystic",
+        "speed": 1.0,
+        "expected_voice_revision": "vr_" + "a" * 40,
+    }
+    assert "turn_id" not in pending.request.provider_tts_fields()
+    assert "story_revision" not in pending.request.provider_tts_fields()
+    assert "media_stream_id" not in pending.request.provider_tts_fields()
     assert len(registry) == 0
 
     with pytest.raises(VoiceRenderControlError, match="voice_render_not_found"):
