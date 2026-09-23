@@ -14,10 +14,10 @@ from application.audio_disclosure import (
 from contracts import (
     BaseRevisions,
     NarrativeBlock,
-    NarrativeSegment,
     TurnStatus,
     TurnTransaction,
 )
+from contracts.models import NarrativeSegment
 
 
 def _anchor(
