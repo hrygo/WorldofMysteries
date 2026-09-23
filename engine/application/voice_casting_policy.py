@@ -14,6 +14,7 @@ from domain.voice_identity import (
     ProviderVoiceRevision,
     VoiceBinding,
     VoiceBindingStatus,
+    VoiceBindingScope,
     VoiceIdentityAssurance,
 )
 
@@ -102,14 +103,15 @@ class VoiceCandidate:
 class CastingPolicyRequest:
     """Fresh authorization and public presentation inputs for one casting choice."""
 
-    locale: str
+    scope: VoiceBindingScope
     usage: str
     authorized_voice_revisions: frozenset[VoiceRevisionKey]
     occupied_audible_voices: frozenset[AudibleVoiceKey]
     desired_public_traits: frozenset[str]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "locale", _text(self.locale, "locale").casefold())
+        if not isinstance(self.scope, VoiceBindingScope):
+            raise VoiceCastingPolicyError("invalid_voice_binding_scope")
         object.__setattr__(self, "usage", _text(self.usage, "usage").casefold())
         object.__setattr__(
             self,
@@ -160,6 +162,8 @@ class VoiceCastingPolicy:
         existing_binding: VoiceBinding | None = None,
     ) -> CastingDecision:
         if existing_binding is not None:
+            if existing_binding.scope != request.scope:
+                raise VoiceCastingPolicyError("existing_voice_scope_mismatch")
             if (
                 existing_binding.status is not VoiceBindingStatus.ACTIVE
                 or not existing_binding.permits_new_render
@@ -195,7 +199,7 @@ class VoiceCastingPolicy:
                 and candidate.quality_approved
             ):
                 continue
-            if request.locale not in candidate.locales:
+            if request.scope.locale.casefold() not in candidate.locales:
                 continue
             if request.usage not in candidate.allowed_usages:
                 continue

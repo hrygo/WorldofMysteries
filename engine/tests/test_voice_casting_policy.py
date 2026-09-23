@@ -63,15 +63,32 @@ def _candidate(
     )
 
 
+def _scope(
+    *,
+    presentation_identity: str = "masked-npc",
+    worldline_id: str = "line-1",
+    locale: str = "zh-CN",
+) -> VoiceBindingScope:
+    return VoiceBindingScope(
+        owner_id="player",
+        world_id="world-1",
+        worldline_id=worldline_id,
+        presentation_identity=presentation_identity,
+        phase="default",
+        locale=locale,
+    )
+
+
 def _request(
     candidates: tuple[VoiceCandidate, ...],
     *,
     authorized: frozenset[tuple[str, str, str | None]] | None = None,
     occupied: frozenset[tuple[str, str]] = frozenset(),
     traits: frozenset[str] = frozenset({"calm"}),
+    scope: VoiceBindingScope | None = None,
 ) -> CastingPolicyRequest:
     return CastingPolicyRequest(
-        locale="zh-CN",
+        scope=scope or _scope(),
         usage="dialogue",
         authorized_voice_revisions=(
             authorized
@@ -83,18 +100,14 @@ def _request(
     )
 
 
-def _active_binding(provider: ProviderVoiceRevision) -> VoiceBinding:
-    scope = VoiceBindingScope(
-        owner_id="player",
-        world_id="world-1",
-        worldline_id="line-1",
-        presentation_identity="masked-npc",
-        phase="default",
-        locale="zh-CN",
-    )
+def _active_binding(
+    provider: ProviderVoiceRevision,
+    *,
+    scope: VoiceBindingScope | None = None,
+) -> VoiceBinding:
     return VoiceBinding.reserve(
         binding_id="binding-existing",
-        scope=scope,
+        scope=scope or _scope(),
         persona=VoicePersonaRevision("voice-masked", "persona-r1"),
         provider=provider,
         world_revision=8,
@@ -225,3 +238,25 @@ def test_duplicate_revision_candidate_metadata_is_rejected():
 
     with pytest.raises(VoiceCastingPolicyError, match="duplicate_voice_candidate"):
         VoiceCastingPolicy().choose(request, (first, duplicate))
+
+
+def test_existing_binding_must_match_current_public_presentation_scope():
+    existing = _active_binding(
+        _provider("a"),
+        scope=_scope(presentation_identity="other-visible-character"),
+    )
+    candidate = _candidate("b")
+    request = _request(
+        (candidate,),
+        authorized=frozenset(
+            {voice_revision_key(existing.provider), candidate.revision_key}
+        ),
+        scope=_scope(presentation_identity="masked-npc"),
+    )
+
+    with pytest.raises(
+        VoiceCastingPolicyError, match="existing_voice_scope_mismatch"
+    ):
+        VoiceCastingPolicy().choose(
+            request, (candidate,), existing_binding=existing
+        )
