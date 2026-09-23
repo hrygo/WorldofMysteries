@@ -1,0 +1,44 @@
+name: Temporary Voice V05 Policy Receipt Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact Voice V05 policy head
+        uses: actions/checkout@v7
+        with:
+          ref: 89c32eadc841758a96e349e51e720c77c92bd0c2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify capsule and print Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "89c32eadc841758a96e349e51e720c77c92bd0c2"
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V05-AUTHORIZED-CASTING-POLICY.json
+          receipt=".agents/receipts/VOICE-V05-AUTHORIZED-CASTING-POLICY/89c32eadc841.json"
+          test -f "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
