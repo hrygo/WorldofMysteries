@@ -37,8 +37,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "30b14dbfecebe018cddf8877774fcc3e683b1345"
           python3 scripts/agent_capsule.py verify \
             --capsule .agents/capsules/VOICE-V04-WORLDLINE-FORK-SNAPSHOT.json
-          receipt="$(find .agents/receipts/VOICE-V04-WORLDLINE-FORK-SNAPSHOT -name '*.json' -type f | sort | tail -1)"
-          test -n "$receipt"
+          receipt=".agents/receipts/VOICE-V04-WORLDLINE-FORK-SNAPSHOT/30b14dbfeceb.json"
+          test -f "$receipt"
           echo "===WORK_RECEIPT_BEGIN==="
           cat "$receipt"
           echo "===WORK_RECEIPT_END==="
