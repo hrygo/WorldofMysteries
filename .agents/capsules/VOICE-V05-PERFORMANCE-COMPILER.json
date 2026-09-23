@@ -1,0 +1,96 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-PERFORMANCE-COMPILER",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-PERFORMANCE-COMPILER",
+  "title": "Voice V05 desired to effective performance compiler",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-23T15:46:00+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "fc40cbb76464ffbc59ca0c5ac030a4a57994a7e6",
+    "target_sha": "fc40cbb76464ffbc59ca0c5ac030a4a57994a7e6",
+    "context_snapshot": "sha256:voice-v05-performance-compiler-fc40cbb76464ffbc59ca0c5ac030a4a57994a7e6"
+  },
+  "scope": {
+    "read": [
+      "contracts/schemas/performance_plan.schema.json",
+      "engine/application/",
+      "engine/infrastructure/audio/voice_control.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/tests/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "engine/application/performance_compiler.py",
+      "engine/tests/test_performance_compiler.py",
+      ".agents/capsules/VOICE-V05-PERFORMANCE-COMPILER.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "contracts/schemas/performance_plan.schema.json",
+      "engine/infrastructure/audio/voice_control.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [
+      "performance_plan.schema.json"
+    ],
+    "slice_strategy": "fail-closed-desired-effective-lowering",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Playback pause/volume never become provider TTS fields. Base clone is fixed to speed=1.0 and no instructions/seed. Unmapped semantic pace is recorded unsupported rather than guessed."
+  },
+  "impact": {
+    "symbols": [
+      "DesiredPerformance",
+      "VoicePerformanceCapabilities",
+      "PerformanceCompiler"
+    ],
+    "contracts": [
+      "performance_plan.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_performance_compiler.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-AUTHORIZED-CASTING-POLICY"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9
+    ],
+    "instructions": "Separate desired from effective performance. Base clone must remain speed=1.0 with no instructions or seed. Pause/volume stay in Timeline/Mixer. Only explicitly supported native parameters may reach the provider; unsupported intent is recorded as degradation instead of leaking outbound.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  }
+}
