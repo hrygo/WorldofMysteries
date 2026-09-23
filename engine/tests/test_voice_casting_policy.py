@@ -417,7 +417,7 @@ def test_scene_casting_rejects_cross_worldline_or_duplicate_roles():
 
 
 def test_scene_casting_search_space_is_explicitly_bounded():
-    candidates = tuple(_candidate(chr(97 + index)) for index in range(13))
+    candidates = tuple(_candidate(code) for code in "0123456789abc")
     oversized_pool = SceneCastingRole(
         "role-a",
         _request(
@@ -433,7 +433,7 @@ def test_scene_casting_search_space_is_explicitly_bounded():
     ):
         planner.plan((oversized_pool,))
 
-    small_candidate = (_candidate("z"),)
+    small_candidate = (_candidate("f"),)
     too_many_unbound = tuple(
         SceneCastingRole(
             f"role-{index}",
