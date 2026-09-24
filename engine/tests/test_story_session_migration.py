@@ -1,4 +1,4 @@
-"""Safe ordered world.db v1→v4 migration and Story/Narrative schema tests."""
+"""Safe ordered world.db v1→v5 migration and Story/Narrative/Delivery schema tests."""
 from __future__ import annotations
 
 from contextlib import closing
@@ -51,14 +51,14 @@ def _tables(path: Path) -> set[str]:
         }
 
 
-def test_fresh_world_initializes_directly_to_v4_without_migration_backup(tmp_path):
+def test_fresh_world_initializes_directly_to_v5_without_migration_backup(tmp_path):
     path = tmp_path / "Worlds" / "fresh" / "world.db"
     path.parent.mkdir(parents=True)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 5
         integrity(conn)
-    assert {"story_sessions", "story_state_deltas", "turn_transactions", "voice_bindings", "narrative_blocks"} <= _tables(path)
+    assert {"story_sessions", "story_state_deltas", "turn_transactions", "voice_bindings", "narrative_blocks", "delivery_cursors"} <= _tables(path)
     assert not list(path.parent.glob("*.pre-migration-*.bak"))
 
 
@@ -68,13 +68,13 @@ def test_existing_v1_world_is_backed_up_then_migrated_without_data_loss(tmp_path
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert conn.execute(
             "SELECT value FROM legacy_story_marker WHERE id='existing'"
         ).fetchone()[0] == "preserve-me"
         integrity(conn)
 
-    backup = path.with_name("world.db.pre-migration-v1-to-v4.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v5.bak")
     assert backup.is_file() and _version(backup) == 1
     assert "story_sessions" not in _tables(backup)
     with closing(connect(backup, readonly=True)) as snapshot:
@@ -102,13 +102,13 @@ def test_migration_failure_rolls_back_source_and_leaves_recoverable_snapshot(tmp
     assert _version(path) == 1
     assert "must_rollback" not in _tables(path)
     assert "story_sessions" not in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v1-to-v4.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v5.bak")
     assert backup.is_file() and _version(backup) == 1
 
     monkeypatch.setattr(database_schema, "_apply_migration", original)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-    assert _version(path) == 4
+    assert _version(path) == 5
 
 
 def test_repeated_open_does_not_replace_migration_backup(tmp_path):
@@ -116,14 +116,14 @@ def test_repeated_open_does_not_replace_migration_backup(tmp_path):
     _build_v1_world(path)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-    backup = path.with_name("world.db.pre-migration-v1-to-v4.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v5.bak")
     before = hashlib.sha256(backup.read_bytes()).hexdigest()
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
 
     assert hashlib.sha256(backup.read_bytes()).hexdigest() == before
-    assert _version(path) == 4
+    assert _version(path) == 5
 
 
 @pytest.mark.parametrize("role", ["runtime", "retrieval"])
@@ -171,10 +171,11 @@ def test_existing_v3_world_gets_narrative_table_with_recoverable_backup(tmp_path
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         integrity(conn)
 
     assert "narrative_blocks" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v3-to-v4.bak")
+    assert "delivery_cursors" in _tables(path)
+    backup = path.with_name("world.db.pre-migration-v3-to-v5.bak")
     assert backup.is_file() and _version(backup) == 3
     assert "narrative_blocks" not in _tables(backup)
