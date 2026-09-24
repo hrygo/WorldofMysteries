@@ -1,0 +1,86 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-REALTIME-REVISION-PINS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-REALTIME-REVISION-PINS",
+  "title": "Voice V05 verify resolved voice and model revision pins before media completion",
+  "assigned_role": "AGT-VOICE",
+  "status": "CREATED",
+  "created_at": "2026-09-24T12:02:00+08:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "a6d892f2332f71d5570c624ccca201e467baed6e",
+    "target_sha": "a6d892f2332f71d5570c624ccca201e467baed6e",
+    "context_snapshot": "sha256:voice-v05-realtime-revision-pins-a6d892f2332f71d5570c624ccca201e467baed6e"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/audio/",
+      "engine/tests/test_audio_adapter.py",
+      "contracts/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/tests/test_audio_adapter.py",
+      ".agents/capsules/VOICE-V05-REALTIME-REVISION-PINS.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/infrastructure/audio/media_bridge.py",
+      "docs/03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md"
+    ],
+    "related_contracts": [
+      "voice_render_control.schema.json"
+    ],
+    "slice_strategy": "verify-resolved-provider-identity-before-media-end",
+    "token_estimate": 1500,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "When a sealed render supplies exact voice/model revisions, completed TTS must prove those revisions in terminal metadata/render receipt before MediaBridge can emit END."
+  },
+  "impact": {
+    "symbols": [
+      "SpeechRailRealtimeTTSAdapter._validate_receipt",
+      "SpeechRailRealtimeTTSAdapter.render"
+    ],
+    "contracts": [
+      "voice_render_control.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_audio_adapter.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-SEALED-SPEECH-UNIT"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9
+    ],
+    "instructions": "A completed Realtime TTS render with an expected immutable voice revision or model revision must verify the provider-resolved revision evidence before returning a completed terminal. Mismatch is fail-closed and must occur before MediaBridge can emit END.",
+    "assertions": [
+      "INV-09"
+    ]
+  }
+}
