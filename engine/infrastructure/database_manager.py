@@ -172,6 +172,37 @@ class PresentationTransaction:
 _PRESENTATION_TABLES = frozenset({'voice_bindings', 'delivery_cursors'})
 
 
+class AudioAssetTransaction:
+    """Insert-only complete AudioTake transaction with no world-fact authority."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
+_AUDIO_ASSET_INSERT_TABLES = frozenset({'audio_takes'})
+
+
+def _audio_asset_authorizer(action, table, _column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    table_name = table.lower() if isinstance(table, str) else ''
+    if action == sqlite3.SQLITE_INSERT:
+        return sqlite3.SQLITE_OK if table_name in _AUDIO_ASSET_INSERT_TABLES else sqlite3.SQLITE_DENY
+    if action in (sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE):
+        return sqlite3.SQLITE_DENY
+    if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, sqlite3.SQLITE_RECURSIVE):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 class PostCommitTransaction:
     """Scoped post-COMMIT expression transaction with no world-fact authority."""
 
@@ -385,6 +416,36 @@ class DatabaseManager:
                     if inspect.iscoroutine(value):
                         value.close()
                     raise StorageError('Post-COMMIT repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
+            conn.execute('COMMIT')
+            return value
+        except BaseException:
+            conn.set_authorizer(None)
+            if conn.in_transaction:
+                conn.execute('ROLLBACK')
+            raise
+
+    async def audio_asset_write(self, apply: Callable[[AudioAssetTransaction], object]) -> object:
+        """Insert a complete immutable media asset row without advancing world facts."""
+        if not callable(apply):
+            raise StorageError('Audio asset write requires a synchronous repository operation')
+        return await self._submit(lambda: self._audio_asset_write(apply))
+
+    def _audio_asset_write(self, apply):
+        self._check_world_identity()
+        conn = self._connection
+        conn.execute('BEGIN IMMEDIATE')
+        tx = AudioAssetTransaction(conn)
+        conn.set_authorizer(_audio_asset_authorizer)
+        try:
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError('Audio asset repository transaction must not suspend')
             finally:
                 tx._active = False
                 conn.set_authorizer(None)
