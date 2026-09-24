@@ -43,6 +43,7 @@ class MemoryMediaWriter:
 
 class FakeRuntimeAdapter:
     def __init__(self) -> None:
+        self.connected_model_id = None
         self.connected_model_revision = None
         self.closed = False
         self.requests = []
@@ -50,10 +51,12 @@ class FakeRuntimeAdapter:
     async def connect(
         self,
         *,
+        expected_model_id=None,
         expected_model_revision=None,
         enable_render_receipts=True,
     ):
         assert enable_render_receipts is True
+        self.connected_model_id = expected_model_id
         self.connected_model_revision = expected_model_revision
 
     async def render(self, request, on_chunk):
@@ -103,6 +106,7 @@ def sealed_unit() -> SealedSpeechUnit:
         provider_instance="speechrail-local",
         voice_id="klein-approved",
         voice_revision="voice-" + "b" * 40,
+        model_id="speechrail/qwen3-tts",
         model_revision="c" * 40,
         language="zh-CN",
         performance_plan_id="perf_" + "d" * 24,
@@ -209,6 +213,7 @@ async def test_runtime_media_consumes_once_and_streams_pcm_end():
 
     frames = await decode_frames(bytes(writer.data), 2)
     assert [header.kind for header, _ in frames] == ["chunk", "end"]
+    assert adapter.connected_model_id == "speechrail/qwen3-tts"
     assert adapter.connected_model_revision == "c" * 40
     assert adapter.requests[0].text == unit.spoken_text
     assert adapter.requests[0].voice == unit.voice_id

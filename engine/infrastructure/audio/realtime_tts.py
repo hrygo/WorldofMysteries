@@ -169,6 +169,7 @@ class SpeechRailRealtimeTTSAdapter:
         self._active_response_id: str | None = None
         self._active_item_id: str | None = None
         self._render_receipts_enabled = False
+        self._expected_model_id: str | None = None
         self._expected_model_revision: str | None = None
 
     @property
@@ -178,11 +179,19 @@ class SpeechRailRealtimeTTSAdapter:
     async def connect(
         self,
         *,
+        expected_model_id: str | None = None,
         expected_model_revision: str | None = None,
         enable_render_receipts: bool = True,
     ) -> None:
         if self._ready:
             raise SpeechRailRealtimeTTSError("realtime_invalid_state")
+        if expected_model_id is not None and (
+            not isinstance(expected_model_id, str)
+            or not expected_model_id.strip()
+            or len(expected_model_id) > 256
+            or "\x00" in expected_model_id
+        ):
+            raise SpeechRailRealtimeTTSError("realtime_invalid_configuration")
         if expected_model_revision is not None and (
             len(expected_model_revision) != 40
             or any(ch not in "0123456789abcdef" for ch in expected_model_revision)
@@ -227,6 +236,7 @@ class SpeechRailRealtimeTTSAdapter:
                 raise SpeechRailRealtimeTTSError("tts_not_enabled")
             receipts = _optional_mapping(extension.get("render_receipts")) if extension else None
             self._render_receipts_enabled = bool(receipts and receipts.get("enabled") is True)
+            self._expected_model_id = expected_model_id
             self._expected_model_revision = expected_model_revision
             if enable_render_receipts and not self._render_receipts_enabled:
                 raise SpeechRailRealtimeTTSError("render_receipts_not_enabled")
@@ -493,6 +503,12 @@ class SpeechRailRealtimeTTSAdapter:
                 raise SpeechRailRealtimeTTSError("render_receipt_voice_mismatch")
 
         model = _optional_mapping(receipt.get("model"))
+        if self._expected_model_id is not None:
+            if (
+                model is None
+                or model.get("source_model") != self._expected_model_id
+            ):
+                raise SpeechRailRealtimeTTSError("render_receipt_model_id_mismatch")
         if self._expected_model_revision is not None:
             if (
                 model is None
@@ -522,6 +538,7 @@ class SpeechRailRealtimeTTSAdapter:
         self._active_response_id = None
         self._active_item_id = None
         self._render_receipts_enabled = False
+        self._expected_model_id = None
         self._expected_model_revision = None
         await self._transport.close()
 
