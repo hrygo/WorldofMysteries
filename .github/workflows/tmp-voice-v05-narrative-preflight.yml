@@ -1,0 +1,38 @@
+name: Temporary Voice V05 Narrative Persistence Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact narrative persistence head
+        uses: actions/checkout@v7
+        with:
+          ref: a346f3de944bebe8766c9070d56b6fc5195e1d30
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Architecture and focused persistence tests
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "a346f3de944bebe8766c9070d56b6fc5195e1d30"
+          python3 scripts/check_architecture_fitness.py
+          cd engine
+          uv run --locked --extra dev pytest -q \
+            tests/test_narrative_block_repository.py \
+            tests/test_story_session_migration.py
