@@ -22,7 +22,7 @@ import socket
 import stat
 import sys
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from pydantic import ValidationError
@@ -178,6 +178,10 @@ MediaSessionHandler = Callable[
     [MediaOpenHeader, asyncio.StreamReader, asyncio.StreamWriter],
     Awaitable[None],
 ]
+ControlRequestHandler = Callable[
+    [Mapping[str, object]],
+    Awaitable[tuple[dict[str, object] | None, str | None]],
+]
 
 
 class _MediaIPCServer:
@@ -272,11 +276,24 @@ class LocalIPCServer:
         handshake_timeout: float = 5.0,
         max_connections: int = 16,
         media_session_handler: MediaSessionHandler | None = None,
+        control_handlers: Mapping[str, ControlRequestHandler] | None = None,
     ):
         if TOKEN_PATTERN.fullmatch(token) is None:
             raise BootstrapError("Invalid bootstrap credential")
         if handshake_timeout <= 0 or max_connections < 1:
             raise ValueError("Invalid connection limits")
+        handlers = dict(control_handlers or {})
+        if any(
+            not isinstance(name, str)
+            or not name
+            or name in BASE_CAPABILITIES
+            or name == MEDIA_CAPABILITY
+            for name in handlers
+        ):
+            raise ValueError("Invalid control handler capability")
+        if any(not callable(handler) for handler in handlers.values()):
+            raise ValueError("Invalid control handler")
+        self._control_handlers = handlers
         self._token = token
         self._lease = SocketLease(path)
         self._handshake_timeout = handshake_timeout
@@ -300,7 +317,9 @@ class LocalIPCServer:
 
     @property
     def capabilities(self) -> tuple[str, ...]:
-        return BASE_CAPABILITIES + ((MEDIA_CAPABILITY,) if self._media_server else ())
+        business = tuple(sorted(self._control_handlers))
+        media = (MEDIA_CAPABILITY,) if self._media_server else ()
+        return BASE_CAPABILITIES + business + media
 
     @property
     def media_path(self) -> Path | None:
@@ -389,6 +408,17 @@ class LocalIPCServer:
                     await write_frame(writer, response(req, code="method_not_supported"))
                 elif req.method == MEDIA_CAPABILITY:
                     await self._handle_media_open(req, writer)
+                elif req.method in self._control_handlers:
+                    try:
+                        payload, code = await self._control_handlers[req.method](
+                            req.payload or {}
+                        )
+                    except Exception:
+                        payload, code = None, "service_unavailable"
+                    await write_frame(
+                        writer,
+                        response(req, payload=payload, code=code),
+                    )
                 elif req.payload:
                     await write_frame(writer, response(req, code="schema_invalid"))
                 elif req.method == "system.health":

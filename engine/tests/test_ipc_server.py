@@ -569,3 +569,66 @@ async def test_media_open_payload_is_strict_and_default_server_stays_system_only
         assert server.capabilities == ("system.health", "system.shutdown")
     finally:
         await server.close()
+
+
+@pytest.mark.asyncio
+async def test_custom_control_handler_is_advertised_and_dispatched_only_when_injected(runtime):
+    calls = []
+
+    async def handler(payload):
+        calls.append(dict(payload))
+        if payload.get("speech_unit_id") != "speech-1":
+            return None, "voice_render_recipe_mismatch"
+        return {
+            "schema_version": "1.0",
+            "render_id": "render-1",
+            "speech_unit_id": "speech-1",
+            "media_stream_id": "media-1",
+            "generation": 1,
+            "state": "accepted",
+        }, None
+
+    server = LocalIPCServer(
+        runtime,
+        "d" * 64,
+        control_handlers={"voice.render": handler},
+    )
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_unix_connection(runtime)
+        await write_frame(
+            writer,
+            request(
+                "system.handshake",
+                {
+                    "app_version": "0.1.0",
+                    "app_build": "test",
+                    "supported_protocols": ["1.0"],
+                    "session_token": "d" * 64,
+                },
+            ),
+        )
+        hello = await read_frame(reader)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            "voice.render",
+        }
+
+        await write_frame(
+            writer,
+            request(
+                "voice.render",
+                {"speech_unit_id": "speech-1"},
+                request_id="req_voice_render",
+            ),
+        )
+        reply = await read_frame(reader)
+        assert reply["status"] == "ok"
+        assert reply["payload"]["render_id"] == "render-1"
+        assert calls == [{"speech_unit_id": "speech-1"}]
+
+        writer.close()
+        await writer.wait_closed()
+    finally:
+        await server.close()

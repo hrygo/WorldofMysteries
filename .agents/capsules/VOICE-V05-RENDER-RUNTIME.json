@@ -1,0 +1,119 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-RENDER-RUNTIME",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-RENDER-RUNTIME",
+  "title": "Voice V05 executable sealed render runtime across Engine IPC and media",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-24T14:00:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "04ab5b80c63adeea3c472c1917416d6acc07de5e",
+    "target_sha": "04ab5b80c63adeea3c472c1917416d6acc07de5e",
+    "context_snapshot": "sha256:voice-v05-render-runtime-04ab5b80c63adeea3c472c1917416d6acc07de5e"
+  },
+  "scope": {
+    "read": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio/",
+      "engine/infrastructure/ipc_server.py",
+      "engine/tests/",
+      "contracts/protocol/",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/DomainContracts.swift",
+      "macos-app/WorldOfMysteriesTests/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "engine/infrastructure/audio/voice_runtime.py",
+      "engine/infrastructure/ipc_server.py",
+      "engine/tests/test_voice_runtime.py",
+      "engine/tests/test_ipc_server.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift",
+      ".agents/capsules/VOICE-V05-RENDER-RUNTIME.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio/voice_control.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/infrastructure/audio/media_bridge.py",
+      "engine/infrastructure/ipc_server.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "contracts/protocol/voice_render_control.schema.json",
+      "contracts/protocol/engine_media_control.schema.json"
+    ],
+    "related_contracts": [
+      "voice_render_control.schema.json",
+      "engine_media_control.schema.json",
+      "engine_media.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "sealed-unit-to-authenticated-control-to-one-time-media-to-verified-realtime-tts",
+    "token_estimate": 2800,
+    "max_core_tokens": 5000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Cross-layer integration follows the existing V01 AGT-ARB precedent. Default Engine CLI remains system-only. Voice capability exists only when a real VoiceRenderRuntime is explicitly injected with both control and media handlers."
+  },
+  "impact": {
+    "symbols": [
+      "SealedSpeechUnitRegistry",
+      "VoiceRenderRuntime",
+      "LocalIPCServer.control_handlers",
+      "EngineIPCClient.renderVoice"
+    ],
+    "contracts": [
+      "voice_render_control.schema.json",
+      "engine_media_control.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_voice_runtime.py",
+      "engine/tests/test_ipc_server.py",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V01-MEDIA-FOUNDATION",
+      "VOICE-V03-CONTROL-PYTHON",
+      "VOICE-V03-REALTIME-TTS",
+      "VOICE-V05-SEALED-SPEECH-UNIT",
+      "VOICE-V05-REALTIME-REVISION-PINS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9,
+      12
+    ],
+    "instructions": "Only an Engine-owned SealedSpeechUnit may authorize voice.render. Authenticated App control may attach media stream identity only when every W-V03 field exactly matches the sealed recipe. A valid one-time engine_to_app media grant and matching generation are required before provider TTS starts. The pending render and sealed unit are bounded/single-use. Provider PCM flows through the existing verified MediaBridge. Default CLI must remain system-only unless real control+media handlers are explicitly installed.",
+    "assertions": [
+      "INV-05",
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}
