@@ -635,6 +635,6 @@ extension EngineMediaPlaybackCursorTests {
         #expect(updates.count == 2)
         #expect(updates[1].stopReason == .mediaError)
         #expect(updates[1].evidence == .queued)
-        #expect(updates[1].fullyOutput == nil)
+        #expect(updates[1].sourceOffsetFrames == 0)
     }
 }
