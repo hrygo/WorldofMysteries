@@ -169,7 +169,7 @@ class PresentationTransaction:
             return [dict(row) for row in cursor] if cursor.description else []
 
 
-_PRESENTATION_TABLES = frozenset({'voice_bindings'})
+_PRESENTATION_TABLES = frozenset({'voice_bindings', 'delivery_cursors'})
 
 
 class PostCommitTransaction:

@@ -1,0 +1,99 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-DELIVERY-CURSOR",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-DELIVERY-CURSOR",
+  "title": "Voice V06 durable delivery cursor evidence semantics",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-24T17:10:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "940cf23a9d713aa3a0c45101ad240caa241a363b",
+    "target_sha": "940cf23a9d713aa3a0c45101ad240caa241a363b",
+    "context_snapshot": "sha256:voice-v06-delivery-cursor-940cf23a9d713aa3a0c45101ad240caa241a363b"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/migrations/005_world_delivery_cursors.sql",
+      "engine/infrastructure/delivery_cursor_repository.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/tests/test_delivery_cursor_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      ".agents/capsules/VOICE-V06-DELIVERY-CURSOR.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/005_world_delivery_cursors.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "durable-monotonic-source-sample-delivery-evidence",
+    "token_estimate": 2200,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "DeliveryCursor is presentation state in world.db, not world truth. Evidence levels distinguish queued/scheduled/rendered-estimate/measured-loopback. Only measured loopback at the known total source frame count is fully_output. A new generation must restart at sentence start."
+  },
+  "impact": {
+    "symbols": [
+      "DeliveryCursor",
+      "SQLiteDeliveryCursorRepository"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_delivery_cursor_repository.py",
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "005_world_delivery_cursors.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-RENDER-RUNTIME"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Persist DeliveryCursor as presentation metadata without advancing world facts. Source offsets and evidence are monotonic within a generation; stopped generations do not advance; recovery starts a new generation at sentence start. Scheduled/rendered estimates never imply fully audible output; only measured loopback at known total frames may be fully_output.",
+    "assertions": [
+      "INV-03",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
