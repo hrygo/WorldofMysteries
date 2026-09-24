@@ -7,7 +7,9 @@ never invents pronunciation semantics from model output.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
+
+from contracts import NarrativeBlock, TurnStatus, TurnTransaction
 
 
 SemanticCategory = Literal["proper_name", "term", "number", "unit", "negation"]
@@ -120,8 +122,12 @@ class AudioDisclosure:
     mappings: tuple[SpokenSpanMapping, ...]
 
 
-class AudioDisclosureService:
-    """Compile only explicit, semantically anchored pronunciation changes."""
+class SpokenTextCompiler:
+    """Compile only explicit, semantically anchored pronunciation changes.
+
+    This compiler assumes DisplayText has already crossed the audible-disclosure
+    authorization boundary. It is not itself an authorization service.
+    """
 
     def compile(
         self,
@@ -219,4 +225,99 @@ class AudioDisclosureService:
             spoken_text=spoken_text,
             dictionary_revision=revision,
             mappings=tuple(mappings),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AuthorizedAudioSegment:
+    """Exact post-COMMIT narrative segment authorized for audible rendering."""
+
+    turn_id: str
+    story_session_id: str
+    narrative_block_id: str
+    story_revision: int
+    state_delta_id: str
+    segment_index: int
+    speaker_id: str | None
+    display_text: str
+    speech_intent: str | None
+
+
+class AudioDisclosurePort(Protocol):
+    """Read-only authoritative source for committed turn + sealed narrative."""
+
+    async def load_turn(self, turn_id: str) -> TurnTransaction: ...
+
+    async def load_narrative_block(self, narrative_block_id: str) -> NarrativeBlock: ...
+
+
+class AudioDisclosureAuthorizer:
+    """Bind audible disclosure to one exact post-COMMIT narrative segment.
+
+    There is deliberately no default/fake production port. A host must inject a
+    real authoritative implementation; missing or inconsistent evidence fails
+    closed before casting/TTS.
+    """
+
+    _AUDIBLE_STATUSES = frozenset(
+        {TurnStatus.NARRATIVE_READY, TurnStatus.AUDIO_READY, TurnStatus.DELIVERED}
+    )
+
+    def __init__(self, port: AudioDisclosurePort) -> None:
+        self._port = port
+
+    async def authorize(
+        self,
+        *,
+        turn_id: str,
+        expected_story_revision: int,
+        segment_index: int,
+    ) -> AuthorizedAudioSegment:
+        _bounded(turn_id, "turn_id", limit=128)
+        if (
+            type(expected_story_revision) is not int
+            or expected_story_revision < 0
+        ):
+            raise AudioDisclosureError("invalid_expected_story_revision")
+        if type(segment_index) is not int or segment_index < 0:
+            raise AudioDisclosureError("invalid_segment_index")
+
+        turn = await self._port.load_turn(turn_id)
+        if not isinstance(turn, TurnTransaction) or turn.id != turn_id:
+            raise AudioDisclosureError("turn_identity_mismatch")
+        if turn.status not in self._AUDIBLE_STATUSES:
+            raise AudioDisclosureError("turn_not_narrative_ready")
+        if turn.committed_story_revision != expected_story_revision:
+            raise AudioDisclosureError("story_revision_not_committed")
+        if turn.state_delta_id is None:
+            raise AudioDisclosureError("turn_missing_committed_delta")
+        if turn.narrative_block_id is None:
+            raise AudioDisclosureError("turn_missing_narrative_block")
+
+        block = await self._port.load_narrative_block(turn.narrative_block_id)
+        if not isinstance(block, NarrativeBlock):
+            raise AudioDisclosureError("invalid_narrative_block")
+        if block.id != turn.narrative_block_id:
+            raise AudioDisclosureError("narrative_identity_mismatch")
+        if block.story_session_id != turn.session_id:
+            raise AudioDisclosureError("narrative_session_mismatch")
+        if block.source_story_revision != expected_story_revision:
+            raise AudioDisclosureError("narrative_story_revision_mismatch")
+        if block.source_state_delta_id != turn.state_delta_id:
+            raise AudioDisclosureError("narrative_state_delta_mismatch")
+        if segment_index >= len(block.segments):
+            raise AudioDisclosureError("narrative_segment_out_of_bounds")
+
+        segment = block.segments[segment_index]
+        _bounded(segment.text, "display_text", limit=4096)
+        return AuthorizedAudioSegment(
+            turn_id=turn.id,
+            story_session_id=turn.session_id,
+            narrative_block_id=block.id,
+            story_revision=expected_story_revision,
+            state_delta_id=turn.state_delta_id,
+            segment_index=segment_index,
+            speaker_id=segment.speaker_id,
+            display_text=segment.text,
+            speech_intent=segment.speech_intent,
         )
