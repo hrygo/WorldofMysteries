@@ -1,7 +1,11 @@
 """W-V06 durable DeliveryCursor semantics."""
 from __future__ import annotations
 
+from pathlib import Path
+import sqlite3
+
 import pytest
+import pytest_asyncio
 
 from infrastructure.delivery_cursor_repository import (
     DeliveryCursor,
@@ -10,7 +14,32 @@ from infrastructure.delivery_cursor_repository import (
     DeliveryStopReason,
     SQLiteDeliveryCursorRepository,
 )
+from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.database_schema import StorageError
+
+
+@pytest.fixture
+def paths(tmp_path: Path):
+    layout = DatabasePaths.for_world(tmp_path, "cursor-world")
+    layout.canon.parent.mkdir(parents=True)
+    with sqlite3.connect(layout.canon) as conn:
+        conn.execute("CREATE TABLE canon_fixture(id TEXT PRIMARY KEY) STRICT")
+    return layout
+
+
+async def open_database(paths):
+    return await DatabaseManager.open(
+        paths, expected_sqlite_version=sqlite3.sqlite_version
+    )
+
+
+@pytest_asyncio.fixture
+async def database(paths):
+    db = await open_database(paths)
+    try:
+        yield db
+    finally:
+        await db.close()
 
 
 async def world_revision(database) -> int:
@@ -266,7 +295,7 @@ async def test_stopped_generation_cannot_advance_and_stale_cas_fails(database):
         )
 
 
-async def test_cursor_survives_database_restart(database, db_paths):
+async def test_cursor_survives_database_restart(database, paths):
     repo = SQLiteDeliveryCursorRepository(database)
     saved = await repo.create(
         DeliveryCursor.queued(
@@ -290,9 +319,9 @@ async def test_cursor_survives_database_restart(database, db_paths):
     )
     await database.close()
 
-    from infrastructure.database_manager import DatabaseManager
-
-    reopened = await DatabaseManager.open(db_paths)
+    reopened = await DatabaseManager.open(
+        paths, expected_sqlite_version=sqlite3.sqlite_version
+    )
     try:
         assert await SQLiteDeliveryCursorRepository(reopened).load(
             "track-restart", "local-playback"
