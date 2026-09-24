@@ -223,12 +223,12 @@ class SQLiteAudioTakeStore:
         manifest_hmac_key: bytes,
         fault_hook: Callable[[str], None] | None = None,
     ) -> None:
+        self._signer = RenderManifestSigner(manifest_hmac_key)
         self._database = database
         root = Path(os.path.abspath(assets_root))
         if root.parent != database.paths.world.parent:
             raise StorageError("Audio assets must belong to the current world directory")
         self._root = root
-        self._signer = RenderManifestSigner(manifest_hmac_key)
         self._fault_hook = fault_hook
 
     async def publish_pcm(
