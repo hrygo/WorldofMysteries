@@ -41,6 +41,12 @@ private final class FakeMicrophonePCMSource: MicrophonePCMSource {
     }
 }
 
+private actor PTTOrderProbe {
+    private var events: [String] = []
+    func record(_ event: String) { events.append(event) }
+    func snapshot() -> [String] { events }
+}
+
 private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
     private var sequence: Int64 = 0
     private var sessionID = "ptt"
@@ -49,9 +55,15 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
     private(set) var sentTypes: [String] = []
     private(set) var appendPayloads: [Data] = []
     private(set) var closed = false
+    private let orderProbe: PTTOrderProbe?
+
+    init(orderProbe: PTTOrderProbe? = nil) {
+        self.orderProbe = orderProbe
+    }
 
     func open(_ request: URLRequest) async throws {
         _ = request
+        await orderProbe?.record("transport.open")
         sequence = 0
         sessionID = UUID().uuidString
         emit("session.created")
@@ -190,5 +202,29 @@ struct VoiceInputPTTSessionTests {
         let snapshot = await transport.snapshot()
         #expect(!snapshot.types.contains("input_audio_buffer.commit"))
         #expect(snapshot.closed)
+    }
+}
+
+
+extension VoiceInputPTTSessionTests {
+    @Test("Half-duplex local interruption happens before ASR network connect")
+    func localInterruptionPrecedesNetwork() async throws {
+        let order = PTTOrderProbe()
+        let transport = PTTScriptTransport(orderProbe: order)
+        let connection = SpeechRailRealtimeASRConnection(transport: transport)
+        let microphone = FakeMicrophonePCMSource()
+        let session = VoiceInputPTTSession(
+            connection: connection,
+            microphone: microphone,
+            beforeCapture: {
+                await order.record("local.interrupt")
+            }
+        )
+
+        _ = try await session.start()
+        await session.cancel()
+
+        let events = await order.snapshot()
+        #expect(events.prefix(2) == ["local.interrupt", "transport.open"])
     }
 }
