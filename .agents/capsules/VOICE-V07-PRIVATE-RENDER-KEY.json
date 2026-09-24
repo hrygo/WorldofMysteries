@@ -1,0 +1,90 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V07-PRIVATE-RENDER-KEY",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V07-PRIVATE-RENDER-KEY",
+  "title": "Voice V07 private domain-separated HMAC RenderKey",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T07:05:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "1705e6ed0391cc5a03ddf13ef27c3437ab5b11bf",
+    "target_sha": "1705e6ed0391cc5a03ddf13ef27c3437ab5b11bf",
+    "context_snapshot": "sha256:voice-v07-private-render-key-1705e6ed0391cc5a03ddf13ef27c3437ab5b11bf"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/audio_take_store.py",
+      "engine/tests/test_audio_take_store.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_take_store.py",
+      "engine/tests/test_audio_take_store.py",
+      ".agents/capsules/VOICE-V07-PRIVATE-RENDER-KEY.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio_take_store.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "domain-separated-private-hmac-render-key",
+    "token_estimate": 1100,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Correct W-V07 RenderKey to the documented private-key HMAC design. One injected world master key is domain-separated into independent RenderManifest and RenderKey subkeys; recipe identity never uses a public unkeyed digest."
+  },
+  "impact": {
+    "symbols": [
+      "DryRenderRecipe.canonical_json",
+      "RenderManifestSigner.render_key",
+      "SQLiteAudioTakeStore.render_key"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_audio_take_store.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V07-AUDIO-TAKE-STORE"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      10,
+      11
+    ],
+    "instructions": "Dry RenderKey must be HMAC-SHA256 over canonical recipe using a private world-scoped key, with domain separation from RenderManifest authentication. Identical recipes under different world master keys must not share RenderKeys. No database/schema/world-revision changes.",
+    "assertions": [
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}

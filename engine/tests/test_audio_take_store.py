@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 import sqlite3 as stdlib_sqlite3
 
 import pytest
 
 from infrastructure.audio_take_store import (
     DryRenderRecipe,
+    RenderManifestSigner,
     RenderOutcome,
     SQLiteAudioTakeStore,
 )
@@ -73,17 +75,23 @@ async def world_revision(database: DatabaseManager) -> int:
     )[0]["revision"]
 
 
-def test_render_key_changes_for_exact_model_voice_pronunciation_and_native_backend():
-    base = recipe()
-    assert recipe(model_revision="c" * 40).render_key != base.render_key
-    assert recipe(voice_revision="voice-" + "d" * 40).render_key != base.render_key
-    assert recipe(pronunciation_revision="pron-v2").render_key != base.render_key
-    assert recipe(backend_fields={"speed": 0.9}).render_key != base.render_key
+def test_render_key_changes_for_exact_identity_and_is_private_per_world_key():
+    base_recipe = recipe()
+    auth = RenderManifestSigner(b"k" * 32)
+    base_key = auth.render_key(base_recipe)
+    assert auth.render_key(recipe(model_revision="c" * 40)) != base_key
+    assert auth.render_key(recipe(voice_revision="voice-" + "d" * 40)) != base_key
+    assert auth.render_key(recipe(pronunciation_revision="pron-v2")) != base_key
+    assert auth.render_key(recipe(backend_fields={"speed": 0.9})) != base_key
+    assert RenderManifestSigner(b"z" * 32).render_key(base_recipe) != base_key
+    assert len(base_key) == 64
+    assert base_key != hashlib.sha256(base_recipe.canonical_json().encode()).hexdigest()
 
     # Local playback volume/pause/scene FX are intentionally absent from the dry recipe.
-    assert base.payload().keys() == {
+    assert base_recipe.payload().keys() == {
         "schema_version",
         "kind",
+        "render_key_scheme",
         "provider_instance",
         "model_id",
         "model_revision",
@@ -112,11 +120,11 @@ async def test_publish_take_is_atomic_durable_authenticated_and_does_not_advance
         assert await world_revision(database) == 0
         rows = await database.read_world("SELECT * FROM audio_takes")
         assert len(rows) == 1
-        assert rows[0]["render_key"] == recipe().render_key
+        assert rows[0]["render_key"] == store.render_key(recipe())
         assert rows[0]["status"] == "complete"
         assert (assets / published.relative_path).is_file()
 
-        loaded = await store.load(recipe().render_key)
+        loaded = await store.load(store.render_key(recipe()))
         assert loaded is not None
         assert loaded.file_sha256 == published.file_sha256
         assert loaded.manifest["resolved"]["voice_revision"] == outcome().voice_revision
@@ -133,7 +141,7 @@ async def test_publish_take_is_atomic_durable_authenticated_and_does_not_advance
             assets,
             manifest_hmac_key=key,
         )
-        loaded = await store.load(recipe().render_key)
+        loaded = await store.load(store.render_key(recipe()))
         assert loaded is not None
         replay = await store.publish_pcm(recipe(), outcome(), pcm())
         assert replay.replayed
@@ -193,11 +201,11 @@ async def test_wrong_manifest_key_and_corrupt_file_fail_closed(tmp_path):
             manifest_hmac_key=b"b" * 32,
         )
         with pytest.raises(StorageError, match="authentication"):
-            await wrong.load(recipe().render_key)
+            await wrong.load(good.render_key(recipe()))
 
         (assets / published.relative_path).write_bytes(b"\x00\x00")
         with pytest.raises(StorageError, match="metadata|digest"):
-            await good.load(recipe().render_key)
+            await good.load(good.render_key(recipe()))
     finally:
         await database.close()
 
@@ -291,7 +299,7 @@ async def test_audio_asset_transaction_is_insert_only_and_authenticated_manifest
             manifest_hmac_key=b"e" * 32,
         )
         with pytest.raises(StorageError, match="does not match authenticated"):
-            await store.load(recipe().render_key)
+            await store.load(store.render_key(recipe()))
     finally:
         await reopened.close()
 

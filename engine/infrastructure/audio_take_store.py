@@ -141,6 +141,7 @@ class DryRenderRecipe:
         return {
             "schema_version": "1.0",
             "kind": "dry_voice",
+            "render_key_scheme": "hmac-sha256-v1",
             "provider_instance": self.provider_instance,
             "model_id": self.model_id,
             "model_revision": self.model_revision,
@@ -156,9 +157,8 @@ class DryRenderRecipe:
             },
         }
 
-    @property
-    def render_key(self) -> str:
-        return hashlib.sha256(_canonical_json(self.payload()).encode("utf-8")).hexdigest()
+    def canonical_json(self) -> str:
+        return _canonical_json(self.payload())
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,15 +194,36 @@ class PublishedAudioTake:
 
 
 class RenderManifestSigner:
+    """Domain-separated private authentication for manifest and RenderKey."""
+
     def __init__(self, key: bytes) -> None:
         if not isinstance(key, (bytes, bytearray)) or len(key) < 32:
             raise StorageError("RenderManifest HMAC key must contain at least 32 bytes")
-        self._key = bytes(key)
+        master = bytes(key)
+        self._manifest_key = hmac.new(
+            master,
+            b"WorldOfMysteries/RenderManifest/v1",
+            hashlib.sha256,
+        ).digest()
+        self._render_key = hmac.new(
+            master,
+            b"WorldOfMysteries/RenderKey/v1",
+            hashlib.sha256,
+        ).digest()
 
     def sign_json(self, manifest_json: str) -> str:
         return hmac.new(
-            self._key,
+            self._manifest_key,
             manifest_json.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+    def render_key(self, recipe: DryRenderRecipe) -> str:
+        if not isinstance(recipe, DryRenderRecipe):
+            raise StorageError("Invalid dry render recipe")
+        return hmac.new(
+            self._render_key,
+            recipe.canonical_json().encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
 
@@ -231,6 +252,9 @@ class SQLiteAudioTakeStore:
         self._root = root
         self._fault_hook = fault_hook
 
+    def render_key(self, recipe: DryRenderRecipe) -> str:
+        return self._signer.render_key(recipe)
+
     async def publish_pcm(
         self,
         recipe: DryRenderRecipe,
@@ -249,7 +273,7 @@ class SQLiteAudioTakeStore:
         file_sha = hashlib.sha256(frozen).hexdigest()
         sample_count = len(frozen) // 2
         duration_ms = (sample_count * 1000 + recipe.sample_rate - 1) // recipe.sample_rate
-        render_key = recipe.render_key
+        render_key = self.render_key(recipe)
         take_id = "take_" + hashlib.sha256(
             f"{render_key}:{file_sha}".encode("ascii")
         ).hexdigest()[:32]
