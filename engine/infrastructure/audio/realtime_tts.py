@@ -169,6 +169,7 @@ class SpeechRailRealtimeTTSAdapter:
         self._active_response_id: str | None = None
         self._active_item_id: str | None = None
         self._render_receipts_enabled = False
+        self._expected_model_revision: str | None = None
 
     @property
     def ready(self) -> bool:
@@ -226,6 +227,7 @@ class SpeechRailRealtimeTTSAdapter:
                 raise SpeechRailRealtimeTTSError("tts_not_enabled")
             receipts = _optional_mapping(extension.get("render_receipts")) if extension else None
             self._render_receipts_enabled = bool(receipts and receipts.get("enabled") is True)
+            self._expected_model_revision = expected_model_revision
             if enable_render_receipts and not self._render_receipts_enabled:
                 raise SpeechRailRealtimeTTSError("render_receipts_not_enabled")
             self._ready = True
@@ -366,7 +368,17 @@ class SpeechRailRealtimeTTSAdapter:
 
                     digest = hasher.hexdigest()
                     receipt_id = None
+                    resolved_voice_revision = (
+                        extension.get("voice_revision")
+                        if isinstance(extension.get("voice_revision"), str)
+                        else None
+                    )
                     if status == "completed":
+                        if (
+                            request.expected_voice_revision is not None
+                            and resolved_voice_revision != request.expected_voice_revision
+                        ):
+                            raise SpeechRailRealtimeTTSError("voice_revision_mismatch")
                         if not response_created_seen or self._active_item_id is None:
                             raise SpeechRailRealtimeTTSError("realtime_incomplete_response")
                         if not audio_done or total_frames <= 0:
@@ -385,11 +397,7 @@ class SpeechRailRealtimeTTSAdapter:
                         total_frames=total_frames,
                         total_bytes=total_bytes,
                         pcm_sha256=digest,
-                        voice_revision=(
-                            extension.get("voice_revision")
-                            if isinstance(extension.get("voice_revision"), str)
-                            else None
-                        ),
+                        voice_revision=resolved_voice_revision,
                         receipt_id=receipt_id,
                     )
 
@@ -475,6 +483,23 @@ class SpeechRailRealtimeTTSAdapter:
         if receipt.get("response_id") not in {None, response_id}:
             raise SpeechRailRealtimeTTSError("render_receipt_mismatch")
 
+        voice = _optional_mapping(receipt.get("voice"))
+        if request.expected_voice_revision is not None:
+            if (
+                voice is None
+                or voice.get("id") != request.voice
+                or voice.get("revision") != request.expected_voice_revision
+            ):
+                raise SpeechRailRealtimeTTSError("render_receipt_voice_mismatch")
+
+        model = _optional_mapping(receipt.get("model"))
+        if self._expected_model_revision is not None:
+            if (
+                model is None
+                or model.get("catalog_revision") != self._expected_model_revision
+            ):
+                raise SpeechRailRealtimeTTSError("render_receipt_model_mismatch")
+
         audio = _optional_mapping(receipt.get("audio"))
         if audio is None:
             raise SpeechRailRealtimeTTSError("render_receipt_invalid")
@@ -497,6 +522,7 @@ class SpeechRailRealtimeTTSAdapter:
         self._active_response_id = None
         self._active_item_id = None
         self._render_receipts_enabled = False
+        self._expected_model_revision = None
         await self._transport.close()
 
 
