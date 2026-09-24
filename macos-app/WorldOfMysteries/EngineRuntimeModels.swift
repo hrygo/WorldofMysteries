@@ -124,3 +124,109 @@ public nonisolated struct VoiceRenderAcceptedDTO: Codable, Sendable, Equatable {
         case state
     }
 }
+
+// MARK: - Voice Delivery Cursor Control
+public nonisolated enum VoiceDeliveryEvidence: String, Codable, Sendable, Equatable {
+    case queued
+    case scheduled
+    case renderedEstimate = "rendered_estimate"
+    case measuredLoopback = "measured_loopback"
+}
+
+public nonisolated enum VoiceDeliveryStopReason: String, Codable, Sendable, Equatable {
+    case userStop = "user_stop"
+    case superseded
+    case deviceRouteChange = "device_route_change"
+    case suspend
+    case providerError = "provider_error"
+    case mediaError = "media_error"
+    case completed
+}
+
+public nonisolated struct VoiceDeliveryCursorDTO: Codable, Sendable, Equatable {
+    public let trackId: String
+    public let consumerId: String
+    public let unitId: String
+    public let generation: Int
+    public let sourceOffsetFrames: Int
+    public let totalSourceFrames: Int?
+    public let evidence: VoiceDeliveryEvidence
+    public let stopReason: VoiceDeliveryStopReason?
+    public let cursorRevision: Int
+    public let fullyOutput: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case trackId = "track_id"
+        case consumerId = "consumer_id"
+        case unitId = "unit_id"
+        case generation
+        case sourceOffsetFrames = "source_offset_frames"
+        case totalSourceFrames = "total_source_frames"
+        case evidence
+        case stopReason = "stop_reason"
+        case cursorRevision = "cursor_revision"
+        case fullyOutput = "fully_output"
+    }
+}
+
+public nonisolated struct VoiceDeliveryCursorResponseDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let cursor: VoiceDeliveryCursorDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case cursor
+    }
+}
+
+public nonisolated struct VoiceDeliveryCursorUpdateDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let operation: String
+    public let trackId: String
+    public let consumerId: String
+    public let unitId: String
+    public let generation: Int
+    public let sourceOffsetFrames: Int
+    public let totalSourceFrames: Int?
+    public let evidence: VoiceDeliveryEvidence
+    public let stopReason: VoiceDeliveryStopReason?
+    public let expectedCursorRevision: Int
+
+    public init(
+        trackId: String,
+        consumerId: String,
+        unitId: String,
+        generation: Int,
+        sourceOffsetFrames: Int,
+        totalSourceFrames: Int?,
+        evidence: VoiceDeliveryEvidence,
+        stopReason: VoiceDeliveryStopReason?,
+        expectedCursorRevision: Int
+    ) {
+        self.schemaVersion = "1.0"
+        self.operation = "update"
+        self.trackId = trackId
+        self.consumerId = consumerId
+        self.unitId = unitId
+        self.generation = generation
+        self.sourceOffsetFrames = sourceOffsetFrames
+        self.totalSourceFrames = totalSourceFrames
+        self.evidence = evidence
+        self.stopReason = stopReason
+        self.expectedCursorRevision = expectedCursorRevision
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case operation
+        case trackId = "track_id"
+        case consumerId = "consumer_id"
+        case unitId = "unit_id"
+        case generation
+        case sourceOffsetFrames = "source_offset_frames"
+        case totalSourceFrames = "total_source_frames"
+        case evidence
+        case stopReason = "stop_reason"
+        case expectedCursorRevision = "expected_cursor_revision"
+    }
+}
