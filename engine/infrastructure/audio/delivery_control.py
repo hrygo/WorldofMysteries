@@ -7,6 +7,7 @@ system-only and therefore cannot fabricate persistent playback state.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError
 
@@ -40,8 +41,16 @@ class DeliveryCursorUpdateRequest(BaseModel):
     generation: StrictInt = Field(ge=0)
     source_offset_frames: StrictInt = Field(ge=0)
     total_source_frames: StrictInt | None = Field(default=None, ge=1)
-    evidence: DeliveryEvidence
-    stop_reason: DeliveryStopReason | None = None
+    evidence: Literal["queued", "scheduled", "rendered_estimate", "measured_loopback"]
+    stop_reason: Literal[
+        "user_stop",
+        "superseded",
+        "device_route_change",
+        "suspend",
+        "provider_error",
+        "media_error",
+        "completed",
+    ] | None = None
     expected_cursor_revision: StrictInt = Field(ge=0)
 
 
@@ -109,7 +118,7 @@ class DeliveryCursorControlRuntime:
             if request.expected_cursor_revision == 0:
                 if (
                     request.source_offset_frames != 0
-                    or request.evidence is not DeliveryEvidence.QUEUED
+                    or request.evidence != DeliveryEvidence.QUEUED.value
                     or request.stop_reason is not None
                 ):
                     return None, "delivery_cursor_create_requires_queued_start"
@@ -131,8 +140,12 @@ class DeliveryCursorControlRuntime:
                     unit_id=request.unit_id,
                     source_offset_frames=request.source_offset_frames,
                     total_source_frames=request.total_source_frames,
-                    evidence=request.evidence,
-                    stop_reason=request.stop_reason,
+                    evidence=DeliveryEvidence(request.evidence),
+                    stop_reason=(
+                        None
+                        if request.stop_reason is None
+                        else DeliveryStopReason(request.stop_reason)
+                    ),
                 )
             return _payload(cursor), None
         except DeliveryCursorConflict:
