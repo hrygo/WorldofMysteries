@@ -1,0 +1,90 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-DEVICE-ROUTE-RECOVERY",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-DEVICE-ROUTE-RECOVERY",
+  "title": "Voice V06 recover playback after audio device graph changes",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-24T21:36:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "95a9db44bd269185527d7a05263aa111ae2263c1",
+    "target_sha": "95a9db44bd269185527d7a05263aa111ae2263c1",
+    "context_snapshot": "sha256:voice-v06-device-route-recovery-95a9db44bd269185527d7a05263aa111ae2263c1"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Media/PlaybackInterruption.swift",
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift",
+      ".agents/capsules/VOICE-V06-DEVICE-ROUTE-RECOVERY.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "docs/07_工程启动/Voice_First_Acceptance_v2.0.md",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md"
+    ],
+    "related_contracts": [
+      "engine_media.schema.json"
+    ],
+    "slice_strategy": "device-graph-change-stop-old-stream-restart-new-generation",
+    "token_estimate": 1600,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Listen for AVAudioEngine configuration changes. While a media session is running, stop local playback first, persist DeliveryCursor media_error, close the old media socket, and require recovery through a strictly newer generation that restarts at sentence offset 0. Do not invent sample-level resume across a changed device graph."
+  },
+  "impact": {
+    "symbols": [
+      "PlaybackInterruptionSource",
+      "SystemPlaybackInterruptionSource",
+      "EngineMediaPlaybackSession.handleDeviceConfigurationChange"
+    ],
+    "contracts": [
+      "engine_media.schema.json"
+    ],
+    "tests": [
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V06-PLAYBACK-CURSOR-MILESTONES",
+      "VOICE-V05-LOW-STIMULATION-PLAYBACK"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      12
+    ],
+    "instructions": "Cover V-DEV-02: an AVAudioEngine device/configuration change must invalidate the current local playback graph and old media stream, persist a non-completed DeliveryCursor stop, and recover only via a newer generation from sentence offset zero. Old-generation PCM must never mix into the recovered stream.",
+    "assertions": [
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}
