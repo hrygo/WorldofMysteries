@@ -1,0 +1,44 @@
+name: Temporary Voice V05 Revision Pins R2 Receipt Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact revision-pin head
+        uses: actions/checkout@v7
+        with:
+          ref: 4a6b7c6b0240ad37ef14a1f24fbd4dec81c51611
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify R2 capsule and print Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "4a6b7c6b0240ad37ef14a1f24fbd4dec81c51611"
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V05-REALTIME-REVISION-PINS-R2.json
+          receipt=".agents/receipts/VOICE-V05-REALTIME-REVISION-PINS/4a6b7c6b0240.json"
+          test -f "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
