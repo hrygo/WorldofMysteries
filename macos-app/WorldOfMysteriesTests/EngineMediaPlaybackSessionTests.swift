@@ -101,6 +101,10 @@ private actor MediaPlaybackBackend: NativePCMPlaybackBackend {
         pending.forEach { $0.resume() }
     }
 
+    func metrics() async -> NativePlaybackBackendMetrics {
+        NativePlaybackBackendMetrics(queueCapacityBytes: 262_144)
+    }
+
     func stop() async {
         await log.append("local_stop")
     }
