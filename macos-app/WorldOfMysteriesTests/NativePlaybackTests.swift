@@ -17,6 +17,7 @@ private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
     private(set) var started: [(Int, Int, Double)] = []
     private(set) var payloads: [Data] = []
     private(set) var stopCount = 0
+    private var metricValue = NativePlaybackBackendMetrics(queueCapacityBytes: 262_144)
 
     init(recorder: PlaybackEventRecorder) {
         self.recorder = recorder
@@ -31,6 +32,10 @@ private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
         #expect(pcm16.count == frameCount * 2)
         payloads.append(pcm16)
         await recorder.record("backend.enqueue")
+    }
+
+    func metrics() async -> NativePlaybackBackendMetrics {
+        metricValue
     }
 
     func stop() async {
@@ -231,5 +236,91 @@ struct LowStimulationVoicePlaybackTests {
                 mode: VoicePlaybackMode.normal
             )
         }
+    }
+}
+
+
+private actor BoundedPlaybackBackend: NativePCMPlaybackBackend {
+    private let capacityBytes: Int
+    private var queuedBytes = 0
+    private var peakQueuedBytes = 0
+    private var saturationCount = 0
+    private var running = false
+
+    init(capacityBytes: Int) {
+        self.capacityBytes = capacityBytes
+    }
+
+    func start(sampleRate: Int, channels: Int, outputGain: Double) async throws {
+        running = true
+        queuedBytes = 0
+        peakQueuedBytes = 0
+        saturationCount = 0
+    }
+
+    func enqueue(pcm16: Data, frameCount: Int) async throws {
+        guard running else { throw NativePlaybackFailure.invalidState }
+        guard queuedBytes + pcm16.count <= capacityBytes else {
+            saturationCount += 1
+            throw NativePlaybackFailure.queueCapacityExceeded
+        }
+        queuedBytes += pcm16.count
+        peakQueuedBytes = max(peakQueuedBytes, queuedBytes)
+    }
+
+    func metrics() async -> NativePlaybackBackendMetrics {
+        NativePlaybackBackendMetrics(
+            queuedBytes: queuedBytes,
+            peakQueuedBytes: peakQueuedBytes,
+            queueCapacityBytes: capacityBytes,
+            saturationCount: saturationCount
+        )
+    }
+
+    func stop() async {
+        running = false
+        queuedBytes = 0
+    }
+}
+
+@Suite("Native playback queue budget metrics")
+struct NativePlaybackQueueBudgetTests {
+    @Test("Queue saturation is bounded, explicit, and observable")
+    func boundedQueue() async throws {
+        let backend = BoundedPlaybackBackend(capacityBytes: 4)
+        let player = NativePlaybackActor(backend: backend)
+        try await player.begin(
+            streamID: "tts_budget",
+            generation: 71,
+            format: MediaFormat(sampleRate: 24_000)
+        )
+
+        let first = MediaChunkHeader(
+            streamId: "tts_budget",
+            generation: 71,
+            sequence: 0,
+            offsetFrames: 0,
+            frameCount: 2,
+            payloadBytes: 4
+        )
+        #expect(try await player.accept(first, payload: Data([1, 0, 2, 0])))
+
+        let second = MediaChunkHeader(
+            streamId: "tts_budget",
+            generation: 71,
+            sequence: 1,
+            offsetFrames: 2,
+            frameCount: 1,
+            payloadBytes: 2
+        )
+        await #expect(throws: NativePlaybackFailure.queueCapacityExceeded) {
+            try await player.accept(second, payload: Data([3, 0]))
+        }
+
+        let metrics = await player.metrics()
+        #expect(metrics.queuedBytes == 4)
+        #expect(metrics.peakQueuedBytes == 4)
+        #expect(metrics.queueCapacityBytes == 4)
+        #expect(metrics.saturationCount == 1)
     }
 }

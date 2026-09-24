@@ -1,0 +1,90 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-PLAYBACK-QUEUE-METRICS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-PLAYBACK-QUEUE-METRICS",
+  "title": "Voice V06 bounded native playback queue and pressure metrics",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-24T21:55:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "de4fd0ce0877f6812c5acba255d9078874e9cfd4",
+    "target_sha": "de4fd0ce0877f6812c5acba255d9078874e9cfd4",
+    "context_snapshot": "sha256:voice-v06-playback-queue-metrics-de4fd0ce0877f6812c5acba255d9078874e9cfd4"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/07_工程启动/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteriesTests/NativePlaybackTests.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift",
+      ".agents/capsules/VOICE-V06-PLAYBACK-QUEUE-METRICS.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "docs/07_工程启动/Voice_First_Acceptance_v2.0.md"
+    ],
+    "related_contracts": [
+      "engine_media.schema.json"
+    ],
+    "slice_strategy": "bounded-native-schedule-queue-and-observable-pressure",
+    "token_estimate": 1700,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "V-DEV-03 local playback safety: bound queued PCM memory, expose current/peak queue and saturation/underrun counters, and keep the AVAudioPlayerNode completion callback free of file/network/blocking work. No media wire or provider changes."
+  },
+  "impact": {
+    "symbols": [
+      "NativePlaybackBackendMetrics",
+      "NativePlaybackActor.metrics",
+      "AVAudioEnginePCMPlaybackBackend.enqueue"
+    ],
+    "contracts": [
+      "engine_media.schema.json"
+    ],
+    "tests": [
+      "macos-app/WorldOfMysteriesTests/NativePlaybackTests.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V06-DEVICE-ROUTE-RECOVERY",
+      "VOICE-V06-PLAYBACK-CURSOR-MILESTONES"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      12
+    ],
+    "instructions": "Cover V-DEV-03 on local playback: queued PCM memory is explicitly bounded; saturation is rejected rather than growing without limit; current/peak queue and saturation/underrun counters are observable; AVAudioPlayerNode completion bookkeeping performs no network/file/blocking work.",
+    "assertions": [
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}

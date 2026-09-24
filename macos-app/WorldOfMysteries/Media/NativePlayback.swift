@@ -10,6 +10,7 @@ public nonisolated enum NativePlaybackFailure: Error, Sendable, Equatable, Local
     case invalidChunk
     case invalidOffset
     case invalidState
+    case queueCapacityExceeded
     case backendFailure
 
     public var errorDescription: String? {
@@ -60,9 +61,38 @@ public nonisolated struct NativePlaybackSnapshot: Sendable, Equatable {
     public var devicePlaybackProvenComplete: Bool { false }
 }
 
+public nonisolated struct NativePlaybackBackendMetrics: Sendable, Equatable {
+    public let queuedFrames: Int64
+    public let peakQueuedFrames: Int64
+    public let queuedBytes: Int
+    public let peakQueuedBytes: Int
+    public let queueCapacityBytes: Int
+    public let saturationCount: Int
+    public let underrunCount: Int
+
+    public init(
+        queuedFrames: Int64 = 0,
+        peakQueuedFrames: Int64 = 0,
+        queuedBytes: Int = 0,
+        peakQueuedBytes: Int = 0,
+        queueCapacityBytes: Int,
+        saturationCount: Int = 0,
+        underrunCount: Int = 0
+    ) {
+        self.queuedFrames = queuedFrames
+        self.peakQueuedFrames = peakQueuedFrames
+        self.queuedBytes = queuedBytes
+        self.peakQueuedBytes = peakQueuedBytes
+        self.queueCapacityBytes = queueCapacityBytes
+        self.saturationCount = saturationCount
+        self.underrunCount = underrunCount
+    }
+}
+
 public nonisolated protocol NativePCMPlaybackBackend: Sendable {
     func start(sampleRate: Int, channels: Int, outputGain: Double) async throws
     func enqueue(pcm16: Data, frameCount: Int) async throws
+    func metrics() async -> NativePlaybackBackendMetrics
     func stop() async
 }
 
@@ -115,6 +145,8 @@ public actor NativePlaybackActor {
                 channels: format.channels,
                 outputGain: mode.outputGain
             )
+        } catch let failure as NativePlaybackFailure {
+            throw failure
         } catch {
             throw NativePlaybackFailure.backendFailure
         }
@@ -155,6 +187,8 @@ public actor NativePlaybackActor {
         let generation = current.generation
         do {
             try await backend.enqueue(pcm16: payload, frameCount: header.frameCount)
+        } catch let failure as NativePlaybackFailure {
+            throw failure
         } catch {
             throw NativePlaybackFailure.backendFailure
         }
@@ -230,6 +264,10 @@ public actor NativePlaybackActor {
         )
     }
 
+    public func metrics() async -> NativePlaybackBackendMetrics {
+        await backend.metrics()
+    }
+
     /// Local invalidation/device stop is completed before provider cancellation
     /// is awaited. This ordering is the barge-in/Stop safety boundary.
     public func stop(providerCancel: @Sendable () async -> Void) async {
@@ -252,8 +290,17 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
     private let player = AVAudioPlayerNode()
     private var format: AVAudioFormat?
     private var running = false
+    private let maxQueuedBytes: Int
+    private var queuedFrames: Int64 = 0
+    private var peakQueuedFrames: Int64 = 0
+    private var queuedBytes = 0
+    private var peakQueuedBytes = 0
+    private var saturationCount = 0
+    private var underrunCount = 0
 
-    public init() {
+    public init(maxQueuedBytes: Int = 256 * 1024) {
+        precondition(maxQueuedBytes > 0)
+        self.maxQueuedBytes = maxQueuedBytes
         engine.attach(player)
     }
 
@@ -274,6 +321,12 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
             player.stop()
             engine.stop()
         }
+        queuedFrames = 0
+        peakQueuedFrames = 0
+        queuedBytes = 0
+        peakQueuedBytes = 0
+        saturationCount = 0
+        underrunCount = 0
         engine.disconnectNodeOutput(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
         engine.prepare()
@@ -291,8 +344,22 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
     public func enqueue(pcm16: Data, frameCount: Int) async throws {
         guard running, let format,
               frameCount > 0,
-              pcm16.count == frameCount * MemoryLayout<Int16>.size,
-              let buffer = AVAudioPCMBuffer(
+              pcm16.count == frameCount * MemoryLayout<Int16>.size
+        else {
+            throw NativePlaybackFailure.invalidChunk
+        }
+
+        guard queuedBytes + pcm16.count <= maxQueuedBytes else {
+            saturationCount += 1
+            throw NativePlaybackFailure.queueCapacityExceeded
+        }
+
+        if !player.isPlaying {
+            underrunCount += 1
+            player.play()
+        }
+
+        guard let buffer = AVAudioPCMBuffer(
                   pcmFormat: format,
                   frameCapacity: AVAudioFrameCount(frameCount)
               ),
@@ -306,7 +373,39 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
             guard let base = raw.baseAddress else { return }
             memcpy(samples, base, pcm16.count)
         }
-        await player.scheduleBuffer(buffer)
+        let bytes = pcm16.count
+        queuedFrames += Int64(frameCount)
+        queuedBytes += bytes
+        peakQueuedFrames = max(peakQueuedFrames, queuedFrames)
+        peakQueuedBytes = max(peakQueuedBytes, queuedBytes)
+
+        player.scheduleBuffer(
+            buffer,
+            completionCallbackType: .dataPlayedBack
+        ) { [weak self] _ in
+            // AVAudioEngine callback stays nonblocking: no file/network access,
+            // no locks, no waiting. Actor bookkeeping is deferred off-callback.
+            Task {
+                await self?.didPlayBuffer(frames: frameCount, bytes: bytes)
+            }
+        }
+    }
+
+    public func metrics() async -> NativePlaybackBackendMetrics {
+        NativePlaybackBackendMetrics(
+            queuedFrames: queuedFrames,
+            peakQueuedFrames: peakQueuedFrames,
+            queuedBytes: queuedBytes,
+            peakQueuedBytes: peakQueuedBytes,
+            queueCapacityBytes: maxQueuedBytes,
+            saturationCount: saturationCount,
+            underrunCount: underrunCount
+        )
+    }
+
+    private func didPlayBuffer(frames: Int, bytes: Int) {
+        queuedFrames = max(0, queuedFrames - Int64(frames))
+        queuedBytes = max(0, queuedBytes - bytes)
     }
 
     public func stop() async {
@@ -314,6 +413,8 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
         engine.stop()
         format = nil
         running = false
+        queuedFrames = 0
+        queuedBytes = 0
     }
 }
 #endif
