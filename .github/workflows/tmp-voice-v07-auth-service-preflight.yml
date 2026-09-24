@@ -1,0 +1,34 @@
+name: Temporary Voice V07 Authorization Service Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact authorization-service head
+        uses: actions/checkout@v7
+        with:
+          ref: e831d1e61cb64d45445f515a050cba5d9162645a
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Focused shared authorization tests
+        working-directory: engine
+        run: uv run --locked --extra dev pytest -q tests/test_speech_unit.py tests/test_voice_runtime.py
