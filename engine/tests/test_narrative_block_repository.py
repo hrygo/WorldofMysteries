@@ -1,8 +1,10 @@
 """W-V05 durable post-COMMIT NarrativeBlock publication tests."""
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 import sqlite3 as stdlib_sqlite3
+import threading
 
 import pytest
 
@@ -219,4 +221,41 @@ async def test_post_commit_transaction_cannot_mutate_world_facts_or_other_presen
             )
         assert await _world_revision(database) == 0
     finally:
+        await database.close()
+
+
+async def test_publish_freezes_narrative_before_writer_queue_wait(tmp_path):
+    database, _ = await _open_database(tmp_path)
+    entered, release = threading.Event(), threading.Event()
+
+    def blocking_writer():
+        entered.set()
+        assert release.wait(5)
+
+    try:
+        await _commit_turn(database)
+        blocker = asyncio.create_task(database._submit(blocking_writer))
+        async with asyncio.timeout(5):
+            while not entered.is_set():
+                await asyncio.sleep(0.001)
+
+        caller_owned = _narrative()
+        publish = asyncio.create_task(
+            SQLiteNarrativeBlockRepository(database).publish(
+                turn_id="turn-voice-1", narrative=caller_owned
+            )
+        )
+        await asyncio.sleep(0)
+        caller_owned.segments[0].text = "调用方排队后篡改文本。"
+        release.set()
+        await blocker
+
+        result = await publish
+        assert result.narrative.segments[0].text == "不要打开那扇门。"
+        persisted = await SQLiteNarrativeBlockRepository(database).load_narrative_block(
+            "narrative-voice-1"
+        )
+        assert persisted.segments[0].text == "不要打开那扇门。"
+    finally:
+        release.set()
         await database.close()

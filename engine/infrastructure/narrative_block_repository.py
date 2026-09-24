@@ -61,10 +61,14 @@ class SQLiteNarrativeBlockRepository:
     ) -> NarrativePublishResult:
         if not isinstance(narrative, NarrativeBlock):
             raise StorageError("Narrative publication requires a typed NarrativeBlock")
-        if narrative.source_state_delta_id is None:
+        if frozen_narrative.source_state_delta_id is None:
             raise StorageError("NarrativeBlock must reference the committed StateDelta")
 
+        # Freeze caller-owned model state before queue admission. Pydantic models
+        # are mutable by default; writer contention must not let later caller
+        # mutation alter the durable payload or identity checks.
         payload_json = _canonical_json(narrative)
+        frozen_narrative = NarrativeBlock.model_validate_json(payload_json)
 
         def apply(tx: PostCommitTransaction):
             turn_rows = tx.execute(
@@ -79,11 +83,11 @@ class SQLiteNarrativeBlockRepository:
                 raise StorageError("TurnTransaction identity mismatch")
             if current.committed_story_revision is None:
                 raise StorageError("Narrative publication requires a committed story revision")
-            if narrative.story_session_id != current.session_id:
+            if frozen_narrative.story_session_id != current.session_id:
                 raise StorageError("NarrativeBlock belongs to another StorySession")
-            if narrative.source_story_revision != current.committed_story_revision:
+            if frozen_narrative.source_story_revision != current.committed_story_revision:
                 raise StorageError("NarrativeBlock story revision does not match committed turn")
-            if narrative.source_state_delta_id != current.state_delta_id:
+            if frozen_narrative.source_state_delta_id != current.state_delta_id:
                 raise StorageError("NarrativeBlock StateDelta does not match committed turn")
 
             existing_rows = tx.execute(
@@ -95,12 +99,12 @@ class SQLiteNarrativeBlockRepository:
                 existing = existing_rows[0]
                 if (
                     current.narrative_block_id != existing["id"]
-                    or existing["id"] != narrative.id
+                    or existing["id"] != frozen_narrative.id
                     or existing["payload_json"] != payload_json
                     or current.status not in self._ALREADY_PUBLISHED
                 ):
                     raise StorageError("Turn already has a different NarrativeBlock")
-                return {"turn": current, "narrative": narrative, "replayed": True}
+                return {"turn": current, "narrative": frozen_narrative, "replayed": True}
 
             if current.narrative_block_id is not None:
                 raise StorageError("Turn references a missing or conflicting NarrativeBlock")
@@ -112,18 +116,18 @@ class SQLiteNarrativeBlockRepository:
                 "id,turn_id,session_id,source_story_revision,source_state_delta_id,payload_json"
                 ") VALUES (?,?,?,?,?,?)",
                 (
-                    narrative.id,
+                    frozen_narrative.id,
                     current.id,
-                    narrative.story_session_id,
-                    narrative.source_story_revision,
-                    narrative.source_state_delta_id,
+                    frozen_narrative.story_session_id,
+                    frozen_narrative.source_story_revision,
+                    frozen_narrative.source_state_delta_id,
                     payload_json,
                 ),
             )
             updated = current.model_copy(
                 update={
                     "status": TurnStatus.NARRATIVE_READY,
-                    "narrative_block_id": narrative.id,
+                    "narrative_block_id": frozen_narrative.id,
                 }
             )
             updated_json = _canonical_json(updated)
@@ -132,7 +136,7 @@ class SQLiteNarrativeBlockRepository:
                 "WHERE id=?",
                 (
                     updated.status.value,
-                    narrative.id,
+                    frozen_narrative.id,
                     updated_json,
                     current.id,
                 ),
@@ -143,15 +147,15 @@ class SQLiteNarrativeBlockRepository:
             )
             if len(persisted) != 1 or persisted[0]["status"] != TurnStatus.NARRATIVE_READY.value:
                 raise StorageError("Narrative publication did not persist turn status")
-            if persisted[0]["narrative_block_id"] != narrative.id:
+            if persisted[0]["narrative_block_id"] != frozen_narrative.id:
                 raise StorageError("Narrative publication did not persist narrative identity")
             if persisted[0]["transaction_json"] != updated_json:
                 raise StorageError("Narrative publication turn JSON is inconsistent")
-            return {"turn": updated, "narrative": narrative, "replayed": False}
+            return {"turn": updated, "narrative": frozen_narrative, "replayed": False}
 
         result = await self.database.post_commit_write(apply)
         authoritative_turn = await self.load_turn(turn_id)
-        authoritative_narrative = await self.load_narrative_block(narrative.id)
+        authoritative_narrative = await self.load_narrative_block(frozen_narrative.id)
         if authoritative_turn != result["turn"] or authoritative_narrative != result["narrative"]:
             raise StorageError("Post-COMMIT narrative result differs from durable state")
         return NarrativePublishResult(
