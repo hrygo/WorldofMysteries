@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact narrative persistence head
         uses: actions/checkout@v7
         with:
-          ref: a346f3de944bebe8766c9070d56b6fc5195e1d30
+          ref: 01cfc57f6ad411c8ff4e6e3ed22adf67b7b1f2a3
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
@@ -30,7 +30,7 @@ jobs:
       - name: Architecture and focused persistence tests
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "a346f3de944bebe8766c9070d56b6fc5195e1d30"
+          test "$(git rev-parse HEAD)" = "01cfc57f6ad411c8ff4e6e3ed22adf67b7b1f2a3"
           python3 scripts/check_architecture_fitness.py
           cd engine
           uv run --locked --extra dev pytest -q \
