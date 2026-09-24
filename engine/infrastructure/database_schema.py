@@ -9,7 +9,7 @@ import stat
 import tempfile
 
 SQLITE_VERSION = '3.53.4'
-SCHEMA_VERSIONS = {'world': 3, 'retrieval': 1, 'runtime': 1}
+SCHEMA_VERSIONS = {'world': 4, 'retrieval': 1, 'runtime': 1}
 SCHEMA_VERSION = SCHEMA_VERSIONS['world']
 APPLICATION_IDS = {'world': 0x574F4D57, 'retrieval': 0x574F4D50, 'runtime': 0x574F4D52}
 

@@ -1,0 +1,111 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-NARRATIVE-PERSISTENCE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-NARRATIVE-PERSISTENCE",
+  "title": "Voice V05 durable post-commit NarrativeBlock persistence",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-24T08:12:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "f291108460c8a551f80b875c0abcebb36f39a846",
+    "target_sha": "f291108460c8a551f80b875c0abcebb36f39a846",
+    "context_snapshot": "sha256:voice-v05-narrative-persistence-f291108460c8a551f80b875c0abcebb36f39a846"
+  },
+  "scope": {
+    "read": [
+      "engine/application/audio_disclosure.py",
+      "engine/application/story_turn_commit.py",
+      "engine/contracts/",
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/004_world_narrative_blocks.sql",
+      "engine/infrastructure/narrative_block_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      "engine/tests/test_narrative_block_repository.py",
+      ".agents/capsules/VOICE-V05-NARRATIVE-PERSISTENCE.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".github/**",
+      ".hacf/**",
+      "contracts/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/004_world_narrative_blocks.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/audio_disclosure.py",
+      "engine/application/story_turn_commit.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/infrastructure/migrations/002_world_story_sessions.sql"
+    ],
+    "related_contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "slice_strategy": "post-commit-expression-transaction-and-durable-narrative",
+    "token_estimate": 2400,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Persist NarrativeBlock and advance only TurnTransaction expression status in a dedicated post-COMMIT transaction. Never create a Domain commit/event/outbox row or advance world_meta.revision."
+  },
+  "impact": {
+    "symbols": [
+      "PostCommitTransaction",
+      "DatabaseManager.post_commit_write",
+      "SQLiteNarrativeBlockRepository"
+    ],
+    "contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_narrative_block_repository.py",
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/004_world_narrative_blocks.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-AUDIO-AUTHORIZATION"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      9,
+      10,
+      11
+    ],
+    "instructions": "NarrativeBlock is a durable post-COMMIT expression artifact. Publication atomically persists the exact block and advances only TurnTransaction narrative metadata/status. It must not advance world_meta.revision or create Domain commit/event/outbox rows. Migration must be backed up and recoverable.",
+    "assertions": [
+      "INV-03",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}

@@ -172,6 +172,43 @@ class PresentationTransaction:
 _PRESENTATION_TABLES = frozenset({'voice_bindings'})
 
 
+class PostCommitTransaction:
+    """Scoped post-COMMIT expression transaction with no world-fact authority."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
+_POST_COMMIT_INSERT_TABLES = frozenset({'narrative_blocks'})
+_POST_COMMIT_UPDATE_COLUMNS = {
+    'turn_transactions': frozenset({'status', 'narrative_block_id', 'transaction_json'}),
+}
+
+
+def _post_commit_authorizer(action, table, column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    table_name = table.lower() if isinstance(table, str) else ''
+    if action == sqlite3.SQLITE_INSERT:
+        return sqlite3.SQLITE_OK if table_name in _POST_COMMIT_INSERT_TABLES else sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_UPDATE:
+        allowed = _POST_COMMIT_UPDATE_COLUMNS.get(table_name, frozenset())
+        return sqlite3.SQLITE_OK if column in allowed else sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_DELETE:
+        return sqlite3.SQLITE_DENY
+    if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, sqlite3.SQLITE_RECURSIVE):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 def _presentation_authorizer(action, table, _column, database, _trigger):
     if database not in (None, 'main'):
         return sqlite3.SQLITE_DENY
@@ -328,6 +365,36 @@ class DatabaseManager:
 
     async def read_canon(self, sql: str, parameters: tuple = ()) -> list[dict]:
         return await self._submit(lambda: read_rows(self.paths.canon, sql, tuple(parameters)), read=True)
+
+    async def post_commit_write(self, apply: Callable[[PostCommitTransaction], object]) -> object:
+        """Persist post-COMMIT expression state without advancing world facts."""
+        if not callable(apply):
+            raise StorageError('Post-COMMIT write requires a synchronous repository operation')
+        return await self._submit(lambda: self._post_commit_write(apply))
+
+    def _post_commit_write(self, apply):
+        self._check_world_identity()
+        conn = self._connection
+        conn.execute('BEGIN IMMEDIATE')
+        tx = PostCommitTransaction(conn)
+        conn.set_authorizer(_post_commit_authorizer)
+        try:
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError('Post-COMMIT repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
+            conn.execute('COMMIT')
+            return value
+        except BaseException:
+            conn.set_authorizer(None)
+            if conn.in_transaction:
+                conn.execute('ROLLBACK')
+            raise
 
     async def presentation_write(self, apply: Callable[[PresentationTransaction], object]) -> object:
         """Persist presentation-only state without advancing Domain world revision."""
