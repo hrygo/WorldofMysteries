@@ -1,0 +1,41 @@
+name: Temporary Voice Render Runtime IPC Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact runtime IPC head
+        uses: actions/checkout@v7
+        with:
+          ref: 84be3c2044908d5c06f58a31f5f52281a87cdb7a
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Focused Engine runtime tests
+        working-directory: engine
+        run: uv run --locked --extra dev pytest -q tests/test_speech_unit.py tests/test_voice_runtime.py tests/test_ipc_server.py
+      - name: Swift IPC/voice compile and focused tests
+        working-directory: macos-app
+        run: swift test --scratch-path .build --filter 'VoiceRenderControlTests|EngineSessionTests'
