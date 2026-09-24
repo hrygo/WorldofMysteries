@@ -253,25 +253,44 @@ def test_manifest_hmac_key_is_mandatory_and_never_has_a_weak_default(tmp_path):
         )
 
 
-async def test_authenticated_manifest_detects_database_row_metadata_tampering(tmp_path):
+async def test_audio_asset_transaction_is_insert_only_and_authenticated_manifest_detects_external_row_tampering(tmp_path):
     database, paths = await open_database(tmp_path)
     assets = paths.world.parent / "assets"
-    try:
-        store = SQLiteAudioTakeStore(
-            database,
-            assets,
-            manifest_hmac_key=b"e" * 32,
-        )
-        published = await store.publish_pcm(recipe(), outcome(), pcm())
+    store = SQLiteAudioTakeStore(
+        database,
+        assets,
+        manifest_hmac_key=b"e" * 32,
+    )
+    published = await store.publish_pcm(recipe(), outcome(), pcm())
 
-        await database.presentation_write(
+    with pytest.raises(sqlite3.DatabaseError):
+        await database.audio_asset_write(
             lambda tx: tx.execute(
                 "UPDATE audio_takes SET duration_ms=duration_ms+1 WHERE take_id=?",
                 (published.take_id,),
             )
         )
 
+    await database.close()
+
+    from infrastructure.database_schema import connect
+    from contextlib import closing
+    with closing(connect(paths.world)) as conn:
+        conn.execute(
+            "UPDATE audio_takes SET duration_ms=duration_ms+1 WHERE take_id=?",
+            (published.take_id,),
+        )
+
+    reopened = await DatabaseManager.open(
+        paths, expected_sqlite_version=sqlite3.sqlite_version
+    )
+    try:
+        store = SQLiteAudioTakeStore(
+            reopened,
+            assets,
+            manifest_hmac_key=b"e" * 32,
+        )
         with pytest.raises(StorageError, match="does not match authenticated"):
             await store.load(recipe().render_key)
     finally:
-        await database.close()
+        await reopened.close()

@@ -22,7 +22,7 @@ import stat
 import tempfile
 from typing import Callable, Mapping
 
-from .database_manager import DatabaseManager, PresentationTransaction
+from .database_manager import AudioAssetTransaction, DatabaseManager
 from .database_schema import StorageError
 
 
@@ -280,7 +280,7 @@ class SQLiteAudioTakeStore:
             raise StorageError("Published AudioTake path does not match RenderManifest")
         self._hit("after_asset_publish")
 
-        def apply(tx: PresentationTransaction):
+        def apply(tx: AudioAssetTransaction):
             rows = tx.execute(
                 "SELECT * FROM audio_takes WHERE render_key=?",
                 (render_key,),
@@ -318,7 +318,7 @@ class SQLiteAudioTakeStore:
             )
             return False
 
-        replayed = bool(await self._database.presentation_write(apply))
+        replayed = bool(await self._database.audio_asset_write(apply))
         self._hit("after_database_commit")
         return PublishedAudioTake(
             take_id=take_id,

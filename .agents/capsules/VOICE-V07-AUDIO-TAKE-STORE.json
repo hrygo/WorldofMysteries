@@ -58,14 +58,15 @@
     "token_estimate": 2800,
     "max_core_tokens": 3500,
     "expansion_policy": "arbiter_approved",
-    "note": "V-CACHE-01/03 foundation. Dry RenderKey contains exact model/voice/pronunciation/native-backend identity but excludes local playback/scene effects. RenderManifest requires an injected >=32-byte HMAC key. Publication is partial->fsync->atomic final link->directory fsync->world.db complete row so a crash can leave only a detectable orphan, never a phantom complete take."
+    "note": "V-CACHE-01/03 foundation. Dry RenderKey contains exact model/voice/pronunciation/native-backend identity but excludes local playback/scene effects. RenderManifest requires an injected >=32-byte HMAC key. Publication is partial->fsync->atomic final link->directory fsync->world.db complete row. The DB row is inserted through a dedicated insert-only AudioAssetTransaction; UPDATE/DELETE are denied. A crash can leave only a detectable orphan, never a phantom complete take."
   },
   "impact": {
     "symbols": [
       "DryRenderRecipe",
       "RenderManifestSigner",
       "SQLiteAudioTakeStore",
-      "DatabaseManager.presentation_write"
+      "AudioAssetTransaction",
+      "DatabaseManager.audio_asset_write"
     ],
     "contracts": [
       "audio_asset_ref.schema.json"
@@ -98,7 +99,7 @@
       10,
       11
     ],
-    "instructions": "Persist complete dry AudioTakes without advancing world facts. RenderKey must separate exact model/voice/pronunciation/native-backend identity and exclude local scene/playback concerns. RenderManifest must be HMAC-authenticated with an external key. File publication must be durable and atomic before DB registration; crashes before DB commit may leave detectable orphan files but never complete rows referencing partial/missing assets.",
+    "instructions": "Persist complete dry AudioTakes without advancing world facts. RenderKey must separate exact model/voice/pronunciation/native-backend identity and exclude local scene/playback concerns. RenderManifest must be HMAC-authenticated with an external key. File publication must be durable and atomic before DB registration; audio_takes DB authority is insert-only in this slice, and crashes before DB commit may leave detectable orphan files but never complete rows referencing partial/missing assets.",
     "assertions": [
       "INV-03",
       "INV-09",
