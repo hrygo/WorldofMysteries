@@ -1,0 +1,97 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-PLAYBACK-CURSOR-MILESTONES",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-PLAYBACK-CURSOR-MILESTONES",
+  "title": "Voice V06 playback-owned DeliveryCursor milestones and sentence restart",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-24T18:35:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "34f30d5c76429eb7c3fcfade046a8c8980af83b6",
+    "target_sha": "34f30d5c76429eb7c3fcfade046a8c8980af83b6",
+    "context_snapshot": "sha256:voice-v06-playback-cursor-milestones-34f30d5c76429eb7c3fcfade046a8c8980af83b6"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/EngineRuntimeModels.swift",
+      "macos-app/WorldOfMysteries/Media/",
+      "macos-app/WorldOfMysteriesTests/",
+      "contracts/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift",
+      ".agents/capsules/VOICE-V06-PLAYBACK-CURSOR-MILESTONES.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/EngineRuntimeModels.swift",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md"
+    ],
+    "related_contracts": [
+      "voice_delivery_cursor.schema.json",
+      "engine_media.schema.json"
+    ],
+    "slice_strategy": "playback-owned-cursor-evidence-with-sentence-start-recovery",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Playback owns cursor evidence. Before media OPEN it creates/advances the new generation at queued sentence start; after local PCM enqueue it records scheduled source offset; only explicit retireEndedPresentation records rendered_estimate/completed. Stop maps user/supersede/suspend/timeout to durable stop reasons without ever claiming measured loopback."
+  },
+  "impact": {
+    "symbols": [
+      "VoiceDeliverySessionContext",
+      "VoiceDeliveryCursorReporting",
+      "EngineMediaPlaybackSession.beginDeliveryCursor",
+      "EngineMediaPlaybackSession.recordScheduledOffset",
+      "EngineMediaPlaybackSession.recordRenderedEstimate"
+    ],
+    "contracts": [
+      "voice_delivery_cursor.schema.json",
+      "engine_media.schema.json"
+    ],
+    "tests": [
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V06-DELIVERY-IPC",
+      "VOICE-V06-DELIVERY-CURSOR"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      12
+    ],
+    "instructions": "EngineMediaPlaybackSession must persist queued before media OPEN, scheduled only after accepted local enqueue, rendered_estimate only during explicit ended-presentation retirement, and durable stop reasons without promoting estimates to fully_output. Existing cursor recovery must use a strictly newer generation restarted at sentence offset 0; same/older generations fail closed.",
+    "assertions": [
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}

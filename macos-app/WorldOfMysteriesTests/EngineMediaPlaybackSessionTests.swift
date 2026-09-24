@@ -338,3 +338,179 @@ struct EngineMediaPlaybackPerformanceTests {
         #expect(await task.value == .cancelled)
     }
 }
+
+
+private actor FakeVoiceDeliveryReporter: VoiceDeliveryCursorReporting {
+    private var cursor: VoiceDeliveryCursorDTO?
+    private(set) var updates: [VoiceDeliveryCursorUpdateDTO] = []
+
+    init(cursor: VoiceDeliveryCursorDTO? = nil) {
+        self.cursor = cursor
+    }
+
+    func loadVoiceDeliveryCursor(
+        trackId: String,
+        consumerId: String,
+        traceId: String
+    ) async throws -> VoiceDeliveryCursorDTO? {
+        cursor
+    }
+
+    func updateVoiceDeliveryCursor(
+        _ request: VoiceDeliveryCursorUpdateDTO,
+        traceId: String
+    ) async throws -> VoiceDeliveryCursorDTO {
+        updates.append(request)
+        let next = VoiceDeliveryCursorDTO(
+            trackId: request.trackId,
+            consumerId: request.consumerId,
+            unitId: request.unitId,
+            generation: request.generation,
+            sourceOffsetFrames: request.sourceOffsetFrames,
+            totalSourceFrames: request.totalSourceFrames,
+            evidence: request.evidence,
+            stopReason: request.stopReason,
+            cursorRevision: request.expectedCursorRevision + 1,
+            fullyOutput: false
+        )
+        cursor = next
+        return next
+    }
+
+    func snapshotUpdates() -> [VoiceDeliveryCursorUpdateDTO] { updates }
+}
+
+@Suite("Engine media playback DeliveryCursor milestones")
+struct EngineMediaPlaybackCursorTests {
+    @Test("Queued precedes OPEN and scheduled follows local enqueue")
+    func queuedThenScheduled() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let playback = NativePlaybackActor(backend: backend)
+        let reporter = FakeVoiceDeliveryReporter()
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-cursor"),
+            "trace_id": .string("trace-cursor"),
+            "engine_epoch": .string("engine-cursor"),
+            "generation": .int(41),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: playback,
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-1",
+                consumerId: "local-playback",
+                unitId: "speech-1"
+            )
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        var updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 1)
+        #expect(updates[0].evidence == .queued)
+        #expect(updates[0].sourceOffsetFrames == 0)
+        #expect(updates[0].expectedCursorRevision == 0)
+
+        let pcm = Data([1, 0, 2, 0])
+        await transport.push(
+            MediaFrame(
+                header: .chunk(
+                    MediaChunkHeader(
+                        streamId: "tts-cursor",
+                        generation: 41,
+                        sequence: 0,
+                        offsetFrames: 0,
+                        frameCount: 2,
+                        payloadBytes: pcm.count
+                    )
+                ),
+                payload: pcm
+            )
+        )
+        await transport.waitForSentCount(2)
+        updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 2)
+        #expect(updates[1].evidence == .scheduled)
+        #expect(updates[1].sourceOffsetFrames == 2)
+
+        await session.stop()
+        #expect(await task.value == .cancelled)
+    }
+
+    @Test("Existing cursor forces a new generation to restart at sentence start")
+    func restartFromSentenceStart() async throws {
+        let existing = VoiceDeliveryCursorDTO(
+            trackId: "track-1",
+            consumerId: "local-playback",
+            unitId: "speech-old",
+            generation: 8,
+            sourceOffsetFrames: 200,
+            totalSourceFrames: 500,
+            evidence: .renderedEstimate,
+            stopReason: .suspend,
+            cursorRevision: 4,
+            fullyOutput: false
+        )
+        let reporter = FakeVoiceDeliveryReporter(cursor: existing)
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-restart"),
+            "trace_id": .string("trace-restart"),
+            "engine_epoch": .string("engine-restart"),
+            "generation": .int(9),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: NativePlaybackActor(backend: backend),
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-1",
+                consumerId: "local-playback",
+                unitId: "speech-1"
+            )
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 1)
+        #expect(updates[0].generation == 9)
+        #expect(updates[0].sourceOffsetFrames == 0)
+        #expect(updates[0].evidence == .queued)
+        #expect(updates[0].expectedCursorRevision == 4)
+
+        await session.stop(reason: .sessionClosed)
+        #expect(await task.value == .cancelled)
+    }
+}
