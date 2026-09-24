@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact DeliveryCursor head
         uses: actions/checkout@v7
         with:
-          ref: 90a91ba4ae1e57f074f49de511a31832a02ef541
+          ref: ee159b2dc4f9b5e448e2345f99d5c80722890bcf
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
