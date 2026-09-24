@@ -1,0 +1,44 @@
+name: Temporary Voice V07 AudioTake Receipt Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact AudioTake head
+        uses: actions/checkout@v7
+        with:
+          ref: 1c27dfcc844189f0174f3c7af38d6ef2e5b365c2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify capsule and print Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "1c27dfcc844189f0174f3c7af38d6ef2e5b365c2"
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V07-AUDIO-TAKE-STORE.json
+          receipt=".agents/receipts/VOICE-V07-AUDIO-TAKE-STORE/1c27dfcc8441.json"
+          test -f "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
