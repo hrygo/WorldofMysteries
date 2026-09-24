@@ -71,9 +71,6 @@ def _delta() -> StateDelta:
             "outcome": "clean_success",
             "story_delta": {},
             "character_deltas": [],
-            "relationship_deltas": None,
-            "knowledge_candidates": None,
-            "pressure_delta": None,
             "world_event_candidates": [],
             "evidence_ids": [],
         }
