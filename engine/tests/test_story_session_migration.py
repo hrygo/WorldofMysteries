@@ -244,7 +244,7 @@ def test_existing_v4_world_gets_delivery_cursor_table_with_recoverable_backup(tm
         initialize(conn, "world", path=path)
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         assert conn.execute(
-            "SELECT session_id FROM story_sessions WHERE session_id='session-v4'"
+            "SELECT id FROM story_sessions WHERE id='session-v4'"
         ).fetchone()[0] == "session-v4"
         integrity(conn)
 
