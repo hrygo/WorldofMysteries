@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact stacked head
         uses: actions/checkout@v7
         with:
-          ref: eccef75da580bf3fd699f99353da11e8165c38d3
+          ref: 831d0ea52d32ba70713173044a042e38b4755a33
           fetch-depth: 0
           persist-credentials: false
       - name: Select Xcode toolchain
