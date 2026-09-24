@@ -14,7 +14,7 @@ private actor PlaybackEventRecorder {
 
 private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
     private let recorder: PlaybackEventRecorder
-    private(set) var started: [(Int, Int)] = []
+    private(set) var started: [(Int, Int, Double)] = []
     private(set) var payloads: [Data] = []
     private(set) var stopCount = 0
 
@@ -22,8 +22,8 @@ private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
         self.recorder = recorder
     }
 
-    func start(sampleRate: Int, channels: Int) async throws {
-        started.append((sampleRate, channels))
+    func start(sampleRate: Int, channels: Int, outputGain: Double) async throws {
+        started.append((sampleRate, channels, outputGain))
         await recorder.record("backend.start")
     }
 
@@ -89,6 +89,9 @@ struct NativePlaybackTests {
         #expect(snapshot.scheduledFrames == 3)
         #expect(snapshot.mediaStreamEnded)
         #expect(snapshot.evidence == .scheduled)
+        #expect(snapshot.mode == .normal)
+        #expect(snapshot.outputGain == 1.0)
+        #expect(await backend.started == [(24_000, 1, 1.0)])
         #expect(await backend.payloads == [Data([1, 0, 2, 0]), Data([3, 0])])
     }
 
@@ -191,3 +194,29 @@ struct NativePlaybackTests {
         }
     }
 }
+
+
+    @Test("Low-stimulation mode caps local gain while preserving a single clear stream")
+    func lowStimulationGain() async throws {
+        let (player, backend, _) = makePlayer()
+        try await player.begin(
+            streamID: "tts_low",
+            generation: 21,
+            format: .init(sampleRate: 24_000),
+            mode: .lowStimulation
+        )
+
+        let snapshot = try #require(await player.snapshot())
+        #expect(snapshot.mode == .lowStimulation)
+        #expect(snapshot.outputGain == 0.45)
+        #expect(await backend.started == [(24_000, 1, 0.45)])
+
+        await #expect(throws: NativePlaybackFailure.invalidState) {
+            try await player.begin(
+                streamID: "tts_overlap",
+                generation: 22,
+                format: .init(sampleRate: 24_000),
+                mode: .normal
+            )
+        }
+    }

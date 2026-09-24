@@ -1,0 +1,91 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V05-LOW-STIMULATION-PLAYBACK",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V05-LOW-STIMULATION-PLAYBACK",
+  "title": "Voice V05 low-stimulation single-primary playback mode",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-24T16:50:00+08:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "940cf23a9d713aa3a0c45101ad240caa241a363b",
+    "target_sha": "940cf23a9d713aa3a0c45101ad240caa241a363b",
+    "context_snapshot": "sha256:voice-v05-low-stimulation-playback-940cf23a9d713aa3a0c45101ad240caa241a363b"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/voice/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "macos-app/WorldOfMysteriesTests/NativePlaybackTests.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift",
+      ".agents/capsules/VOICE-V05-LOW-STIMULATION-PLAYBACK.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/Media/EngineMediaPlaybackSession.swift",
+      "docs/07_工程启动/Voice_First_Acceptance_v2.0.md",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [
+      "engine_media.schema.json"
+    ],
+    "slice_strategy": "local-single-primary-low-gain-playback-mode",
+    "token_estimate": 1500,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "V-PERF-03 local presentation only. Low-stimulation mode caps output gain at 0.45 before media OPEN and NativePlaybackActor continues to reject a second active stream. No provider, Domain, media wire, cloud or factual state change."
+  },
+  "impact": {
+    "symbols": [
+      "VoicePlaybackMode",
+      "NativePlaybackActor.begin",
+      "AVAudioEnginePCMPlaybackBackend.start",
+      "EngineMediaPlaybackSession"
+    ],
+    "contracts": [
+      "engine_media.schema.json"
+    ],
+    "tests": [
+      "macos-app/WorldOfMysteriesTests/NativePlaybackTests.swift",
+      "macos-app/WorldOfMysteriesTests/EngineMediaPlaybackSessionTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-RENDER-RUNTIME"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      12
+    ],
+    "instructions": "Provide a local low-stimulation voice playback mode that keeps one primary active stream and caps device playback gain without altering provider audio, media wire, Domain facts or cloud behavior. The applied mode/gain must be observable in playback state for verification.",
+    "assertions": [
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}

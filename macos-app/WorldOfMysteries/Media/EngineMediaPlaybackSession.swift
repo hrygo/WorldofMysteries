@@ -35,6 +35,7 @@ public actor EngineMediaPlaybackSession {
     private let grant: MediaOpenGrant
     private let transport: any MediaFrameTransport
     private let playback: NativePlaybackActor
+    private let playbackMode: VoicePlaybackMode
     private let connectTimeout: TimeInterval
     private var phase: Phase = .idle
     private var stopRequested = false
@@ -43,11 +44,13 @@ public actor EngineMediaPlaybackSession {
         grant: MediaOpenGrant,
         transport: any MediaFrameTransport = UnixMediaFrameTransport(),
         playback: NativePlaybackActor,
+        playbackMode: VoicePlaybackMode = .normal,
         connectTimeout: TimeInterval = 5
     ) {
         self.grant = grant
         self.transport = transport
         self.playback = playback
+        self.playbackMode = playbackMode
         self.connectTimeout = connectTimeout
     }
 
@@ -71,7 +74,8 @@ public actor EngineMediaPlaybackSession {
             try await playback.begin(
                 streamID: grant.streamId,
                 generation: grant.generation,
-                format: grant.format
+                format: grant.format,
+                mode: playbackMode
             )
             phase = .running
 
