@@ -179,3 +179,55 @@ def test_existing_v3_world_gets_narrative_table_with_recoverable_backup(tmp_path
     backup = path.with_name("world.db.pre-migration-v3-to-v5.bak")
     assert backup.is_file() and _version(backup) == 3
     assert "narrative_blocks" not in _tables(backup)
+
+
+
+def _build_v4_world(path: Path, *, store_id: str = "store-v4") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(connect(path)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        directory = Path(database_schema.__file__).with_name("migrations")
+        for version in (1, 2, 3, 4):
+            script = next(directory.glob(f"{version:03}_world*.sql"))
+            for statement in statements(script.read_text(encoding="utf-8")):
+                conn.execute(statement)
+        conn.execute(f"PRAGMA application_id={APPLICATION_IDS['world']}")
+        conn.execute("PRAGMA user_version=4")
+        conn.execute("INSERT INTO world_meta VALUES (1, ?, 0)", (store_id,))
+        conn.execute(
+            "INSERT INTO story_sessions("
+            "session_id,world_id,worldline_id,episode_id,protagonist_id,"
+            "story_revision,status,session_json"
+            ") VALUES (?,?,?,?,?,?,?,?)",
+            (
+                "session-v4",
+                "world-v4",
+                "line-v4",
+                "hero-v4",
+                "klein-v4",
+                0,
+                "active",
+                '{"schema_version":"1.0","id":"session-v4"}',
+            ),
+        )
+        conn.execute("COMMIT")
+        integrity(conn)
+
+
+def test_existing_v4_world_gets_delivery_cursor_table_with_recoverable_backup(tmp_path):
+    path = tmp_path / "Worlds" / "v4-existing" / "world.db"
+    _build_v4_world(path)
+
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute(
+            "SELECT session_id FROM story_sessions WHERE session_id='session-v4'"
+        ).fetchone()[0] == "session-v4"
+        integrity(conn)
+
+    assert "delivery_cursors" in _tables(path)
+    backup = path.with_name("world.db.pre-migration-v4-to-v5.bak")
+    assert backup.is_file() and _version(backup) == 4
+    assert "narrative_blocks" in _tables(backup)
+    assert "delivery_cursors" not in _tables(backup)
