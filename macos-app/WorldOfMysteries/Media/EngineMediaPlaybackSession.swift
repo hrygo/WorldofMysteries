@@ -188,6 +188,7 @@ public actor EngineMediaPlaybackSession {
                     else {
                         throw EngineMediaPlaybackFailure.protocolViolation(.streamIdentityMismatch)
                     }
+                    await recordStopped(reason: header.reason)
                     await playback.stop(providerCancel: {})
                     phase = .stopped
                     await transport.close()
@@ -199,6 +200,7 @@ public actor EngineMediaPlaybackSession {
                     else {
                         throw EngineMediaPlaybackFailure.protocolViolation(.streamIdentityMismatch)
                     }
+                    await recordDeliveryStop(.mediaError)
                     await playback.stop(providerCancel: {})
                     phase = .stopped
                     await transport.close()
@@ -370,7 +372,6 @@ public actor EngineMediaPlaybackSession {
     }
 
     private func recordStopped(reason: MediaCancelReason) async {
-        guard let deliveryReporter, let deliveryContext, let current = deliveryCursor else { return }
         let stopReason: VoiceDeliveryStopReason
         switch reason {
         case .userStop: stopReason = .userStop
@@ -378,6 +379,11 @@ public actor EngineMediaPlaybackSession {
         case .sessionClosed, .shutdown: stopReason = .suspend
         case .timeout: stopReason = .mediaError
         }
+        await recordDeliveryStop(stopReason)
+    }
+
+    private func recordDeliveryStop(_ stopReason: VoiceDeliveryStopReason) async {
+        guard let deliveryReporter, let deliveryContext, let current = deliveryCursor else { return }
         deliveryCursor = try? await deliveryReporter.updateVoiceDeliveryCursor(
             VoiceDeliveryCursorUpdateDTO(
                 trackId: deliveryContext.trackId,
@@ -395,6 +401,7 @@ public actor EngineMediaPlaybackSession {
     }
 
     private func failClosed() async {
+        await recordDeliveryStop(.mediaError)
         await playback.stop(providerCancel: {})
         await transport.close()
         phase = .stopped

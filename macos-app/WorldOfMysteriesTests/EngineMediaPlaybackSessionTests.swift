@@ -514,3 +514,127 @@ struct EngineMediaPlaybackCursorTests {
         #expect(await task.value == .cancelled)
     }
 }
+
+
+extension EngineMediaPlaybackCursorTests {
+    @Test("Remote media cancel persists the mapped durable stop reason")
+    func remoteCancelPersistsStopReason() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let reporter = FakeVoiceDeliveryReporter()
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-remote-cancel"),
+            "trace_id": .string("trace-remote-cancel"),
+            "engine_epoch": .string("engine-remote-cancel"),
+            "generation": .int(51),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: NativePlaybackActor(backend: backend),
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-remote-cancel",
+                consumerId: "local-playback",
+                unitId: "speech-remote-cancel"
+            )
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        await transport.push(
+            MediaFrame(
+                header: .cancel(
+                    MediaCancelHeader(
+                        streamId: "tts-remote-cancel",
+                        generation: 51,
+                        reason: .superseded
+                    )
+                )
+            )
+        )
+
+        #expect(await task.value == .cancelled)
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 2)
+        #expect(updates[1].stopReason == .superseded)
+        #expect(updates[1].evidence == .queued)
+        #expect(updates[1].sourceOffsetFrames == 0)
+    }
+
+    @Test("Remote media error persists media_error without promoting completion")
+    func remoteErrorPersistsMediaError() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let reporter = FakeVoiceDeliveryReporter()
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-remote-error"),
+            "trace_id": .string("trace-remote-error"),
+            "engine_epoch": .string("engine-remote-error"),
+            "generation": .int(52),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: NativePlaybackActor(backend: backend),
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-remote-error",
+                consumerId: "local-playback",
+                unitId: "speech-remote-error"
+            )
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        await transport.push(
+            MediaFrame(
+                header: .error(
+                    MediaErrorHeader(
+                        streamId: "tts-remote-error",
+                        generation: 52,
+                        code: "provider_failed",
+                        message: "failed",
+                        retryable: false
+                    )
+                )
+            )
+        )
+
+        guard case .failed(.remoteError(code: "provider_failed")) = await task.value else {
+            Issue.record("Expected remote media error")
+            return
+        }
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 2)
+        #expect(updates[1].stopReason == .mediaError)
+        #expect(updates[1].evidence == .queued)
+        #expect(updates[1].fullyOutput == nil)
+    }
+}
