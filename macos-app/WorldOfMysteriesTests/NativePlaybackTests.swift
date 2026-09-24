@@ -91,7 +91,11 @@ struct NativePlaybackTests {
         #expect(snapshot.evidence == .scheduled)
         #expect(snapshot.mode == .normal)
         #expect(snapshot.outputGain == 1.0)
-        #expect(await backend.started == [(24_000, 1, 1.0)])
+        let starts = await backend.started
+        #expect(starts.count == 1)
+        #expect(starts[0].0 == 24_000)
+        #expect(starts[0].1 == 1)
+        #expect(starts[0].2 == 1.0)
         #expect(await backend.payloads == [Data([1, 0, 2, 0]), Data([3, 0])])
     }
 
@@ -209,7 +213,11 @@ struct NativePlaybackTests {
         let snapshot = try #require(await player.snapshot())
         #expect(snapshot.mode == .lowStimulation)
         #expect(snapshot.outputGain == 0.45)
-        #expect(await backend.started == [(24_000, 1, 0.45)])
+        let starts = await backend.started
+        #expect(starts.count == 1)
+        #expect(starts[0].0 == 24_000)
+        #expect(starts[0].1 == 1)
+        #expect(starts[0].2 == 0.45)
 
         await #expect(throws: NativePlaybackFailure.invalidState) {
             try await player.begin(
