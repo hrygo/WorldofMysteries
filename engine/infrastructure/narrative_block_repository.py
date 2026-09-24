@@ -61,14 +61,14 @@ class SQLiteNarrativeBlockRepository:
     ) -> NarrativePublishResult:
         if not isinstance(narrative, NarrativeBlock):
             raise StorageError("Narrative publication requires a typed NarrativeBlock")
-        if frozen_narrative.source_state_delta_id is None:
-            raise StorageError("NarrativeBlock must reference the committed StateDelta")
 
         # Freeze caller-owned model state before queue admission. Pydantic models
         # are mutable by default; writer contention must not let later caller
         # mutation alter the durable payload or identity checks.
         payload_json = _canonical_json(narrative)
         frozen_narrative = NarrativeBlock.model_validate_json(payload_json)
+        if frozen_narrative.source_state_delta_id is None:
+            raise StorageError("NarrativeBlock must reference the committed StateDelta")
 
         def apply(tx: PostCommitTransaction):
             turn_rows = tx.execute(
