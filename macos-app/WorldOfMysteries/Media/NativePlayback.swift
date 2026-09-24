@@ -29,6 +29,18 @@ public nonisolated enum PlaybackCompletionEvidence: String, Sendable, Equatable 
     case renderedEstimate = "rendered_estimate"
 }
 
+public nonisolated enum VoicePlaybackMode: String, Sendable, Equatable {
+    case normal
+    case lowStimulation = "low_stimulation"
+
+    public var outputGain: Double {
+        switch self {
+        case .normal: 1.0
+        case .lowStimulation: 0.45
+        }
+    }
+}
+
 public nonisolated struct NativePlaybackSnapshot: Sendable, Equatable {
     public let streamID: String
     public let generation: Int64
@@ -37,6 +49,8 @@ public nonisolated struct NativePlaybackSnapshot: Sendable, Equatable {
     public let providerTerminal: PlaybackProviderTerminal
     public let mediaStreamEnded: Bool
     public let evidence: PlaybackCompletionEvidence
+    public let mode: VoicePlaybackMode
+    public let outputGain: Double
 
     public var providerCompleted: Bool { providerTerminal == .completed }
 
@@ -47,7 +61,7 @@ public nonisolated struct NativePlaybackSnapshot: Sendable, Equatable {
 }
 
 public nonisolated protocol NativePCMPlaybackBackend: Sendable {
-    func start(sampleRate: Int, channels: Int) async throws
+    func start(sampleRate: Int, channels: Int, outputGain: Double) async throws
     func enqueue(pcm16: Data, frameCount: Int) async throws
     func stop() async
 }
@@ -62,6 +76,8 @@ public actor NativePlaybackActor {
         let streamID: String
         let generation: Int64
         let format: MediaFormat
+        let mode: VoicePlaybackMode
+        let outputGain: Double
         var scheduledFrames: Int64 = 0
         var renderedEstimateFrames: Int64 = 0
         var providerTerminal: PlaybackProviderTerminal = .none
@@ -79,7 +95,8 @@ public actor NativePlaybackActor {
     public func begin(
         streamID: String,
         generation: Int64,
-        format: MediaFormat
+        format: MediaFormat,
+        mode: VoicePlaybackMode = .normal
     ) async throws {
         guard active == nil else { throw NativePlaybackFailure.invalidState }
         guard !streamID.isEmpty, generation >= 0, generation > highestGeneration else {
@@ -93,12 +110,22 @@ public actor NativePlaybackActor {
         }
 
         do {
-            try await backend.start(sampleRate: format.sampleRate, channels: format.channels)
+            try await backend.start(
+                sampleRate: format.sampleRate,
+                channels: format.channels,
+                outputGain: mode.outputGain
+            )
         } catch {
             throw NativePlaybackFailure.backendFailure
         }
         highestGeneration = generation
-        active = ActivePlayback(streamID: streamID, generation: generation, format: format)
+        active = ActivePlayback(
+            streamID: streamID,
+            generation: generation,
+            format: format,
+            mode: mode,
+            outputGain: mode.outputGain
+        )
     }
 
     /// Returns false for a stale generation. Stale PCM is intentionally dropped
@@ -197,7 +224,9 @@ public actor NativePlaybackActor {
             renderedEstimateFrames: current.renderedEstimateFrames,
             providerTerminal: current.providerTerminal,
             mediaStreamEnded: current.mediaStreamEnded,
-            evidence: evidence
+            evidence: evidence,
+            mode: current.mode,
+            outputGain: current.outputGain
         )
     }
 
@@ -228,8 +257,9 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
         engine.attach(player)
     }
 
-    public func start(sampleRate: Int, channels: Int) async throws {
+    public func start(sampleRate: Int, channels: Int, outputGain: Double) async throws {
         guard sampleRate == 24_000, channels == 1,
+              outputGain.isFinite, outputGain > 0, outputGain <= 1.0,
               let format = AVAudioFormat(
                   commonFormat: .pcmFormatInt16,
                   sampleRate: Double(sampleRate),
@@ -252,6 +282,7 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
         } catch {
             throw NativePlaybackFailure.backendFailure
         }
+        player.volume = Float(outputGain)
         player.play()
         self.format = format
         running = true
