@@ -48,6 +48,34 @@ struct EngineSessionTests {
         }
     }
 
+    @Test("Voice render cannot bypass authenticated Engine capability negotiation")
+    func voiceRenderRequiresAuthenticatedConnection() async {
+        let client = EngineIPCClient(requestTimeout: 0.1)
+        let request = VoiceRenderControlRequestDTO(
+            schemaVersion: "1.0",
+            speechUnitId: "speech_test",
+            turnId: "turn_test",
+            storyRevision: 1,
+            narrativeBlockId: "narrative_test",
+            segmentIndex: 0,
+            performancePlanId: "perf_test",
+            spokenText: "测试",
+            voiceId: "voice_test",
+            expectedVoiceRevision: "vr_test",
+            expectedModelRevision: String(repeating: "b", count: 40),
+            mediaStreamId: "media_test",
+            generation: 1,
+            speed: 1.0,
+            language: "zh-CN"
+        )
+        do {
+            _ = try await client.renderVoice(request)
+            Issue.record("Voice render was accepted without an authenticated Engine")
+        } catch {
+            #expect(error as? EngineConnectionError == .notConnected)
+        }
+    }
+
     @Test("Production connection cannot succeed without a socket")
     func noEcho() async {
         let client = EngineIPCClient(requestTimeout: 0.1)

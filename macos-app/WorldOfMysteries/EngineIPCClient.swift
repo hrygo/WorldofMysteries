@@ -104,6 +104,44 @@ public actor EngineIPCClient {
         return try MediaOpenGrant(payload: payload)
     }
 
+    public func renderVoice(
+        _ request: VoiceRenderControlRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> VoiceRenderAcceptedDTO {
+        let encoded = try JSONEncoder().encode(request)
+        let payload = try JSONDecoder().decode(
+            [String: AnyCodableValue].self,
+            from: encoded
+        )
+        let response = try await send(
+            envelope: IPCEnvelope(
+                kind: "request",
+                traceId: traceId,
+                requestId: UUID().uuidString,
+                method: "voice.render",
+                payload: payload
+            )
+        )
+        guard response.status == "ok" else {
+            if response.error?.code == "method_not_supported" {
+                throw EngineConnectionError.methodUnavailable
+            }
+            throw EngineConnectionError.invalidFrame
+        }
+        guard let accepted = try response.decodePayload(
+            as: VoiceRenderAcceptedDTO.self
+        ),
+        accepted.speechUnitId == request.speechUnitId,
+        accepted.mediaStreamId == request.mediaStreamId,
+        accepted.generation == request.generation,
+        accepted.state == "accepted"
+        else {
+            throw EngineConnectionError.correlationMismatch
+        }
+        return accepted
+    }
+
+
     public func health() async throws -> EngineHealth {
         let response = try await send(envelope: IPCEnvelope(kind: "request", traceId: UUID().uuidString,
             requestId: UUID().uuidString, method: "system.health"))
