@@ -237,6 +237,7 @@ public actor EngineMediaPlaybackSession {
     public func stop(reason: MediaCancelReason = .userStop) async {
         guard phase == .running else {
             if phase == .ended {
+                await recordStopped(reason: reason)
                 await playback.stop(providerCancel: {})
                 phase = .stopped
             }

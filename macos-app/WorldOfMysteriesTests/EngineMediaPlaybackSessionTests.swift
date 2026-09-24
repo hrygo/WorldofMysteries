@@ -638,3 +638,94 @@ extension EngineMediaPlaybackCursorTests {
         #expect(updates[1].sourceOffsetFrames == 0)
     }
 }
+
+
+extension EngineMediaPlaybackCursorTests {
+    @Test("Stop after media END persists a durable reason without claiming rendered completion")
+    func stopAfterMediaEndPersistsReason() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let reporter = FakeVoiceDeliveryReporter()
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-ended-stop"),
+            "trace_id": .string("trace-ended-stop"),
+            "engine_epoch": .string("engine-ended-stop"),
+            "generation": .int(53),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let playback = NativePlaybackActor(backend: backend)
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: playback,
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-ended-stop",
+                consumerId: "local-playback",
+                unitId: "speech-ended-stop"
+            )
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        let pcm = Data([1, 0, 2, 0])
+        await transport.push(
+            MediaFrame(
+                header: .chunk(
+                    MediaChunkHeader(
+                        streamId: "tts-ended-stop",
+                        generation: 53,
+                        sequence: 0,
+                        offsetFrames: 0,
+                        frameCount: 2,
+                        payloadBytes: pcm.count
+                    )
+                ),
+                payload: pcm
+            )
+        )
+        await transport.waitForSentCount(2)
+        let digest = SHA256.hash(data: pcm).map {
+            String(format: "%02x", $0)
+        }.joined()
+        await transport.push(
+            MediaFrame(
+                header: .end(
+                    MediaEndHeader(
+                        streamId: "tts-ended-stop",
+                        generation: 53,
+                        totalFrames: 2,
+                        totalBytes: Int64(pcm.count),
+                        sha256: digest
+                    )
+                )
+            )
+        )
+
+        guard case .ended = await task.value else {
+            Issue.record("Expected media END before local Stop")
+            return
+        }
+
+        await session.stop(reason: .userStop)
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 3)
+        #expect(updates[1].evidence == .scheduled)
+        #expect(updates[1].sourceOffsetFrames == 2)
+        #expect(updates[2].stopReason == .userStop)
+        #expect(updates[2].evidence == .scheduled)
+        #expect(updates[2].sourceOffsetFrames == 2)
+    }
+}
