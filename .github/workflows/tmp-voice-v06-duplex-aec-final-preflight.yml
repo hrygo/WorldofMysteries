@@ -1,0 +1,30 @@
+name: Temporary Voice V06 Duplex AEC Final Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact duplex AEC final head
+        uses: actions/checkout@v7
+        with:
+          ref: 9307644240f872f0d17eceae13273bc1cf917091
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Swift focused tests
+        working-directory: macos-app
+        run: swift test --scratch-path .build --filter 'VoiceInputPTTSessionTests|MicrophoneCaptureTests|NativePlaybackTests'
+      - name: Xcode app build
+        working-directory: macos-app
+        run: xcodebuild -project WorldOfMysteries.xcodeproj -scheme WorldOfMysteries -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath ../.hacf/run/duplex-aec-final-preflight build
