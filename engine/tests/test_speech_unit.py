@@ -203,6 +203,7 @@ async def test_seal_freezes_authorized_text_binding_and_neutral_base_clone():
     assert unit.spoken_text == "克莱恩没有打开五公斤重的门。"
     assert unit.voice_revision == "voice-" + "a" * 40
     assert unit.model_revision == "b" * 40
+    assert unit.desired.native_instructions == "whisper dramatically"
     assert unit.backend.provider_fields() == {"speed": 1.0}
     assert unit.playback.volume == "low"
     assert unit.playback.pause_before_ms == 120
@@ -289,3 +290,19 @@ async def test_seal_does_not_silently_drop_native_fields_missing_from_wv03_contr
                 native_instructions=True,
             ),
         )
+
+
+async def test_performance_plan_identity_preserves_desired_intent_even_when_effective_is_same():
+    first = await seal_once(
+        desired=DesiredPerformance(native_instructions="whisper dramatically"),
+        capabilities=VoicePerformanceCapabilities(variant="base_clone"),
+    )
+    second = await seal_once(
+        desired=DesiredPerformance(native_instructions="speak solemnly"),
+        capabilities=VoicePerformanceCapabilities(variant="base_clone"),
+    )
+
+    assert first.backend == second.backend
+    assert first.degradation == second.degradation
+    assert first.performance_plan_id != second.performance_plan_id
+    assert first.unit_id != second.unit_id

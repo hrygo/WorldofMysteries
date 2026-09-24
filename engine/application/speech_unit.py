@@ -57,8 +57,29 @@ def _digest(payload: dict[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _desired_payload(desired: DesiredPerformance) -> dict[str, object]:
+    return {
+        "emotion": desired.emotion,
+        "intensity": float(desired.intensity),
+        "pace_modifier": float(desired.pace_modifier),
+        "energy_modifier": float(desired.energy_modifier),
+        "volume": desired.volume,
+        "pause_before_ms": desired.pause_before_ms,
+        "emphasis": [
+            {"text": cue.text, "strength": cue.strength}
+            for cue in desired.emphasis
+        ],
+        "native_speed": (
+            None if desired.native_speed is None else float(desired.native_speed)
+        ),
+        "native_instructions": desired.native_instructions,
+        "native_seed": desired.native_seed,
+    }
+
+
 def _performance_payload(compiled: CompiledPerformance) -> dict[str, object]:
     return {
+        "desired": _desired_payload(compiled.desired),
         "backend": compiled.backend.provider_fields(),
         "playback": {
             "volume": compiled.playback.volume,
@@ -92,6 +113,7 @@ class SealedSpeechUnit:
     spoken_text: str
     pronunciation_revision: str
     pronunciation_mappings: tuple[SpokenSpanMapping, ...]
+    desired: DesiredPerformance
     backend: EffectiveBackendPerformance
     playback: EffectivePlaybackPerformance
     unsupported: tuple[str, ...]
@@ -265,6 +287,7 @@ class SpeechUnitSealingService:
             spoken_text=spoken.spoken_text,
             pronunciation_revision=spoken.dictionary_revision,
             pronunciation_mappings=spoken.mappings,
+            desired=compiled.desired,
             backend=compiled.backend,
             playback=compiled.playback,
             unsupported=compiled.unsupported,
