@@ -729,3 +729,150 @@ extension EngineMediaPlaybackCursorTests {
         #expect(updates[2].sourceOffsetFrames == 2)
     }
 }
+
+
+private final class FakePlaybackInterruptionSource:
+    PlaybackInterruptionSource, @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var handler: (@Sendable (PlaybackInterruption) -> Void)?
+
+    func start(_ handler: @escaping @Sendable (PlaybackInterruption) -> Void) {
+        lock.lock()
+        self.handler = handler
+        lock.unlock()
+    }
+
+    func stop() {
+        lock.lock()
+        handler = nil
+        lock.unlock()
+    }
+
+    func triggerDeviceConfigurationChange() {
+        lock.lock()
+        let callback = handler
+        lock.unlock()
+        callback?(.deviceConfigurationChanged)
+    }
+}
+
+@Suite("Engine media device-route recovery")
+struct EngineMediaDeviceRecoveryTests {
+    @Test("Device configuration change stops old stream and persists media_error")
+    func deviceChangeStopsOldGeneration() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let reporter = FakeVoiceDeliveryReporter()
+        let interruption = FakePlaybackInterruptionSource()
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-device-change"),
+            "trace_id": .string("trace-device-change"),
+            "engine_epoch": .string("engine-device-change"),
+            "generation": .int(61),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: NativePlaybackActor(backend: backend),
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-device",
+                consumerId: "local-playback",
+                unitId: "speech-device"
+            ),
+            interruptionSource: interruption
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        interruption.triggerDeviceConfigurationChange()
+
+        #expect(await task.value == .cancelled)
+        #expect(await transport.closed)
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 2)
+        #expect(updates[1].stopReason == .mediaError)
+        #expect(updates[1].generation == 61)
+        #expect(updates[1].sourceOffsetFrames == 0)
+
+        let order = await log.snapshot()
+        #expect(order.contains("local_stop"))
+        #expect(order.contains("wire_close"))
+    }
+
+    @Test("Recovered session must use newer generation and restarts at sentence start")
+    func deviceRecoveryUsesNewGenerationFromSentenceStart() async throws {
+        let previous = VoiceDeliveryCursorDTO(
+            trackId: "track-device",
+            consumerId: "local-playback",
+            unitId: "speech-device",
+            generation: 61,
+            sourceOffsetFrames: 240,
+            totalSourceFrames: nil,
+            evidence: .scheduled,
+            stopReason: .mediaError,
+            cursorRevision: 2,
+            fullyOutput: false
+        )
+        let reporter = FakeVoiceDeliveryReporter(cursor: previous)
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-device-recovery"),
+            "trace_id": .string("trace-device-recovery"),
+            "engine_epoch": .string("engine-device-recovery"),
+            "generation": .int(62),
+            "ticket": .string(String(repeating: "b", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: NativePlaybackActor(backend: backend),
+            deliveryReporter: reporter,
+            deliveryContext: VoiceDeliverySessionContext(
+                trackId: "track-device",
+                consumerId: "local-playback",
+                unitId: "speech-device"
+            ),
+            interruptionSource: nil
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        let updates = await reporter.snapshotUpdates()
+        #expect(updates.count == 1)
+        #expect(updates[0].generation == 62)
+        #expect(updates[0].sourceOffsetFrames == 0)
+        #expect(updates[0].evidence == .queued)
+        #expect(updates[0].expectedCursorRevision == 2)
+
+        await session.stop(reason: .sessionClosed)
+        #expect(await task.value == .cancelled)
+    }
+}

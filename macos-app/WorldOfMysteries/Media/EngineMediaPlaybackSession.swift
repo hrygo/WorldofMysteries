@@ -66,6 +66,7 @@ public actor EngineMediaPlaybackSession {
     private let connectTimeout: TimeInterval
     private let deliveryReporter: (any VoiceDeliveryCursorReporting)?
     private let deliveryContext: VoiceDeliverySessionContext?
+    private let interruptionSource: (any PlaybackInterruptionSource)?
     private var deliveryCursor: VoiceDeliveryCursorDTO?
     private var phase: Phase = .idle
     private var stopRequested = false
@@ -77,6 +78,7 @@ public actor EngineMediaPlaybackSession {
         playbackMode: VoicePlaybackMode = .normal,
         deliveryReporter: (any VoiceDeliveryCursorReporting)? = nil,
         deliveryContext: VoiceDeliverySessionContext? = nil,
+        interruptionSource: (any PlaybackInterruptionSource)? = SystemPlaybackInterruptionSource(),
         connectTimeout: TimeInterval = 5
     ) {
         self.grant = grant
@@ -85,6 +87,7 @@ public actor EngineMediaPlaybackSession {
         self.playbackMode = playbackMode
         self.deliveryReporter = deliveryReporter
         self.deliveryContext = deliveryContext
+        self.interruptionSource = interruptionSource
         self.connectTimeout = connectTimeout
     }
 
@@ -113,6 +116,7 @@ public actor EngineMediaPlaybackSession {
             )
             phase = .running
             try await beginDeliveryCursor()
+            startInterruptionMonitoring()
 
             // OPEN burns the one-time ticket only after local playback is ready.
             try await transport.send(MediaFrame(header: .open(opened)))
@@ -235,6 +239,7 @@ public actor EngineMediaPlaybackSession {
     /// Local generation invalidation/device stop precedes the outbound CANCEL.
     /// Closing the media socket then guarantees late Engine chunks cannot revive speech.
     public func stop(reason: MediaCancelReason = .userStop) async {
+        interruptionSource?.stop()
         guard phase == .running else {
             if phase == .ended {
                 await recordStopped(reason: reason)
@@ -403,6 +408,27 @@ public actor EngineMediaPlaybackSession {
 
     private func failClosed() async {
         await recordDeliveryStop(.mediaError)
+        await playback.stop(providerCancel: {})
+        await transport.close()
+        phase = .stopped
+    }
+
+    private func startInterruptionMonitoring() {
+        interruptionSource?.start { [weak self] interruption in
+            guard interruption == .deviceConfigurationChanged else { return }
+            Task { await self?.handleDeviceConfigurationChange() }
+        }
+    }
+
+    private func handleDeviceConfigurationChange() async {
+        guard phase == .running, !stopRequested else { return }
+        stopRequested = true
+        interruptionSource?.stop()
+        await recordDeliveryStop(.mediaError)
+
+        // Local device invalidation wins immediately. Closing the media socket then
+        // wakes Engine MediaBridge, which cancels provider work. The next session
+        // must use a strictly newer generation and #141 restart rules force offset 0.
         await playback.stop(providerCancel: {})
         await transport.close()
         phase = .stopped
