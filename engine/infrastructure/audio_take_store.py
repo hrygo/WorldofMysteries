@@ -15,7 +15,6 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -248,10 +247,12 @@ class SQLiteAudioTakeStore:
             f"{render_key}:{file_sha}".encode("ascii")
         ).hexdigest()[:32]
 
+        expected_relative_path = f"Takes/{file_sha}.pcm"
         manifest = {
             "schema_version": "1.0",
             "take_id": take_id,
             "render_key": render_key,
+            "relative_path": expected_relative_path,
             "recipe": recipe.payload(),
             "resolved": {
                 "provider_instance": outcome.provider_instance,
@@ -275,6 +276,8 @@ class SQLiteAudioTakeStore:
         manifest_hmac = self._signer.sign_json(manifest_json)
 
         relative_path = await asyncio.to_thread(self._publish_file, frozen, file_sha)
+        if relative_path != expected_relative_path:
+            raise StorageError("Published AudioTake path does not match RenderManifest")
         self._hit("after_asset_publish")
 
         def apply(tx: PresentationTransaction):
@@ -350,6 +353,21 @@ class SQLiteAudioTakeStore:
             raise StorageError("Stored RenderManifest is not canonical")
         if manifest.get("render_key") != render_key:
             raise StorageError("Stored RenderManifest render key mismatch")
+        audio = manifest.get("audio")
+        if not isinstance(audio, dict):
+            raise StorageError("Stored RenderManifest audio metadata is invalid")
+        if (
+            manifest.get("take_id") != row["take_id"]
+            or manifest.get("relative_path") != row["relative_path"]
+            or audio.get("sha256") != row["file_sha256"]
+            or audio.get("codec") != row["codec"]
+            or audio.get("sample_rate") != row["sample_rate"]
+            or audio.get("channels") != row["channels"]
+            or audio.get("sample_count") != row["sample_count"]
+            or audio.get("byte_count") != row["byte_count"]
+            or audio.get("duration_ms") != row["duration_ms"]
+        ):
+            raise StorageError("AudioTake row does not match authenticated RenderManifest")
         await asyncio.to_thread(
             self._verify_file,
             row["relative_path"],

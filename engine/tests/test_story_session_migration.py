@@ -1,4 +1,4 @@
-"""Safe ordered world.db v1→v6 migration and Story/Narrative/Delivery schema tests."""
+"""Safe ordered world.db v1→v6 migration and Story/Narrative/Delivery/AudioTake schema tests."""
 from __future__ import annotations
 
 from contextlib import closing
@@ -51,7 +51,7 @@ def _tables(path: Path) -> set[str]:
         }
 
 
-def test_fresh_world_initializes_directly_to_v5_without_migration_backup(tmp_path):
+def test_fresh_world_initializes_directly_to_v6_without_migration_backup(tmp_path):
     path = tmp_path / "Worlds" / "fresh" / "world.db"
     path.parent.mkdir(parents=True)
     with closing(connect(path)) as conn:

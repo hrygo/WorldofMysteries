@@ -251,3 +251,27 @@ def test_manifest_hmac_key_is_mandatory_and_never_has_a_weak_default(tmp_path):
             tmp_path / "assets",
             manifest_hmac_key=b"short",
         )
+
+
+async def test_authenticated_manifest_detects_database_row_metadata_tampering(tmp_path):
+    database, paths = await open_database(tmp_path)
+    assets = paths.world.parent / "assets"
+    try:
+        store = SQLiteAudioTakeStore(
+            database,
+            assets,
+            manifest_hmac_key=b"e" * 32,
+        )
+        published = await store.publish_pcm(recipe(), outcome(), pcm())
+
+        await database.presentation_write(
+            lambda tx: tx.execute(
+                "UPDATE audio_takes SET duration_ms=duration_ms+1 WHERE take_id=?",
+                (published.take_id,),
+            )
+        )
+
+        with pytest.raises(StorageError, match="does not match authenticated"):
+            await store.load(recipe().render_key)
+    finally:
+        await database.close()
