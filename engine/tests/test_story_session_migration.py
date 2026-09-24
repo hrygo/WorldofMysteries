@@ -193,21 +193,43 @@ def _build_v4_world(path: Path, *, store_id: str = "store-v4") -> None:
                 conn.execute(statement)
         conn.execute(f"PRAGMA application_id={APPLICATION_IDS['world']}")
         conn.execute("PRAGMA user_version=4")
-        conn.execute("INSERT INTO world_meta VALUES (1, ?, 0)", (store_id,))
+        conn.execute("INSERT INTO world_meta VALUES (1, ?, 1)", (store_id,))
+        conn.execute(
+            "INSERT INTO domain_commits("
+            "revision,worldline_id,idempotency_key,request_digest,request_id,"
+            "trace_id,world_time,commit_time,operation_json,result_json"
+            ") VALUES (1,?,?,?,?,?,?,?,?,?)",
+            (
+                "line-v4",
+                "idem-v4",
+                "digest-v4",
+                "request-v4",
+                "trace-v4",
+                "1895-01-01T00:00:00Z",
+                "2026-09-24T00:00:00Z",
+                "{}",
+                "{}",
+            ),
+        )
         conn.execute(
             "INSERT INTO story_sessions("
-            "session_id,world_id,worldline_id,episode_id,protagonist_id,"
-            "story_revision,status,session_json"
-            ") VALUES (?,?,?,?,?,?,?,?)",
+            "id,world_id,worldline_id,protagonist_id,story_seed_id,"
+            "base_world_revision,base_character_revision,base_story_revision,"
+            "story_revision,status,story_state_json,committed_world_revision"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 "session-v4",
                 "world-v4",
                 "line-v4",
-                "hero-v4",
                 "klein-v4",
+                "seed-v4",
+                1,
+                0,
+                0,
                 0,
                 "active",
                 '{"schema_version":"1.0","id":"session-v4"}',
+                1,
             ),
         )
         conn.execute("COMMIT")
