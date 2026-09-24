@@ -1,0 +1,97 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-DUPLEX-AEC",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-DUPLEX-AEC",
+  "title": "Voice V06 shared voice-processing duplex graph and local-first PTT interruption",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-25T00:58:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "563aca61475618c81f593db939bfe111409f6451",
+    "target_sha": "563aca61475618c81f593db939bfe111409f6451",
+    "context_snapshot": "sha256:voice-v06-duplex-aec-563aca61475618c81f593db939bfe111409f6451"
+  },
+  "scope": {
+    "read": [
+      "macos-app/WorldOfMysteries/Media/",
+      "macos-app/WorldOfMysteriesTests/",
+      "contracts/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/Media/VoiceProcessingDuplexGraph.swift",
+      "macos-app/WorldOfMysteries/Media/VoiceInputPTTSession.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceInputPTTSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/MicrophoneCaptureTests.swift",
+      ".agents/capsules/VOICE-V06-DUPLEX-AEC.json"
+    ],
+    "forbidden": [
+      "engine/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "macos-app/WorldOfMysteries/Media/MicrophoneCapture.swift",
+      "macos-app/WorldOfMysteries/Media/NativePlayback.swift",
+      "macos-app/WorldOfMysteries/Media/VoiceInputPTTSession.swift",
+      "macos-app/WorldOfMysteries/Media/PlaybackInterruption.swift",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md",
+      "docs/07_工程启动/Voice_First_Acceptance_v2.0.md"
+    ],
+    "related_contracts": [
+      "engine_media.schema.json"
+    ],
+    "slice_strategy": "shared-device-graph-voice-processing-with-half-duplex-fallback",
+    "token_estimate": 2300,
+    "max_core_tokens": 3500,
+    "expansion_policy": "arbiter_approved",
+    "note": "V-DEV-01 software capability. Use one AVAudioEngine for microphone capture and primary voice playback so Apple's voice-processing I/O can use the same output reference. Voice processing is enabled only while the engine is stopped and verified on both I/O nodes. Unsupported/invalid setup explicitly falls back to PTT/half-duplex. PTT local interruption runs before ASR network connect. Physical speaker/rain/USB/Bluetooth behavior remains device_accepted evidence and is not claimed by CI."
+  },
+  "impact": {
+    "symbols": [
+      "VoiceProcessingAudioGraph",
+      "VoiceProcessingDuplexFactory",
+      "VoiceProcessingPlaybackBackend",
+      "VoiceProcessingMicrophoneSource",
+      "VoiceInputPTTSession.beforeCapture"
+    ],
+    "contracts": [
+      "engine_media.schema.json"
+    ],
+    "tests": [
+      "macos-app/WorldOfMysteriesTests/VoiceInputPTTSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/MicrophoneCaptureTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V06-DEVICE-ROUTE-RECOVERY",
+      "VOICE-V06-PLAYBACK-QUEUE-METRICS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      12
+    ],
+    "instructions": "Provide the V-DEV-01 software boundary: one controlled AVAudioEngine supplies both microphone input and primary voice output under platform voice processing; invalid/unavailable configuration fails closed to explicit PTT/half-duplex. PTT interruption must execute locally before ASR network connection. Route changes invalidate the shared graph rather than mixing old assumptions. CI may establish software_verified only; physical echo rejection and real speaker interruption remain device_accepted.",
+    "assertions": [
+      "INV-09",
+      "INV-12"
+    ]
+  }
+}

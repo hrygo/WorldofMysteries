@@ -68,3 +68,19 @@ struct MicrophoneCaptureTests {
         #expect(project.components(separatedBy: "ENABLE_APP_SANDBOX = YES;").count - 1 == 2)
     }
 }
+
+
+extension MicrophoneCaptureTests {
+    @Test("Invalid duplex configuration falls back before touching the audio device")
+    func duplexInvalidConfigurationFailsClosed() {
+        let provision = VoiceProcessingDuplexFactory.make(
+            microphoneConfiguration: .init(targetSampleRate: 48_000)
+        )
+        switch provision {
+        case .halfDuplexPTT(let reason):
+            #expect(reason == .invalidConfiguration)
+        case .fullDuplex:
+            Issue.record("Invalid microphone format must not create a duplex graph")
+        }
+    }
+}

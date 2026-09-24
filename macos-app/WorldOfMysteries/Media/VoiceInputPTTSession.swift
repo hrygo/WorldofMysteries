@@ -23,6 +23,7 @@ public final class VoiceInputPTTSession {
     private let connection: SpeechRailRealtimeASRConnection
     private let microphone: any MicrophonePCMSource
     private let finalizationTimeout: Duration
+    private let beforeCapture: @Sendable () async -> Void
 
     public private(set) var phase: VoiceInputPTTPhase = .idle
     public private(set) var inputTurnID: UUID?
@@ -34,11 +35,13 @@ public final class VoiceInputPTTSession {
     public init(
         connection: SpeechRailRealtimeASRConnection,
         microphone: any MicrophonePCMSource,
-        finalizationTimeout: Duration = .seconds(10)
+        finalizationTimeout: Duration = .seconds(10),
+        beforeCapture: @escaping @Sendable () async -> Void = {}
     ) {
         self.connection = connection
         self.microphone = microphone
         self.finalizationTimeout = finalizationTimeout
+        self.beforeCapture = beforeCapture
     }
 
     @discardableResult
@@ -46,6 +49,11 @@ public final class VoiceInputPTTSession {
         guard phase == .idle else {
             throw SpeechRailRealtimeASRFailure.invalidState
         }
+
+        // Local interruption/ducking wins before any network handshake. In the
+        // half-duplex fallback this stops current playback immediately; in a
+        // full-duplex AEC stack callers may leave this as a no-op.
+        await beforeCapture()
 
         _ = try await connection.connect()
         let coordinator = SpeechRailRealtimeASRTurnCoordinator(
