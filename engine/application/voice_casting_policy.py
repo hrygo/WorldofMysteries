@@ -7,7 +7,7 @@ their revision is no longer authorized or renderable.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from domain.voice_identity import (
@@ -180,6 +180,22 @@ class VoiceCastingPolicy:
                 matched_public_traits=0,
             )
 
+        ranked = self.rank_candidates(request, candidates)
+        if not ranked:
+            raise VoiceCastingPolicyError("no_authorized_voice_candidate")
+        candidate, matched = ranked[0]
+        return CastingDecision(
+            provider=candidate.provider,
+            source="candidate",
+            matched_public_traits=matched,
+        )
+
+    def rank_candidates(
+        self,
+        request: CastingPolicyRequest,
+        candidates: tuple[VoiceCandidate, ...],
+    ) -> tuple[tuple[VoiceCandidate, int], ...]:
+        """Return the complete hard-filtered ranking for joint scene planning."""
         seen: set[VoiceRevisionKey] = set()
         eligible: list[tuple[VoiceCandidate, int]] = []
         for candidate in candidates:
@@ -216,20 +232,167 @@ class VoiceCastingPolicy:
             )
             eligible.append((candidate, matched))
 
-        if not eligible:
-            raise VoiceCastingPolicyError("no_authorized_voice_candidate")
+        return tuple(
+            sorted(
+                eligible,
+                key=lambda item: (
+                    -item[1],
+                    item[0].provider.provider_instance,
+                    item[0].provider.voice_id,
+                    item[0].provider.voice_revision or "",
+                ),
+            )
+        )
 
-        candidate, matched = min(
-            eligible,
-            key=lambda item: (
-                -item[1],
-                item[0].provider.provider_instance,
-                item[0].provider.voice_id,
-                item[0].provider.voice_revision or "",
-            ),
-        )
-        return CastingDecision(
-            provider=candidate.provider,
-            source="candidate",
-            matched_public_traits=matched,
-        )
+
+@dataclass(frozen=True, slots=True)
+class SceneCastingRole:
+    role_id: str
+    request: CastingPolicyRequest
+    candidates: tuple[VoiceCandidate, ...]
+    existing_binding: VoiceBinding | None = None
+
+    def __post_init__(self) -> None:
+        _text(self.role_id, "scene_role_id")
+        if not isinstance(self.request, CastingPolicyRequest):
+            raise VoiceCastingPolicyError("invalid_scene_casting_request")
+        if self.existing_binding is not None and not isinstance(
+            self.existing_binding, VoiceBinding
+        ):
+            raise VoiceCastingPolicyError("invalid_scene_existing_binding")
+
+
+@dataclass(frozen=True, slots=True)
+class SceneCastingDecision:
+    role_id: str
+    decision: CastingDecision
+
+
+class SceneCastingPlanner:
+    """Jointly assign distinct voices for a small co-scene role set.
+
+    Existing bindings remain hard locks. Unbound roles are solved together rather
+    than greedily, maximizing total public-trait fit with a deterministic identity
+    tie-break. This planner intentionally stays small and exact.
+    """
+
+    MAX_SCENE_ROLES = 12
+    MAX_UNBOUND_ROLES = 5
+    MAX_CANDIDATES_PER_ROLE = 12
+
+    def __init__(self, policy: VoiceCastingPolicy | None = None) -> None:
+        self._policy = policy or VoiceCastingPolicy()
+
+    def plan(
+        self, roles: tuple[SceneCastingRole, ...]
+    ) -> tuple[SceneCastingDecision, ...]:
+        if not roles or len(roles) > self.MAX_SCENE_ROLES:
+            raise VoiceCastingPolicyError("invalid_scene_role_count")
+        if any(
+            len(role.candidates) > self.MAX_CANDIDATES_PER_ROLE for role in roles
+        ):
+            raise VoiceCastingPolicyError("scene_candidate_limit_exceeded")
+
+        ordered = tuple(sorted(roles, key=lambda item: item.role_id))
+        if len({role.role_id for role in ordered}) != len(ordered):
+            raise VoiceCastingPolicyError("duplicate_scene_role")
+
+        reference = ordered[0].request.scope
+        for role in ordered[1:]:
+            scope = role.request.scope
+            if (
+                scope.owner_id != reference.owner_id
+                or scope.world_id != reference.world_id
+                or scope.worldline_id != reference.worldline_id
+                or scope.locale.casefold() != reference.locale.casefold()
+            ):
+                raise VoiceCastingPolicyError("scene_scope_mismatch")
+
+        externally_occupied: set[AudibleVoiceKey] = set()
+        for role in ordered:
+            externally_occupied.update(role.request.occupied_audible_voices)
+
+        locked: list[SceneCastingDecision] = []
+        locked_audible: set[AudibleVoiceKey] = set()
+        unbound: list[SceneCastingRole] = []
+        for role in ordered:
+            if role.existing_binding is None:
+                unbound.append(role)
+                continue
+            decision = self._policy.choose(
+                role.request, (), existing_binding=role.existing_binding
+            )
+            locked.append(SceneCastingDecision(role.role_id, decision))
+            locked_audible.add(audible_voice_key(decision.provider))
+
+        if len(unbound) > self.MAX_UNBOUND_ROLES:
+            raise VoiceCastingPolicyError("scene_unbound_role_limit_exceeded")
+
+        base_occupied = frozenset(externally_occupied | locked_audible)
+        memo: dict[
+            tuple[int, frozenset[AudibleVoiceKey]],
+            tuple[int, tuple[SceneCastingDecision, ...]] | None,
+        ] = {}
+
+        def tie_key(items: tuple[SceneCastingDecision, ...]) -> tuple:
+            return tuple(
+                (
+                    item.role_id,
+                    item.decision.provider.provider_instance,
+                    item.decision.provider.voice_id,
+                    item.decision.provider.voice_revision or "",
+                )
+                for item in items
+            )
+
+        def solve(
+            index: int, used: frozenset[AudibleVoiceKey]
+        ) -> tuple[int, tuple[SceneCastingDecision, ...]] | None:
+            key = (index, used)
+            if key in memo:
+                return memo[key]
+            if index == len(unbound):
+                result = (0, ())
+                memo[key] = result
+                return result
+
+            role = unbound[index]
+            request = replace(
+                role.request,
+                occupied_audible_voices=frozenset(base_occupied | used),
+            )
+            ranked = self._policy.rank_candidates(request, role.candidates)
+            best: tuple[int, tuple[SceneCastingDecision, ...]] | None = None
+            for candidate, matched in ranked:
+                audible = candidate.audible_key
+                tail = solve(index + 1, used | frozenset({audible}))
+                if tail is None:
+                    continue
+                decision = SceneCastingDecision(
+                    role_id=role.role_id,
+                    decision=CastingDecision(
+                        provider=candidate.provider,
+                        source="candidate",
+                        matched_public_traits=matched,
+                    ),
+                )
+                candidate_result = (matched + tail[0], (decision,) + tail[1])
+                if (
+                    best is None
+                    or candidate_result[0] > best[0]
+                    or (
+                        candidate_result[0] == best[0]
+                        and tie_key(candidate_result[1]) < tie_key(best[1])
+                    )
+                ):
+                    best = candidate_result
+
+            memo[key] = best
+            return best
+
+        solved = solve(0, frozenset())
+        if solved is None:
+            raise VoiceCastingPolicyError("no_distinct_scene_cast")
+
+        combined = tuple(locked) + solved[1]
+        return tuple(sorted(combined, key=lambda item: item.role_id))
