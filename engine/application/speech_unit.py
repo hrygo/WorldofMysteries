@@ -106,6 +106,7 @@ class SealedSpeechUnit:
     provider_instance: str
     voice_id: str
     voice_revision: str
+    model_id: str
     model_revision: str | None
     language: str
     performance_plan_id: str
@@ -168,6 +169,7 @@ class SpeechUnitSealingService:
         segment_index: int,
         binding_scope: VoiceBindingScope,
         expected_binding_revision: int,
+        execution_model_id: str,
         dictionary_revision: str,
         semantic_anchors: tuple[SemanticAnchor, ...],
         pronunciation_rules: tuple[PronunciationRule, ...],
@@ -176,6 +178,13 @@ class SpeechUnitSealingService:
     ) -> SealedSpeechUnit:
         if type(expected_binding_revision) is not int or expected_binding_revision < 1:
             raise SpeechUnitSealingError("invalid_expected_binding_revision")
+        if (
+            not isinstance(execution_model_id, str)
+            or not execution_model_id.strip()
+            or len(execution_model_id) > 256
+            or "\x00" in execution_model_id
+        ):
+            raise SpeechUnitSealingError("invalid_execution_model_id")
 
         authorized = await self._disclosure.authorize(
             turn_id=turn_id,
@@ -243,6 +252,7 @@ class SpeechUnitSealingService:
             "provider_instance": binding.provider.provider_instance,
             "voice_id": binding.provider.voice_id,
             "voice_revision": voice_revision,
+            "model_id": execution_model_id,
             "model_revision": binding.provider.model_catalog_revision,
             "language": binding.scope.locale,
             "performance_plan_id": performance_plan_id,
@@ -280,6 +290,7 @@ class SpeechUnitSealingService:
             provider_instance=binding.provider.provider_instance,
             voice_id=binding.provider.voice_id,
             voice_revision=voice_revision,
+            model_id=execution_model_id,
             model_revision=binding.provider.model_catalog_revision,
             language=binding.scope.locale,
             performance_plan_id=performance_plan_id,

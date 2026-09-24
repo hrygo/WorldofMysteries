@@ -228,6 +228,7 @@ class VoiceRenderRuntime:
         request = pending.request
         try:
             await adapter.connect(
+                expected_model_id=unit.model_id,
                 expected_model_revision=request.expected_model_revision,
                 enable_render_receipts=True,
             )

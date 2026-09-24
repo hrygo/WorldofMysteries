@@ -1670,3 +1670,40 @@ async def test_realtime_tts_rejects_receipt_model_revision_mismatch():
             ),
             AsyncMock(),
         )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_receipt_model_id_mismatch():
+    async def wrong_model_id(transport, message):
+        await _script_completed_tts(transport, message)
+        events = []
+        while not transport.inbound.empty():
+            events.append(await transport.inbound.get())
+        events[-1]["speechrail"]["render_receipt"]["model"]["source_model"] = (
+            "speechrail/other-tts"
+        )
+        for event in events:
+            await transport.inbound.put(event)
+
+    transport = _FakeRealtimeTTSTransport()
+    transport.script_on_create = wrong_model_id
+    adapter = SpeechRailRealtimeTTSAdapter(
+        AudioProviderConfig(default_voice="serena"), transport
+    )
+    await adapter.connect(
+        expected_model_id="speechrail/qwen3-tts",
+        expected_model_revision="b" * 40,
+    )
+
+    with pytest.raises(
+        SpeechRailRealtimeTTSError, match="render_receipt_model_id_mismatch"
+    ):
+        await adapter.render(
+            RealtimeTTSRequest(
+                text="测试",
+                voice="serena",
+                request_id="req-wrong-model-id",
+                expected_voice_revision="vr_test",
+            ),
+            AsyncMock(),
+        )

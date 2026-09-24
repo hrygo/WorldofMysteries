@@ -1,0 +1,108 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V07-SEALED-MODEL-IDENTITY",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V07-SEALED-MODEL-IDENTITY",
+  "title": "Voice V07 seal exact execution model identity for cache-safe renders",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T06:58:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "abf0a343bd89c33bb277de04ed582a459c6e6a49",
+    "target_sha": "abf0a343bd89c33bb277de04ed582a459c6e6a49",
+    "context_snapshot": "sha256:voice-v07-sealed-model-identity-abf0a343bd89c33bb277de04ed582a459c6e6a49"
+  },
+  "scope": {
+    "read": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio/voice_runtime.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/tests/test_speech_unit.py",
+      "engine/tests/test_voice_runtime.py",
+      "engine/tests/test_audio_adapter.py",
+      ".agents/capsules/VOICE-V07-SEALED-MODEL-IDENTITY.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "macos-app/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio/voice_runtime.py",
+      "engine/infrastructure/audio/realtime_tts.py",
+      "engine/infrastructure/audio/capabilities.py",
+      "engine/infrastructure/audio_take_store.py",
+      "docs/03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md"
+    ],
+    "related_contracts": [
+      "voice_render_control.schema.json"
+    ],
+    "slice_strategy": "freeze-engine-internal-model-id-and-verify-render-receipt",
+    "token_estimate": 1900,
+    "max_core_tokens": 4000,
+    "expansion_policy": "arbiter_approved",
+    "note": "W-V07 RenderKey needs exact model id plus model catalog revision before cache lookup. Model id remains Engine-internal rather than an App-selectable W-V03 field. Sealing receives the resolved execution model id from the trusted capability/routing layer; runtime passes it to Realtime verification and completed render receipts must prove source_model + catalog_revision."
+  },
+  "impact": {
+    "symbols": [
+      "SealedSpeechUnit.model_id",
+      "SpeechUnitSealingService.seal",
+      "VoiceRenderRuntime.media_handler",
+      "SpeechRailRealtimeTTSAdapter.connect",
+      "SpeechRailRealtimeTTSAdapter._validate_receipt"
+    ],
+    "contracts": [
+      "voice_render_control.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_speech_unit.py",
+      "engine/tests/test_voice_runtime.py",
+      "engine/tests/test_audio_adapter.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V05-SEALED-SPEECH-UNIT",
+      "VOICE-V05-RENDER-RUNTIME",
+      "VOICE-V05-REALTIME-REVISION-PINS",
+      "VOICE-V07-AUDIO-TAKE-STORE"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      9
+    ],
+    "instructions": "Every sealed render eligible for W-V07 cache identity must freeze the trusted execution model id separately from the exact model catalog revision. Runtime must use that sealed model id for provider receipt verification; App IPC does not gain authority to choose it. A completed render whose receipt source_model or catalog revision differs from the sealed identity fails closed.",
+    "assertions": [
+      "INV-05",
+      "INV-09"
+    ]
+  }
+}

@@ -173,6 +173,7 @@ async def seal_once(
         segment_index=0,
         binding_scope=scope(),
         expected_binding_revision=expected_binding_revision,
+        execution_model_id="speechrail/qwen3-tts",
         dictionary_revision="pron-v1",
         semantic_anchors=anchors,
         pronunciation_rules=rules,
@@ -202,6 +203,7 @@ async def test_seal_freezes_authorized_text_binding_and_neutral_base_clone():
     assert unit.binding_revision == 2
     assert unit.spoken_text == "克莱恩没有打开五公斤重的门。"
     assert unit.voice_revision == "voice-" + "a" * 40
+    assert unit.model_id == "speechrail/qwen3-tts"
     assert unit.model_revision == "b" * 40
     assert unit.desired.native_instructions == "whisper dramatically"
     assert unit.backend.provider_fields() == {"speed": 1.0}
@@ -249,6 +251,7 @@ async def test_seal_rejects_stale_binding_revision_and_wrong_presentation_identi
             segment_index=0,
             binding_scope=scope(identity="other-visible"),
             expected_binding_revision=2,
+            execution_model_id="speechrail/qwen3-tts",
             dictionary_revision="pron-v1",
             semantic_anchors=anchors,
             pronunciation_rules=rules,
@@ -306,3 +309,24 @@ async def test_performance_plan_identity_preserves_desired_intent_even_when_effe
     assert first.degradation == second.degradation
     assert first.performance_plan_id != second.performance_plan_id
     assert first.unit_id != second.unit_id
+
+
+async def test_seal_rejects_missing_execution_model_identity():
+    display = "克莱恩没有打开5kg重的门。"
+    anchors, rules = pronunciation(display)
+    with pytest.raises(SpeechUnitSealingError, match="invalid_execution_model_id"):
+        await service().seal(
+            turn_id="turn-1",
+            expected_story_revision=7,
+            segment_index=0,
+            binding_scope=scope(),
+            expected_binding_revision=2,
+            execution_model_id="",
+            dictionary_revision="pron-v1",
+            semantic_anchors=anchors,
+            pronunciation_rules=rules,
+            desired_performance=DesiredPerformance(),
+            performance_capabilities=VoicePerformanceCapabilities(
+                variant="base_clone"
+            ),
+        )
