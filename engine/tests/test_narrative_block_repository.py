@@ -149,7 +149,10 @@ async def test_publish_narrative_is_durable_atomic_and_does_not_advance_world_re
         assert published.narrative == _narrative()
         assert await _world_revision(database) == 1
         assert await database.read_world("SELECT count(*) AS n FROM domain_commits") == before_commits
-        assert (await database.read_world("SELECT count(*) AS n FROM narrative_blocks"))[0]["n"] == 1
+        narrative_rows = await database.read_world(
+            "SELECT source_world_revision,source_story_revision FROM narrative_blocks"
+        )
+        assert narrative_rows == [{"source_world_revision": 1, "source_story_revision": 1}]
     finally:
         await database.close()
 

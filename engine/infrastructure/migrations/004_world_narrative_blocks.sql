@@ -7,6 +7,8 @@ CREATE TABLE narrative_blocks (
     session_id TEXT NOT NULL
         REFERENCES story_sessions(id) DEFERRABLE INITIALLY DEFERRED,
     source_story_revision INTEGER NOT NULL CHECK (source_story_revision >= 0),
+    source_world_revision INTEGER NOT NULL
+        REFERENCES domain_commits(revision) DEFERRABLE INITIALLY DEFERRED,
     source_state_delta_id TEXT NOT NULL
         REFERENCES story_state_deltas(id) DEFERRABLE INITIALLY DEFERRED,
     payload_json TEXT NOT NULL CHECK (json_valid(payload_json))

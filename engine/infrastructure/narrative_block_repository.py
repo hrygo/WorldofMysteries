@@ -72,7 +72,8 @@ class SQLiteNarrativeBlockRepository:
 
         def apply(tx: PostCommitTransaction):
             turn_rows = tx.execute(
-                "SELECT transaction_json FROM turn_transactions WHERE id=?", (turn_id,)
+                "SELECT transaction_json,committed_world_revision FROM turn_transactions WHERE id=?",
+                (turn_id,),
             )
             if len(turn_rows) != 1:
                 raise StorageError("TurnTransaction not found")
@@ -83,6 +84,9 @@ class SQLiteNarrativeBlockRepository:
                 raise StorageError("TurnTransaction identity mismatch")
             if current.committed_story_revision is None:
                 raise StorageError("Narrative publication requires a committed story revision")
+            source_world_revision = turn_rows[0]["committed_world_revision"]
+            if type(source_world_revision) is not int or source_world_revision <= 0:
+                raise StorageError("Narrative publication requires a committed world revision")
             if frozen_narrative.story_session_id != current.session_id:
                 raise StorageError("NarrativeBlock belongs to another StorySession")
             if frozen_narrative.source_story_revision != current.committed_story_revision:
@@ -113,13 +117,15 @@ class SQLiteNarrativeBlockRepository:
 
             tx.execute(
                 "INSERT INTO narrative_blocks("
-                "id,turn_id,session_id,source_story_revision,source_state_delta_id,payload_json"
-                ") VALUES (?,?,?,?,?,?)",
+                "id,turn_id,session_id,source_story_revision,source_world_revision,"
+                "source_state_delta_id,payload_json"
+                ") VALUES (?,?,?,?,?,?,?)",
                 (
                     frozen_narrative.id,
                     current.id,
                     frozen_narrative.story_session_id,
                     frozen_narrative.source_story_revision,
+                    source_world_revision,
                     frozen_narrative.source_state_delta_id,
                     payload_json,
                 ),
