@@ -187,6 +187,7 @@ public struct ArtifactHoldToCommitButton: View {
 public struct ArtifactComponentShell<Content: View>: View {
   let artifactID: ArtifactID
   @ViewBuilder let content: Content
+  @Environment(\.artifactPresentationContext) private var presentationContext
   @State private var hovered = false
 
   public init(artifactID: ArtifactID, @ViewBuilder content: () -> Content) {
@@ -197,35 +198,48 @@ public struct ArtifactComponentShell<Content: View>: View {
   public var body: some View {
     let descriptor = ArtifactRegistry.descriptor(for: artifactID)
 
-    ViewThatFits(in: .horizontal) {
-      HStack(spacing: 0) {
-        identityPanel(descriptor)
-          .frame(minWidth: 250, idealWidth: 300, maxWidth: 340)
-
-        MysticDivider(tone: .gold).frame(width: DesignTokens.Borders.standard)
-
-        detailPanel
-          .frame(minWidth: 430)
-      }
-
-      VStack(spacing: 0) {
-        identityPanel(descriptor)
-          .frame(maxWidth: .infinity, minHeight: 300)
-
-        MysticDivider(tone: .gold)
-          .padding(.horizontal, DesignTokens.Spacing.lg)
-
-        detailPanel
-          .frame(maxWidth: .infinity)
-      }
-    }
-    .frame(minHeight: 520)
+    componentLayout(descriptor)
+      .frame(minHeight: presentationContext == .vaultExhibit ? 430 : 520)
     .background(Color.Mystic.obsidianBase)
     .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radii.lg))
     .overlay {
       RoundedRectangle(cornerRadius: DesignTokens.Radii.lg)
         .stroke(
           Color.Mystic.brassGoldBorder.opacity(0.55), lineWidth: DesignTokens.Borders.standard)
+    }
+  }
+
+  @ViewBuilder
+  private func componentLayout(_ descriptor: ArtifactDescriptor) -> some View {
+    if presentationContext == .vaultExhibit {
+      // Artifact Vault owns identity, artwork and the exhibition stage. Keeping only the
+      // production detail panel here prevents a second identity card without copying any of the
+      // 15 Gameplay Views or changing their resolver semantics.
+      detailPanel
+        .frame(maxWidth: .infinity)
+    } else {
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 0) {
+          identityPanel(descriptor)
+            .frame(minWidth: 250, idealWidth: 300, maxWidth: 340)
+
+          MysticDivider(tone: .gold).frame(width: DesignTokens.Borders.standard)
+
+          detailPanel
+            .frame(minWidth: 430)
+        }
+
+        VStack(spacing: 0) {
+          identityPanel(descriptor)
+            .frame(maxWidth: .infinity, minHeight: 300)
+
+          MysticDivider(tone: .gold)
+            .padding(.horizontal, DesignTokens.Spacing.lg)
+
+          detailPanel
+            .frame(maxWidth: .infinity)
+        }
+      }
     }
   }
 
