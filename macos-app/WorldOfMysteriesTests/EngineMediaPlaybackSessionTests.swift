@@ -85,9 +85,10 @@ private actor MediaPlaybackBackend: NativePCMPlaybackBackend {
 
     init(log: MediaPlaybackEventLog) { self.log = log }
 
-    func start(sampleRate: Int, channels: Int) async throws {
+    func start(sampleRate: Int, channels: Int, outputGain: Double) async throws {
         #expect(sampleRate == 24_000)
         #expect(channels == 1)
+        #expect(outputGain > 0 && outputGain <= 1.0)
         await log.append("local_start")
     }
 
@@ -290,5 +291,50 @@ struct EngineMediaPlaybackSessionTests {
                 == .failed(.protocolViolation(.streamDigestMismatch))
         )
         #expect(await transport.closed)
+    }
+}
+
+
+@Suite("Engine media playback performance policy")
+struct EngineMediaPlaybackPerformanceTests {
+    @Test("Low-stimulation mode reaches the native backend before media OPEN")
+    func lowStimulationModeIsAppliedBeforeOpen() async throws {
+        let log = MediaPlaybackEventLog()
+        let transport = FakeMediaFrameTransport(log: log)
+        let backend = MediaPlaybackBackend(log: log)
+        let playback = NativePlaybackActor(backend: backend)
+        let grant = try MediaOpenGrant(payload: [
+            "protocol_version": .string("1.0"),
+            "socket_path": .string("/tmp/wom-media-test.sock"),
+            "stream_id": .string("tts-low"),
+            "trace_id": .string("trace-low"),
+            "engine_epoch": .string("engine-low"),
+            "generation": .int(31),
+            "ticket": .string(String(repeating: "a", count: 64)),
+            "direction": .string("engine_to_app"),
+            "format": .object([
+                "codec": .string("pcm_s16le"),
+                "sample_rate": .int(24_000),
+                "channels": .int(1),
+            ]),
+            "max_payload_bytes": .int(65_536),
+            "initial_credit_bytes": .int(262_144),
+            "expires_in_ms": .int(10_000),
+        ])
+        let session = EngineMediaPlaybackSession(
+            grant: grant,
+            transport: transport,
+            playback: playback,
+            playbackMode: .lowStimulation
+        )
+        let task = Task { await session.run() }
+        await transport.waitForSentCount(1)
+
+        let snapshot = try #require(await playback.snapshot())
+        #expect(snapshot.mode == .lowStimulation)
+        #expect(snapshot.outputGain == 0.45)
+
+        await session.stop()
+        #expect(await task.value == .cancelled)
     }
 }

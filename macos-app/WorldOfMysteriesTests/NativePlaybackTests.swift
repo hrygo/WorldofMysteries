@@ -14,7 +14,7 @@ private actor PlaybackEventRecorder {
 
 private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
     private let recorder: PlaybackEventRecorder
-    private(set) var started: [(Int, Int)] = []
+    private(set) var started: [(Int, Int, Double)] = []
     private(set) var payloads: [Data] = []
     private(set) var stopCount = 0
 
@@ -22,8 +22,8 @@ private actor FakeNativePCMPlaybackBackend: NativePCMPlaybackBackend {
         self.recorder = recorder
     }
 
-    func start(sampleRate: Int, channels: Int) async throws {
-        started.append((sampleRate, channels))
+    func start(sampleRate: Int, channels: Int, outputGain: Double) async throws {
+        started.append((sampleRate, channels, outputGain))
         await recorder.record("backend.start")
     }
 
@@ -89,6 +89,13 @@ struct NativePlaybackTests {
         #expect(snapshot.scheduledFrames == 3)
         #expect(snapshot.mediaStreamEnded)
         #expect(snapshot.evidence == .scheduled)
+        #expect(snapshot.mode == .normal)
+        #expect(snapshot.outputGain == 1.0)
+        let starts = await backend.started
+        #expect(starts.count == 1)
+        #expect(starts[0].0 == 24_000)
+        #expect(starts[0].1 == 1)
+        #expect(starts[0].2 == 1.0)
         #expect(await backend.payloads == [Data([1, 0, 2, 0]), Data([3, 0])])
     }
 
@@ -187,6 +194,41 @@ struct NativePlaybackTests {
             try await player.accept(
                 header(generation: 5, offsetFrames: 1),
                 payload: Data([0, 0, 0, 0])
+            )
+        }
+    }
+}
+
+
+@Suite("Low-stimulation voice playback")
+struct LowStimulationVoicePlaybackTests {
+    @Test("Low-stimulation mode caps local gain while preserving a single clear stream")
+    func lowStimulationGain() async throws {
+        let recorder = PlaybackEventRecorder()
+        let backend = FakeNativePCMPlaybackBackend(recorder: recorder)
+        let player = NativePlaybackActor(backend: backend)
+        try await player.begin(
+            streamID: "tts_low",
+            generation: 21,
+            format: MediaFormat(sampleRate: 24_000),
+            mode: VoicePlaybackMode.lowStimulation
+        )
+
+        let snapshot = try #require(await player.snapshot())
+        #expect(snapshot.mode == VoicePlaybackMode.lowStimulation)
+        #expect(snapshot.outputGain == 0.45)
+        let starts = await backend.started
+        #expect(starts.count == 1)
+        #expect(starts[0].0 == 24_000)
+        #expect(starts[0].1 == 1)
+        #expect(starts[0].2 == 0.45)
+
+        await #expect(throws: NativePlaybackFailure.invalidState) {
+            try await player.begin(
+                streamID: "tts_overlap",
+                generation: 22,
+                format: MediaFormat(sampleRate: 24_000),
+                mode: VoicePlaybackMode.normal
             )
         }
     }
