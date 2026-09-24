@@ -1,0 +1,104 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V06-DELIVERY-IPC",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V06-DELIVERY-IPC",
+  "title": "Voice V06 authenticated DeliveryCursor control plane",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-24T17:35:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "33b4aa9bcb2bfd91c87ae0e2a640d8f9db252e7c",
+    "target_sha": "33b4aa9bcb2bfd91c87ae0e2a640d8f9db252e7c",
+    "context_snapshot": "sha256:voice-v06-delivery-ipc-33b4aa9bcb2bfd91c87ae0e2a640d8f9db252e7c"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "contracts/protocol/voice_delivery_cursor.schema.json",
+      "engine/infrastructure/audio/delivery_control.py",
+      "engine/infrastructure/audio/__init__.py",
+      "engine/tests/test_delivery_control.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/EngineRuntimeModels.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceDeliveryCursorControlTests.swift",
+      ".agents/capsules/VOICE-V06-DELIVERY-IPC.json"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/ai/**",
+      ".github/**",
+      ".hacf/gates/**"
+    ],
+    "privileged_grants": [
+      "contracts/protocol/voice_delivery_cursor.schema.json",
+      "engine/infrastructure/audio/delivery_control.py",
+      "engine/infrastructure/audio/__init__.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/EngineRuntimeModels.swift"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/ipc_server.py",
+      "engine/infrastructure/delivery_cursor_repository.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/EngineRuntimeModels.swift",
+      "contracts/protocol/engine_ipc.schema.json"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "voice_delivery_cursor.schema.json"
+    ],
+    "slice_strategy": "world-bound-injected-delivery-cursor-control-handlers",
+    "token_estimate": 2600,
+    "max_core_tokens": 4000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Default Engine remains system-only. A real world-bound DeliveryCursor repository explicitly injects voice.delivery.get/update handlers. macOS uses only authenticated UDS IPC; there is no direct database access."
+  },
+  "impact": {
+    "symbols": [
+      "DeliveryCursorControlRuntime",
+      "EngineIPCClient.loadVoiceDeliveryCursor",
+      "EngineIPCClient.updateVoiceDeliveryCursor"
+    ],
+    "contracts": [
+      "voice_delivery_cursor.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_delivery_control.py",
+      "macos-app/WorldOfMysteriesTests/VoiceDeliveryCursorControlTests.swift"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V06-DELIVERY-CURSOR"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      9,
+      10,
+      11,
+      12
+    ],
+    "instructions": "Expose DeliveryCursor persistence only through authenticated, capability-negotiated UDS control handlers backed by a real world-bound repository. Default Engine must not advertise the methods. macOS must use EngineIPCClient and cannot access SQLite directly. Update is CAS-bound; get preserves explicit evidence strength and fully_output semantics.",
+    "assertions": [
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12"
+    ]
+  }
+}

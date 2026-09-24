@@ -142,6 +142,72 @@ public actor EngineIPCClient {
     }
 
 
+
+    public func loadVoiceDeliveryCursor(
+        trackId: String,
+        consumerId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> VoiceDeliveryCursorDTO? {
+        let response = try await send(
+            envelope: IPCEnvelope(
+                kind: "request",
+                traceId: traceId,
+                requestId: UUID().uuidString,
+                method: "voice.delivery.get",
+                payload: [
+                    "schema_version": .string("1.0"),
+                    "operation": .string("get"),
+                    "track_id": .string(trackId),
+                    "consumer_id": .string(consumerId),
+                ]
+            )
+        )
+        guard response.status == "ok" else {
+            if response.error?.code == "method_not_supported" {
+                throw EngineConnectionError.methodUnavailable
+            }
+            throw EngineConnectionError.invalidFrame
+        }
+        guard let value = try response.decodePayload(
+            as: VoiceDeliveryCursorResponseDTO.self
+        ), value.schemaVersion == "1.0" else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return value.cursor
+    }
+
+    public func updateVoiceDeliveryCursor(
+        _ request: VoiceDeliveryCursorUpdateDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> VoiceDeliveryCursorDTO {
+        let encoded = try JSONEncoder().encode(request)
+        let payload = try JSONDecoder().decode(
+            [String: AnyCodableValue].self,
+            from: encoded
+        )
+        let response = try await send(
+            envelope: IPCEnvelope(
+                kind: "request",
+                traceId: traceId,
+                requestId: UUID().uuidString,
+                method: "voice.delivery.update",
+                payload: payload
+            )
+        )
+        guard response.status == "ok" else {
+            if response.error?.code == "method_not_supported" {
+                throw EngineConnectionError.methodUnavailable
+            }
+            throw EngineConnectionError.invalidFrame
+        }
+        guard let value = try response.decodePayload(
+            as: VoiceDeliveryCursorResponseDTO.self
+        ), value.schemaVersion == "1.0", let cursor = value.cursor else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return cursor
+    }
+
     public func health() async throws -> EngineHealth {
         let response = try await send(envelope: IPCEnvelope(kind: "request", traceId: UUID().uuidString,
             requestId: UUID().uuidString, method: "system.health"))
