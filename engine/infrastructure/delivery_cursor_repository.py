@@ -173,8 +173,31 @@ class DeliveryCursor:
                 "DeliveryCursor unit cannot change within a generation"
             )
         if self.stop_reason is not None:
-            raise DeliveryCursorConflict(
-                "A stopped DeliveryCursor generation cannot advance"
+            if source_offset_frames != self.source_offset_frames:
+                raise DeliveryCursorConflict(
+                    "A stopped DeliveryCursor generation cannot advance its offset"
+                )
+            if (
+                stop_reason is not None
+                and stop_reason is not self.stop_reason
+            ):
+                raise DeliveryCursorConflict(
+                    "A stopped DeliveryCursor reason cannot change"
+                )
+            if _EVIDENCE_RANK[evidence] < _EVIDENCE_RANK[self.evidence]:
+                raise DeliveryCursorConflict("DeliveryCursor evidence regressed")
+            if self.total_source_frames is not None:
+                if total_source_frames != self.total_source_frames:
+                    raise DeliveryCursorConflict("DeliveryCursor total frames changed")
+                resolved_total = self.total_source_frames
+            else:
+                resolved_total = total_source_frames
+            return replace(
+                self,
+                total_source_frames=resolved_total,
+                evidence=evidence,
+                stop_reason=self.stop_reason,
+                cursor_revision=self.cursor_revision + 1,
             )
         if source_offset_frames < self.source_offset_frames:
             raise DeliveryCursorConflict("DeliveryCursor source offset moved backwards")

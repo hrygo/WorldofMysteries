@@ -60,6 +60,19 @@ async def test_cursor_progress_is_monotonic_and_never_advances_world_revision(da
     )
     assert cursor.source_offset_frames == 1000
     assert not cursor.fully_output
+
+    proven = await repo.advance(
+        "track-1",
+        "local-playback",
+        expected_cursor_revision=cursor.cursor_revision,
+        generation=7,
+        unit_id="speech-1",
+        source_offset_frames=1000,
+        total_source_frames=1000,
+        evidence=DeliveryEvidence.MEASURED_LOOPBACK,
+    )
+    assert proven.fully_output
+    assert proven.stop_reason is DeliveryStopReason.COMPLETED
     assert await world_revision(database) == 0
 
 
@@ -229,7 +242,7 @@ async def test_stopped_generation_cannot_advance_and_stale_cas_fails(database):
         evidence=DeliveryEvidence.QUEUED,
         stop_reason=DeliveryStopReason.USER_STOP,
     )
-    with pytest.raises(DeliveryCursorConflict, match="stopped"):
+    with pytest.raises(DeliveryCursorConflict, match="cannot advance its offset"):
         await repo.advance(
             "track-5",
             "local-playback",
@@ -286,3 +299,52 @@ async def test_cursor_survives_database_restart(database, db_paths):
         ) == saved
     finally:
         await reopened.close()
+
+
+async def test_stopped_cursor_allows_evidence_refinement_but_not_reason_rewrite(database):
+    repo = SQLiteDeliveryCursorRepository(database)
+    current = await repo.create(
+        DeliveryCursor.queued(
+            track_id="track-proof",
+            consumer_id="local-playback",
+            unit_id="speech-proof",
+            generation=3,
+            total_source_frames=100,
+        )
+    )
+    stopped = await repo.advance(
+        "track-proof",
+        "local-playback",
+        expected_cursor_revision=current.cursor_revision,
+        generation=3,
+        unit_id="speech-proof",
+        source_offset_frames=100,
+        total_source_frames=100,
+        evidence=DeliveryEvidence.RENDERED_ESTIMATE,
+        stop_reason=DeliveryStopReason.COMPLETED,
+    )
+    proven = await repo.advance(
+        "track-proof",
+        "local-playback",
+        expected_cursor_revision=stopped.cursor_revision,
+        generation=3,
+        unit_id="speech-proof",
+        source_offset_frames=100,
+        total_source_frames=100,
+        evidence=DeliveryEvidence.MEASURED_LOOPBACK,
+    )
+    assert proven.fully_output
+    assert proven.stop_reason is DeliveryStopReason.COMPLETED
+
+    with pytest.raises(DeliveryCursorConflict, match="reason cannot change"):
+        await repo.advance(
+            "track-proof",
+            "local-playback",
+            expected_cursor_revision=proven.cursor_revision,
+            generation=3,
+            unit_id="speech-proof",
+            source_offset_frames=100,
+            total_source_frames=100,
+            evidence=DeliveryEvidence.MEASURED_LOOPBACK,
+            stop_reason=DeliveryStopReason.USER_STOP,
+        )
