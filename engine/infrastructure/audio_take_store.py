@@ -32,15 +32,19 @@ _ID_LIMIT = 256
 _MANIFEST_LIMIT = 64 * 1024
 
 
-def _text(value: str, field: str) -> str:
+def _bounded_text(value: str, field: str, *, limit: int) -> str:
     if (
         not isinstance(value, str)
         or not value.strip()
-        or len(value) > _ID_LIMIT
+        or len(value) > limit
         or "\x00" in value
     ):
         raise StorageError(f"Invalid {field}")
     return value
+
+
+def _text(value: str, field: str) -> str:
+    return _bounded_text(value, field, limit=_ID_LIMIT)
 
 
 def _sha(value: str, field: str) -> str:
@@ -121,7 +125,7 @@ class DryRenderRecipe:
         pronunciation_revision: str,
         backend_fields: Mapping[str, object],
     ) -> "DryRenderRecipe":
-        _text(spoken_text, "spoken text")
+        _bounded_text(spoken_text, "spoken text", limit=4096)
         return cls(
             provider_instance=provider_instance,
             model_id=model_id,
@@ -220,7 +224,10 @@ class SQLiteAudioTakeStore:
         fault_hook: Callable[[str], None] | None = None,
     ) -> None:
         self._database = database
-        self._root = Path(assets_root)
+        root = Path(os.path.abspath(assets_root))
+        if root.parent != database.paths.world.parent:
+            raise StorageError("Audio assets must belong to the current world directory")
+        self._root = root
         self._signer = RenderManifestSigner(manifest_hmac_key)
         self._fault_hook = fault_hook
 

@@ -294,3 +294,43 @@ async def test_audio_asset_transaction_is_insert_only_and_authenticated_manifest
             await store.load(recipe().render_key)
     finally:
         await reopened.close()
+
+
+def test_render_recipe_accepts_protocol_max_spoken_text_and_rejects_oversize():
+    maximum = "界" * 4096
+    value = DryRenderRecipe.build(
+        provider_instance="speechrail-local",
+        model_id="qwen3-tts-base",
+        model_revision="b" * 40,
+        voice_id="klein-approved",
+        voice_revision="voice-" + "a" * 40,
+        spoken_text=maximum,
+        pronunciation_revision="pron-v1",
+        backend_fields={"speed": 1.0},
+    )
+    assert value.spoken_text_sha256
+
+    with pytest.raises(StorageError, match="spoken text"):
+        DryRenderRecipe.build(
+            provider_instance="speechrail-local",
+            model_id="qwen3-tts-base",
+            model_revision="b" * 40,
+            voice_id="klein-approved",
+            voice_revision="voice-" + "a" * 40,
+            spoken_text="界" * 4097,
+            pronunciation_revision="pron-v1",
+            backend_fields={"speed": 1.0},
+        )
+
+
+async def test_assets_root_must_belong_to_current_world_directory(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        with pytest.raises(StorageError, match="current world directory"):
+            SQLiteAudioTakeStore(
+                database,
+                tmp_path / "unrelated-assets",
+                manifest_hmac_key=b"f" * 32,
+            )
+    finally:
+        await database.close()
