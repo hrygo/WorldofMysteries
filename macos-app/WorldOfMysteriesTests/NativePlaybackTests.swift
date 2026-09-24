@@ -200,18 +200,22 @@ struct NativePlaybackTests {
 }
 
 
+@Suite("Low-stimulation voice playback")
+struct LowStimulationVoicePlaybackTests {
     @Test("Low-stimulation mode caps local gain while preserving a single clear stream")
     func lowStimulationGain() async throws {
-        let (player, backend, _) = makePlayer()
+        let recorder = PlaybackEventRecorder()
+        let backend = FakeNativePCMPlaybackBackend(recorder: recorder)
+        let player = NativePlaybackActor(backend: backend)
         try await player.begin(
             streamID: "tts_low",
             generation: 21,
-            format: .init(sampleRate: 24_000),
-            mode: .lowStimulation
+            format: MediaFormat(sampleRate: 24_000),
+            mode: VoicePlaybackMode.lowStimulation
         )
 
         let snapshot = try #require(await player.snapshot())
-        #expect(snapshot.mode == .lowStimulation)
+        #expect(snapshot.mode == VoicePlaybackMode.lowStimulation)
         #expect(snapshot.outputGain == 0.45)
         let starts = await backend.started
         #expect(starts.count == 1)
@@ -223,8 +227,9 @@ struct NativePlaybackTests {
             try await player.begin(
                 streamID: "tts_overlap",
                 generation: 22,
-                format: .init(sampleRate: 24_000),
-                mode: .normal
+                format: MediaFormat(sampleRate: 24_000),
+                mode: VoicePlaybackMode.normal
             )
         }
     }
+}
