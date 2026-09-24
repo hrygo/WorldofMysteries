@@ -1,4 +1,4 @@
-name: Temporary Voice V06 DeliveryCursor Focused Preflight
+name: Temporary Voice V06 DeliveryCursor R2 Receipt Verification
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
 jobs:
   verify:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout exact DeliveryCursor head
         uses: actions/checkout@v7
@@ -27,8 +27,18 @@ jobs:
         with:
           enable-cache: auto
           cache-dependency-glob: "engine/uv.lock"
-      - name: Architecture fitness
-        run: python3 scripts/check_architecture_fitness.py
-      - name: Focused cursor and migration tests
-        working-directory: engine
-        run: uv run --locked --extra dev pytest -q tests/test_delivery_cursor_repository.py tests/test_story_session_migration.py
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify R2 capsule and print Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "ee159b2dc4f9b5e448e2345f99d5c80722890bcf"
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V06-DELIVERY-CURSOR-R2.json
+          receipt=".agents/receipts/VOICE-V06-DELIVERY-CURSOR/ee159b2dc4f9.json"
+          test -f "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
