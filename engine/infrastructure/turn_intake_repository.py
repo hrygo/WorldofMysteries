@@ -15,6 +15,10 @@ from application.turn_input import (
     TurnInputReceipt,
     TurnInputStatus as ApplicationTurnInputStatus,
 )
+from application.turn_control import (
+    TurnCancellationOutcome,
+    TurnCancellationResult,
+)
 from contracts import BaseRevisions, InputMode
 
 from .database_manager import DatabaseManager, TurnCommandTransaction
@@ -99,6 +103,15 @@ class TurnIntakeRecord:
 class TurnIntakeReceiveResult:
     record: TurnIntakeRecord
     replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class TurnIntakeCancellation:
+    """Result of the atomic cancel-vs-COMMIT arbitration for one turn."""
+
+    outcome: TurnCancellationOutcome
+    record: TurnIntakeRecord | None
+    replayed: bool = False
 
 
 def _from_row(row: dict) -> TurnIntakeRecord:
@@ -240,6 +253,87 @@ class SQLiteTurnIntakeRepository:
 
         return await self.database.turn_command_write(apply)
 
+    async def cancel_pending(
+        self,
+        turn_id: str,
+        expected_revision: int,
+    ) -> TurnIntakeCancellation:
+        """Arbitrate cancel vs COMMIT for one turn inside the single writer.
+
+        CANCELLED never advances world facts; an already COMMITTED turn is
+        reported back with its committed store revision instead of raising, so a
+        lost ACK cannot be mistaken for a refused cancellation.
+        """
+        _identifier(turn_id, "turn id")
+        if (
+            isinstance(expected_revision, bool)
+            or not isinstance(expected_revision, int)
+            or expected_revision < 0
+        ):
+            raise StorageError("Invalid expected world revision")
+
+        def apply(tx: TurnCommandTransaction):
+            rows = tx.execute(
+                "SELECT * FROM turn_intake_commands WHERE turn_id=?",
+                (turn_id,),
+            )
+            if not rows:
+                return {
+                    "outcome": TurnCancellationOutcome.NOT_FOUND,
+                    "record": None,
+                    "replayed": False,
+                }
+            if len(rows) != 1:
+                raise StorageError("Turn intake turn identity is corrupted")
+            current = _from_row(rows[0])
+            if current.status is TurnIntakeStatus.COMMITTED:
+                if current.committed_world_revision is None:
+                    raise StorageError("Committed turn intake lost its revision")
+                return {
+                    "outcome": TurnCancellationOutcome.ALREADY_COMMITTED,
+                    "record": current,
+                    "replayed": False,
+                }
+            if current.status is TurnIntakeStatus.CANCELLED:
+                return {
+                    "outcome": TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT,
+                    "record": current,
+                    "replayed": True,
+                }
+            if current.base_revisions.world != expected_revision:
+                return {
+                    "outcome": TurnCancellationOutcome.STALE_REVISION,
+                    "record": current,
+                    "replayed": False,
+                }
+            tx.execute(
+                "UPDATE turn_intake_commands SET status='cancelled' "
+                "WHERE turn_id=? AND status='received'",
+                (turn_id,),
+            )
+            rows = tx.execute(
+                "SELECT * FROM turn_intake_commands WHERE turn_id=?",
+                (turn_id,),
+            )
+            updated = _from_row(rows[0])
+            if (
+                updated.status is not TurnIntakeStatus.CANCELLED
+                or updated.committed_world_revision is not None
+            ):
+                raise StorageError("Turn intake cancellation did not persist")
+            return {
+                "outcome": TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT,
+                "record": updated,
+                "replayed": False,
+            }
+
+        result = await self.database.turn_command_write(apply)
+        return TurnIntakeCancellation(
+            outcome=result["outcome"],
+            record=result["record"],
+            replayed=bool(result["replayed"]),
+        )
+
 
 
 def _to_application_receipt(
@@ -299,3 +393,36 @@ class SQLiteTurnInputCommandPort:
     async def cancel(self, input_turn_id: str) -> TurnInputReceipt:
         record = await self._repository.cancel(input_turn_id)
         return _to_application_receipt(record, replayed=False)
+
+
+class SQLitePendingTurnControlPort:
+    """PendingTurnControlPort adapter: native cancel-vs-COMMIT arbitration."""
+
+    def __init__(self, database: DatabaseManager) -> None:
+        self._repository = SQLiteTurnIntakeRepository(database)
+
+    async def cancel_pending(
+        self,
+        turn_id: str,
+        *,
+        expected_revision: int,
+        request_id: str,
+        trace_id: str,
+    ) -> TurnCancellationResult:
+        _identifier(request_id, "request id")
+        _identifier(trace_id, "trace id")
+        cancellation = await self._repository.cancel_pending(
+            turn_id,
+            expected_revision,
+        )
+        record = cancellation.record
+        return TurnCancellationResult(
+            outcome=cancellation.outcome,
+            turn_id=turn_id,
+            input_turn_id=None if record is None else record.input_turn_id,
+            session_id=None if record is None else record.session_id,
+            committed_world_revision=(
+                None if record is None else record.committed_world_revision
+            ),
+            replayed=cancellation.replayed,
+        )

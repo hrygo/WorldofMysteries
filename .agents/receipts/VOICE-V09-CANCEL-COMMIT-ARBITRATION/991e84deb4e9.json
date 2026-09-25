@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V09-CANCEL-COMMIT-ARBITRATION-991e84deb4e9",
+  "receipt_type": "work",
+  "task_id": "VOICE-V09-CANCEL-COMMIT-ARBITRATION",
+  "capsule_id": "CAP-VOICE-V09-CANCEL-COMMIT-ARBITRATION",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:4e9350076632b86e068357cffbefe539054cfd3d0b9919714359b0e0463ed39c",
+  "diff_digest": "sha256:256052ebcae88502fdce52371bff92d7f135957c2552e32cd3288f1e8edfc0e0",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "b98f17a1587d7947d2da3c34ad1cb1d094b8b9bc",
+  "head_commit": "991e84deb4e9858defe3804b7d2933d7d7ddf94c",
+  "target_ref": "origin/main",
+  "target_sha": "b98f17a1587d7947d2da3c34ad1cb1d094b8b9bc",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T11:07:25.696303+00:00",
+      "finished_at": "2026-09-25T11:07:25.726859+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T11:07:25.726925+00:00",
+      "finished_at": "2026-09-25T11:07:52.060699+00:00",
+      "raw_log_digest": "sha256:1076adc9e988012425ffad7cd3131fc7d38de8f790d869228dfb4ad97ad0beae",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T11:07:52.060785+00:00",
+      "finished_at": "2026-09-25T11:08:15.755985+00:00",
+      "raw_log_digest": "sha256:139a1e7e4d51b734c37210eb88d20094a76792ed0f6089a80ed3ba1fc546076b",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T11:08:15.756104+00:00",
+      "finished_at": "2026-09-25T11:08:17.012351+00:00",
+      "raw_log_digest": "sha256:f7c76cacb70c1023a101dad777241b155604005e057b332934fdd03b183a4dc9",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/turn_control.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/test_turn_control.py",
+      "engine/tests/test_turn_intake_repository.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-cancel-commit-arbitration"
+  },
+  "started_at": "2026-09-25T11:07:25.666431+00:00",
+  "finished_at": "2026-09-25T11:08:17.154091+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
