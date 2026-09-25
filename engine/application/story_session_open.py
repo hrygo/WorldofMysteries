@@ -76,7 +76,7 @@ class StorySessionOpenService:
             raise StorySessionOpenError("story_session_snapshot_invalid")
         try:
             session = StorySession.model_validate(
-                snapshot.session.model_dump(mode="json")
+                snapshot.session.model_dump(mode="json", exclude_none=True)
             )
         except (TypeError, ValueError, ValidationError):
             raise StorySessionOpenError("story_session_snapshot_invalid") from None
@@ -94,7 +94,9 @@ def _freeze_command(command: OpenStorySessionCommand) -> OpenStorySessionCommand
     if not isinstance(initial, StorySession):
         raise StorySessionOpenError("invalid_initial_session")
     try:
-        frozen_initial = StorySession.model_validate(initial.model_dump(mode="json"))
+        frozen_initial = StorySession.model_validate(
+            initial.model_dump(mode="json", exclude_none=True)
+        )
     except (TypeError, ValueError, ValidationError):
         raise StorySessionOpenError("invalid_initial_session") from None
 

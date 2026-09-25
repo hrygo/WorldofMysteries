@@ -68,6 +68,14 @@ def session(
     )
 
 
+def session_with_omitted_optional_state_fields() -> StorySession:
+    payload = session().model_dump(mode="json")
+    state = payload["story_state"]
+    for field in ("active_conflicts", "discovered_clue_ids", "local_state"):
+        state.pop(field)
+    return StorySession.model_validate(payload)
+
+
 def command(
     initial_session: StorySession | None = None,
     *,
@@ -230,6 +238,25 @@ async def test_open_freezes_nested_initial_session_before_first_await():
     assert port.opened[0].initial_session is not original
 
 
+async def test_open_accepts_initial_session_with_omitted_optional_state_fields():
+    initial = session_with_omitted_optional_state_fields()
+    port = OpenPort()
+    port.release.set()
+    service = StorySessionOpenService(port)
+
+    result = await service.open(command(initial))
+
+    frozen_state = result.snapshot.session.story_state
+    assert frozen_state.active_conflicts is None
+    assert frozen_state.discovered_clue_ids is None
+    assert frozen_state.local_state is None
+    assert not {
+        "active_conflicts",
+        "discovered_clue_ids",
+        "local_state",
+    } & frozen_state.model_fields_set
+
+
 @pytest.mark.parametrize(
     "status",
     [
@@ -256,6 +283,27 @@ async def test_recover_returns_authoritative_status_without_reactivation(status)
     assert recovered.session.status is status
     assert port.loads == ["session-1"]
     assert port.opened == []
+
+
+async def test_recover_accepts_snapshot_with_omitted_optional_state_fields():
+    port = OpenPort()
+    authoritative = session_with_omitted_optional_state_fields()
+    port.snapshot = StorySessionSnapshot(
+        session=authoritative,
+        observed_store_revision=27,
+    )
+    service = StorySessionOpenService(port)
+
+    recovered = await service.recover("session-1")
+
+    assert recovered.session.story_state.active_conflicts is None
+    assert recovered.session.story_state.discovered_clue_ids is None
+    assert recovered.session.story_state.local_state is None
+    assert not {
+        "active_conflicts",
+        "discovered_clue_ids",
+        "local_state",
+    } & recovered.session.story_state.model_fields_set
 
 
 async def test_recover_rejects_snapshot_for_a_different_session():
