@@ -1,0 +1,31 @@
+name: Temporary W-V09 Durable Turn Intake Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact W-V09 intake head
+        uses: actions/checkout@v7
+        with:
+          ref: fa5b07aeda8b7f8fc22bde4952e436901d1329ad
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Focused durable turn tests
+        working-directory: engine
+        run: uv run --locked --extra dev pytest -q tests/test_turn_intake_repository.py tests/test_story_session_migration.py tests/test_golden_turn1_durable.py
