@@ -1,0 +1,40 @@
+name: Temporary W-V09 PlayerAdvice Focused Preflight
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PlayerAdvice dev head
+        uses: actions/checkout@v7
+        with:
+          ref: 7615d5781feb380a02e91e1d307888b98bd34503
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Architecture fitness
+        run: python3 scripts/check_architecture_fitness.py
+      - name: Focused W-V09 PlayerAdvice tests
+        working-directory: engine
+        run: |
+          uv run --locked --extra dev pytest -q \
+            tests/test_turn_input.py \
+            tests/test_turn_input_integration.py \
+            tests/test_player_advice.py \
+            tests/test_player_advice_repository.py \
+            tests/test_story_session_migration.py
