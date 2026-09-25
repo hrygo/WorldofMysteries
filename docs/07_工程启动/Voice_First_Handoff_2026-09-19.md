@@ -3,6 +3,18 @@
 > 目的：让没有当前聊天上下文的后续团队，仅凭仓库与 GitHub 记录即可继续 Voice-First 工作。  
 > 本文记录的是 **2026-09-19 的执行快照**，不是永久不变的状态页；开工前必须重新读取 `main`、相关 PR、SpeechRail 实际合并 commit 与门禁结果。
 
+## 0. 2026-09-25 Session Open 候选交付更新
+
+本节记录 Session Open / 首轮持久链候选的当前证据，不重验也不改写下方 W-V01（PR #71）在 2026-09-19 的历史快照。接手时仍须读取最新 `main`、PR 与 Receipt。
+
+- 候选基线：`main@0890eb308b833c9afdf9ade9ef147cf63b4d4a2f`；代码 head：`b848ad66f159f7a2d493da51ce23e716b0d5fbc2`；QA Receipt 独立提交：`710d7bf5d96a23268be09822a14934b2a12ad2f8`。
+- Receipt：`RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159`，`FULL_P0` 四阶段全部通过，`coverage_gaps` 与范围违规均为空。门禁包含架构边界、Python/Contracts、Swift 6 测试和 arm64 Xcode App Target Build。
+- 持久语义：Session Open 使 store revision 加 1，原子写 session、`story.session.opened` 和 Outbox；Story revision/turn 保持 0。第一条真实 Advice→COMMIT 再使 store revision 加 1、Story revision/turn 到 1。测试覆盖同键重放、回合提交后的恢复、open-only 数据库重开、并发、CAS 与提交前后 fault hooks。
+- 只读整分支审查未发现 Critical、Important 或 Required 问题；这不是另一份测试运行或凭单复算。
+- 当前为本地未合入候选：尚未推送、创建 PR 或合并。此结果不能标记整个 M1、M2 或 M5 完成，也不能代替 Golden 001 五轮、App/Engine 进程生命周期、真机语音或发布验收。
+
+后续关键路径：先定义可信 StorySeed/世界角色装载和最小授权 UI 投影，再把 opener 与 SQLite adapter 接入 Engine 组合根和受限 UDS/IPC，让 App 从合法初始会话开始并把第一条 Advice 送到真实 COMMIT。UI 只接收获授权的类型化投影，禁止把含隐藏事实的完整内部 `StorySession` 直接传给客户端。之后再补全领域结算和 Golden 五轮；真实模型、设备与发布验收继续独立排期。
+
 ## 1. 先读什么：唯一入口与优先级
 
 按以下顺序获取事实，后面的层级不能覆盖前面的已发布事实：
