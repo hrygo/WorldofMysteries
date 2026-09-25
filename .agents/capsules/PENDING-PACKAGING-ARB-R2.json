@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PENDING-PACKAGING-ARB-R2",
+  "capsule_revision": 1,
+  "task_id": "PENDING-PACKAGING-ARB-R2",
+  "title": "Consolidate package signing and merged delivery records",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T14:59:01.687693+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "202c48f0fe5956d0558b88fcf4fa81e8e8e4ccff",
+    "target_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+    "context_snapshot": "sha256:55747f15a5e12eab3a0c34c13f2555aeb6ac7071d77188a0ecef969579cb3751"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_world_sources_are_bound_but_shipping_remains_pending@docs/05_UI/artwork/delivery/tests/test_intake.py:40",
+      "symbol:test_byte_verified_chain_records_gates_but_stays_pending_without_runtime_evidence@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:199",
+      "symbol:test_packaging_entitlement_requires_explicit_mac_grant@engine/tests/test_hacf_governance.py:107",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206",
+      "symbol:main@docs/05_UI/artwork/delivery/intake.py:244",
+      "symbol:DeliveryRecordsTests@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:13",
+      "symbol:test_crop_source_binding@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:14",
+      "symbol:test_wide_crop_geometry@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:26",
+      "symbol:test_crop_is_not_shipping@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:38",
+      "symbol:test_attempts_cannot_become_approved_sources@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:44",
+      "symbol:test_primary_evidence_has_explicit_limits@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:55",
+      "symbol:test_scene_prompts_are_individual@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:75",
+      "symbol:test_no_local_absolute_paths_in_delivery_markdown@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:84",
+      "symbol:HandoffCommandTests@docs/05_UI/artwork/delivery/tests/test_handoff_command.py:9",
+      "symbol:test_w1_finishing_command_preserves_required_anchor@docs/05_UI/artwork/delivery/tests/test_handoff_command.py:10",
+      "symbol:chunk@docs/05_UI/artwork/delivery/tests/test_intake.py:19",
+      "symbol:png@docs/05_UI/artwork/delivery/tests/test_intake.py:23",
+      "symbol:IntakeTests@docs/05_UI/artwork/delivery/tests/test_intake.py:28",
+      "symbol:setUp@docs/05_UI/artwork/delivery/tests/test_intake.py:29",
+      "symbol:test_valid_manifest@docs/05_UI/artwork/delivery/tests/test_intake.py:32",
+      "symbol:test_real_registry@docs/05_UI/artwork/delivery/tests/test_intake.py:35"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 854,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_world_sources_are_bound_but_shipping_remains_pending",
+      "test_byte_verified_chain_records_gates_but_stays_pending_without_runtime_evidence",
+      "test_packaging_entitlement_requires_explicit_mac_grant",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources",
+      "main",
+      "DeliveryRecordsTests",
+      "test_crop_source_binding",
+      "test_wide_crop_geometry",
+      "test_crop_is_not_shipping",
+      "test_attempts_cannot_become_approved_sources",
+      "test_primary_evidence_has_explicit_limits",
+      "test_scene_prompts_are_individual",
+      "test_no_local_absolute_paths_in_delivery_markdown",
+      "HandoffCommandTests",
+      "test_w1_finishing_command_preserves_required_anchor",
+      "chunk",
+      "png",
+      "IntakeTests",
+      "setUp",
+      "test_valid_manifest",
+      "test_real_registry"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PACKAGE-SIGNING-POLICY-QA-R1",
+  "capsule_revision": 1,
+  "task_id": "PACKAGE-SIGNING-POLICY-QA-R1",
+  "title": "Assert package signing scope for engine helper and app",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T15:05:07.273647+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "56b54cb2f963add768dad7948ad4458689977e46",
+    "target_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+    "context_snapshot": "sha256:0b713d94a5dd3e4c0b217689aadfecd700c49f4b69e1decdc17b614bc4300348"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_policy@engine/tests/test_advice_commit_proposal.py:116",
+      "symbol:test_ai_gateway_runs_actual_compiler_renderer_policy_and_validator@engine/tests/test_ai_gateway.py:57",
+      "symbol:test_authorized_redub_rechecks_every_take_set_as_one_policy_subject@engine/tests/test_audio_track_repository.py:738",
+      "symbol:test_packaged_probe_source_closure_tracks_media_protocol_dependency@engine/tests/test_bundle_engine.py:250",
+      "symbol:voice_policy@engine/tests/test_golden_voice_chain_durable.py:135",
+      "symbol:test_policy_git_calls_scrub_hook_injected_environment@engine/tests/test_hacf_governance.py:235",
+      "symbol:test_signing_preserves_helper_entitlements_through_parent_path_alias@engine/tests/test_macos_packaging.py:102",
+      "symbol:_turn1_policy@engine/tests/test_outcome_resolver.py:33",
+      "symbol:test_policy_cannot_introduce_undeclared_clue_or_secret@engine/tests/test_outcome_resolver.py:103",
+      "symbol:test_policy_rejects_duplicate_clue_effects_before_resolution@engine/tests/test_outcome_resolver.py:155",
+      "symbol:test_seal_rejects_speakerless_narration_until_narrator_policy_exists@engine/tests/test_speech_unit.py:277",
+      "symbol:_provider@engine/tests/test_voice_casting_policy.py:25",
+      "symbol:_candidate@engine/tests/test_voice_casting_policy.py:41",
+      "symbol:_scope@engine/tests/test_voice_casting_policy.py:68",
+      "symbol:_request@engine/tests/test_voice_casting_policy.py:84",
+      "symbol:_active_binding@engine/tests/test_voice_casting_policy.py:105",
+      "symbol:test_hard_filters_run_before_public_trait_ranking@engine/tests/test_voice_casting_policy.py:119",
+      "symbol:test_masked_familiar_voice_cannot_win_without_explicit_authorization@engine/tests/test_voice_casting_policy.py:136",
+      "symbol:test_existing_authorized_binding_is_a_hard_lock@engine/tests/test_voice_casting_policy.py:152",
+      "symbol:test_existing_binding_fails_closed_when_its_revision_is_not_authorized@engine/tests/test_voice_casting_policy.py:176",
+      "symbol:test_candidate_order_does_not_change_deterministic_tie_break@engine/tests/test_voice_casting_policy.py:191",
+      "symbol:test_occupied_audible_identity_is_not_reused_in_same_scene@engine/tests/test_voice_casting_policy.py:202",
+      "symbol:test_legacy_candidate_requires_explicit_freeze_approval@engine/tests/test_voice_casting_policy.py:214",
+      "symbol:test_duplicate_revision_candidate_metadata_is_rejected@engine/tests/test_voice_casting_policy.py:236",
+      "symbol:test_existing_binding_must_match_current_public_presentation_scope@engine/tests/test_voice_casting_policy.py:245",
+      "symbol:test_scene_casting_jointly_avoids_greedy_dead_end@engine/tests/test_voice_casting_policy.py:267",
+      "symbol:test_scene_casting_is_independent_of_role_and_candidate_order@engine/tests/test_voice_casting_policy.py:297",
+      "symbol:test_scene_casting_existing_binding_is_hard_lock_and_blocks_reuse@engine/tests/test_voice_casting_policy.py:342",
+      "symbol:test_scene_casting_keeps_authorization_hard_filter_for_every_role@engine/tests/test_voice_casting_policy.py:374",
+      "symbol:test_scene_casting_rejects_cross_worldline_or_duplicate_roles@engine/tests/test_voice_casting_policy.py:392"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 971,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_policy",
+      "test_ai_gateway_runs_actual_compiler_renderer_policy_and_validator",
+      "test_authorized_redub_rechecks_every_take_set_as_one_policy_subject",
+      "test_packaged_probe_source_closure_tracks_media_protocol_dependency",
+      "voice_policy",
+      "test_policy_git_calls_scrub_hook_injected_environment",
+      "test_signing_preserves_helper_entitlements_through_parent_path_alias",
+      "_turn1_policy",
+      "test_policy_cannot_introduce_undeclared_clue_or_secret",
+      "test_policy_rejects_duplicate_clue_effects_before_resolution",
+      "test_seal_rejects_speakerless_narration_until_narrator_policy_exists",
+      "_provider",
+      "_candidate",
+      "_scope",
+      "_request",
+      "_active_binding",
+      "test_hard_filters_run_before_public_trait_ranking",
+      "test_masked_familiar_voice_cannot_win_without_explicit_authorization",
+      "test_existing_authorized_binding_is_a_hard_lock",
+      "test_existing_binding_fails_closed_when_its_revision_is_not_authorized",
+      "test_candidate_order_does_not_change_deterministic_tie_break",
+      "test_occupied_audible_identity_is_not_reused_in_same_scene",
+      "test_legacy_candidate_requires_explicit_freeze_approval",
+      "test_duplicate_revision_candidate_metadata_is_rejected",
+      "test_existing_binding_must_match_current_public_presentation_scope",
+      "test_scene_casting_jointly_avoids_greedy_dead_end",
+      "test_scene_casting_is_independent_of_role_and_candidate_order",
+      "test_scene_casting_existing_binding_is_hard_lock_and_blocks_reuse",
+      "test_scene_casting_keeps_authorization_hard_filter_for_every_role",
+      "test_scene_casting_rejects_cross_worldline_or_duplicate_roles"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

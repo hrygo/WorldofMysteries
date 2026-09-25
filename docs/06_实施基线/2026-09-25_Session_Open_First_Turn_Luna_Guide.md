@@ -1,10 +1,10 @@
 # 1. 问题结论
 
-**下一迭代：持久化 Session Open、第一轮 Advice 提交与数据库重启恢复。**
+**迭代目标：持久化 Session Open、第一轮 Advice 提交与数据库重启恢复。**
 
 - 日期：2026-09-25。
 - 证据基线：`main@0890eb308b833c9afdf9ade9ef147cf63b4d4a2f`，最新合入 #201。
-- 文档性质：设计方案及 2026-09-25 候选交付记录。T1–T3 已实施并通过 FULL_P0；T4 状态文档更新正在独立候选分支验收。实现尚未推送、创建 PR 或合并。
+- 文档性质：设计方案与执行记录。T1–T4 已实施，T1–T3 通过 FULL_P0，状态文档与工程罗盘已验收；交付于 2026-09-25 通过 PR #202 合并，合并提交为 `26999fc61c074292224cdb7ce6c6ad89aca16c35`。
 - 目标：合法初始会话无需先提交虚构的引导回合，即可持久化；第一条真实输入经现有服务到达 COMMIT，重复请求及数据库重启均不重复推进。
 - 范围：Application 内部端口、SQLite adapter、持久回归测试、进度文档。此次不承诺 App 可玩闭环或 Golden 001 五轮验收完成。
 - 技术基线：现有 Python 3.14.7、SQLite 四库隔离、单写者事务及 Pydantic 契约。不得引入新 SDK、数据库、服务或模型依赖。
@@ -60,7 +60,7 @@
 - Work Receipt `RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159` 绑定 `FULL_P0`，架构、Python/Contracts、Swift 6 测试与 arm64 Xcode App Target Build 四阶段均通过；`coverage_gaps` 和 scope violations 均为空。候选 diff 未包含产品 Schema 或 migration。
 - Session Open 原子增加 store revision 一次并写入 session、`story.session.opened` 与 Outbox；Story revision/turn 保持 0。首条真实 Advice→COMMIT 再增加 store revision 一次并将 Story revision/turn 推进到 1。候选测试覆盖语义重放、当前权威快照恢复、数据库关闭重开、CAS、唯一活跃会话、并发以及提交前 fault rollback 和提交后失 ACK 重试。
 - 对候选业务代码和测试的只读整分支审查未发现 Critical、Important 或 Required 问题。审查没有重跑门禁或独立复算 Receipt。
-- 候选尚未推送、创建 PR 或合并。M1 仍缺产品组合根、受限 IPC 与 App 接线；M2 全量四库范围、M5 Golden 五轮、进程/App 重启连续性、真实模型、设备和发布验收也仍未完成。
+- 上述候选已通过 PR #202 合并至 `main`，合并提交为 `26999fc61c074292224cdb7ce6c6ad89aca16c35`。M1 仍缺产品组合根、受限 IPC 与 App 接线；M2 全量四库范围、M5 Golden 五轮、进程/App 重启连续性、真实模型、设备和发布验收也仍未完成。
 
 # 3. 目标行为
 
@@ -280,7 +280,7 @@ request_id/trace_id 可在网络重试时变化，因为当前框架从语义 di
 - [x] 候选 diff 未修改 Canon、历史、产品 Schema、migration 或 authorizer。
 - [x] 原 Golden expected 内容不变，旧 direct-commit 路径回归通过。
 - [x] FULL_P0 四阶段对候选代码 head 通过，Receipt 独立提交且不复用 #201 凭单。
-- [ ] 状态文档与工程罗盘更新并验收；完成后仍将 M5/W-V10 标为未验收。
+- [x] 状态文档与工程罗盘更新并验收；M5/W-V10 仍标为未验收。
 
 ## 8.2 受保护门禁与执行位置
 
@@ -323,7 +323,7 @@ FULL_P0 已包含 Architecture Fitness、全体 Python/Contracts、Swift tests�
 - [x] **T2 / `VOICE-V09-SESSION-OPEN-DATA` / AGT-DATA**：SQLite adapter、canonical request、事务插入、单查询 snapshot 与错误映射已实现；测试覆盖持久化、幂等、CAS、唯一槽与故障路径，未改 schema。
 - [x] **T3 / `VOICE-V09-SESSION-OPEN-QA` / AGT-QA**：语音链从显式 open 后的真实首轮启动；首轮 COMMIT、取消、重放、并发、重开与 Golden 首轮组合测试通过 FULL_P0。
 - [x] **T4 / AGT-ARB**：状态 JSON 与 handoff 已记录验收 SHA、候选边界及后续可信初始化/组合根/产品接线；`project_status.py status/next` 已复核，未声称五轮或真机完成。
-- [x] **交付**：本地候选已完成 T4 提交后 verify 与 Receipt 独立提交；记录改动、门禁、凭单与未覆盖项。无 schema/API 变化。候选交付不包含推送、PR、合并或 worktree 回收。
+- [x] **交付**：候选已完成 T4 提交后 verify 与 Receipt 独立提交，并于 2026-09-25 通过 PR #202 合并至 `main`（`26999fc61c074292224cdb7ce6c6ad89aca16c35`）；记录改动、门禁、凭单与未覆盖项。无 schema/API 变化。
 
 每个代码任务执行现有 `pack → start → 实施与提交 → verify → 凭单独立提交` 流程；分支使用 `codex/` 前缀、`target_ref=origin/main`。依赖任务合入后重新 pack 后继任务，避免继承陈旧范围或把前序代码重复计入本任务摘要。不得通过 `--allow-stale` 放行正式凭单。
 

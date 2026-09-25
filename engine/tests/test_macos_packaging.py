@@ -107,12 +107,21 @@ def test_signing_preserves_helper_entitlements_through_parent_path_alias(tmp_pat
     interpreter.parent.mkdir(parents=True)
     interpreter.write_bytes(b'\xcf\xfa\xed\xfecontents')
     calls = []
+    signed_runtime = {}
     def fake_run(command, **kwargs):
         calls.append(command)
         if command[0] == 'otool':
             return 'binary:\n' + ('\t/usr/lib/libSystem.B.dylib (compatibility version 1.0)\n' if '-L' in command else '')
         if command[0] == 'lipo': return 'arm64'
-        if '-dvv' in command: return 'flags=0x10000(runtime)'
+        if command[0] == 'codesign' and '--force' in command:
+            target = Path(command[-1]).resolve(strict=True)
+            signed_runtime[target] = (
+                '--options' in command
+                and command[command.index('--options') + 1] == 'runtime'
+            )
+        if '-dvv' in command:
+            target = Path(command[-1]).resolve(strict=True)
+            return 'flags=0x10000(runtime)' if signed_runtime.get(target, False) else 'flags=0x0()'
         if '-d' in command and '--entitlements' in command:
             name = 'Engine.entitlements' if Path(command[-1]).is_file() else 'App.entitlements'
             return (ROOT/'macos-app/Packaging'/name).read_text()
@@ -123,6 +132,18 @@ def test_signing_preserves_helper_entitlements_through_parent_path_alias(tmp_pat
     assert len(signs) == 1
     assert '--entitlements' in signs[0]
     assert signs[0][signs[0].index('--entitlements')+1].endswith('/Engine.entitlements')
+    assert '--options' not in signs[0]
+
+    app_signs = [
+        c for c in calls
+        if c[0] == 'codesign' and '--force' in c
+        and Path(c[-1]).resolve(strict=True) == app.resolve(strict=True)
+    ]
+    assert len(app_signs) == 1
+    assert app_signs[0][app_signs[0].index('--options') + 1] == 'runtime'
+    assert app_signs[0][app_signs[0].index('--entitlements') + 1].endswith('/App.entitlements')
+    assert signed_runtime[interpreter.resolve(strict=True)] is False
+    assert signed_runtime[app.resolve(strict=True)] is True
 
 
 def test_runtime_setup_diagnostics_preserve_user_safe_errors():

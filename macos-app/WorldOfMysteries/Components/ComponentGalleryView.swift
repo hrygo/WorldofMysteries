@@ -86,9 +86,12 @@ private struct ComponentGalleryHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                Text("《诡秘世界》UI 组件全景画廊")
-                    .font(Font.Mystic.gothicDisplay)
-                    .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                    Text("《诡秘世界》UI 组件全景画廊")
+                        .font(Font.Mystic.gothicDisplay)
+                        .foregroundStyle(Color.Mystic.brassGoldPrimary)
+                    MysticBadge("PANEL PREVIEW", tone: .gold, variant: .panel, systemIcon: "sparkles")
+                }
 
                 Text("真实组件优先 · 可交互 specimen · 自适应布局 · 15 件特殊物品玩法 · 单一 Canvas 会话")
                     .font(Font.Mystic.bodyMedium)
@@ -107,7 +110,20 @@ private struct ComponentGalleryHeader: View {
                 }
             }
         }
-        .padding(.bottom, DesignTokens.Spacing.md)
+        .padding(DesignTokens.LayoutInsets.cardPadding)
+        .background(
+            WOMPanelBackground(
+                tone: .card,
+                cornerRadius: DesignTokens.Radii.md,
+                texture: .sacredSlate,
+                textureOpacity: 0.02
+            )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Radii.md)
+                .stroke(Color.Mystic.brassGoldBorder.opacity(0.32), lineWidth: DesignTokens.Borders.hairline)
+        }
+        .padding(.bottom, DesignTokens.Spacing.sm)
     }
 
     private enum FocusPickerStyle {
