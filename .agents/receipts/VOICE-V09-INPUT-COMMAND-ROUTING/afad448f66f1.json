@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V09-INPUT-COMMAND-ROUTING-afad448f66f1",
+  "receipt_type": "work",
+  "task_id": "VOICE-V09-INPUT-COMMAND-ROUTING",
+  "capsule_id": "CAP-VOICE-V09-INPUT-COMMAND-ROUTING",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:fe5b5bc5822926c47523bc0afba05886e625bb8d3b0a24f687f453145210bfdb",
+  "diff_digest": "sha256:becb0e494d9f4e0ad3a25af21a50789595197f53a024f99a32cf235f2d98beef",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "high",
+  "base_commit": "01d39897c8fc54c32a0f79c1906e835d47b63fc6",
+  "head_commit": "afad448f66f1003c070376245d91103aa95ea714",
+  "target_ref": "origin/main",
+  "target_sha": "01d39897c8fc54c32a0f79c1906e835d47b63fc6",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T08:22:05.467478+00:00",
+      "finished_at": "2026-09-25T08:22:05.537627+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T08:22:05.537889+00:00",
+      "finished_at": "2026-09-25T08:23:27.951618+00:00",
+      "raw_log_digest": "sha256:d6898e98612e5aa99d5f51a329d18af4c0be83fb9548dbb65e25f75621a97769",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        ".build"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T08:23:27.952643+00:00",
+      "finished_at": "2026-09-25T08:26:07.001298+00:00",
+      "raw_log_digest": "sha256:bf90dccd7b00e0ff74334b3f981a65d5828b1aa8f99a9317a4239847cfcc3d07",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T08:26:07.002400+00:00",
+      "finished_at": "2026-09-25T08:27:22.760607+00:00",
+      "raw_log_digest": "sha256:65efd4ae797b143c5f37bf378c4671133a57eff586dc632b2aa8268fb0e6e200",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/turn_input.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/test_turn_input.py",
+      "engine/tests/test_turn_input_integration.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.19 (bea138450 2026-09-24 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "sjc22-bt145-445ce6c4-7eda-41bf-bbf5-d3a2edcbd3ec-D60B9CC176A9.local",
+    "user": "runner",
+    "role": "AGT-ARB",
+    "cwd": "/Users/runner/work/WorldofMysteries/WorldofMysteries"
+  },
+  "started_at": "2026-09-25T08:22:04.817472+00:00",
+  "finished_at": "2026-09-25T08:27:25.743855+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
