@@ -1,0 +1,119 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-DURABLE-PLAYER-ADVICE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-DURABLE-PLAYER-ADVICE",
+  "title": "Voice V09 durable first accepted PlayerAdvice interpretation",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T16:38:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "ce31bd0888186c7240c3c1cdfb67f95464e05174",
+    "target_sha": "ce31bd0888186c7240c3c1cdfb67f95464e05174",
+    "context_snapshot": "sha256:voice-v09-durable-player-advice-ce31bd0888186c7240c3c1cdfb67f95464e05174"
+  },
+  "scope": {
+    "read": [
+      "engine/application/",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/",
+      "contracts/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/advice_interpretation.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/009_world_player_advice.sql",
+      "engine/infrastructure/player_advice_repository.py",
+      "engine/tests/test_advice_interpretation.py",
+      "engine/tests/test_player_advice_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      ".agents/capsules/VOICE-V09-DURABLE-PLAYER-ADVICE.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/009_world_player_advice.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/turn_input.py",
+      "engine/application/advice_interpretation.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/infrastructure/player_advice_repository.py",
+      "engine/infrastructure/database_manager.py",
+      "contracts/schemas/player_advice.schema.json",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md"
+    ],
+    "related_contracts": [
+      "player_advice.schema.json",
+      "turn_transaction.schema.json",
+      "story_session.schema.json"
+    ],
+    "slice_strategy": "first-accepted-advice-bound-to-durable-input-before-domain-work",
+    "token_estimate": 2600,
+    "max_core_tokens": 4500,
+    "expansion_policy": "arbiter_approved",
+    "note": "Builds on merged durable input routing. Model output is bounded semantic proposal data only; durable input identity/raw text remains authoritative. First valid PlayerAdvice is insert-only and wins retry/restart races without world revision."
+  },
+  "impact": {
+    "symbols": [
+      "AdviceInterpretationService",
+      "SQLitePlayerAdviceRepository",
+      "AdviceTransaction"
+    ],
+    "contracts": [
+      "player_advice.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_advice_interpretation.py",
+      "engine/tests/test_player_advice_repository.py",
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/009_world_player_advice.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-INPUT-COMMAND-ROUTING"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      5,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Interpret only authoritative durable raw input. Model-controlled output is bounded semantic proposal data, never identity/storage authority. Persist first accepted typed PlayerAdvice insert-only without advancing world facts; retries/restarts reuse the winner and cancellation blocks new interpretation.",
+    "assertions": [
+      "INV-03",
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}

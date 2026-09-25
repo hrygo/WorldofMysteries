@@ -1,0 +1,138 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V09-DURABLE-PLAYER-ADVICE-d7acd4934ef9",
+  "receipt_type": "work",
+  "task_id": "VOICE-V09-DURABLE-PLAYER-ADVICE",
+  "capsule_id": "CAP-VOICE-V09-DURABLE-PLAYER-ADVICE",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:18d76df44918c566611d03b7c80b4a983ccbbb687b5687c952a43fb1b4dab32e",
+  "diff_digest": "sha256:c19116d2371a353ab6b830c61dee9832043c6eb88f737f555df4784c64a48298",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "high",
+  "base_commit": "ce31bd0888186c7240c3c1cdfb67f95464e05174",
+  "head_commit": "d7acd4934ef9eb3521db55bd7f364930057a9d7b",
+  "target_ref": "origin/main",
+  "target_sha": "ce31bd0888186c7240c3c1cdfb67f95464e05174",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T10:20:17.445319+00:00",
+      "finished_at": "2026-09-25T10:20:17.477311+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T10:20:17.477409+00:00",
+      "finished_at": "2026-09-25T10:20:47.538253+00:00",
+      "raw_log_digest": "sha256:4bf9919b1d27ea222dded30bd0001ea4c730e681eba9bc3f1c29150735d68fcf",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T10:20:47.538364+00:00",
+      "finished_at": "2026-09-25T10:21:25.685472+00:00",
+      "raw_log_digest": "sha256:bb9223989318b1ea28a337387b1cfc7c8c90c282c86e5d1f2ba556a80fe962fd",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T10:21:25.685604+00:00",
+      "finished_at": "2026-09-25T10:21:35.765654+00:00",
+      "raw_log_digest": "sha256:cabd41c3fa60fa1996325b61527b161474d38975d7c0bc420d2dfb485121bf12",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/advice_interpretation.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/009_world_player_advice.sql",
+      "engine/infrastructure/player_advice_repository.py",
+      "engine/tests/test_advice_interpretation.py",
+      "engine/tests/test_player_advice_repository.py",
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "engine/infrastructure/migrations/009_world_player_advice.sql"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-v09-durable-player-advice"
+  },
+  "started_at": "2026-09-25T10:20:17.144450+00:00",
+  "finished_at": "2026-09-25T10:21:35.958295+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
