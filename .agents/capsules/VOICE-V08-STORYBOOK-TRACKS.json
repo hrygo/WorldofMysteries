@@ -1,0 +1,113 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V08-STORYBOOK-TRACKS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V08-STORYBOOK-TRACKS",
+  "title": "Voice V08 immutable StoryBook track revisions and AudioTake pins",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T10:28:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "e17ad1601ee86716eea6e31d9354c1b6d4ba65f4",
+    "target_sha": "e17ad1601ee86716eea6e31d9354c1b6d4ba65f4",
+    "context_snapshot": "sha256:voice-v08-storybook-tracks-e17ad1601ee86716eea6e31d9354c1b6d4ba65f4"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_track_repository.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/007_world_audio_tracks.sql",
+      "engine/tests/test_audio_track_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      ".agents/capsules/VOICE-V08-STORYBOOK-TRACKS.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".github/**",
+      ".hacf/**",
+      "contracts/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/007_world_audio_tracks.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/migrations/006_world_audio_takes.sql",
+      "engine/infrastructure/narrative_block_repository.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json",
+      "audio_asset_ref.schema.json"
+    ],
+    "slice_strategy": "immutable-storybook-track-revisions-pin-complete-takes",
+    "token_estimate": 2800,
+    "max_core_tokens": 3500,
+    "expansion_policy": "arbiter_approved",
+    "note": "V-CACHE-04/V-REPLAY foundation. Original tracks and redub revisions are insert-only presentation/media history. Each unit pins a complete AudioTake and exact committed turn/NarrativeBlock/segment/story revision. Redub revisions must preserve narrative identity and may only change sealed unit/take. No deletion/GC/access policy is introduced in this slice."
+  },
+  "impact": {
+    "symbols": [
+      "AudioTrackRevision",
+      "AudioTrackUnit",
+      "SQLiteAudioTrackRepository",
+      "AudioAssetTransaction"
+    ],
+    "contracts": [
+      "narrative_block.schema.json",
+      "turn_transaction.schema.json",
+      "audio_asset_ref.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_audio_track_repository.py",
+      "engine/tests/test_story_session_migration.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/007_world_audio_tracks.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V07-AUDIO-TAKE-STORE",
+      "VOICE-V07-BOUNDED-PREFETCH"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Persist immutable StoryBook track revisions without advancing world facts. Every track unit must pin an existing complete AudioTake and the exact committed turn/NarrativeBlock/segment/story revision. Original tracks are revision 1. A redub must extend the latest revision, preserve all narrative identities, and only change sealed speech/take identity. Audio track rows are insert-only; pinned take ids become the authoritative no-GC set for later cleanup policy.",
+    "assertions": [
+      "INV-03",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
