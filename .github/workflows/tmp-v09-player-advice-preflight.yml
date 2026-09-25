@@ -15,7 +15,7 @@ jobs:
       - name: Checkout exact stacked PlayerAdvice head
         uses: actions/checkout@v7
         with:
-          ref: 98d3bdb8e4cd8b03355fd0760a55c0f038b2ee62
+          ref: 3541a3ef1d298fcc5a5b3fd834b537258c000af4
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python
