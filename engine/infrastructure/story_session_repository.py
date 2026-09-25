@@ -26,6 +26,27 @@ def _canonical_json(model) -> str:
     )
 
 
+def _decode_story_session_row(row) -> StorySession:
+    state = StoryState.model_validate(json.loads(row["story_state_json"]))
+    return StorySession.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": row["id"],
+            "world_id": row["world_id"],
+            "worldline_id": row["worldline_id"],
+            "protagonist_id": row["protagonist_id"],
+            "story_seed_id": row["story_seed_id"],
+            "base_revisions": {
+                "world": row["base_world_revision"],
+                "character": row["base_character_revision"],
+                "story": row["base_story_revision"],
+            },
+            "story_state": state.model_dump(mode="json", exclude_none=True),
+            "status": row["status"],
+        }
+    )
+
+
 class SQLiteStorySessionCommitPort(StoryCommitPort):
     def __init__(self, database: DatabaseManager):
         self.database = database
@@ -36,25 +57,7 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
         )
         if len(rows) != 1:
             raise StorageError("StorySession not found")
-        row = rows[0]
-        state = StoryState.model_validate(json.loads(row["story_state_json"]))
-        return StorySession.model_validate(
-            {
-                "schema_version": "1.0",
-                "id": row["id"],
-                "world_id": row["world_id"],
-                "worldline_id": row["worldline_id"],
-                "protagonist_id": row["protagonist_id"],
-                "story_seed_id": row["story_seed_id"],
-                "base_revisions": {
-                    "world": row["base_world_revision"],
-                    "character": row["base_character_revision"],
-                    "story": row["base_story_revision"],
-                },
-                "story_state": state.model_dump(mode="json", exclude_none=True),
-                "status": row["status"],
-            }
-        )
+        return _decode_story_session_row(rows[0])
 
     async def load_delta(self, delta_id: str) -> StateDelta:
         rows = await self.database.read_world(

@@ -1,0 +1,146 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-SESSION-OPEN-DATA",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-SESSION-OPEN-DATA",
+  "title": "Implement SQLite Story Session Open adapter",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T12:03:45.173858+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "13c44d0897fe42beb37021bbf9e06acc4fd960c8",
+    "target_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+    "context_snapshot": "sha256:dae52c436e3ac1b25b7a46a2054c682a2226b87c9bf90c14b9afc286aa000aa6"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:VoiceCapabilityObservation@engine/infrastructure/audio/capabilities.py:44",
+      "symbol:_parse_voices@engine/infrastructure/audio/capabilities.py:227",
+      "symbol:MediaOpenHeader@engine/infrastructure/audio/media_protocol.py:57",
+      "symbol:MediaOpenControlRequest@engine/infrastructure/audio/media_protocol.py:82",
+      "symbol:MediaOpenControlResponse@engine/infrastructure/audio/media_protocol.py:92",
+      "symbol:_reported_confidence@engine/infrastructure/audio/openai_adapter.py:13",
+      "symbol:OpenAIAudioAdapter@engine/infrastructure/audio/openai_adapter.py:31",
+      "symbol:create_audio_adapter@engine/infrastructure/audio/openai_adapter.py:117",
+      "symbol:__init__@engine/infrastructure/audio/openai_adapter.py:39",
+      "symbol:provider_name@engine/infrastructure/audio/openai_adapter.py:48",
+      "symbol:base_url@engine/infrastructure/audio/openai_adapter.py:52",
+      "symbol:probe_capabilities@engine/infrastructure/audio/openai_adapter.py:55",
+      "symbol:transcribe@engine/infrastructure/audio/openai_adapter.py:63",
+      "symbol:synthesize@engine/infrastructure/audio/openai_adapter.py:86",
+      "symbol:open@engine/infrastructure/audio/realtime_tts.py:44",
+      "symbol:VoiceRenderControlError@engine/infrastructure/audio/voice_control.py:21",
+      "symbol:VoiceRenderControlRequest@engine/infrastructure/audio/voice_control.py:27",
+      "symbol:VoiceRenderAccepted@engine/infrastructure/audio/voice_control.py:73",
+      "symbol:PendingVoiceRender@engine/infrastructure/audio/voice_control.py:85",
+      "symbol:PendingVoiceRenderRegistry@engine/infrastructure/audio/voice_control.py:91",
+      "symbol:__init__@engine/infrastructure/audio/voice_control.py:22",
+      "symbol:reject_blank_execution_fields@engine/infrastructure/audio/voice_control.py:47",
+      "symbol:provider_tts_fields@engine/infrastructure/audio/voice_control.py:64",
+      "symbol:__init__@engine/infrastructure/audio/voice_control.py:94",
+      "symbol:register@engine/infrastructure/audio/voice_control.py:108",
+      "symbol:consume@engine/infrastructure/audio/voice_control.py:135",
+      "symbol:discard@engine/infrastructure/audio/voice_control.py:146",
+      "symbol:_discard_expired@engine/infrastructure/audio/voice_control.py:149",
+      "symbol:__len__@engine/infrastructure/audio/voice_control.py:158",
+      "symbol:VoiceRenderRuntimeError@engine/infrastructure/audio/voice_runtime.py:36"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 767,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "VoiceCapabilityObservation",
+      "_parse_voices",
+      "MediaOpenHeader",
+      "MediaOpenControlRequest",
+      "MediaOpenControlResponse",
+      "_reported_confidence",
+      "OpenAIAudioAdapter",
+      "create_audio_adapter",
+      "__init__",
+      "provider_name",
+      "base_url",
+      "probe_capabilities",
+      "transcribe",
+      "synthesize",
+      "open",
+      "VoiceRenderControlError",
+      "VoiceRenderControlRequest",
+      "VoiceRenderAccepted",
+      "PendingVoiceRender",
+      "PendingVoiceRenderRegistry",
+      "__init__",
+      "reject_blank_execution_fields",
+      "provider_tts_fields",
+      "__init__",
+      "register",
+      "consume",
+      "discard",
+      "_discard_expired",
+      "__len__",
+      "VoiceRenderRuntimeError"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-SESSION-OPEN-APP"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
