@@ -1,0 +1,102 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V08-REVOCATION-REDUB",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V08-REVOCATION-REDUB",
+  "title": "Voice V08 fresh authorization for StoryBook replay and redub",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T12:50:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "c43f35d11344514318998618736e1665850233ef",
+    "target_sha": "c43f35d11344514318998618736e1665850233ef",
+    "context_snapshot": "sha256:voice-v08-revocation-redub-c43f35d11344514318998618736e1665850233ef"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/audio_authorization.py",
+      "engine/infrastructure/audio_replay.py",
+      "engine/infrastructure/audio_track_repository.py",
+      "engine/infrastructure/audio_take_store.py",
+      "engine/tests/test_audio_track_repository.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_authorization.py",
+      "engine/infrastructure/audio_replay.py",
+      "engine/infrastructure/audio_track_repository.py",
+      "engine/tests/test_audio_track_repository.py",
+      ".agents/capsules/VOICE-V08-REVOCATION-REDUB.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**",
+      "engine/infrastructure/migrations/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio_take_coordinator.py",
+      "engine/infrastructure/audio_replay.py",
+      "engine/infrastructure/audio_track_repository.py",
+      "engine/infrastructure/audio_take_store.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "fresh-authorization-before-storybook-consumption",
+    "token_estimate": 2000,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Historical track/take evidence remains immutable and pinned. New consumption is fail-closed: replay checks current access before take lookup and again before delivery; REDUB publication requires an injected fresh authorizer. There is no allow-by-default fallback and no asset deletion on authorization denial."
+  },
+  "impact": {
+    "symbols": [
+      "StoryBookAuthorizationRequest",
+      "OfflineStoryBookReplayResolver.resolve",
+      "SQLiteAudioTrackRepository.publish"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_audio_track_repository.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V08-STORYBOOK-TRACKS",
+      "VOICE-V08-REPLAY-CLEANUP",
+      "VOICE-V07-AUDIO-TAKE-SINGLEFLIGHT"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Historical StoryBook tracks and pinned AudioTakes remain immutable. Every new replay consumption must receive fresh authorization before any AudioTake lookup and again before delivery. Every REDUB revision must provide a fresh authorization check; missing, denied, or unavailable authorization fails closed without publishing a new track or deleting historical/cached assets.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}

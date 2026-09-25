@@ -8,6 +8,7 @@ import pytest
 
 from application.story_turn_commit import StoryTurnCommitService
 from contracts import NarrativeBlock, StateDelta, StorySession, StoryState, TurnTransaction
+from infrastructure.audio_authorization import StoryBookAuthorizationError
 from infrastructure.audio_take_store import (
     DryRenderRecipe,
     RenderOutcome,
@@ -247,7 +248,13 @@ async def test_redub_creates_new_revision_and_cannot_overwrite_original_narrativ
         second_take = await publish_take(
             database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00"
         )
-        repo = SQLiteAudioTrackRepository(database)
+        async def allow_redub(_request):
+            return True
+
+        repo = SQLiteAudioTrackRepository(
+            database,
+            authorize_redub=allow_redub,
+        )
         original = track(first_take.take_id)
         await repo.publish(original)
 
@@ -297,7 +304,13 @@ async def test_redub_must_extend_latest_revision_and_take_must_exist(tmp_path):
         take = await publish_take(
             database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
         )
-        repo = SQLiteAudioTrackRepository(database)
+        async def allow_redub(_request):
+            return True
+
+        repo = SQLiteAudioTrackRepository(
+            database,
+            authorize_redub=allow_redub,
+        )
         original = track(take.take_id)
         await repo.publish(original)
 
@@ -374,9 +387,13 @@ async def test_offline_storybook_replay_resolves_authenticated_local_takes_only(
         published = track(take.take_id)
         await SQLiteAudioTrackRepository(database).publish(published)
 
+        async def allow(_request):
+            return True
+
         resolved = await OfflineStoryBookReplayResolver(
             SQLiteAudioTrackRepository(database),
             store,
+            authorize=allow,
         ).resolve(published.track_id)
 
         assert resolved.track == published
@@ -506,5 +523,255 @@ async def test_audio_cleanup_transaction_cannot_delete_storybook_history(tmp_pat
             )
 
         assert await SQLiteAudioTrackRepository(database).is_take_pinned(take.take_id)
+    finally:
+        await database.close()
+
+
+
+async def test_storybook_replay_denial_happens_before_audio_take_lookup(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        take = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        published = track(take.take_id)
+        await SQLiteAudioTrackRepository(database).publish(published)
+
+        # Corrupt the local file. If replay touches the take before authorization,
+        # the digest/file error would win instead of the policy denial.
+        asset = paths.world.parent / "assets" / take.relative_path
+        asset.write_bytes(b"\x09\x00")
+
+        stages = []
+
+        async def deny(request):
+            stages.append(request.stage)
+            return False
+
+        resolver = OfflineStoryBookReplayResolver(
+            SQLiteAudioTrackRepository(database),
+            store,
+            authorize=deny,
+        )
+        with pytest.raises(
+            StoryBookAuthorizationError,
+            match="storybook_not_authorized",
+        ):
+            await resolver.resolve(published.track_id)
+
+        assert stages == ["before_lookup"]
+    finally:
+        await database.close()
+
+
+async def test_storybook_replay_rechecks_authorization_before_delivery(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        take = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        published = track(take.take_id)
+        await SQLiteAudioTrackRepository(database).publish(published)
+
+        stages = []
+
+        async def revoke_after_lookup(request):
+            stages.append(request.stage)
+            return request.stage == "before_lookup"
+
+        resolver = OfflineStoryBookReplayResolver(
+            SQLiteAudioTrackRepository(database),
+            store,
+            authorize=revoke_after_lookup,
+        )
+        with pytest.raises(
+            StoryBookAuthorizationError,
+            match="storybook_not_authorized",
+        ):
+            await resolver.resolve(published.track_id)
+
+        assert stages == ["before_lookup", "before_delivery"]
+        assert await store.load_take(take.take_id) is not None
+        assert await SQLiteAudioTrackRepository(database).is_take_pinned(take.take_id)
+    finally:
+        await database.close()
+
+
+async def test_redub_fails_closed_without_fresh_authorizer(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        first_take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        second_take = await publish_take(
+            database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00"
+        )
+        repo = SQLiteAudioTrackRepository(database)
+        original = track(first_take.take_id)
+        await repo.publish(original)
+        redub = track(
+            second_take.take_id,
+            revision=2,
+            unit_id="speech-redub-auth-required",
+            supersedes=original.track_id,
+        )
+
+        with pytest.raises(
+            StorageError,
+            match="requires fresh authorization",
+        ):
+            await repo.publish(redub)
+
+        assert await repo.latest(original.track_family_id) == original
+        assert await repo.load(redub.track_id) is None
+    finally:
+        await database.close()
+
+
+async def test_redub_denial_preserves_original_and_pinned_assets(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        first_take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        second_take = await publish_take(
+            database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00"
+        )
+        requests = []
+
+        async def deny(request):
+            requests.append(request)
+            return False
+
+        repo = SQLiteAudioTrackRepository(
+            database,
+            authorize_redub=deny,
+        )
+        original = track(first_take.take_id)
+        await repo.publish(original)
+        redub = track(
+            second_take.take_id,
+            revision=2,
+            unit_id="speech-redub-denied",
+            supersedes=original.track_id,
+        )
+
+        with pytest.raises(
+            StoryBookAuthorizationError,
+            match="storybook_not_authorized",
+        ):
+            await repo.publish(redub)
+
+        assert len(requests) == 1
+        assert requests[0].action == "redub"
+        assert requests[0].stage == "before_publish"
+        assert requests[0].take_ids == (second_take.take_id,)
+        assert await repo.latest(original.track_family_id) == original
+        assert await repo.pinned_take_ids() == frozenset({first_take.take_id})
+        # A denied new revision does not destroy cached/rebuildable media.
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        assert await store.load_take(second_take.take_id) is not None
+    finally:
+        await database.close()
+
+
+async def test_redub_authorization_unavailable_fails_closed(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        first_take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        second_take = await publish_take(
+            database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00"
+        )
+
+        async def unavailable(_request):
+            raise RuntimeError("policy source unavailable")
+
+        repo = SQLiteAudioTrackRepository(
+            database,
+            authorize_redub=unavailable,
+        )
+        original = track(first_take.take_id)
+        await repo.publish(original)
+        redub = track(
+            second_take.take_id,
+            revision=2,
+            unit_id="speech-redub-policy-down",
+            supersedes=original.track_id,
+        )
+
+        with pytest.raises(
+            StoryBookAuthorizationError,
+            match="storybook_authorization_unavailable",
+        ):
+            await repo.publish(redub)
+
+        assert await repo.latest(original.track_family_id) == original
+    finally:
+        await database.close()
+
+
+async def test_authorized_redub_rechecks_every_take_set_as_one_policy_subject(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        first_take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        second_take = await publish_take(
+            database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00"
+        )
+        seen = []
+
+        async def allow(request):
+            seen.append(request)
+            return True
+
+        repo = SQLiteAudioTrackRepository(
+            database,
+            authorize_redub=allow,
+        )
+        original = track(first_take.take_id)
+        await repo.publish(original)
+        redub = track(
+            second_take.take_id,
+            revision=2,
+            unit_id="speech-redub-authorized",
+            supersedes=original.track_id,
+        )
+
+        published = await repo.publish(redub)
+
+        assert not published.replayed
+        assert len(seen) == 1
+        assert seen[0].action == "redub"
+        assert seen[0].stage == "before_publish"
+        assert seen[0].take_ids == (second_take.take_id,)
+        assert await repo.latest(original.track_family_id) == redub
+        assert await repo.load(original.track_id) == original
     finally:
         await database.close()
