@@ -83,23 +83,32 @@ def sign_bundle(app: Path, logs: Path) -> None:
         archs = run(['lipo', '-archs', str(binary)], cwd=ROOT, log=logs/f'arch-{index}.log')
         if 'arm64' not in archs.split():
             raise BundleError('Native dependency lacks arm64')
-        options = ['--entitlements', str(ROOT/'macos-app/Packaging/Engine.entitlements')] if binary.resolve(strict=True) == interpreter else []
-        run(['codesign', '--force', '--sign', '-', '--options', 'runtime', *options, str(binary)],
+        is_interpreter = binary.resolve(strict=True) == interpreter
+        # A hardened-runtime host cannot load arbitrary ad-hoc Python extension
+        # dylibs on macOS 27: AMFI rejects them for differing Team IDs. Keep the
+        # App shell hardened, but sign the sandbox-inheriting engine helper as
+        # plain ad-hoc so the bundled extension set can load.
+        signing_options = [] if is_interpreter else ['--options', 'runtime']
+        entitlement_options = (['--entitlements', str(ROOT/'macos-app/Packaging/Engine.entitlements')]
+                               if is_interpreter else [])
+        run(['codesign', '--force', '--sign', '-', *signing_options, *entitlement_options, str(binary)],
             cwd=ROOT, log=logs/f'sign-{index}.log')
     run(['codesign', '--force', '--sign', '-', '--options', 'runtime', '--entitlements',
          str(ROOT/'macos-app/Packaging/App.entitlements'), str(app)], cwd=ROOT, log=logs/'sign-app.log')
     for index, binary in enumerate(binaries):
         run(['codesign','--verify','--strict','--verbose=2',str(binary)],cwd=ROOT,log=logs/f'verify-{index}.log')
     run(['codesign','--verify','--deep','--strict','--verbose=2',str(app)],cwd=ROOT,log=logs/'verify-app.log')
-    for label, target, expected in [('app', app, 'App.entitlements'), ('engine', interpreter, 'Engine.entitlements')]:
+    for label, target, expected, expected_runtime in [
+            ('app', app, 'App.entitlements', True),
+            ('engine', interpreter, 'Engine.entitlements', False)]:
         raw = run(['codesign', '-d', '--entitlements', ':-', str(target)],
                   cwd=ROOT, log=logs/f'{label}-entitlements.log')
         match = re.search(r'<\?xml.*?</plist>', raw, re.S)
         if not match or plistlib.loads(match.group().encode()) != plistlib.loads((ROOT/'macos-app/Packaging'/expected).read_bytes()):
             raise BundleError('Signed entitlements differ from the reviewed Sandbox boundary')
         details = run(['codesign','-dvv',str(target)],cwd=ROOT,log=logs/f'{label}-signature.log')
-        if 'runtime' not in details:
-            raise BundleError('Hardened Runtime flag missing')
+        if ('runtime' in details) != expected_runtime:
+            raise BundleError('Unexpected Hardened Runtime flag')
 
 
 def minimal_environment() -> dict[str, str]:
@@ -304,7 +313,8 @@ def build(output: Path) -> None:
             cwd=ROOT,log=logs/'archive.log')
         report = {'format_version':1,'source_commit':manifest['source_commit'],
             'artifact':archive.name,'artifact_sha256':sha256(archive),'artifact_size':archive.stat().st_size,
-            'signature':'ad-hoc','hardened_runtime':True,'sandbox':True,'helper_inherits_sandbox':True,
+            'signature':'ad-hoc','hardened_runtime':True,'hardened_runtime_scope':'app_bundle_only',
+            'engine_helper_hardened_runtime':False,'sandbox':True,'helper_inherits_sandbox':True,
             'notarized':False,'gate_package':'not-accepted','runtime_archive_sha256':manifest['runtime_archive_sha256'],
             'python_version':manifest['python_version'],'agentscope_version':manifest['agentscope_version'],
             'data_sqlite_version':manifest['data_sqlite']['sqlite_version'],
