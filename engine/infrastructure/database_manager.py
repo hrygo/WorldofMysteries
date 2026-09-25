@@ -173,7 +173,7 @@ _PRESENTATION_TABLES = frozenset({'voice_bindings', 'delivery_cursors'})
 
 
 class AudioAssetTransaction:
-    """Insert-only complete AudioTake transaction with no world-fact authority."""
+    """Insert-only immutable audio asset/track transaction with no world-fact authority."""
 
     def __init__(self, connection: sqlite3.Connection):
         self._connection = connection
@@ -187,7 +187,7 @@ class AudioAssetTransaction:
             return [dict(row) for row in cursor] if cursor.description else []
 
 
-_AUDIO_ASSET_INSERT_TABLES = frozenset({'audio_takes'})
+_AUDIO_ASSET_INSERT_TABLES = frozenset({'audio_takes', 'audio_tracks', 'audio_track_units'})
 
 
 def _audio_asset_authorizer(action, table, _column, database, _trigger):
