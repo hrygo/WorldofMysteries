@@ -157,8 +157,9 @@ _PROTECTED = frozenset({'world_meta', 'domain_commits', 'domain_events', 'projec
 class TurnCommandTransaction:
     """Pre-COMMIT input command transaction with no world-fact authority.
 
-    It may create and cancel durable intake commands only. Domain COMMIT promotes
-    a received command through DomainTransaction on the same single writer.
+    It may create/cancel durable intake commands and insert one immutable
+    PlayerAdvice interpretation. Domain COMMIT promotes a received command through
+    DomainTransaction on the same single writer.
     """
 
     def __init__(self, connection: sqlite3.Connection):
@@ -178,7 +179,11 @@ def _turn_command_authorizer(action, table, column, database, _trigger):
         return sqlite3.SQLITE_DENY
     table_name = table.lower() if isinstance(table, str) else ''
     if action == sqlite3.SQLITE_INSERT:
-        return sqlite3.SQLITE_OK if table_name == 'turn_intake_commands' else sqlite3.SQLITE_DENY
+        return (
+            sqlite3.SQLITE_OK
+            if table_name in {'turn_intake_commands', 'turn_advice_interpretations'}
+            else sqlite3.SQLITE_DENY
+        )
     if action == sqlite3.SQLITE_UPDATE:
         return (
             sqlite3.SQLITE_OK
