@@ -1,0 +1,160 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-GOLDEN-VOICE-CHAIN-QA",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-GOLDEN-VOICE-CHAIN-QA",
+  "title": "Voice V09 golden durable chain regression (intake -> advice -> intent -> COMMIT)",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T11:15:06.289299+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "4819a81e24f3ed5bd2cde0f058aa418dc58b6ec4",
+    "target_sha": "4819a81e24f3ed5bd2cde0f058aa418dc58b6ec4",
+    "context_snapshot": "sha256:c9aa3efe11880a989132dbc11dfb9f3c54ae648566ac73ac1b939eb938248ed7"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_RecordingInterpreter@engine/tests/test_golden_voice_chain_durable.py:69",
+      "symbol:_RecordingProposer@engine/tests/test_golden_voice_chain_durable.py:85",
+      "symbol:base_revisions@engine/tests/test_golden_voice_chain_durable.py:100",
+      "symbol:initial_session@engine/tests/test_golden_voice_chain_durable.py:104",
+      "symbol:bootstrap_delta@engine/tests/test_golden_voice_chain_durable.py:143",
+      "symbol:bootstrap_turn@engine/tests/test_golden_voice_chain_durable.py:160",
+      "symbol:voice_policy@engine/tests/test_golden_voice_chain_durable.py:176",
+      "symbol:open_database@engine/tests/test_golden_voice_chain_durable.py:195",
+      "symbol:world_revision@engine/tests/test_golden_voice_chain_durable.py:207",
+      "symbol:rows@engine/tests/test_golden_voice_chain_durable.py:214",
+      "symbol:bootstrap_turn_one@engine/tests/test_golden_voice_chain_durable.py:218",
+      "symbol:Chain@engine/tests/test_golden_voice_chain_durable.py:234",
+      "symbol:test_voice_chain_commits_second_turn_and_replays_without_new_model_call@engine/tests/test_golden_voice_chain_durable.py:293",
+      "symbol:test_pending_turn_cancel_wins_before_commit_in_the_durable_chain@engine/tests/test_golden_voice_chain_durable.py:375",
+      "symbol:test_committed_turn_reports_revision_to_a_late_cancellation@engine/tests/test_golden_voice_chain_durable.py:406",
+      "symbol:__init__@engine/tests/test_golden_voice_chain_durable.py:70",
+      "symbol:interpret@engine/tests/test_golden_voice_chain_durable.py:73",
+      "symbol:__init__@engine/tests/test_golden_voice_chain_durable.py:86",
+      "symbol:propose@engine/tests/test_golden_voice_chain_durable.py:89",
+      "symbol:__init__@engine/tests/test_golden_voice_chain_durable.py:235",
+      "symbol:receive@engine/tests/test_golden_voice_chain_durable.py:262",
+      "symbol:commit_turn@engine/tests/test_golden_voice_chain_durable.py:272",
+      "symbol:cancel_pending@engine/tests/test_golden_voice_chain_durable.py:281"
+    ],
+    "related_contracts": [
+      "turn_transaction.schema.json",
+      "state_delta.schema.json",
+      "player_advice.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 623,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_RecordingInterpreter",
+      "_RecordingProposer",
+      "base_revisions",
+      "initial_session",
+      "bootstrap_delta",
+      "bootstrap_turn",
+      "voice_policy",
+      "open_database",
+      "world_revision",
+      "rows",
+      "bootstrap_turn_one",
+      "Chain",
+      "test_voice_chain_commits_second_turn_and_replays_without_new_model_call",
+      "test_pending_turn_cancel_wins_before_commit_in_the_durable_chain",
+      "test_committed_turn_reports_revision_to_a_late_cancellation",
+      "__init__",
+      "interpret",
+      "__init__",
+      "propose",
+      "__init__",
+      "receive",
+      "commit_turn",
+      "cancel_pending"
+    ],
+    "contracts": [
+      "turn_transaction.schema.json",
+      "state_delta.schema.json",
+      "player_advice.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_golden_voice_chain_durable.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
