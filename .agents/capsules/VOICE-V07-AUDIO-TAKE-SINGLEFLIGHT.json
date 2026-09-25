@@ -1,0 +1,98 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V07-AUDIO-TAKE-SINGLEFLIGHT",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V07-AUDIO-TAKE-SINGLEFLIGHT",
+  "title": "Voice V07 authorization-aware dry AudioTake single-flight",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T09:23:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "03607ed33daee353e611494fcae0976f738e33a9",
+    "target_sha": "03607ed33daee353e611494fcae0976f738e33a9",
+    "context_snapshot": "sha256:voice-v07-audio-take-singleflight-03607ed33daee353e611494fcae0976f738e33a9"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_take_coordinator.py",
+      "engine/tests/test_audio_take_store.py",
+      "engine/tests/test_audio_take_coordinator.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_take_coordinator.py",
+      "engine/tests/test_audio_take_coordinator.py",
+      ".agents/capsules/VOICE-V07-AUDIO-TAKE-SINGLEFLIGHT.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_take_coordinator.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "authorized-bounded-dry-render-singleflight",
+    "token_estimate": 1800,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Only dry provider render/publication is shared by private RenderKey. Each subscriber remains a separate domain/generation authorization. Authorization is mandatory before any cache lookup and again before delivery. Subscriber cancellation is isolated; only the final waiter cancels the shared render."
+  },
+  "impact": {
+    "symbols": [
+      "AudioTakeRenderCoordinator.acquire",
+      "RenderedPCM",
+      "AudioTakeStorePort"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_audio_take_coordinator.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V07-AUDIO-TAKE-STORE",
+      "VOICE-V07-PRIVATE-RENDER-KEY"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9,
+      10,
+      11
+    ],
+    "instructions": "For identical private dry RenderKeys, share only one provider render/publication. Every subscriber must be authorized before cache lookup and re-authorized before delivery; different turns/generations retain independent authorization. Cancelling one subscriber must not cancel other waiters; the shared render is cancelled only after the last waiter leaves. Flights and waiters are bounded.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
