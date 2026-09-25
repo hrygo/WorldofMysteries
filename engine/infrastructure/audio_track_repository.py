@@ -13,6 +13,11 @@ import json
 
 from contracts import NarrativeBlock
 
+from .audio_authorization import (
+    StoryBookAuthorizationCheck,
+    StoryBookAuthorizationRequest,
+    require_storybook_authorization,
+)
 from .database_manager import AudioAssetTransaction, DatabaseManager
 from .database_schema import StorageError
 
@@ -146,8 +151,14 @@ def _from_rows(track_row: dict, unit_rows: list[dict]) -> AudioTrackRevision:
 class SQLiteAudioTrackRepository:
     """Insert-only StoryBook track revisions and authoritative AudioTake pins."""
 
-    def __init__(self, database: DatabaseManager) -> None:
+    def __init__(
+        self,
+        database: DatabaseManager,
+        *,
+        authorize_redub: StoryBookAuthorizationCheck | None = None,
+    ) -> None:
         self.database = database
+        self._authorize_redub = authorize_redub
 
     async def load(self, track_id: str) -> AudioTrackRevision | None:
         _identifier(track_id, "track id")
@@ -191,6 +202,22 @@ class SQLiteAudioTrackRepository:
     async def publish(self, track: AudioTrackRevision) -> AudioTrackPublishResult:
         if not isinstance(track, AudioTrackRevision):
             raise StorageError("AudioTrack publication requires a typed revision")
+
+        if track.kind is AudioTrackKind.REDUB:
+            if self._authorize_redub is None:
+                raise StorageError("Redub AudioTrack requires fresh authorization")
+            await require_storybook_authorization(
+                self._authorize_redub,
+                StoryBookAuthorizationRequest(
+                    action="redub",
+                    stage="before_publish",
+                    track_id=track.track_id,
+                    track_family_id=track.track_family_id,
+                    story_session_id=track.story_session_id,
+                    revision=track.revision,
+                    take_ids=tuple(unit.take_id for unit in track.units),
+                ),
+            )
 
         def apply(tx: AudioAssetTransaction):
             existing = tx.execute(
