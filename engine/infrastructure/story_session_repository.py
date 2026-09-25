@@ -120,6 +120,28 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
         )
 
         def apply(tx: DomainTransaction):
+            intake_rows = tx.execute(
+                "SELECT * FROM turn_intake_commands WHERE turn_id=?",
+                (turn.id,),
+            )
+            intake = None
+            if intake_rows:
+                if len(intake_rows) != 1:
+                    raise StorageError("Turn intake identity is corrupted")
+                intake = intake_rows[0]
+                if (
+                    intake["session_id"] != session.id
+                    or intake["idempotency_key"] != turn.idempotency_key
+                    or intake["base_world_revision"] != turn.base_revisions.world
+                    or intake["base_character_revision"] != turn.base_revisions.character
+                    or intake["base_story_revision"] != turn.base_revisions.story
+                ):
+                    raise StorageError("Turn intake does not match committed turn")
+                if intake["status"] == "cancelled":
+                    raise StorageError("Turn intake was cancelled before COMMIT")
+                if intake["status"] != "received":
+                    raise StorageError("Turn intake is not committable")
+
             existing = tx.execute(
                 "SELECT id,world_id,worldline_id,story_revision,status "
                 "FROM story_sessions WHERE id=?",
@@ -208,6 +230,24 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
                     tx.revision,
                 ),
             )
+            if intake is not None:
+                tx.execute(
+                    "UPDATE turn_intake_commands "
+                    "SET status='committed',committed_world_revision=? "
+                    "WHERE turn_id=? AND status='received'",
+                    (tx.revision, turn.id),
+                )
+                intake_after = tx.execute(
+                    "SELECT status,committed_world_revision FROM turn_intake_commands WHERE turn_id=?",
+                    (turn.id,),
+                )
+                if (
+                    len(intake_after) != 1
+                    or intake_after[0]["status"] != "committed"
+                    or intake_after[0]["committed_world_revision"] != tx.revision
+                ):
+                    raise StorageError("Turn intake was not atomically promoted at COMMIT")
+
             return {
                 "session_id": session.id,
                 "turn_id": turn.id,

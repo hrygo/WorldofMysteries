@@ -1,0 +1,120 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-DURABLE-TURN-INTAKE",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-DURABLE-TURN-INTAKE",
+  "title": "Voice V09 durable pre-COMMIT input-turn intake and cancel race",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T13:08:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "123914807f21976f9cb4d5567f0ef375a55fcd4e",
+    "target_sha": "123914807f21976f9cb4d5567f0ef375a55fcd4e",
+    "context_snapshot": "sha256:voice-v09-durable-turn-intake-123914807f21976f9cb4d5567f0ef375a55fcd4e"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/",
+      "contracts/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/008_world_turn_intake.sql",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      "engine/tests/test_turn_intake_repository.py",
+      ".agents/capsules/VOICE-V09-DURABLE-TURN-INTAKE.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/008_world_turn_intake.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/story_session_repository.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "contracts/schemas/turn_transaction.schema.json",
+      "contracts/schemas/story_session.schema.json",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md"
+    ],
+    "related_contracts": [
+      "turn_transaction.schema.json",
+      "story_session.schema.json",
+      "player_advice.schema.json"
+    ],
+    "slice_strategy": "durable-input-command-before-ai-and-domain-commit",
+    "token_estimate": 2600,
+    "max_core_tokens": 4000,
+    "expansion_policy": "arbiter_approved",
+    "note": "COMMIT前不伪造TurnTransaction或StorySession。独立turn_intake_commands先持久化input_turn identity/raw input hash/base revisions。receive/cancel不推进world revision；Domain COMMIT在同一world writer事务内原子将matching intake提升为committed。"
+  },
+  "impact": {
+    "symbols": [
+      "TurnCommandTransaction",
+      "SQLiteTurnIntakeRepository",
+      "TurnIntakeRequest",
+      "SQLiteStorySessionCommitPort.commit_turn"
+    ],
+    "contracts": [
+      "turn_transaction.schema.json",
+      "story_session.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_turn_intake_repository.py",
+      "engine/tests/test_story_session_migration.py",
+      "engine/tests/test_golden_turn1_durable.py"
+    ],
+    "migrations": [
+      "engine/infrastructure/migrations/008_world_turn_intake.sql"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V08-REVOCATION-REDUB"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      5,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Durably bind one input_turn identity to one turn/idempotency/base-revision/raw-input digest before AI/Domain commit. Exact replay is idempotent; changed payload under the same identity fails closed. RECEIVED/CANCELLED do not advance world facts. Cancel and Domain COMMIT serialize on the same writer: if cancel wins, COMMIT fails without world revision; if COMMIT wins, later cancel cannot undo it. COMMIT atomically records the winning world revision on the intake command.",
+    "assertions": [
+      "INV-03",
+      "INV-05",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
