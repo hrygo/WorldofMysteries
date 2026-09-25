@@ -1,20 +1,20 @@
 {
   "project_name": "World of Mysteries",
   "version": "0.1.0",
-  "last_updated": "2026-09-18",
+  "last_updated": "2026-09-25",
   "current_phase": {
     "phase_id": "Phase 1",
     "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
     "status": "IN_PROGRESS",
-    "progress_summary": "界面与契约已形成工程基线；真实 IPC、持久提交、Golden 001 与重启连续性仍待实现和验收。下一步推进 M1，与 M2 和 Golden 测试准备并行；不将来源图批准或历史 CI 结果视为产品可用。"
+      "progress_summary": "截至 2026-09-25，持久 Session Open 与真实首轮 Advice→COMMIT 已在候选分支完成并通过 FULL_P0；候选基于 main@0890eb3，代码 head b848ad6、凭单提交 710d7bf，尚未推送或合并。Story turn 从 0 到 1，开场与首轮分别持久化；Engine 组合根、UDS/IPC/App 接线、全领域结算、Golden 五轮与真机发布仍未验收。"
   },
   "gates_health": {
-    "ast_fitness": "SOURCE_CHECK_PASSED: 2026-09-18 对 c0c18ae 源码快照及本次元数据改动执行静态架构检查；不代表运行时通过",
-    "schemas_integrity": "NOT_REVALIDATED: 保留既有契约；当前提交需由实际门禁复核",
-    "python_tests": "BLOCKED_ENV: 本次 Linux 工作区无 Python >=3.14，未执行当前引擎测试套件；历史 38 项记录不代表真实 Golden 五轮通过",
-    "swift_tests": "BLOCKED_ENV: 本次 Linux 工作区缺少 SwiftUI 与 Xcode，未完成当前候选 macOS 验收；历史 8 项记录不作为本次证据",
-    "ci_cd_readiness": "CONFIGURED_NOT_ACCEPTED: required checks 保留，当前候选 SHA 须单独核验",
-    "golden_001_runtime": "NOT_VERIFIED: 五轮、原子结算、故障恢复及 App 重启连续性均未在本次规划中执行"
+    "ast_fitness": "PASSED: 2026-09-25 FULL_P0 Stage 1 对候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 通过；不等同于产品运行验收",
+    "schemas_integrity": "PASSED: 2026-09-25 FULL_P0 Stage 2 在候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 通过；本迭代未修改产品 Schema",
+    "python_tests": "PASSED: 2026-09-25 FULL_P0 Stage 2，Python 3.14.7 / uv 0.12.18，全引擎与契约测试通过",
+    "swift_tests": "PASSED: 2026-09-25 FULL_P0 Stage 3 Swift 6 测试与 Stage 4 arm64 Xcode App Target Build 均通过",
+    "ci_cd_readiness": "CONFIGURED_NOT_RECHECKED: 本候选尚未推送或创建 PR；本地 FULL_P0 Work Receipt 不代表主线 CI 或合入授权",
+    "golden_001_runtime": "PARTIAL: 候选测试真实覆盖 Session Open 与首轮 COMMIT、重放、数据库重开、CAS/并发及生命周期 fault hooks；G001–G012 五轮、全领域结算与 App/进程重启连续性仍未验收"
   },
   "completed_phases": [
     {
@@ -62,9 +62,9 @@
       "id": "M1",
       "name": "Local Engine 运行守护与 UDS IPC 双向通路",
       "phase": "Phase 1",
-      "status": "READY",
+      "status": "IN_PROGRESS",
       "lead_role": "AGT-ARB",
-      "description": "真实独立 Engine、UDS 通路与 App 生命周期；服务端 #44、客户端 #45 分角色交付，未实现业务保持 fail-closed。",
+      "description": "真实独立 Engine、UDS 通路与 App 生命周期；Session Open 与首轮持久链有未合入候选证据，但服务端 #44、客户端 #45、Engine 组合根和 App 首轮接线仍待交付，未实现业务保持 fail-closed。",
       "tracking_issues": [
         44,
         45
@@ -148,13 +148,14 @@
   "critical_path": {
     "next_milestone_id": "M1",
     "next_milestone_name": "Local Engine 运行守护与 UDS IPC 双向通路",
-    "strategic_rationale": "先建立 App 与独立 Engine 的真实通路，再让第一轮 Advice 通过真实裁决和持久事务返回；M2 数据内核和 M5-PREP 同步准备。确定性五轮/恢复先于真实模型端到端接入，保留已完成 UI 基线及 #40/#41 美术任务。",
+    "strategic_rationale": "Session Open 与第一条 Advice→COMMIT 已在基于 main@0890eb3 的候选代码中通过 FULL_P0，但尚未推送或合并。M1 仍未闭环：下一步先明确可信 StorySeed/世界角色装载与最小授权 UI 投影，再把 opener 接入 Engine 组合根、受限 UDS/IPC 与 App 首轮交互；之后补齐全领域结算和 Golden 五轮，再进入真实模型与设备验收。",
     "target_deliverables": [
+      "定义可信 StorySeed/世界与角色装载边界及最小授权 UI 投影；客户端不得上传完整 StorySession 或隐藏事实",
+      "将 StorySessionOpenService 与 SQLite adapter 接入 Engine 组合根及受限 IPC；App 从合法初始会话开始，使真实输入从 turn 1 到达 COMMIT",
       "真实 Engine UDS 服务与进程启动、停止、异常恢复证据（#44）",
       "App 真实 socket 与握手；业务未实现时明确不可用，不能使用本地回显制造 ready（#45）",
-      "与 M2（#46）和 Domain/Application 角色贯通第一轮真实 Commit，而不只完成传输演示",
-      "Golden 断言准备（#47）：先一轮再五轮，覆盖结算、幂等、故障点与关闭重开",
-      "目标 Mac 验收证据与当前 SHA 绑定；Linux/开发态验证不替代随包分发与 macOS 验收"
+      "继续完成 M2（#46）四库隔离范围与 M5-PREP（#47）断言准备；当前首轮通过不代表全领域结算或 Golden 五轮通过",
+      "目标 Mac 的随包、设备与发布验收仍须另行绑定当前 SHA；本地 FULL_P0 不替代这些验收"
     ],
     "dispatch": {
       "assigned_role": "AGT-DATA",
@@ -197,8 +198,17 @@
     "tracking_issue": 43,
     "current_stage": "A",
     "source_review_base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
-    "decision": "先真实一轮，再五轮与重启恢复，再真实模型/基础语音，最后独立用户体验；不重开已批准美术构图。",
-    "evidence_boundary": "本次仅更新推进计划和元数据。READY 表示可开始，不表示已实现、已集成、已验证或可供用户使用。",
+    "decision": "持久 Session Open 与真实首轮链已在候选分支通过软件门禁；下一步可信初始化/授权投影和 Engine 组合根、IPC、App 接线，再全领域结算与五轮，之后真实模型/基础语音和独立用户体验；不重开已批准美术构图。",
+    "evidence_boundary": "2026-09-25 候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 的 FULL_P0 Work Receipt 已通过，Receipt 独立提交为 710d7bf5d96a23268be09822a14934b2a12ad2f8；审查未发现 Critical/Important/Required 问题。候选仍未推送、开 PR 或合并。软件门禁不代表 M1/M2/M5 完成、App 可玩、全 Golden 五轮、设备或发布验收。",
+    "candidate_evidence": {
+      "main_base_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+      "code_head_sha": "b848ad66f159f7a2d493da51ce23e716b0d5fbc2",
+      "receipt_commit_sha": "710d7bf5d96a23268be09822a14934b2a12ad2f8",
+      "work_receipt_id": "RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159",
+      "gate_profile": "FULL_P0",
+      "gate_result": "passed",
+      "integration_state": "local candidate; not pushed, no PR, not merged"
+    },
     "parallel_ready": [
       {
         "task_id": "M1-ENGINE-IPC",

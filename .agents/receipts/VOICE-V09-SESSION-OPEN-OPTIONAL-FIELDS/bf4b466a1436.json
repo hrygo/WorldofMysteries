@@ -1,0 +1,90 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS-bf4b466a1436",
+  "receipt_type": "work",
+  "task_id": "VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS",
+  "capsule_id": "CAP-VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d363a3766f94fbb78724077333650da05627f1e97d496704cc443ba93db3161a",
+  "diff_digest": "sha256:a1b43a1194039da1857b179be9e5059ec417c8a47de4cbee3363a88c68edb6db",
+  "assigned_role": "AGT-AI",
+  "risk_class": "high",
+  "base_commit": "54398dd54bf61b8265927176e9ce140fb09937de",
+  "head_commit": "bf4b466a14366adde5b7668190aa84aadf765d9f",
+  "target_ref": "origin/main",
+  "target_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+  "stale_context": false,
+  "gate_profile_id": "AI_GATEWAY_P0",
+  "gate_profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/wom-worktrees/wom-worktrees/codex-voice-v09-session-open-optional-fields",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T12:41:14.432005+00:00",
+      "finished_at": "2026-09-25T12:41:14.465612+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "AI Gateway & Context Compiler Unit Tests",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "ai or gateway or context or proposal"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/wom-worktrees/wom-worktrees/codex-voice-v09-session-open-optional-fields/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T12:41:14.465704+00:00",
+      "finished_at": "2026-09-25T12:41:18.016358+00:00",
+      "raw_log_digest": "sha256:79d71d1f8671618893cfb3d00b99fb58a743a11d6a2ab3b7185dbe2321ff1596",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/story_session_open.py",
+      "engine/tests/test_story_session_open.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-AI",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/wom-worktrees/wom-worktrees/codex-voice-v09-session-open-optional-fields"
+  },
+  "started_at": "2026-09-25T12:41:14.397190+00:00",
+  "finished_at": "2026-09-25T12:41:18.136871+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

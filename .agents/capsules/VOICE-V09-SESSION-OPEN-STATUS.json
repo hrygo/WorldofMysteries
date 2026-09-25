@@ -1,0 +1,176 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-SESSION-OPEN-STATUS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-SESSION-OPEN-STATUS",
+  "title": "Record durable Session Open delivery evidence and next critical path",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T13:14:47.338018+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "710d7bf5d96a23268be09822a14934b2a12ad2f8",
+    "target_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+    "context_snapshot": "sha256:f2b8c0256b10e7bb02b48e8b4cc474131a699e478140c43606a8fe8b402d9207"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:open_verification_window@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:505",
+      "symbol:open_verification_window@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:605",
+      "symbol:qa_status_for@docs/05_UI/artwork/tools/finish_artifact_artwork.py:941",
+      "symbol:test_record_keeps_g0_and_g3_open_for_baked_text@docs/05_UI/artwork/tools/tests/test_finish_artifact_artwork.py:452",
+      "symbol:test_require_complete_fails_while_a_gate_is_open@docs/05_UI/artwork/tools/tests/test_finish_world_artwork.py:213",
+      "symbol:test_voice_render_control_protocol_fixture@contracts/tests/test_ipc_contract.py:71",
+      "symbol:test_media_open_control_payload_fixtures@contracts/tests/test_media_contract.py:81",
+      "symbol:test_media_open_control_contract_is_strict_and_versioned@contracts/tests/test_media_contract.py:93",
+      "symbol:load_state@scripts/project_status.py:20",
+      "symbol:cmd_status@scripts/project_status.py:28",
+      "symbol:cmd_next@scripts/project_status.py:67",
+      "symbol:cmd_dispatch@scripts/project_status.py:95",
+      "symbol:main@scripts/project_status.py:129",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206",
+      "symbol:main@docs/05_UI/artwork/delivery/intake.py:244",
+      "symbol:DeliveryRecordsTests@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:13",
+      "symbol:test_crop_source_binding@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:14",
+      "symbol:test_wide_crop_geometry@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:26",
+      "symbol:test_crop_is_not_shipping@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:38",
+      "symbol:test_attempts_cannot_become_approved_sources@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:44",
+      "symbol:test_primary_evidence_has_explicit_limits@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:55"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 805,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "open_verification_window",
+      "open_verification_window",
+      "qa_status_for",
+      "test_record_keeps_g0_and_g3_open_for_baked_text",
+      "test_require_complete_fails_while_a_gate_is_open",
+      "test_voice_render_control_protocol_fixture",
+      "test_media_open_control_payload_fixtures",
+      "test_media_open_control_contract_is_strict_and_versioned",
+      "load_state",
+      "cmd_status",
+      "cmd_next",
+      "cmd_dispatch",
+      "main",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources",
+      "main",
+      "DeliveryRecordsTests",
+      "test_crop_source_binding",
+      "test_wide_crop_geometry",
+      "test_crop_is_not_shipping",
+      "test_attempts_cannot_become_approved_sources",
+      "test_primary_evidence_has_explicit_limits"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-SESSION-OPEN-QA"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

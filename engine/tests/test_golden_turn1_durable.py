@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import sqlite3 as stdlib_sqlite3
+from pathlib import Path
 
 import pytest
 
+from application.story_session_open import OpenStorySessionCommand, StorySessionOpenService
 from application.story_turn_commit import StoryTurnCommitService, StoryTurnValidationError
 from contracts import ActionIntent, StateDelta, StorySession, StoryState, TurnTransaction
 from domain.resolution_policy import ResolutionPolicy, ResolutionRule, StoryEffect
 from domain.resolver import DeterministicOutcomeResolver
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.sqlite_runtime import sqlite3 as runtime_sqlite3
+from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
-
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures" / "golden_001"
@@ -208,6 +209,83 @@ async def test_golden_turn1_commit_survives_close_reopen_and_replay(tmp_path):
         assert len(await _rows(reopened, "turn_transactions")) == 1
     finally:
         await reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_golden_turn1_after_explicit_open_matches_existing_expected_state(tmp_path):
+    database, _ = await _open_database(tmp_path)
+    try:
+        initial = _initial_session()
+        expected = _read(RUNTIME / "expected" / "01_committed_state.json")
+        opened = await StorySessionOpenService(
+            SQLiteStorySessionOpenPort(database)
+        ).open(
+            OpenStorySessionCommand(
+                initial_session=initial,
+                open_request_id="open.g001.01",
+                store_expected_revision=0,
+                request_id="request.g001.open",
+                trace_id="trace.g001.open",
+            )
+        )
+
+        assert opened.opened_store_revision == 1
+        assert opened.snapshot.observed_store_revision == 1
+        assert opened.snapshot.session.story_state.revision == 0
+        assert opened.snapshot.session.story_state.turn == 0
+        assert opened.snapshot.session.base_revisions == initial.base_revisions
+        assert (
+            opened.snapshot.session.story_state.world_time
+            == initial.story_state.world_time
+        )
+
+        delta = _turn1_delta()
+        turn = _validated_turn(delta)
+        result = await StoryTurnCommitService(
+            SQLiteStorySessionCommitPort(database)
+        ).commit_validated(
+            opened.snapshot.session,
+            delta,
+            turn,
+            store_expected_revision=opened.opened_store_revision,
+            request_id="request.g001.01",
+            trace_id="trace.g001.01",
+        )
+
+        assert result.store_revision == 2
+        assert not result.replayed
+        assert result.session.base_revisions == initial.base_revisions
+        assert result.session.story_state.world_time == initial.story_state.world_time
+        assert result.session.story_state.revision == expected["story_revision"] == 1
+        assert result.session.story_state.turn == expected["turn"] == 1
+        assert result.session.story_state.discovered_clue_ids == expected["clues"]
+        assert {
+            key: value.value for key, value in result.session.story_state.secret_states.items()
+        } == expected["secrets"]
+
+        expected_pressure = {
+            item["id"]: item["initial_value"]
+            for item in _read(FIXTURES / "seed.json")["pressures"]
+        }
+        expected_pressure["doctor_suspicion"] = expected["doctor_suspicion"]
+        assert result.session.story_state.pressure == expected_pressure
+
+        assert result.turn.status.value == "committed"
+        assert result.turn.committed_story_revision == 1
+        assert await database.read_world(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        ) == [{"revision": 2}]
+        session_row = (await _rows(database, "story_sessions"))[0]
+        assert session_row["base_world_revision"] == 103
+        assert session_row["committed_world_revision"] == 2
+        assert session_row["story_revision"] == 1
+        assert len(await _rows(database, "story_state_deltas")) == 1
+        assert len(await _rows(database, "turn_transactions")) == 1
+        assert len(await _rows(database, "domain_commits")) == 2
+        assert len(await _rows(database, "domain_events")) == 2
+        assert len(await _rows(database, "projection_outbox")) == 2
+    finally:
+        await database.close()
 
 
 @pytest.mark.asyncio

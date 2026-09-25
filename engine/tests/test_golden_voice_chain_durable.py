@@ -1,18 +1,13 @@
-"""W-V09 golden durable voice chain: intake -> advice -> intent -> COMMIT.
+"""W-V09 golden durable voice chain: explicit open -> turn 1 -> COMMIT.
 
 Chain under test (all real durable adapters over one ``world.db``):
 
+    StorySessionOpenService -> story.session.opened
     FinalizedStoryInput -> turn_intake_commands (RECEIVED)
     PlayerAdviceInterpretationService -> turn_advice_interpretations
     AdviceActionIntentService -> bounded ActionIntent proposal (no persistence)
     DeterministicOutcomeResolver -> StateDelta
     AdviceCommitService -> StoryTurnCommitService -> COMMIT + intake promotion
-
-Bootstrap note: this repository still has no durable session-open API -- a
-``story_sessions`` row only exists after its first committed turn -- so turn 1 is
-seeded through the already merged production commit path and the voice-first
-chain runs from turn 2 onward. The missing session-open port is tracked as the
-next W-V09 slice instead of being faked here.
 """
 from __future__ import annotations
 
@@ -28,7 +23,7 @@ from application.advice_interpretation import (
     AdviceInterpretationError,
     PlayerAdviceInterpretationService,
 )
-from application.story_turn_commit import StoryTurnCommitService
+from application.story_session_open import OpenStorySessionCommand, StorySessionOpenService
 from application.turn_control import TurnCancellationOutcome, TurnControlService
 from application.turn_input import (
     FinalizedStoryInput,
@@ -38,11 +33,9 @@ from application.turn_input import TurnInputStatus as ApplicationTurnInputStatus
 from contracts import (
     AdherenceType,
     InputMode,
-    StateDelta,
     StorySession,
     StoryState,
     TurnStatus,
-    TurnTransaction,
 )
 from contracts.models import IntentAction
 from domain.resolution_policy import ResolutionPolicy, ResolutionRule, StoryEffect
@@ -50,6 +43,7 @@ from domain.resolver import DeterministicOutcomeResolver
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
 from infrastructure.sqlite_runtime import sqlite3
+from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
 from infrastructure.turn_intake_repository import (
     SQLitePendingTurnControlPort,
@@ -61,9 +55,7 @@ from infrastructure.turn_intake_repository import (
 SESSION_ID = "session_voice_chain"
 WORLD_REVISION = 103
 CHARACTER_REVISION = 27
-INPUT_TURN_2 = "input.turn.002"
-INPUT_TURN_3 = "input.turn.003"
-INPUT_TURN_4 = "input.turn.004"
+INPUT_TURN_1 = "input.turn.001"
 
 
 class _RecordingInterpreter:
@@ -140,39 +132,6 @@ def initial_session() -> StorySession:
     )
 
 
-def bootstrap_delta() -> StateDelta:
-    return StateDelta.model_validate(
-        {
-            "schema_version": "1.0",
-            "id": "delta.voice-chain.bootstrap",
-            "turn_id": "turn.voice-chain.bootstrap",
-            "outcome": "clean_success",
-            "story_delta": {"world_time_delta_minutes": 0},
-            "character_deltas": [],
-            "relationship_deltas": [],
-            "knowledge_candidates": [],
-            "world_event_candidates": [],
-            "evidence_ids": [],
-        }
-    )
-
-
-def bootstrap_turn(value: StateDelta) -> TurnTransaction:
-    return TurnTransaction.model_validate(
-        {
-            "schema_version": "1.0",
-            "id": value.turn_id,
-            "session_id": SESSION_ID,
-            "idempotency_key": "voice-chain.bootstrap",
-            "status": "validated",
-            "base_revisions": base_revisions(),
-            "state_delta_id": value.id,
-            "committed_story_revision": None,
-            "narrative_block_id": None,
-        }
-    )
-
-
 def voice_policy() -> ResolutionPolicy:
     return ResolutionPolicy.from_story_seed(
         {"clues": [{"id": "clue_voice_chain_door"}], "secrets": []},
@@ -215,25 +174,12 @@ async def rows(database: DatabaseManager, table: str) -> list[dict]:
     return await database.read_world(f"SELECT * FROM {table}")
 
 
-async def bootstrap_turn_one(database: DatabaseManager) -> None:
-    """Persist the StorySession row through the merged production commit path."""
-    value = bootstrap_delta()
-    result = await StoryTurnCommitService(
-        SQLiteStorySessionCommitPort(database)
-    ).commit_validated(
-        initial_session(),
-        value,
-        bootstrap_turn(value),
-        store_expected_revision=0,
-        request_id="request.bootstrap",
-        trace_id="trace.bootstrap",
-    )
-    assert result.store_revision == 1
-
-
 class Chain:
     def __init__(self, database: DatabaseManager) -> None:
         self.database = database
+        self.opening = StorySessionOpenService(
+            SQLiteStorySessionOpenPort(database)
+        )
         self.story = SQLiteStorySessionCommitPort(database)
         self.advice = SQLitePlayerAdviceRepository(database)
         self.intake = SQLiteTurnInputCommandPort(database)
@@ -257,6 +203,17 @@ class Chain:
             proposal=self.proposal,
             story=self.story,
             resolver=DeterministicOutcomeResolver(),
+        )
+
+    async def open_session(self):
+        return await self.opening.open(
+            OpenStorySessionCommand(
+                initial_session=initial_session(),
+                open_request_id="open.voice-chain",
+                store_expected_revision=0,
+                request_id="request.open.voice-chain",
+                trace_id="trace.open.voice-chain",
+            )
         )
 
     async def receive(self, input_turn_id: str, raw_input: str):
@@ -290,51 +247,67 @@ class Chain:
 
 
 @pytest.mark.asyncio
-async def test_voice_chain_commits_second_turn_and_replays_without_new_model_call(tmp_path):
+async def test_voice_chain_commits_first_turn_and_replays_without_new_model_call(tmp_path):
     database, paths = await open_database(tmp_path)
     try:
-        await bootstrap_turn_one(database)
         chain = Chain(database)
-
-        receipt = await chain.receive(INPUT_TURN_2, "我上前敲门。")
-        assert receipt.status is ApplicationTurnInputStatus.RECEIVED
-        assert receipt.base_revisions.story == 1
+        opened = await chain.open_session()
+        assert opened.opened_store_revision == 1
+        assert opened.snapshot.observed_store_revision == 1
+        assert opened.snapshot.session.story_state.revision == 0
+        assert opened.snapshot.session.story_state.turn == 0
+        assert opened.snapshot.session.base_revisions.model_dump(mode="json") == (
+            base_revisions()
+        )
+        assert opened.snapshot.session.story_state.world_time == "1889-05-01T09:00:00+00:00"
         assert await world_revision(database) == 1
 
-        stored = await chain.interpretation.interpret(INPUT_TURN_2)
+        receipt = await chain.receive(INPUT_TURN_1, "我上前敲门。")
+        assert receipt.status is ApplicationTurnInputStatus.RECEIVED
+        assert receipt.base_revisions.story == 0
+        assert await world_revision(database) == 1
+
+        stored = await chain.interpretation.interpret(INPUT_TURN_1)
         assert chain.interpreter.calls == 1
         assert stored.replayed is False
         # 解读是 insert-only：不推进世界、不制造回合结果
         assert await world_revision(database) == 1
 
         result = await chain.commit_turn(
-            INPUT_TURN_2,
+            INPUT_TURN_1,
             expected_revision=1,
-            suffix="002",
+            suffix="001",
         )
         assert chain.proposer.calls == 1
         assert result.replayed is False
         assert result.store_revision == 2
-        assert result.session.story_state.revision == 2
+        assert result.session.story_state.revision == 1
+        assert result.session.story_state.turn == 1
         assert result.turn.status is TurnStatus.COMMITTED
         assert result.delta.evidence_ids
-        intake = await SQLiteTurnIntakeRepository(database).load(INPUT_TURN_2)
+        intake = await SQLiteTurnIntakeRepository(database).load(INPUT_TURN_1)
         assert intake.status is TurnIntakeStatus.COMMITTED
         assert intake.committed_world_revision == 2
-        assert len(await rows(database, "turn_transactions")) == 2
+        assert len(await rows(database, "turn_transactions")) == 1
+        assert len(await rows(database, "domain_commits")) == 2
+        assert len(await rows(database, "domain_events")) == 2
+        assert len(await rows(database, "projection_outbox")) == 2
 
-        # lost ACK：同一 input_turn 重放不重复推进世界，也不再调用模型
+        # Lost ACK: replaying turn 1 neither advances the world nor calls either model again.
         replay = await chain.commit_turn(
-            INPUT_TURN_2,
+            INPUT_TURN_1,
             expected_revision=1,
-            suffix="002.retry",
+            suffix="001.retry",
         )
         assert replay.replayed is True
         assert replay.store_revision == 2
         assert chain.interpreter.calls == 1
         assert chain.proposer.calls == 1
         assert await world_revision(database) == 2
-        assert len(await rows(database, "turn_transactions")) == 2
+        assert len(await rows(database, "turn_transactions")) == 1
+        assert len(await rows(database, "domain_commits")) == 2
+        assert len(await rows(database, "domain_events")) == 2
+        assert len(await rows(database, "projection_outbox")) == 2
     finally:
         await database.close()
 
@@ -346,27 +319,32 @@ async def test_voice_chain_commits_second_turn_and_replays_without_new_model_cal
         restart = Chain(reopened)
         assert await world_revision(reopened) == 2
 
-        # 重启后解读直接回放已持久化的 PlayerAdvice，不再调用模型
-        recovered = await restart.interpretation.interpret(INPUT_TURN_2)
+        # After restart, interpretation replays persisted PlayerAdvice without a model call.
+        recovered = await restart.interpretation.interpret(INPUT_TURN_1)
         assert recovered.replayed is True
         assert restart.interpreter.calls == 0
 
         recovered_intake = await SQLiteTurnIntakeRepository(reopened).load(
-            INPUT_TURN_2
+            INPUT_TURN_1
         )
         assert recovered_intake.committed_world_revision == 2
         session = await restart.story.load_session(SESSION_ID)
-        assert session.story_state.revision == 2
+        assert session.story_state.revision == 1
+        assert session.story_state.turn == 1
 
         restarted_replay = await restart.commit_turn(
-            INPUT_TURN_2,
+            INPUT_TURN_1,
             expected_revision=1,
-            suffix="002.restart",
+            suffix="001.restart",
         )
         assert restarted_replay.replayed is True
         assert restarted_replay.store_revision == 2
         assert restart.proposer.calls == 0
         assert await world_revision(reopened) == 2
+        assert len(await rows(reopened, "turn_transactions")) == 1
+        assert len(await rows(reopened, "domain_commits")) == 2
+        assert len(await rows(reopened, "domain_events")) == 2
+        assert len(await rows(reopened, "projection_outbox")) == 2
     finally:
         await reopened.close()
 
@@ -375,10 +353,12 @@ async def test_voice_chain_commits_second_turn_and_replays_without_new_model_cal
 async def test_pending_turn_cancel_wins_before_commit_in_the_durable_chain(tmp_path):
     database, _ = await open_database(tmp_path)
     try:
-        await bootstrap_turn_one(database)
         chain = Chain(database)
+        opened = await chain.open_session()
+        assert opened.opened_store_revision == 1
+        assert await world_revision(database) == 1
 
-        receipt = await chain.receive(INPUT_TURN_3, "算了，我还是等着。")
+        receipt = await chain.receive(INPUT_TURN_1, "算了，我还是等着。")
         cancellation = await chain.cancel_pending(
             receipt.turn_id,
             expected_revision=WORLD_REVISION,
@@ -391,12 +371,12 @@ async def test_pending_turn_cancel_wins_before_commit_in_the_durable_chain(tmp_p
 
         # 取消先赢后 COMMIT 必须被拒绝，且世界不被推进
         with pytest.raises(AdviceCommitError, match="input_turn_cancelled"):
-            await chain.commit_turn(INPUT_TURN_3, expected_revision=1, suffix="003")
+            await chain.commit_turn(INPUT_TURN_1, expected_revision=1, suffix="001")
         assert await world_revision(database) == 1
 
         # 已取消的回合不进入解读，也不产生建议
         with pytest.raises(AdviceInterpretationError, match="input_turn_cancelled"):
-            await chain.interpretation.interpret(INPUT_TURN_3)
+            await chain.interpretation.interpret(INPUT_TURN_1)
         assert chain.interpreter.calls == 0
     finally:
         await database.close()
@@ -406,22 +386,27 @@ async def test_pending_turn_cancel_wins_before_commit_in_the_durable_chain(tmp_p
 async def test_committed_turn_reports_revision_to_a_late_cancellation(tmp_path):
     database, _ = await open_database(tmp_path)
     try:
-        await bootstrap_turn_one(database)
         chain = Chain(database)
+        opened = await chain.open_session()
+        assert opened.opened_store_revision == 1
+        assert await world_revision(database) == 1
 
-        receipt = await chain.receive(INPUT_TURN_4, "我敲门并退后半步。")
-        await chain.interpretation.interpret(INPUT_TURN_4)
+        receipt = await chain.receive(INPUT_TURN_1, "我敲门并退后半步。")
+        await chain.interpretation.interpret(INPUT_TURN_1)
         committed = await chain.commit_turn(
-            INPUT_TURN_4,
+            INPUT_TURN_1,
             expected_revision=1,
-            suffix="004",
+            suffix="001",
         )
         assert committed.store_revision == 2
+        assert committed.session.story_state.revision == 1
+        assert committed.session.story_state.turn == 1
+        assert await world_revision(database) == 2
 
         late = await chain.cancel_pending(
             receipt.turn_id,
             expected_revision=WORLD_REVISION,
-            suffix="004",
+            suffix="001",
         )
 
         assert late.outcome is TurnCancellationOutcome.ALREADY_COMMITTED
@@ -429,7 +414,7 @@ async def test_committed_turn_reports_revision_to_a_late_cancellation(tmp_path):
         assert late.replayed is False
         assert await world_revision(database) == 2
         assert (await SQLiteTurnIntakeRepository(database).load(
-            INPUT_TURN_4
+            INPUT_TURN_1
         )).status is TurnIntakeStatus.COMMITTED
     finally:
         await database.close()

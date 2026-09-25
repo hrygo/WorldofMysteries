@@ -1,0 +1,149 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS",
+  "title": "Preserve omitted optional session fields during freeze and recovery",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-25T12:34:06.520229+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "54398dd54bf61b8265927176e9ce140fb09937de",
+    "target_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+    "context_snapshot": "sha256:f04d2ace144ad381bdda2a3be2a445c3a0dc58e51bc2f83869967f520d7fedae"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:load_session@engine/application/advice_commit.py:64",
+      "symbol:_recover_committed@engine/application/advice_commit.py:154",
+      "symbol:_validate_session@engine/application/advice_commit.py:187",
+      "symbol:VoicePerformanceCapabilities@engine/application/performance_compiler.py:91",
+      "symbol:provider_fields@engine/application/performance_compiler.py:127",
+      "symbol:GameplayContextPort@engine/application/session_orchestrator.py:11",
+      "symbol:SessionOrchestratorProtocol@engine/application/session_orchestrator.py:15",
+      "symbol:prepare@engine/application/session_orchestrator.py:12",
+      "symbol:prepare_ai_context@engine/application/session_orchestrator.py:17",
+      "symbol:VoiceBindingReadPort@engine/application/speech_unit.py:45",
+      "symbol:OpenStorySessionCommand@engine/application/story_session_open.py:15",
+      "symbol:StorySessionSnapshot@engine/application/story_session_open.py:24",
+      "symbol:StorySessionOpenResult@engine/application/story_session_open.py:30",
+      "symbol:StorySessionOpenError@engine/application/story_session_open.py:36",
+      "symbol:StorySessionOpenPort@engine/application/story_session_open.py:44",
+      "symbol:StorySessionOpenService@engine/application/story_session_open.py:52",
+      "symbol:_freeze_command@engine/application/story_session_open.py:89",
+      "symbol:_require_text@engine/application/story_session_open.py:145",
+      "symbol:__init__@engine/application/story_session_open.py:39",
+      "symbol:open_session@engine/application/story_session_open.py:45",
+      "symbol:load_snapshot@engine/application/story_session_open.py:49",
+      "symbol:__init__@engine/application/story_session_open.py:55",
+      "symbol:open@engine/application/story_session_open.py:58",
+      "symbol:recover@engine/application/story_session_open.py:62",
+      "symbol:StorySessionReadPort@engine/application/turn_input.py:72",
+      "symbol:load_session@engine/application/turn_input.py:73",
+      "symbol:recover@engine/application/turn_input.py:186",
+      "symbol:VoiceCastingError@engine/application/voice_casting.py:21",
+      "symbol:VoiceBindingPort@engine/application/voice_casting.py:25",
+      "symbol:VoiceCastingService@engine/application/voice_casting.py:48"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 724,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "load_session",
+      "_recover_committed",
+      "_validate_session",
+      "VoicePerformanceCapabilities",
+      "provider_fields",
+      "GameplayContextPort",
+      "SessionOrchestratorProtocol",
+      "prepare",
+      "prepare_ai_context",
+      "VoiceBindingReadPort",
+      "OpenStorySessionCommand",
+      "StorySessionSnapshot",
+      "StorySessionOpenResult",
+      "StorySessionOpenError",
+      "StorySessionOpenPort",
+      "StorySessionOpenService",
+      "_freeze_command",
+      "_require_text",
+      "__init__",
+      "open_session",
+      "load_snapshot",
+      "__init__",
+      "open",
+      "recover",
+      "StorySessionReadPort",
+      "load_session",
+      "recover",
+      "VoiceCastingError",
+      "VoiceBindingPort",
+      "VoiceCastingService"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-SESSION-OPEN-DATA"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}
