@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 import hashlib
 
+from application.turn_input import (
+    TurnInputCommand,
+    TurnInputReceipt,
+    TurnInputStatus as ApplicationTurnInputStatus,
+)
 from contracts import BaseRevisions, InputMode
 
 from .database_manager import DatabaseManager, TurnCommandTransaction
@@ -186,15 +191,23 @@ class SQLiteTurnIntakeRepository:
             replayed=bool(result["replayed"]),
         )
 
-    async def load(self, input_turn_id: str) -> TurnIntakeRecord:
+    async def find(self, input_turn_id: str) -> TurnIntakeRecord | None:
         _identifier(input_turn_id, "input turn id")
         rows = await self.database.read_world(
             "SELECT * FROM turn_intake_commands WHERE input_turn_id=?",
             (input_turn_id,),
         )
+        if not rows:
+            return None
         if len(rows) != 1:
-            raise StorageError("Turn intake command not found")
+            raise StorageError("Turn intake identity is corrupted")
         return _from_row(rows[0])
+
+    async def load(self, input_turn_id: str) -> TurnIntakeRecord:
+        value = await self.find(input_turn_id)
+        if value is None:
+            raise StorageError("Turn intake command not found")
+        return value
 
     async def cancel(self, input_turn_id: str) -> TurnIntakeRecord:
         _identifier(input_turn_id, "input turn id")
@@ -226,3 +239,63 @@ class SQLiteTurnIntakeRepository:
             return updated
 
         return await self.database.turn_command_write(apply)
+
+
+
+def _to_application_receipt(
+    record: TurnIntakeRecord,
+    *,
+    replayed: bool,
+) -> TurnInputReceipt:
+    return TurnInputReceipt(
+        input_turn_id=record.input_turn_id,
+        session_id=record.session_id,
+        turn_id=record.turn_id,
+        idempotency_key=record.idempotency_key,
+        input_mode=record.input_mode,
+        input_sha256=record.input_sha256,
+        base_revisions=record.base_revisions,
+        status=ApplicationTurnInputStatus(record.status.value),
+        committed_world_revision=record.committed_world_revision,
+        replayed=replayed,
+    )
+
+
+class SQLiteTurnInputCommandPort:
+    """Application DurableTurnIntakePort adapter over SQLite storage."""
+
+    def __init__(self, database: DatabaseManager) -> None:
+        self._repository = SQLiteTurnIntakeRepository(database)
+
+    async def load(self, input_turn_id: str) -> TurnInputReceipt | None:
+        record = await self._repository.find(input_turn_id)
+        return None if record is None else _to_application_receipt(
+            record,
+            replayed=True,
+        )
+
+    async def receive(self, command: TurnInputCommand) -> TurnInputReceipt:
+        if not isinstance(command, TurnInputCommand):
+            raise StorageError("Turn input port requires a typed command")
+        request = TurnIntakeRequest(
+            input_turn_id=command.input_turn_id,
+            session_id=command.session_id,
+            turn_id=command.turn_id,
+            idempotency_key=command.idempotency_key,
+            input_mode=command.input_mode,
+            raw_input=command.raw_input,
+            base_revisions=command.base_revisions,
+        )
+        if request.input_sha256 != command.input_sha256:
+            raise TurnIntakeConflict(
+                "Turn input command digest does not match raw input"
+            )
+        result = await self._repository.receive(request)
+        return _to_application_receipt(
+            result.record,
+            replayed=result.replayed,
+        )
+
+    async def cancel(self, input_turn_id: str) -> TurnInputReceipt:
+        record = await self._repository.cancel(input_turn_id)
+        return _to_application_receipt(record, replayed=False)
