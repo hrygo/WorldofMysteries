@@ -132,6 +132,18 @@ def test_signing_preserves_helper_entitlements_through_parent_path_alias(tmp_pat
     assert len(signs) == 1
     assert '--entitlements' in signs[0]
     assert signs[0][signs[0].index('--entitlements')+1].endswith('/Engine.entitlements')
+    assert '--options' not in signs[0]
+
+    app_signs = [
+        c for c in calls
+        if c[0] == 'codesign' and '--force' in c
+        and Path(c[-1]).resolve(strict=True) == app.resolve(strict=True)
+    ]
+    assert len(app_signs) == 1
+    assert app_signs[0][app_signs[0].index('--options') + 1] == 'runtime'
+    assert app_signs[0][app_signs[0].index('--entitlements') + 1].endswith('/App.entitlements')
+    assert signed_runtime[interpreter.resolve(strict=True)] is False
+    assert signed_runtime[app.resolve(strict=True)] is True
 
 
 def test_runtime_setup_diagnostics_preserve_user_safe_errors():
