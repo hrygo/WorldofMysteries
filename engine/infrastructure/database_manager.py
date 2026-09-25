@@ -154,6 +154,49 @@ _PROTECTED = frozenset({'world_meta', 'domain_commits', 'domain_events', 'projec
                         'sqlite_master', 'sqlite_schema', 'sqlite_sequence'})
 
 
+class TurnCommandTransaction:
+    """Pre-COMMIT input command transaction with no world-fact authority.
+
+    It may create and cancel durable intake commands only. Domain COMMIT promotes
+    a received command through DomainTransaction on the same single writer.
+    """
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
+def _turn_command_authorizer(action, table, column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    table_name = table.lower() if isinstance(table, str) else ''
+    if action == sqlite3.SQLITE_INSERT:
+        return sqlite3.SQLITE_OK if table_name == 'turn_intake_commands' else sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_UPDATE:
+        return (
+            sqlite3.SQLITE_OK
+            if table_name == 'turn_intake_commands' and column == 'status'
+            else sqlite3.SQLITE_DENY
+        )
+    if action == sqlite3.SQLITE_DELETE:
+        return sqlite3.SQLITE_DENY
+    if action in (
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_FUNCTION,
+        sqlite3.SQLITE_RECURSIVE,
+    ):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 class PresentationTransaction:
     """Synchronous presentation-state transaction with no world revision authority."""
 
@@ -424,6 +467,36 @@ class DatabaseManager:
 
     async def read_canon(self, sql: str, parameters: tuple = ()) -> list[dict]:
         return await self._submit(lambda: read_rows(self.paths.canon, sql, tuple(parameters)), read=True)
+
+    async def turn_command_write(self, apply: Callable[[TurnCommandTransaction], object]) -> object:
+        """Persist/cancel pre-COMMIT turn intake without advancing world facts."""
+        if not callable(apply):
+            raise StorageError('Turn command write requires a synchronous repository operation')
+        return await self._submit(lambda: self._turn_command_write(apply))
+
+    def _turn_command_write(self, apply):
+        self._check_world_identity()
+        conn = self._connection
+        conn.execute('BEGIN IMMEDIATE')
+        tx = TurnCommandTransaction(conn)
+        conn.set_authorizer(_turn_command_authorizer)
+        try:
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError('Turn command repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
+            conn.execute('COMMIT')
+            return value
+        except BaseException:
+            conn.set_authorizer(None)
+            if conn.in_transaction:
+                conn.execute('ROLLBACK')
+            raise
 
     async def post_commit_write(self, apply: Callable[[PostCommitTransaction], object]) -> object:
         """Persist post-COMMIT expression state without advancing world facts."""
