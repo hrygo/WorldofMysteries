@@ -1,0 +1,94 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V08-TRACK-ACCESS",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V08-TRACK-ACCESS",
+  "title": "Voice V08 fresh authorization for StoryBook replay and redub publication",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T12:48:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "c43f35d11344514318998618736e1665850233ef",
+    "target_sha": "c43f35d11344514318998618736e1665850233ef",
+    "context_snapshot": "sha256:voice-v08-track-access-c43f35d11344514318998618736e1665850233ef"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/audio_replay.py",
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_track_repository.py",
+      "engine/tests/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_track_access.py",
+      "engine/tests/test_audio_track_access.py",
+      ".agents/capsules/VOICE-V08-TRACK-ACCESS.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**",
+      "engine/infrastructure/migrations/**",
+      "engine/infrastructure/database_manager.py"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/infrastructure/audio_replay.py",
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_track_repository.py",
+      "docs/07_工程启动/Voice_First_Implementation_Plan_v2.0.md",
+      "docs/07_工程启动/Voice_First_Acceptance_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "immutable-current-voice-authorization-snapshot-before-replay-or-track-publish",
+    "token_estimate": 1600,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Durability/pinning never implies current consumption authority. A trusted caller supplies one immutable current voice authorization snapshot. Historical replay checks every referenced authenticated take before exposure; new track/redub publication checks every take before the insert-only track writer. Revocation blocks consumption/new publication but does not rewrite or delete historical facts/assets."
+  },
+  "impact": {
+    "symbols": [
+      "VoiceAuthorizationSnapshot",
+      "StoryBookAudioAccessService.resolve_for_replay",
+      "StoryBookAudioAccessService.publish_authorized"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_audio_track_access.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V08-STORYBOOK-TRACKS",
+      "VOICE-V08-REPLAY-CLEANUP"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9
+    ],
+    "instructions": "StoryBook pinning preserves immutable history but does not grant current access. Historical replay and every new track/redub publication must validate each authenticated AudioTake against one immutable current provider+voice+voice-revision authorization snapshot. Revocation fails closed without deleting or rewriting the old track/take.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09"
+    ]
+  }
+}
