@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-PACKAGE-SIGNING-MOCK-R1-7f9b4ce3a93b",
+  "receipt_type": "work",
+  "task_id": "PACKAGE-SIGNING-MOCK-R1",
+  "capsule_id": "CAP-PACKAGE-SIGNING-MOCK-R1",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:f63ce2f1d901b87b0f596e70768b76939e8e3a6cdf1d67bed17b41da8b39cac4",
+  "diff_digest": "sha256:1673147b4c8330c85a6b1e325d34a6d7483f8b1b2e28ad8eed3d4546ea2014f1",
+  "assigned_role": "AGT-QA",
+  "risk_class": "high",
+  "base_commit": "e77b6b03eb8006fa555c3451fb4cb8d5259dcc55",
+  "head_commit": "7f9b4ce3a93b70ba6f7e30ad4a79c4c3c63f1ca3",
+  "target_ref": "origin/main",
+  "target_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T14:54:34.894315+00:00",
+      "finished_at": "2026-09-25T14:54:34.927135+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T14:54:34.927250+00:00",
+      "finished_at": "2026-09-25T14:55:01.980306+00:00",
+      "raw_log_digest": "sha256:a18f62f67fce134cb3926e6921df5ebd4ce5d4b1a2dc6964fc49f72cdcade9a1",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T14:55:01.980393+00:00",
+      "finished_at": "2026-09-25T14:55:25.771882+00:00",
+      "raw_log_digest": "sha256:7f87504353424729bb7ae371ec3048ef6fca2d13215d1520191a6019a43daa38",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-25T14:55:25.772074+00:00",
+      "finished_at": "2026-09-25T14:55:27.107643+00:00",
+      "raw_log_digest": "sha256:572eb5b2904ef9cf008f1bf8c474436574af0c2a5ac04cdd4dbdce3c27e7a14b",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_macos_packaging.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-QA",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-package-signing-qa"
+  },
+  "started_at": "2026-09-25T14:54:34.861400+00:00",
+  "finished_at": "2026-09-25T14:55:27.218512+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
