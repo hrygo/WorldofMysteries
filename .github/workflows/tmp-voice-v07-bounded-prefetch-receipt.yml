@@ -1,0 +1,44 @@
+name: Temporary Voice V07 Bounded Prefetch Receipt Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact bounded prefetch head
+        uses: actions/checkout@v7
+        with:
+          ref: ab626afff7deaca7cbc21e9705e86e2d4a4b99d8
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: auto
+          cache-dependency-glob: "engine/uv.lock"
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          swift --version
+      - name: Verify capsule and print Work Receipt
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "ab626afff7deaca7cbc21e9705e86e2d4a4b99d8"
+          python3 scripts/agent_capsule.py verify \
+            --capsule .agents/capsules/VOICE-V07-BOUNDED-PREFETCH.json
+          receipt=".agents/receipts/VOICE-V07-BOUNDED-PREFETCH/ab626afff7de.json"
+          test -f "$receipt"
+          echo "===WORK_RECEIPT_BEGIN==="
+          cat "$receipt"
+          echo "===WORK_RECEIPT_END==="
