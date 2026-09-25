@@ -1,0 +1,147 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-ADVICE-ACTION",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-ADVICE-ACTION",
+  "title": "W-V09 PlayerAdvice to bounded ActionIntent proposal",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-25T10:34:04.262037+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b1abc853596f0248634d2a53ff812420f359925f",
+    "target_sha": "b1abc853596f0248634d2a53ff812420f359925f",
+    "context_snapshot": "sha256:1bc9c4d10101d4c745fbc42dee1e7e0a842f867a86eb6809f2a2c98131a74ee6"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:AdviceInterpretationError@engine/application/advice_interpretation.py:19",
+      "symbol:_text@engine/application/advice_interpretation.py:25",
+      "symbol:FrozenTurnInput@engine/application/advice_interpretation.py:37",
+      "symbol:AdviceInterpretationCandidate@engine/application/advice_interpretation.py:80",
+      "symbol:StoredPlayerAdvice@engine/application/advice_interpretation.py:119",
+      "symbol:DurableAdvicePort@engine/application/advice_interpretation.py:126",
+      "symbol:AdviceInterpreterPort@engine/application/advice_interpretation.py:140",
+      "symbol:_advice_id@engine/application/advice_interpretation.py:147",
+      "symbol:PlayerAdviceInterpretationService@engine/application/advice_interpretation.py:154",
+      "symbol:__init__@engine/application/advice_interpretation.py:20",
+      "symbol:__post_init__@engine/application/advice_interpretation.py:49",
+      "symbol:__post_init__@engine/application/advice_interpretation.py:88",
+      "symbol:load_input@engine/application/advice_interpretation.py:127",
+      "symbol:load_advice@engine/application/advice_interpretation.py:129",
+      "symbol:publish@engine/application/advice_interpretation.py:131",
+      "symbol:interpret@engine/application/advice_interpretation.py:141",
+      "symbol:__init__@engine/application/advice_interpretation.py:155",
+      "symbol:interpret@engine/application/advice_interpretation.py:164",
+      "symbol:VoicePerformanceCapabilities@engine/application/performance_compiler.py:91",
+      "symbol:VoiceBindingReadPort@engine/application/speech_unit.py:45",
+      "symbol:VoiceCastingError@engine/application/voice_casting.py:21",
+      "symbol:VoiceBindingPort@engine/application/voice_casting.py:25",
+      "symbol:VoiceCastingService@engine/application/voice_casting.py:48",
+      "symbol:load_scope@engine/application/voice_casting.py:26",
+      "symbol:reserve@engine/application/voice_casting.py:28",
+      "symbol:activate@engine/application/voice_casting.py:30",
+      "symbol:rebind@engine/application/voice_casting.py:34",
+      "symbol:revoke@engine/application/voice_casting.py:43",
+      "symbol:__init__@engine/application/voice_casting.py:56",
+      "symbol:prepare_render@engine/application/voice_casting.py:59"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 722,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "AdviceInterpretationError",
+      "_text",
+      "FrozenTurnInput",
+      "AdviceInterpretationCandidate",
+      "StoredPlayerAdvice",
+      "DurableAdvicePort",
+      "AdviceInterpreterPort",
+      "_advice_id",
+      "PlayerAdviceInterpretationService",
+      "__init__",
+      "__post_init__",
+      "__post_init__",
+      "load_input",
+      "load_advice",
+      "publish",
+      "interpret",
+      "__init__",
+      "interpret",
+      "VoicePerformanceCapabilities",
+      "VoiceBindingReadPort",
+      "VoiceCastingError",
+      "VoiceBindingPort",
+      "VoiceCastingService",
+      "load_scope",
+      "reserve",
+      "activate",
+      "rebind",
+      "revoke",
+      "__init__",
+      "prepare_render"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}
