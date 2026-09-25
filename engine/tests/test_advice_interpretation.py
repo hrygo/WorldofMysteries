@@ -149,3 +149,24 @@ def test_candidate_rejects_duplicate_or_empty_actions():
             risk_preference=None,
             confidence=0.5,
         )
+
+
+def test_candidate_bounds_model_controlled_lists():
+    with pytest.raises(AdviceInterpretationError, match="invalid_secondary_intents"):
+        AdviceInterpretationCandidate(
+            interpreter_revision="v1",
+            primary_intent="observe",
+            secondary_intents=tuple(f"secondary-{index}" for index in range(17)),
+            proposed_actions=("look",),
+            risk_preference=None,
+            confidence=0.5,
+        )
+    with pytest.raises(AdviceInterpretationError, match="invalid_proposed_actions"):
+        AdviceInterpretationCandidate(
+            interpreter_revision="v1",
+            primary_intent="observe",
+            secondary_intents=(),
+            proposed_actions=tuple(f"action-{index}" for index in range(33)),
+            risk_preference=None,
+            confidence=0.5,
+        )

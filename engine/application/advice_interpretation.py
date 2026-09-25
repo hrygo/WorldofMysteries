@@ -90,6 +90,7 @@ class AdviceInterpretationCandidate:
         _text(self.primary_intent, "primary_intent")
         if (
             not isinstance(self.secondary_intents, tuple)
+            or len(self.secondary_intents) > 16
             or len(set(self.secondary_intents)) != len(self.secondary_intents)
         ):
             raise AdviceInterpretationError("invalid_secondary_intents")
@@ -97,7 +98,7 @@ class AdviceInterpretationCandidate:
             _text(value, "secondary_intent")
         if (
             not isinstance(self.proposed_actions, tuple)
-            or not self.proposed_actions
+            or not 1 <= len(self.proposed_actions) <= 32
             or len(set(self.proposed_actions)) != len(self.proposed_actions)
         ):
             raise AdviceInterpretationError("invalid_proposed_actions")
