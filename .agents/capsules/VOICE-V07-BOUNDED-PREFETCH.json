@@ -1,0 +1,105 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V07-BOUNDED-PREFETCH",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V07-BOUNDED-PREFETCH",
+  "title": "Voice V07 bounded prefetch for sealed dry AudioTakes",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T09:37:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "e3d66700bd04b8ce52d362e7973c7a32a8bea0d5",
+    "target_sha": "e3d66700bd04b8ce52d362e7973c7a32a8bea0d5",
+    "context_snapshot": "sha256:voice-v07-bounded-prefetch-e3d66700bd04b8ce52d362e7973c7a32a8bea0d5"
+  },
+  "scope": {
+    "read": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_take_coordinator.py",
+      "engine/infrastructure/audio_prefetch.py",
+      "engine/tests/test_audio_take_store.py",
+      "engine/tests/test_audio_take_coordinator.py",
+      "engine/tests/test_audio_prefetch.py",
+      "docs/03_工程规范/voice/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/infrastructure/audio_prefetch.py",
+      "engine/tests/test_audio_prefetch.py",
+      ".agents/capsules/VOICE-V07-BOUNDED-PREFETCH.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/application/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/migrations/**",
+      "contracts/**",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/speech_unit.py",
+      "engine/infrastructure/audio_take_store.py",
+      "engine/infrastructure/audio_take_coordinator.py",
+      "engine/infrastructure/audio_prefetch.py",
+      "docs/03_工程规范/voice/Voice_First_Technical_Design_v2.0.md"
+    ],
+    "related_contracts": [],
+    "slice_strategy": "sealed-only-bounded-dry-take-prefetch",
+    "token_estimate": 1600,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "Prefetch has no media/playback surface. It accepts only Engine-owned SealedSpeechUnit values with an exact model revision and a backend recipe representable by current W-V03 control, maps them to DryRenderRecipe, and delegates cache lookup/render publication to the authorization-aware single-flight coordinator. Pending units are hard-capped at two."
+  },
+  "impact": {
+    "symbols": [
+      "AudioTakePrefetchQueue.prefetch",
+      "AudioTakePrefetchQueue.recipe_for",
+      "AudioTakePrefetchSnapshot"
+    ],
+    "contracts": [],
+    "tests": [
+      "engine/tests/test_audio_prefetch.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V07-AUDIO-TAKE-STORE",
+      "VOICE-V07-PRIVATE-RENDER-KEY",
+      "VOICE-V07-AUDIO-TAKE-SINGLEFLIGHT",
+      "VOICE-V07-SEALED-MODEL-IDENTITY"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      9,
+      10,
+      11
+    ],
+    "instructions": "Prefetch may cache-fill at most two already-sealed future speech units. Units with unverified model revision, empty speech, unrepresentable backend controls, or failed fresh authorization must be rejected before synthesis. Prefetch never registers media or playback and cannot construct Narrative/branch content. Equivalent dry recipes may share provider render through single-flight while each unit retains independent authorization.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-09",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
