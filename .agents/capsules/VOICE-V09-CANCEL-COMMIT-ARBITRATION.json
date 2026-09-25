@@ -1,0 +1,182 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-CANCEL-COMMIT-ARBITRATION",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-CANCEL-COMMIT-ARBITRATION",
+  "title": "Voice V09 arbitrate pending-turn cancel against domain COMMIT on one writer",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T11:01:03.507682+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "b98f17a1587d7947d2da3c34ad1cb1d094b8b9bc",
+    "target_sha": "b98f17a1587d7947d2da3c34ad1cb1d094b8b9bc",
+    "context_snapshot": "sha256:voice-v09-cancel-commit-arbitration-b98f17a1587d7947d2da3c34ad1cb1d094b8b9bc"
+  },
+  "scope": {
+    "read": [
+      "engine/application/",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/turn_control.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/test_turn_control.py",
+      "engine/tests/test_turn_intake_repository.py",
+      ".agents/capsules/VOICE-V09-CANCEL-COMMIT-ARBITRATION.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/migrations/**",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      "engine/application/turn_control.py",
+      "engine/infrastructure/turn_intake_repository.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:TurnCancellationOutcome@engine/application/turn_control.py:28",
+      "symbol:TurnControlService@engine/application/turn_control.py:83",
+      "symbol:cancel_pending@engine/application/turn_control.py:48",
+      "symbol:cancel_pending@engine/application/turn_control.py:89",
+      "symbol:cancel_pending@engine/infrastructure/turn_intake_repository.py:256",
+      "symbol:cancel_pending@engine/infrastructure/turn_intake_repository.py:404",
+      "symbol:cancel_pending@engine/tests/test_turn_control.py:46",
+      "symbol:TurnControlError@engine/application/turn_control.py:22",
+      "symbol:TurnCancellationResult@engine/application/turn_control.py:38",
+      "symbol:PendingTurnControlPort@engine/application/turn_control.py:47",
+      "symbol:_text@engine/application/turn_control.py:66",
+      "symbol:_natural@engine/application/turn_control.py:77",
+      "symbol:__init__@engine/application/turn_control.py:23",
+      "symbol:__init__@engine/application/turn_control.py:86",
+      "symbol:_require_consistent@engine/application/turn_control.py:112",
+      "symbol:TurnIntakeConflict@engine/infrastructure/turn_intake_repository.py:32",
+      "symbol:TurnIntakeStatus@engine/infrastructure/turn_intake_repository.py:36",
+      "symbol:_identifier@engine/infrastructure/turn_intake_repository.py:42",
+      "symbol:TurnIntakeRequest@engine/infrastructure/turn_intake_repository.py:54",
+      "symbol:TurnIntakeRecord@engine/infrastructure/turn_intake_repository.py:89",
+      "symbol:TurnIntakeReceiveResult@engine/infrastructure/turn_intake_repository.py:103",
+      "symbol:TurnIntakeCancellation@engine/infrastructure/turn_intake_repository.py:109",
+      "symbol:_from_row@engine/infrastructure/turn_intake_repository.py:117",
+      "symbol:_same_request@engine/infrastructure/turn_intake_repository.py:136",
+      "symbol:SQLiteTurnIntakeRepository@engine/infrastructure/turn_intake_repository.py:149",
+      "symbol:_to_application_receipt@engine/infrastructure/turn_intake_repository.py:339",
+      "symbol:SQLiteTurnInputCommandPort@engine/infrastructure/turn_intake_repository.py:358",
+      "symbol:SQLitePendingTurnControlPort@engine/infrastructure/turn_intake_repository.py:398",
+      "symbol:__post_init__@engine/infrastructure/turn_intake_repository.py:63",
+      "symbol:input_sha256@engine/infrastructure/turn_intake_repository.py:84"
+    ],
+    "related_contracts": [
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json",
+      "state_delta.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 750,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "TurnCancellationOutcome",
+      "TurnControlService",
+      "cancel_pending",
+      "cancel_pending",
+      "cancel_pending",
+      "cancel_pending",
+      "cancel_pending",
+      "TurnControlError",
+      "TurnCancellationResult",
+      "PendingTurnControlPort",
+      "_text",
+      "_natural",
+      "__init__",
+      "__init__",
+      "_require_consistent",
+      "TurnIntakeConflict",
+      "TurnIntakeStatus",
+      "_identifier",
+      "TurnIntakeRequest",
+      "TurnIntakeRecord",
+      "TurnIntakeReceiveResult",
+      "TurnIntakeCancellation",
+      "_from_row",
+      "_same_request",
+      "SQLiteTurnIntakeRepository",
+      "_to_application_receipt",
+      "SQLiteTurnInputCommandPort",
+      "SQLitePendingTurnControlPort",
+      "__post_init__",
+      "input_sha256"
+    ],
+    "contracts": [
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json",
+      "state_delta.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_turn_control.py",
+      "engine/tests/test_turn_intake_repository.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

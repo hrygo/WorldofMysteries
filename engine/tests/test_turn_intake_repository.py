@@ -21,7 +21,12 @@ from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.database_schema import StorageError
 from infrastructure.sqlite_runtime import sqlite3
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
+from application.turn_control import (
+    TurnCancellationOutcome,
+    TurnControlService,
+)
 from infrastructure.turn_intake_repository import (
+    SQLitePendingTurnControlPort,
     SQLiteTurnIntakeRepository,
     TurnIntakeConflict,
     TurnIntakeRequest,
@@ -296,5 +301,176 @@ async def test_turn_command_transaction_has_no_world_fact_authority(tmp_path):
                 )
             )
         assert await world_revision(database) == 0
+    finally:
+        await database.close()
+
+
+async def test_cancel_pending_wins_before_commit_without_world_revision(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        await repo.receive(request())
+
+        cancellation = await repo.cancel_pending("turn-intake-1", 0)
+
+        assert cancellation.outcome is TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT
+        assert cancellation.replayed is False
+        assert cancellation.record is not None
+        assert cancellation.record.status is TurnIntakeStatus.CANCELLED
+        assert cancellation.record.committed_world_revision is None
+        assert await world_revision(database) == 0
+        with pytest.raises(StorageError, match="cancelled before COMMIT"):
+            await commit_turn(database)
+        assert await world_revision(database) == 0
+
+        # 取消的 lost ACK 重放必须幂等：不重复释放，也不推进世界
+        replayed = await repo.cancel_pending("turn-intake-1", 0)
+        assert replayed.outcome is TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT
+        assert replayed.replayed is True
+        assert await world_revision(database) == 0
+    finally:
+        await database.close()
+
+
+async def test_cancel_pending_after_commit_reports_revision_and_keeps_commit(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        await repo.receive(request())
+        committed = await commit_turn(database)
+
+        cancellation = await repo.cancel_pending("turn-intake-1", 0)
+
+        assert cancellation.outcome is TurnCancellationOutcome.ALREADY_COMMITTED
+        assert cancellation.record is not None
+        assert cancellation.record.status is TurnIntakeStatus.COMMITTED
+        assert (
+            cancellation.record.committed_world_revision
+            == committed.store_revision
+            == 1
+        )
+        assert cancellation.record.input_turn_id == "input-turn-1"
+        assert await world_revision(database) == 1
+        assert (await repo.load("input-turn-1")).status is TurnIntakeStatus.COMMITTED
+    finally:
+        await database.close()
+
+
+async def test_cancel_pending_refuses_a_stale_expected_revision(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        await repo.receive(request())
+
+        cancellation = await repo.cancel_pending("turn-intake-1", 7)
+
+        assert cancellation.outcome is TurnCancellationOutcome.STALE_REVISION
+        assert cancellation.record is not None
+        assert cancellation.record.status is TurnIntakeStatus.RECEIVED
+        assert cancellation.record.committed_world_revision is None
+        # 拒绝取消后该回合仍然可以正常提交
+        committed = await commit_turn(database)
+        assert committed.store_revision == 1
+        assert await world_revision(database) == 1
+    finally:
+        await database.close()
+
+
+async def test_cancel_pending_reports_unknown_turn_without_state_change(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        await repo.receive(request())
+
+        cancellation = await repo.cancel_pending("turn-missing", 0)
+
+        assert cancellation.outcome is TurnCancellationOutcome.NOT_FOUND
+        assert cancellation.record is None
+        assert (await repo.load("input-turn-1")).status is TurnIntakeStatus.RECEIVED
+        assert await world_revision(database) == 0
+    finally:
+        await database.close()
+
+
+async def test_pending_turn_control_port_answers_through_the_control_service(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        await SQLiteTurnIntakeRepository(database).receive(request())
+        port = SQLitePendingTurnControlPort(database)
+        service = TurnControlService(turns=port)
+
+        cancelled = await service.cancel_pending(
+            "turn-intake-1",
+            expected_revision=0,
+            request_id="request-cancel",
+            trace_id="trace-cancel",
+        )
+        assert cancelled.outcome is TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT
+        assert cancelled.input_turn_id == "input-turn-1"
+        assert cancelled.session_id == "session-intake"
+        assert cancelled.committed_world_revision is None
+        assert cancelled.replayed is False
+
+        replayed = await service.cancel_pending(
+            "turn-intake-1",
+            expected_revision=0,
+            request_id="request-cancel",
+            trace_id="trace-cancel",
+        )
+        assert replayed.outcome is TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT
+        assert replayed.replayed is True
+
+        missing = await service.cancel_pending(
+            "turn-missing",
+            expected_revision=0,
+            request_id="request-missing",
+            trace_id="trace-missing",
+        )
+        assert missing.outcome is TurnCancellationOutcome.NOT_FOUND
+        assert missing.input_turn_id is None
+        assert missing.session_id is None
+    finally:
+        await database.close()
+
+
+async def test_cancel_pending_race_reports_one_typed_outcome(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        await repo.receive(request())
+
+        async def cancel():
+            try:
+                return ("cancel", await repo.cancel_pending("turn-intake-1", 0))
+            except Exception as exc:
+                return ("cancel_error", exc)
+
+        async def commit():
+            try:
+                return ("commit", await commit_turn(database))
+            except Exception as exc:
+                return ("commit_error", exc)
+
+        results = await asyncio.gather(cancel(), commit())
+        outcomes = [value.outcome for name, value in results if name == "cancel"]
+        assert len(outcomes) == 1
+        outcome = outcomes[0]
+        revision = await world_revision(database)
+        intake = await repo.load("input-turn-1")
+
+        if outcome is TurnCancellationOutcome.CANCELLED_BEFORE_COMMIT:
+            assert revision == 0
+            assert intake.status is TurnIntakeStatus.CANCELLED
+            assert any(name == "commit" for name, _ in results) is False
+            assert any(
+                name == "commit_error" and "cancelled before COMMIT" in str(value)
+                for name, value in results
+            )
+        else:
+            assert outcome is TurnCancellationOutcome.ALREADY_COMMITTED
+            assert revision == 1
+            assert intake.status is TurnIntakeStatus.COMMITTED
+            assert intake.committed_world_revision == 1
+            assert any(name == "commit" for name, _ in results)
     finally:
         await database.close()
