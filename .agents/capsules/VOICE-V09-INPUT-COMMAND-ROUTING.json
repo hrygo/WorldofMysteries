@@ -1,0 +1,109 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-INPUT-COMMAND-ROUTING",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-INPUT-COMMAND-ROUTING",
+  "title": "Voice V09 route finalized Story input into durable pre-COMMIT intake",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-25T08:20:00+08:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "01d39897c8fc54c32a0f79c1906e835d47b63fc6",
+    "target_sha": "01d39897c8fc54c32a0f79c1906e835d47b63fc6",
+    "context_snapshot": "sha256:voice-v09-input-command-routing-01d39897c8fc54c32a0f79c1906e835d47b63fc6"
+  },
+  "scope": {
+    "read": [
+      "engine/application/",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/",
+      "docs/07_工程启动/"
+    ],
+    "write": [
+      "engine/application/turn_input.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/tests/test_turn_input.py",
+      "engine/tests/test_turn_input_integration.py",
+      ".agents/capsules/VOICE-V09-INPUT-COMMAND-ROUTING.json"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/migrations/**",
+      "engine/infrastructure/database_manager.py",
+      "engine/infrastructure/database_schema.py",
+      ".github/**",
+      ".hacf/**"
+    ],
+    "privileged_grants": [
+      "engine/application/turn_input.py",
+      "engine/infrastructure/turn_intake_repository.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "engine/application/turn_input.py",
+      "engine/infrastructure/turn_intake_repository.py",
+      "engine/application/session_orchestrator.py",
+      "engine/application/story_turn_commit.py",
+      "contracts/schemas/turn_transaction.schema.json"
+    ],
+    "related_contracts": [
+      "turn_transaction.schema.json",
+      "story_session.schema.json"
+    ],
+    "slice_strategy": "finalized-input-to-durable-command-with-lost-ack-recovery",
+    "token_estimate": 2200,
+    "max_core_tokens": 3500,
+    "expansion_policy": "arbiter_approved",
+    "note": "Finalized voice/text Story input must obtain one durable input_turn identity before AI reasoning. Lost ACK recovery loads the frozen command before reading a newer StorySession. Local ControlIntent routing is mutually exclusive with Story intake and never creates a turn command."
+  },
+  "impact": {
+    "symbols": [
+      "FinalizedStoryInput",
+      "StoryTurnInputService",
+      "InputCommandRouter",
+      "SQLiteTurnInputCommandPort"
+    ],
+    "contracts": [
+      "turn_transaction.schema.json",
+      "story_session.schema.json"
+    ],
+    "tests": [
+      "engine/tests/test_turn_input.py",
+      "engine/tests/test_turn_input_integration.py"
+    ]
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-DURABLE-TURN-INTAKE"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      10,
+      11
+    ],
+    "instructions": "A finalized Story voice/text input must durably freeze stable turn/idempotency/base-revision identity before AI interpretation. Exact lost-ACK retry must recover the frozen command before reading newer session state; changed text/mode under the same input_turn_id fails closed. STOP/CONTINUE/SET_VOLUME ControlIntent must never enter Story intake.",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
