@@ -1,0 +1,175 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VOICE-V09-SESSION-OPEN-QA",
+  "capsule_revision": 1,
+  "task_id": "VOICE-V09-SESSION-OPEN-QA",
+  "title": "Drive voice chain from explicit durable session open through first-turn COMMIT",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T12:44:39.510533+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "327e2e4bf29f66f71222a9c05cc3aa1bd7d0666e",
+    "target_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+    "context_snapshot": "sha256:6c134b4e7c11c192bdb7eb9492cf5f3c41222344dd0df85104d7691f6f1d5553"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_session@engine/tests/test_action_intent_proposal.py:62",
+      "symbol:_Sessions@engine/tests/test_action_intent_proposal.py:127",
+      "symbol:test_inactive_session_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:223",
+      "symbol:load_session@engine/tests/test_action_intent_proposal.py:131",
+      "symbol:_session@engine/tests/test_advice_commit_proposal.py:69",
+      "symbol:_Sessions@engine/tests/test_advice_commit_proposal.py:149",
+      "symbol:test_committed_input_replays_without_second_proposal_or_commit@engine/tests/test_advice_commit_proposal.py:258",
+      "symbol:load_session@engine/tests/test_advice_commit_proposal.py:153",
+      "symbol:load_session@engine/tests/test_advice_commit_proposal.py:180",
+      "symbol:test_existing_durable_advice_replays_without_model_call@engine/tests/test_advice_interpretation.py:105",
+      "symbol:test_ai_gateway_timeout_and_cancellation@engine/tests/test_ai_gateway.py:124",
+      "symbol:app_driver@engine/tests/test_app_engine_session.py:28",
+      "symbol:test_real_swift_app_engine_lifecycle@engine/tests/test_app_engine_session.py:54",
+      "symbol:test_engine_stops_when_swift_parent_is_force_quit@engine/tests/test_app_engine_session.py:63",
+      "symbol:_receive@engine/tests/test_app_engine_session.py:97",
+      "symbol:_frame@engine/tests/test_app_engine_session.py:109",
+      "symbol:test_production_client_rejects_bad_peers@engine/tests/test_app_engine_session.py:116",
+      "symbol:exact@engine/tests/test_app_engine_session.py:98",
+      "symbol:serve@engine/tests/test_app_engine_session.py:126",
+      "symbol:test_openai_audio_adapter_conforms_to_domain_protocols@engine/tests/test_audio_adapter.py:107",
+      "symbol:test_openai_audio_adapter_transcribe_mocked@engine/tests/test_audio_adapter.py:116",
+      "symbol:test_openai_audio_adapter_preserves_reported_confidence@engine/tests/test_audio_adapter.py:148",
+      "symbol:test_openai_audio_adapter_ignores_invalid_reported_confidence@engine/tests/test_audio_adapter.py:166",
+      "symbol:test_openai_audio_adapter_synthesize_mocked@engine/tests/test_audio_adapter.py:184",
+      "symbol:test_openai_audio_adapter_exposes_capability_probe_on_same_config@engine/tests/test_audio_adapter.py:425",
+      "symbol:_tts_media_open@engine/tests/test_audio_adapter.py:1236",
+      "symbol:_voice_render_request@engine/tests/test_audio_adapter.py:1477",
+      "symbol:test_voice_render_control_provider_projection_is_minimal@engine/tests/test_audio_adapter.py:1499",
+      "symbol:test_voice_render_control_rejects_invalid_execution_shapes@engine/tests/test_audio_adapter.py:1524",
+      "symbol:test_pending_voice_render_registry_is_one_time_and_generation_bound@engine/tests/test_audio_adapter.py:1529"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 852,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_session",
+      "_Sessions",
+      "test_inactive_session_is_rejected_before_model_call",
+      "load_session",
+      "_session",
+      "_Sessions",
+      "test_committed_input_replays_without_second_proposal_or_commit",
+      "load_session",
+      "load_session",
+      "test_existing_durable_advice_replays_without_model_call",
+      "test_ai_gateway_timeout_and_cancellation",
+      "app_driver",
+      "test_real_swift_app_engine_lifecycle",
+      "test_engine_stops_when_swift_parent_is_force_quit",
+      "_receive",
+      "_frame",
+      "test_production_client_rejects_bad_peers",
+      "exact",
+      "serve",
+      "test_openai_audio_adapter_conforms_to_domain_protocols",
+      "test_openai_audio_adapter_transcribe_mocked",
+      "test_openai_audio_adapter_preserves_reported_confidence",
+      "test_openai_audio_adapter_ignores_invalid_reported_confidence",
+      "test_openai_audio_adapter_synthesize_mocked",
+      "test_openai_audio_adapter_exposes_capability_probe_on_same_config",
+      "_tts_media_open",
+      "_voice_render_request",
+      "test_voice_render_control_provider_projection_is_minimal",
+      "test_voice_render_control_rejects_invalid_execution_shapes",
+      "test_pending_voice_render_registry_is_one_time_and_generation_bound"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "VOICE-V09-SESSION-OPEN-DATA",
+      "VOICE-V09-SESSION-OPEN-OPTIONAL-FIELDS"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
