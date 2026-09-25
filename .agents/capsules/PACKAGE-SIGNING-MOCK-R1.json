@@ -1,0 +1,172 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-PACKAGE-SIGNING-MOCK-R1",
+  "capsule_revision": 1,
+  "task_id": "PACKAGE-SIGNING-MOCK-R1",
+  "title": "Make packaging signature test doubles reflect per-binary flags",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-25T14:51:40.419481+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "e77b6b03eb8006fa555c3451fb4cb8d5259dcc55",
+    "target_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+    "context_snapshot": "sha256:1520543589ac135d64d75b7d849d3a75ff9b516c84a5834bee1d7a2d90825762"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_openai_audio_adapter_transcribe_mocked@engine/tests/test_audio_adapter.py:116",
+      "symbol:test_openai_audio_adapter_synthesize_mocked@engine/tests/test_audio_adapter.py:184",
+      "symbol:test_mock_audio_adapter_deterministic@engine/tests/test_audio_adapter.py:215",
+      "symbol:test_packaged_probe_source_closure_tracks_media_protocol_dependency@engine/tests/test_bundle_engine.py:250",
+      "symbol:test_signing_preserves_helper_entitlements_through_parent_path_alias@engine/tests/test_macos_packaging.py:102",
+      "symbol:sample_trace_id@engine/tests/conftest.py:6",
+      "symbol:_frozen@engine/tests/test_action_intent_proposal.py:28",
+      "symbol:_advice@engine/tests/test_action_intent_proposal.py:47",
+      "symbol:_session@engine/tests/test_action_intent_proposal.py:62",
+      "symbol:_candidate@engine/tests/test_action_intent_proposal.py:99",
+      "symbol:_Durable@engine/tests/test_action_intent_proposal.py:109",
+      "symbol:_Sessions@engine/tests/test_action_intent_proposal.py:127",
+      "symbol:_Proposer@engine/tests/test_action_intent_proposal.py:135",
+      "symbol:_service@engine/tests/test_action_intent_proposal.py:151",
+      "symbol:test_application_owns_action_identity_turn_actor_and_evidence@engine/tests/test_action_intent_proposal.py:168",
+      "symbol:test_terminal_or_cancelled_input_never_calls_proposer@engine/tests/test_action_intent_proposal.py:194",
+      "symbol:test_player_advice_binding_mismatch_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:205",
+      "symbol:test_stale_story_revision_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:214",
+      "symbol:test_inactive_session_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:223",
+      "symbol:test_candidate_rejects_unbounded_action_lists@engine/tests/test_action_intent_proposal.py:231",
+      "symbol:__init__@engine/tests/test_action_intent_proposal.py:110",
+      "symbol:load_input@engine/tests/test_action_intent_proposal.py:114",
+      "symbol:load_advice@engine/tests/test_action_intent_proposal.py:117",
+      "symbol:__init__@engine/tests/test_action_intent_proposal.py:128",
+      "symbol:load_session@engine/tests/test_action_intent_proposal.py:131",
+      "symbol:__init__@engine/tests/test_action_intent_proposal.py:136",
+      "symbol:propose@engine/tests/test_action_intent_proposal.py:140",
+      "symbol:_frozen@engine/tests/test_advice_commit_proposal.py:35",
+      "symbol:_advice@engine/tests/test_advice_commit_proposal.py:54",
+      "symbol:_session@engine/tests/test_advice_commit_proposal.py:69"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 816,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_openai_audio_adapter_transcribe_mocked",
+      "test_openai_audio_adapter_synthesize_mocked",
+      "test_mock_audio_adapter_deterministic",
+      "test_packaged_probe_source_closure_tracks_media_protocol_dependency",
+      "test_signing_preserves_helper_entitlements_through_parent_path_alias",
+      "sample_trace_id",
+      "_frozen",
+      "_advice",
+      "_session",
+      "_candidate",
+      "_Durable",
+      "_Sessions",
+      "_Proposer",
+      "_service",
+      "test_application_owns_action_identity_turn_actor_and_evidence",
+      "test_terminal_or_cancelled_input_never_calls_proposer",
+      "test_player_advice_binding_mismatch_is_rejected_before_model_call",
+      "test_stale_story_revision_is_rejected_before_model_call",
+      "test_inactive_session_is_rejected_before_model_call",
+      "test_candidate_rejects_unbounded_action_lists",
+      "__init__",
+      "load_input",
+      "load_advice",
+      "__init__",
+      "load_session",
+      "__init__",
+      "propose",
+      "_frozen",
+      "_advice",
+      "_session"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
