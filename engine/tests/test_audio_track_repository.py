@@ -13,6 +13,7 @@ from infrastructure.audio_take_store import (
     RenderOutcome,
     SQLiteAudioTakeStore,
 )
+from infrastructure.audio_replay import OfflineStoryBookReplayResolver
 from infrastructure.audio_track_repository import (
     AudioTrackKind,
     AudioTrackRevision,
@@ -352,5 +353,158 @@ async def test_audio_asset_transaction_cannot_update_or_delete_tracks(tmp_path):
                 )
             )
         assert await repo.load(value.track_id) == value
+    finally:
+        await database.close()
+
+
+async def test_offline_storybook_replay_resolves_authenticated_local_takes_only(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        take = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        published = track(take.take_id)
+        await SQLiteAudioTrackRepository(database).publish(published)
+
+        resolved = await OfflineStoryBookReplayResolver(
+            SQLiteAudioTrackRepository(database),
+            store,
+        ).resolve(published.track_id)
+
+        assert resolved.track == published
+        assert len(resolved.units) == 1
+        assert resolved.units[0].track_unit.take_id == take.take_id
+        assert resolved.units[0].take.take_id == take.take_id
+        assert resolved.units[0].take.replayed is True
+        assert (
+            paths.world.parent / "assets" / resolved.units[0].take.relative_path
+        ).is_file()
+    finally:
+        await database.close()
+
+
+async def test_cleanup_refuses_storybook_pinned_take_and_preserves_asset(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        take = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        await SQLiteAudioTrackRepository(database).publish(track(take.take_id))
+        asset = paths.world.parent / "assets" / take.relative_path
+
+        with pytest.raises(StorageError, match="Pinned AudioTake cannot be deleted"):
+            await store.delete_unpinned(take.take_id)
+
+        assert asset.is_file()
+        assert await store.load_take(take.take_id) is not None
+    finally:
+        await database.close()
+
+
+async def test_cleanup_db_first_crash_leaves_retryable_orphan_not_phantom_row(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        def fault(stage: str):
+            if stage == "after_cleanup_database_delete":
+                raise RuntimeError("simulated cleanup crash")
+
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+            fault_hook=fault,
+        )
+        take = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        asset = paths.world.parent / "assets" / take.relative_path
+
+        with pytest.raises(RuntimeError, match="simulated cleanup crash"):
+            await store.delete_unpinned(take.take_id)
+
+        assert await store.load_take(take.take_id) is None
+        assert asset.is_file()
+        assert await store.orphan_relative_paths() == (take.relative_path,)
+
+        retry = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        assert await retry.purge_orphan_files() == (take.relative_path,)
+        assert not asset.exists()
+    finally:
+        await database.close()
+
+
+async def test_space_reclaim_never_deletes_pinned_take_and_reports_insufficient(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        pinned = await store.publish_pcm(
+            recipe(speed=1.0),
+            outcome(),
+            b"\x01\x00\x02\x00",
+        )
+        rebuildable = await store.publish_pcm(
+            recipe(speed=1.1),
+            outcome(),
+            b"\x03\x00\x04\x00\x05\x00",
+        )
+        await SQLiteAudioTrackRepository(database).publish(track(pinned.take_id))
+
+        result = await store.reclaim_unpinned(10_000)
+
+        assert result.satisfied is False
+        assert result.deleted_take_ids == (rebuildable.take_id,)
+        assert result.reclaimed_bytes == 6
+        assert await store.load_take(rebuildable.take_id) is None
+        assert await store.load_take(pinned.take_id) is not None
+    finally:
+        await database.close()
+
+
+async def test_audio_cleanup_transaction_cannot_delete_storybook_history(tmp_path):
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+        take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        await SQLiteAudioTrackRepository(database).publish(track(take.take_id))
+
+        with pytest.raises(Exception):
+            await database.audio_cleanup_write(
+                lambda tx: tx.execute("DELETE FROM audio_tracks")
+            )
+        with pytest.raises(Exception):
+            await database.audio_cleanup_write(
+                lambda tx: tx.execute("DELETE FROM audio_track_units")
+            )
+
+        assert await SQLiteAudioTrackRepository(database).is_take_pinned(take.take_id)
     finally:
         await database.close()

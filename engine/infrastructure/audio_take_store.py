@@ -22,7 +22,7 @@ import stat
 import tempfile
 from typing import Callable, Mapping
 
-from .database_manager import AudioAssetTransaction, DatabaseManager
+from .database_manager import AudioAssetTransaction, AudioCleanupTransaction, DatabaseManager
 from .database_schema import StorageError
 
 
@@ -191,6 +191,28 @@ class PublishedAudioTake:
     manifest: dict[str, object]
     manifest_hmac: str
     replayed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AudioTakeDeleteResult:
+    take_id: str
+    existed: bool
+    database_deleted: bool
+    file_deleted: bool
+    relative_path: str | None
+    byte_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class AudioReclaimResult:
+    requested_bytes: int
+    reclaimed_bytes: int
+    deleted_take_ids: tuple[str, ...]
+    orphaned_relative_paths: tuple[str, ...]
+
+    @property
+    def satisfied(self) -> bool:
+        return self.reclaimed_bytes >= self.requested_bytes
 
 
 class RenderManifestSigner:
@@ -367,10 +389,35 @@ class SQLiteAudioTakeStore:
             "SELECT * FROM audio_takes WHERE render_key=?",
             (render_key,),
         )
+        return await self._validated_rows(
+            rows,
+            expected_render_key=render_key,
+            expected_take_id=None,
+        )
+
+    async def load_take(self, take_id: str) -> PublishedAudioTake | None:
+        _text(take_id, "take id")
+        rows = await self._database.read_world(
+            "SELECT * FROM audio_takes WHERE take_id=?",
+            (take_id,),
+        )
+        return await self._validated_rows(
+            rows,
+            expected_render_key=None,
+            expected_take_id=take_id,
+        )
+
+    async def _validated_rows(
+        self,
+        rows: list[dict],
+        *,
+        expected_render_key: str | None,
+        expected_take_id: str | None,
+    ) -> PublishedAudioTake | None:
         if not rows:
             return None
         if len(rows) != 1:
-            raise StorageError("Render key resolves ambiguously")
+            raise StorageError("AudioTake identity resolves ambiguously")
         row = rows[0]
         if row["status"] != "complete":
             raise StorageError("AudioTake is not complete")
@@ -382,13 +429,16 @@ class SQLiteAudioTakeStore:
             raise StorageError("Stored RenderManifest is invalid") from None
         if _canonical_json(manifest) != manifest_json:
             raise StorageError("Stored RenderManifest is not canonical")
-        if manifest.get("render_key") != render_key:
+        if expected_render_key is not None and manifest.get("render_key") != expected_render_key:
             raise StorageError("Stored RenderManifest render key mismatch")
+        if expected_take_id is not None and manifest.get("take_id") != expected_take_id:
+            raise StorageError("Stored RenderManifest take id mismatch")
         audio = manifest.get("audio")
         if not isinstance(audio, dict):
             raise StorageError("Stored RenderManifest audio metadata is invalid")
         if (
             manifest.get("take_id") != row["take_id"]
+            or manifest.get("render_key") != row["render_key"]
             or manifest.get("relative_path") != row["relative_path"]
             or audio.get("sha256") != row["file_sha256"]
             or audio.get("codec") != row["codec"]
@@ -407,13 +457,105 @@ class SQLiteAudioTakeStore:
         )
         return PublishedAudioTake(
             take_id=row["take_id"],
-            render_key=render_key,
+            render_key=row["render_key"],
             relative_path=row["relative_path"],
             file_sha256=row["file_sha256"],
             manifest=manifest,
             manifest_hmac=row["manifest_hmac"],
             replayed=True,
         )
+
+    async def delete_unpinned(self, take_id: str) -> AudioTakeDeleteResult:
+        """Delete one rebuildable take row first, then its file.
+
+        A crash after the DB commit can leave only an orphan file; it can never
+        leave a complete DB row pointing at a file that this method already removed.
+        """
+        _text(take_id, "take id")
+
+        def apply(tx: AudioCleanupTransaction):
+            rows = tx.execute(
+                "SELECT take_id,relative_path,file_sha256,byte_count FROM audio_takes WHERE take_id=?",
+                (take_id,),
+            )
+            if not rows:
+                return None
+            if len(rows) != 1:
+                raise StorageError("AudioTake identity is ambiguous")
+            pinned = tx.execute(
+                "SELECT 1 AS pinned FROM audio_track_units WHERE take_id=? LIMIT 1",
+                (take_id,),
+            )
+            if pinned:
+                raise StorageError("Pinned AudioTake cannot be deleted")
+            row = rows[0]
+            tx.execute("DELETE FROM audio_takes WHERE take_id=?", (take_id,))
+            return row
+
+        row = await self._database.audio_cleanup_write(apply)
+        if row is None:
+            return AudioTakeDeleteResult(
+                take_id=take_id,
+                existed=False,
+                database_deleted=False,
+                file_deleted=False,
+                relative_path=None,
+                byte_count=0,
+            )
+
+        self._hit("after_cleanup_database_delete")
+        file_deleted = await asyncio.to_thread(
+            self._delete_released_file,
+            row["relative_path"],
+            row["file_sha256"],
+            row["byte_count"],
+        )
+        return AudioTakeDeleteResult(
+            take_id=take_id,
+            existed=True,
+            database_deleted=True,
+            file_deleted=file_deleted,
+            relative_path=row["relative_path"],
+            byte_count=row["byte_count"],
+        )
+
+    async def reclaim_unpinned(self, required_bytes: int) -> AudioReclaimResult:
+        if type(required_bytes) is not int or required_bytes <= 0:
+            raise StorageError("Reclaim target must be a positive byte count")
+        candidates = await self._database.read_world(
+            "SELECT t.take_id,t.byte_count FROM audio_takes AS t "
+            "WHERE t.status='complete' AND NOT EXISTS("
+            "SELECT 1 FROM audio_track_units AS u WHERE u.take_id=t.take_id"
+            ") ORDER BY t.byte_count DESC,t.take_id"
+        )
+        reclaimed = 0
+        deleted: list[str] = []
+        orphaned: list[str] = []
+        for candidate in candidates:
+            if reclaimed >= required_bytes:
+                break
+            result = await self.delete_unpinned(candidate["take_id"])
+            if not result.database_deleted:
+                continue
+            deleted.append(result.take_id)
+            if result.file_deleted:
+                reclaimed += result.byte_count
+            elif result.relative_path is not None:
+                orphaned.append(result.relative_path)
+        return AudioReclaimResult(
+            requested_bytes=required_bytes,
+            reclaimed_bytes=reclaimed,
+            deleted_take_ids=tuple(deleted),
+            orphaned_relative_paths=tuple(orphaned),
+        )
+
+    async def purge_orphan_files(self) -> tuple[str, ...]:
+        paths = await self.orphan_relative_paths()
+        deleted: list[str] = []
+        for relative_path in paths:
+            if await asyncio.to_thread(self._delete_orphan_file, relative_path):
+                deleted.append(relative_path)
+        return tuple(deleted)
 
     async def orphan_relative_paths(self) -> tuple[str, ...]:
         referenced = {
@@ -487,6 +629,53 @@ class SQLiteAudioTakeStore:
                 raise StorageError("AudioTake file digest mismatch")
         finally:
             os.close(fd)
+
+    def _delete_released_file(
+        self,
+        relative_path: str,
+        expected_sha: str,
+        expected_bytes: int,
+    ) -> bool:
+        path = self._root / relative_path
+        try:
+            self._verify_file(relative_path, expected_sha, expected_bytes)
+        except StorageError:
+            if not path.exists():
+                return False
+            raise
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            return False
+        self._fsync_directory(path.parent)
+        return True
+
+    def _delete_orphan_file(self, relative_path: str) -> bool:
+        if (
+            not isinstance(relative_path, str)
+            or not relative_path.startswith("Takes/")
+            or "/" in relative_path[len("Takes/"):]
+            or ".." in relative_path
+        ):
+            raise StorageError("Invalid orphan AudioTake path")
+        path = self._root / relative_path
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return False
+        if (
+            path.is_symlink()
+            or not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) & 0o077
+        ):
+            raise StorageError("Orphan AudioTake file metadata is invalid")
+        expected_sha = path.stem
+        _sha(expected_sha, "orphan file hash")
+        self._verify_file(relative_path, expected_sha, info.st_size)
+        path.unlink()
+        self._fsync_directory(path.parent)
+        return True
 
     def _orphan_paths(self, referenced: set[str]) -> tuple[str, ...]:
         root = self._secure_directory(self._root)
