@@ -265,10 +265,14 @@ def test_packaged_probe_source_closure_tracks_media_protocol_dependency():
         "EngineRuntimeModels",
         "EngineSocketTransport",
         "MediaProtocol",
+        "StorySessionControl",
+        "StoryRequestJournal",
+        "StorySessionModel",
         "EngineIPCClient",
         "EngineProcessManager",
     }
     assert set(names) == required
     assert names.index("MediaProtocol") < names.index("EngineIPCClient")
+    assert names.index("StorySessionControl") < names.index("EngineIPCClient")
     swift_root = ROOT / "macos-app" / "WorldOfMysteries"
     assert all((swift_root / f"{name}.swift").is_file() for name in names)
