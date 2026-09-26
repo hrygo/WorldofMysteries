@@ -13,7 +13,7 @@
     "schemas_integrity": "PASSED: 产品 schema 与新增 story_session_control 协议 schema/fixtures 一致性测试纳入 FULL_P0 Stage 2（1113 passed）",
     "python_tests": "PASSED: 1113 passed（engine 下 uv run --locked --extra dev pytest, Python 3.14.7），含 5 项真实双进程 App→Engine 首轮场景",
     "swift_tests": "PASSED: swift test 全量通过 + xcodebuild arm64 App Target 构建（2026-09-26 FULL_P0 Stage 3/4，见 M1-FIRST-TURN-APP 与 M1-FIRST-TURN-CROSSPROCESS 凭单）",
-    "ci_cd_readiness": "CONFIGURED: 本地分支 codex/trusted-session-app-first-turn 已提交并立凭单；本轮未推送远端、未创建 PR，远端状态未变更",
+    "ci_cd_readiness": "CONFIGURED: PR #204（分支 codex/trusted-session-app-first-turn）已创建；代码 head e9682db 的 Capsule Gate、三阶段门禁（架构适应度 / Python+契约 / Swift 6 往返）与 BUNDLED_RUNTIME_P0 打包检查全部通过；未开启 auto-merge，尚未合入 main",
     "golden_001_runtime": "PARTIAL: 固定模式首轮（open→submit→COMMIT→公开投影）已在真实独立 Engine 与生产 Swift App 双进程下验证，含丢 ACK 只读恢复与 pending 显式续跑；Golden 五轮、全领域结算、真实模型与 TTS 仍未验收"
   },
   "completed_phases": [
@@ -199,7 +199,7 @@
     "current_stage": "A",
     "source_review_base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
     "decision": "可信开场与 App 真实首轮闭环按 Luna 方案完成 T1–T6 实施并逐一立 Work Receipt；下一步冻结全领域结算与 Golden 五轮迭代范围，之后进入真实模型/TTS 与设备验收。",
-    "evidence_boundary": "PR #202 已于 2026-09-25 合入 main（26999fc61c074292224cdb7ce6c6ad89aca16c35），main 现为 dccdbd76ef488281cda86be01a6857754b91b7c0。本轮迭代候选为本地分支 codex/trusted-session-app-first-turn（base dccdbd7，code head 9a07f40），凭单只证明该内容摘要通过当时 FULL_P0：不证明 M1/M2/M5 完成、App 可玩、Golden 五轮、设备或发布验收，也不证明远端已推送或已创建 PR。",
+    "evidence_boundary": "PR #202 已于 2026-09-25 合入 main（26999fc61c074292224cdb7ce6c6ad89aca16c35），main 现为 dccdbd76ef488281cda86be01a6857754b91b7c0。本轮迭代候选为本地分支 codex/trusted-session-app-first-turn（base dccdbd7，code head 9a07f40），凭单只证明该内容摘要通过当时 FULL_P0：不证明 M1/M2/M5 完成、App 可玩、Golden 五轮、设备或发布验收，也不证明远端已推送或已创建 PR。 PR #204（base main）已携带该分支与全部凭单；CI 通过只证明这些检查在 e9682db 上成立，不构成合入批准或设备验收。",
     "candidate_evidence": {
       "main_base_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
       "code_head_sha": "b848ad66f159f7a2d493da51ce23e716b0d5fbc2",
@@ -280,7 +280,7 @@
       "gate_result": "passed",
       "verified_scope": "契约/初始化/持久 bootstrap/facade+投影/runtime+IPC/内容制品/App 接线/真实双进程首轮与恢复",
       "unverified_scope": "Golden 五轮、全领域结算、真实模型质量、TTS、随包与设备验收、远端推送与 PR 状态",
-      "delivery_state": "本地分支已立凭单；未推送、未创建 PR"
+      "delivery_state": "PR #204 已创建；代码 head e9682db 的 CI 全绿（含随包 arm64 打包探针）；未合入 main，未开启 auto-merge"
     }
   }
 }

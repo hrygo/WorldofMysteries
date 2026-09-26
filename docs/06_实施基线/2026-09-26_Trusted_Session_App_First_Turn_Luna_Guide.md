@@ -465,9 +465,8 @@ git diff --check
 - [x] hidden truth/secret IDs/压力/未发现线索不进入 IPC 响应、日志或 Swift view model。
 - [x] Canon 运行前后摘要相同；用户存储根位于持久目录，非 `/tmp` 或 App bundle。
 - [x] 升级 v9→v10 不改旧世界数据；迁移失败保留原数据；无 bootstrap 的旧会话不自动补写。
-- [ ] 包内资源在不含源码仓库的 cwd 可读取，App 使用随包 Runtime；没有 host Python fallback。
-      —— 已证：staged 模块树在仓库外 cwd 解析模块相对内容制品（跨进程用例）、`EngineLaunchConfiguration.bundled` 缺清单即拒绝且不回落系统 Python（Swift 测试）。
-      未证：本机未执行 `scripts/bundle_engine.py` 实打包（需 macOS arm64 构建机 + 下载锁定运行时），故不勾选。
+- [x] 包内资源在不含源码仓库的 cwd 可读取，App 使用随包 Runtime；没有 host Python fallback。
+      —— staged 模块树在仓库外 cwd 解析模块相对内容制品（跨进程用例）；`EngineLaunchConfiguration.bundled` 缺清单即拒绝且不回落系统 Python（Swift 测试）；`BUNDLED_RUNTIME_P0` 已在 macOS arm64 runner 上真实执行 `stage_engine` 并完成随包 App 探针（见 §11.1 的 CI 证据）。
 - [x] 原 voice/media、system-only、cancel/COMMIT、App 生命周期测试保持有效。
 - [ ] FULL_P0 凭单绑定实际代码；跨进程和真实 UI 演示绑定同一源码版本并记录日志位置。
       —— 已证：各任务凭单绑定 `base_sha..HEAD` 内容摘要并记录 FULL_P0 四阶段结果；跨进程用例覆盖生产 AppState/StorySessionModel。
@@ -511,18 +510,18 @@ git diff --check
 
 ## 10.2 顺序执行
 
-- [ ] **核对基准**：检查目标 `origin/main`、HEAD、工作区差异及同路径并行任务；与本文 SHA 不同时读取相关变更，保留全部他人改动。
-- [ ] **T1 契约**：创建 schema/fixtures 和 API 映射；核对所有字段，包括 entry 的 pending_input_turn_id；明确幂等键/revision/错误规则。
-- [ ] **T2 initializer**：实现可信内容验证和 turn=0 构建，禁止从客户端 Session 开场；纯测试验证身份和时间。
-- [ ] **T2 仓储**：实现 010 migration 和原子 bootstrap 绑定；测试 rollback、重放、旧数据和包升级恢复。
-- [ ] **T3 facade**：连接 receive→interpret→propose→resolve→COMMIT，完成 only-first-turn、exact input、pending 防重与 public allowlist。
-- [ ] **T4 runtime**：接入 request context、capability、health、持久数据根和受控关停；保持原 control/media 接口。
-- [ ] **内容打包**：构建可信制品并纳入 runtime inventory；确认运行时不读仓库 fixtures/expected。
-- [ ] **T5 App**：typed client、journal、独立 live panel 与 generation；先查结果再显式重试，失败保留草稿。
-- [ ] **T6 联调**：更新实际 Swift driver 输入，执行正常/两种 lost ACK/received 重启/非法文本路径。
-- [ ] **工程验收**：实质代码提交后运行适用 verify，最终组合执行 FULL_P0；凭单独立提交；不改胶囊伪造结果。
+- [x] **核对基准**：检查目标 `origin/main`、HEAD、工作区差异及同路径并行任务；与本文 SHA 不同时读取相关变更，保留全部他人改动。
+- [x] **T1 契约**：创建 schema/fixtures 和 API 映射；核对所有字段，包括 entry 的 pending_input_turn_id；明确幂等键/revision/错误规则。
+- [x] **T2 initializer**：实现可信内容验证和 turn=0 构建，禁止从客户端 Session 开场；纯测试验证身份和时间。
+- [x] **T2 仓储**：实现 010 migration 和原子 bootstrap 绑定；测试 rollback、重放、旧数据和包升级恢复。
+- [x] **T3 facade**：连接 receive→interpret→propose→resolve→COMMIT，完成 only-first-turn、exact input、pending 防重与 public allowlist。
+- [x] **T4 runtime**：接入 request context、capability、health、持久数据根和受控关停；保持原 control/media 接口。
+- [x] **内容打包**：构建可信制品并纳入 runtime inventory；确认运行时不读仓库 fixtures/expected。
+- [x] **T5 App**：typed client、journal、独立 live panel 与 generation；先查结果再显式重试，失败保留草稿。
+- [x] **T6 联调**：更新实际 Swift driver 输入，执行正常/两种 lost ACK/received 重启/非法文本路径。
+- [x] **工程验收**：实质代码提交后运行适用 verify，最终组合执行 FULL_P0；凭单独立提交；不改胶囊伪造结果。
 - [ ] **体验验收**：记录真实 App 打开→首轮→关闭→回来及异常恢复；仍未验证项保持未勾选。
-- [ ] **事实收尾**：更新 PROJECT_STATE 与交接，仅声明实际完成的能力；后继目标为全领域结算和 Golden 五轮。
+- [x] **事实收尾**：更新 PROJECT_STATE 与交接，仅声明实际完成的能力；后继目标为全领域结算和 Golden 五轮。
 
 每个实现任务遵循现有 `pack → start → 实施并提交 → verify → 凭单独立提交`，分支使用 `codex/` 前缀、`target_ref=origin/main`。后继任务在前置集成后的实际基线重新 pack；不使用 `--allow-stale`。远端提交、PR 合并与发布按届时用户授权执行，本文不自动授权。
 
@@ -554,6 +553,8 @@ git diff --check
   - `FULL_P0` Stage 1 `check_architecture_fitness.py`；Stage 2 `engine` 下 `uv run --locked --extra dev pytest -q`（1113 passed）；Stage 3 `swift test`；Stage 4 `xcodebuild -scheme WorldOfMysteries -destination platform=macOS,arch=arm64 build`。
   - 证据产物：各任务 Work Receipt（含 scope audit 与四阶段结果）、`.hacf/run/xcode-derived/`（App 构建输出）、`.hacf/spm-scratch/`（SwiftPM scratch）；运行期短命名空间由 App 的 runtime lease 自建自清。
 - 实施范围：T1 契约 → T2 可信初始化与 010 迁移 → T3 facade 与授权投影 → T4 runtime/公开 IPC/内容制品 → T5 App 接线 → T6 联合验收与事实回填。
+- CI（GitHub Actions，PR #204，代码 head `e9682db`）全部通过：`Capsule Gate`、`All Quality Gates Passed`、Stage 1/2/3（架构适应度 / Python + 契约 / Swift 6 与协议往返）、`Relocatable sandboxed arm64 package`（真实执行 `stage_engine` + 随包 App 探针，5m32s）。
+  - 过程记录：同一 head 早先一次 Stage 3 因既有 `ProbabilityDiePhysicsTests` 墙钟预算（1.65s > 1.5s）在慢速 runner 上抖动失败，重跑即通过；`BUNDLED_RUNTIME_P0` 首次真实执行暴露了随包探针固定源文件清单缺少首轮 Swift 闭包（`probe-compile.log`），已由 `M1-FIRST-TURN-PACKAGE-PROBE` 修复并复跑通过。
 
 ## 11.2 与规划稿的差异
 
@@ -566,6 +567,6 @@ git diff --check
 ## 11.3 明确未验证（不勾选）
 
 - 可交互 GUI 现场演示（打开 App、点击开始、填入建议、提交、看到“第 1 轮已保存”、退出重开）与截图/观察记录。本轮证据为生产 `AppState`/`StorySessionModel`/`EngineIPCClient` 与真实独立 Engine 的双进程一致性，不等同于人工 GUI 演示。
-- `scripts/bundle_engine.py` 的实打包执行（需 macOS arm64 构建机 + 下载锁定运行时并产出完整 runtime inventory）：本轮只做源代码级断言与模块相对定位探针。
+- 随包 App 的「目标 Mac 安装与真实用户交互」验收：CI 已执行打包与随包探针（沙箱内启动随包 Engine），但未做目标机器安装、GUI 操作与发布签名/公证。
 - Golden 五轮、全领域结算、真实 LLM 质量、TTS 播放、检索投影重建、目标设备与发布验收。
 - 远端推送、PR、CI 检查、CODEOWNERS 评审与合入：按用户授权另行执行。
