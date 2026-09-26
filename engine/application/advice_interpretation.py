@@ -45,6 +45,7 @@ class FrozenTurnInput:
     base_revisions: BaseRevisions
     status: TurnInputStatus
     committed_world_revision: int | None
+    public_expected_store_revision: int | None = None
 
     def __post_init__(self) -> None:
         for value, field in (
@@ -74,6 +75,11 @@ class FrozenTurnInput:
             or self.committed_world_revision < 0
         ):
             raise AdviceInterpretationError("invalid_committed_world_revision")
+        if self.public_expected_store_revision is not None and (
+            type(self.public_expected_store_revision) is not int
+            or not 0 <= self.public_expected_store_revision < 2**63 - 1
+        ):
+            raise AdviceInterpretationError("invalid_public_expected_store_revision")
 
 
 @dataclass(frozen=True, slots=True)

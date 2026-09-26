@@ -41,6 +41,7 @@ from .ipc_framing import FrameError, read_frame, write_frame
 BASE_CAPABILITIES = ("system.health", "system.shutdown")
 CAPABILITIES = BASE_CAPABILITIES  # Backward-compatible system-only constant.
 MEDIA_CAPABILITY = "media.open"
+HEALTH_KEYS = ("transport_ready", "world_ready", "model_ready", "voice_ready")
 TOKEN_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
@@ -163,12 +164,12 @@ class SocketLease:
 
 
 def response(request: EngineIPCEnvelope, *, payload: dict[str, Any] | None = None,
-             code: str | None = None) -> dict[str, Any]:
+             code: str | None = None, retryable: bool = False) -> dict[str, Any]:
     wire = dict(kind="response", protocol_version="1.0", request_id=request.request_id,
                 trace_id=request.trace_id, status="error" if code else "ok")
     if code:
         wire["error"] = {"code": code, "message": "The local request could not be completed.",
-                         "retryable": False}
+                         "retryable": bool(retryable)}
     else:
         wire["payload"] = payload if payload is not None else {}
     return EngineIPCEnvelope.model_validate(wire).model_dump()
@@ -181,6 +182,19 @@ MediaSessionHandler = Callable[
 ControlRequestHandler = Callable[
     [Mapping[str, object]],
     Awaitable[tuple[dict[str, object] | None, str | None]],
+]
+# Story/product handlers receive the frozen transport context and a payload and
+# return an explicit ``retryable`` flag; the shape is declared, never guessed.
+RequestContextHandler = Callable[
+    [Mapping[str, object], Mapping[str, object]],
+    Awaitable[tuple[dict[str, object] | None, str | None, bool]],
+]
+HEALTH_KEYS = ("transport_ready", "world_ready", "model_ready", "voice_ready")
+# Context-aware handlers receive the frozen transport identity and the payload.
+# They are a distinct registry so handler signatures are never guessed.
+RequestContextHandler = Callable[
+    [Mapping[str, object], Mapping[str, object]],
+    Awaitable[tuple[dict[str, object] | None, str | None, bool]],
 ]
 
 
@@ -277,23 +291,33 @@ class LocalIPCServer:
         max_connections: int = 16,
         media_session_handler: MediaSessionHandler | None = None,
         control_handlers: Mapping[str, ControlRequestHandler] | None = None,
+        request_handlers: Mapping[str, RequestContextHandler] | None = None,
+        health_provider: Callable[[], Mapping[str, object]] | None = None,
     ):
         if TOKEN_PATTERN.fullmatch(token) is None:
             raise BootstrapError("Invalid bootstrap credential")
         if handshake_timeout <= 0 or max_connections < 1:
             raise ValueError("Invalid connection limits")
         handlers = dict(control_handlers or {})
-        if any(
-            not isinstance(name, str)
-            or not name
-            or name in BASE_CAPABILITIES
-            or name == MEDIA_CAPABILITY
-            for name in handlers
-        ):
-            raise ValueError("Invalid control handler capability")
-        if any(not callable(handler) for handler in handlers.values()):
-            raise ValueError("Invalid control handler")
+        requests = dict(request_handlers or {})
+        for kind, registry in (("control", handlers), ("request", requests)):
+            if any(
+                not isinstance(name, str)
+                or not name
+                or name in BASE_CAPABILITIES
+                or name == MEDIA_CAPABILITY
+                for name in registry
+            ):
+                raise ValueError(f"Invalid {kind} handler capability")
+            if any(not callable(handler) for handler in registry.values()):
+                raise ValueError(f"Invalid {kind} handler")
+        if set(handlers) & set(requests):
+            raise ValueError("Duplicate control and request capability")
+        if health_provider is not None and not callable(health_provider):
+            raise ValueError("Invalid health provider")
         self._control_handlers = handlers
+        self._request_handlers = requests
+        self._health_provider = health_provider
         self._token = token
         self._lease = SocketLease(path)
         self._handshake_timeout = handshake_timeout
@@ -318,8 +342,28 @@ class LocalIPCServer:
     @property
     def capabilities(self) -> tuple[str, ...]:
         business = tuple(sorted(self._control_handlers))
+        story = tuple(sorted(self._request_handlers))
         media = (MEDIA_CAPABILITY,) if self._media_server else ()
-        return BASE_CAPABILITIES + business + media
+        return BASE_CAPABILITIES + business + story + media
+
+    def _health(self) -> dict[str, object]:
+        system_only: dict[str, object] = {
+            "transport_ready": True,
+            "world_ready": False,
+            "model_ready": False,
+            "voice_ready": False,
+        }
+        if self._health_provider is None:
+            return system_only
+        try:
+            report = self._health_provider()
+        except Exception:
+            return system_only
+        if not isinstance(report, Mapping) or set(report) != set(HEALTH_KEYS):
+            return system_only
+        if any(not isinstance(value, bool) for value in report.values()):
+            return system_only
+        return {name: bool(report[name]) for name in HEALTH_KEYS}
 
     @property
     def media_path(self) -> Path | None:
@@ -408,6 +452,22 @@ class LocalIPCServer:
                     await write_frame(writer, response(req, code="method_not_supported"))
                 elif req.method == MEDIA_CAPABILITY:
                     await self._handle_media_open(req, writer)
+                elif req.method in self._request_handlers:
+                    context = {
+                        "request_id": req.request_id or "",
+                        "trace_id": req.trace_id,
+                        "idempotency_key": req.idempotency_key or "",
+                    }
+                    try:
+                        payload, code, retryable = await self._request_handlers[
+                            req.method
+                        ](context, req.payload or {})
+                    except Exception:
+                        payload, code, retryable = None, "service_unavailable", False
+                    await write_frame(
+                        writer,
+                        response(req, payload=payload, code=code, retryable=retryable),
+                    )
                 elif req.method in self._control_handlers:
                     try:
                         payload, code = await self._control_handlers[req.method](
@@ -422,8 +482,7 @@ class LocalIPCServer:
                 elif req.payload:
                     await write_frame(writer, response(req, code="schema_invalid"))
                 elif req.method == "system.health":
-                    await write_frame(writer, response(req, payload={"transport_ready": True,
-                        "world_ready": False, "model_ready": False, "voice_ready": False}))
+                    await write_frame(writer, response(req, payload=self._health()))
                 else:
                     await write_frame(writer, response(req, payload={"shutdown_requested": True}))
                     self._stopping.set()
@@ -508,8 +567,29 @@ async def _watch_parent(server: LocalIPCServer, parent_pid: int) -> None:
     server.request_stop()
 
 
-async def _run(path: Path, token: str, parent_pid: int | None = None) -> None:
-    server = LocalIPCServer(path, token)
+async def _run(
+    path: Path,
+    token: str,
+    parent_pid: int | None = None,
+    *,
+    runtime_loader: Callable[[], Awaitable[Any]] | None = None,
+) -> None:
+    runtime: Any = None
+    if runtime_loader is not None:
+        try:
+            runtime = await runtime_loader()
+        except Exception:
+            # A product runtime that cannot start must never create an empty
+            # canon or advertise story capabilities. The transport stays usable
+            # for system-only health with a sanitized reason on stderr.
+            runtime = None
+            print("Local Engine story runtime unavailable.", file=sys.stderr)
+    server = LocalIPCServer(
+        path,
+        token,
+        request_handlers=None if runtime is None else runtime.request_handlers,
+        health_provider=None if runtime is None else runtime.health,
+    )
     loop = asyncio.get_running_loop()
     installed = []
     watcher = None
@@ -531,6 +611,10 @@ async def _run(path: Path, token: str, parent_pid: int | None = None) -> None:
         for sig in installed:
             loop.remove_signal_handler(sig)
         await server.close()
+        if runtime is not None:
+            # Stop accepting first, then let the durable writer settle before the
+            # database handle is released. A dropped connection is never a rollback.
+            await runtime.close()
 
 
 def main() -> int:
@@ -538,10 +622,33 @@ def main() -> int:
     parser.add_argument("--socket", required=True, type=Path)
     parser.add_argument("--token-fd", required=True, type=int)
     parser.add_argument("--parent-pid", type=int)
+    parser.add_argument(
+        "--data-root",
+        type=Path,
+        help="Explicit persistent storage root for the story product runtime",
+    )
+    parser.add_argument(
+        "--content-artifact",
+        type=Path,
+        help="Build-time trusted content artifact override (defaults to the packaged path)",
+    )
     args = parser.parse_args()
     try:
         token = read_bootstrap_token(args.token_fd)
-        asyncio.run(_run(args.socket, token, args.parent_pid))
+        runtime_loader: Callable[[], Awaitable[Any]] | None = None
+        if args.data_root is not None:
+            from .story_runtime import StoryRuntime, StoryRuntimeConfig
+
+            config = StoryRuntimeConfig.for_data_root(
+                args.data_root, content_path=args.content_artifact
+            )
+
+            async def runtime_loader() -> Any:
+                return await StoryRuntime.open(config)
+
+        asyncio.run(
+            _run(args.socket, token, args.parent_pid, runtime_loader=runtime_loader)
+        )
     except (BootstrapError, OSError, ValueError):
         print("Local Engine startup failed; check the private runtime and bootstrap channel.",
               file=sys.stderr)

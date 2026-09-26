@@ -29,9 +29,12 @@ SCHEMA = json.loads((ROOT / "contracts/protocol/engine_ipc.schema.json").read_te
 VALIDATOR = Draft202012Validator(SCHEMA)
 
 
-def request(method="system.health", payload=None, request_id="req_1"):
-    return dict(kind="request", protocol_version="1.0", trace_id="trace_中文",
+def request(method="system.health", payload=None, request_id="req_1", idempotency_key=None):
+    wire = dict(kind="request", protocol_version="1.0", trace_id="trace_中文",
                 request_id=request_id, method=method, payload={} if payload is None else payload)
+    if idempotency_key is not None:
+        wire["idempotency_key"] = idempotency_key
+    return wire
 
 
 def recv_exact(client, n):
@@ -632,3 +635,158 @@ async def test_custom_control_handler_is_advertised_and_dispatched_only_when_inj
         await writer.wait_closed()
     finally:
         await server.close()
+
+
+@pytest.mark.asyncio
+async def test_request_context_handler_gets_envelope_identity_and_retryable(runtime):
+    seen = []
+
+    async def story_get(context, payload):
+        seen.append((dict(context), dict(payload)))
+        return {"accepted": True}, None, False
+
+    async def story_submit(context, payload):
+        return None, "storage_failure", True
+
+    async def control(payload):
+        return {"schema_version": "1.0"}, None
+
+    def health():
+        return {"transport_ready": True, "world_ready": True,
+                "model_ready": False, "voice_ready": False}
+
+    server = LocalIPCServer(
+        runtime,
+        "e" * 64,
+        control_handlers={"voice.render": control},
+        request_handlers={
+            "story.demo.get": story_get,
+            "story.demo.submit": story_submit,
+        },
+        health_provider=health,
+    )
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_unix_connection(runtime)
+        await write_frame(
+            writer,
+            request(
+                "system.handshake",
+                {
+                    "app_version": "0.1.0",
+                    "app_build": "test",
+                    "supported_protocols": ["1.0"],
+                    "session_token": "e" * 64,
+                },
+            ),
+        )
+        hello = await read_frame(reader)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            "voice.render",
+            "story.demo.get",
+            "story.demo.submit",
+        }
+
+        await write_frame(
+            writer,
+            request(
+                "story.demo.get",
+                {"session_id": "session-1"},
+                request_id="req_story_get",
+                idempotency_key="input-1",
+            ),
+        )
+        reply = await read_frame(reader)
+        assert reply["status"] == "ok"
+        assert reply["payload"] == {"accepted": True}
+        assert seen == [
+            (
+                {
+                    "request_id": "req_story_get",
+                    "trace_id": "trace_中文",
+                    "idempotency_key": "input-1",
+                },
+                {"session_id": "session-1"},
+            )
+        ]
+
+        await write_frame(
+            writer,
+            request("story.demo.submit", {"session_id": "session-1"},
+                    request_id="req_story_submit"),
+        )
+        failed = await read_frame(reader)
+        assert failed["status"] == "error"
+        assert failed["error"]["code"] == "storage_failure"
+        assert failed["error"]["retryable"] is True
+
+        await write_frame(writer, request("system.health", request_id="req_health"))
+        health_reply = await read_frame(reader)
+        assert health_reply["payload"] == {
+            "transport_ready": True,
+            "world_ready": True,
+            "model_ready": False,
+            "voice_ready": False,
+        }
+
+        writer.close()
+        await writer.wait_closed()
+    finally:
+        await server.close()
+
+
+@pytest.mark.asyncio
+async def test_invalid_health_report_falls_back_to_system_only(runtime):
+    server = LocalIPCServer(runtime, "f" * 64, health_provider=lambda: {"world_ready": True})
+    await server.start()
+    try:
+        reader, writer = await asyncio.open_unix_connection(runtime)
+        await write_frame(
+            writer,
+            request(
+                "system.handshake",
+                {
+                    "app_version": "0.1.0",
+                    "app_build": "test",
+                    "supported_protocols": ["1.0"],
+                    "session_token": "f" * 64,
+                },
+            ),
+        )
+        await read_frame(reader)
+        await write_frame(writer, request("system.health"))
+        reply = await read_frame(reader)
+        assert reply["payload"] == {
+            "transport_ready": True,
+            "world_ready": False,
+            "model_ready": False,
+            "voice_ready": False,
+        }
+        writer.close()
+        await writer.wait_closed()
+    finally:
+        await server.close()
+
+
+def test_invalid_handler_registrations_are_rejected(runtime):
+    async def handler(context, payload):
+        return {}, None, False
+
+    async def control(payload):
+        return {}, None
+
+    with pytest.raises(ValueError):
+        LocalIPCServer(
+            runtime,
+            "a" * 64,
+            control_handlers={"story.demo": control},
+            request_handlers={"story.demo": handler},
+        )
+    with pytest.raises(ValueError):
+        LocalIPCServer(runtime, "a" * 64, request_handlers={"system.health": handler})
+    with pytest.raises(ValueError):
+        LocalIPCServer(runtime, "a" * 64, request_handlers={"story.demo": object()})
+    with pytest.raises(ValueError):
+        LocalIPCServer(runtime, "a" * 64, health_provider=object())

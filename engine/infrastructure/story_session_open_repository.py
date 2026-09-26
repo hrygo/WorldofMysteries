@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 from application.story_session_open import (
     OpenStorySessionCommand,
@@ -22,6 +23,11 @@ from .database_manager import (
     StoredEvent,
 )
 from .story_session_repository import _canonical_json, _decode_story_session_row
+from .story_bootstrap_repository import (
+    bootstrap_digest,
+    canonical_bootstrap_json,
+    insert_bootstrap,
+)
 
 _ACTIVE_WORLDLINE_STATUSES = ("active", "suspended", "closing", "recovery_required")
 _MAX_SQLITE_REVISION = 2**63 - 1
@@ -49,9 +55,16 @@ class SQLiteStorySessionOpenPort(StorySessionOpenPort):
             "open_request_id": frozen.open_request_id,
             "initial_session": session_payload,
         }
-        identity_digest = hashlib.sha256(
-            f"story.session.open:v1\0{initial.id}\0{frozen.open_request_id}".encode()
-        ).hexdigest()
+        identity_seed = (
+            f"story.session.open:v1\0{initial.id}\0{frozen.open_request_id}"
+        )
+        frozen_bootstrap_digest: str | None = None
+        if frozen.bootstrap is not None:
+            frozen_bootstrap_digest = bootstrap_digest(frozen.bootstrap)
+            operation["bootstrap"] = json.loads(
+                canonical_bootstrap_json(frozen.bootstrap)
+            )
+        identity_digest = hashlib.sha256(identity_seed.encode()).hexdigest()
         request = CommitRequest(
             worldline_id=initial.worldline_id,
             world_time=initial.story_state.world_time,
@@ -111,10 +124,19 @@ class SQLiteStorySessionOpenPort(StorySessionOpenPort):
                     tx.revision,
                 ),
             )
-            return {
+            if frozen.bootstrap is not None:
+                insert_bootstrap(
+                    tx,
+                    frozen.bootstrap,
+                    opened_store_revision=tx.revision,
+                )
+            result = {
                 "session_id": initial.id,
                 "initial_session_digest": session_digest,
             }
+            if frozen_bootstrap_digest is not None:
+                result["bootstrap_digest"] = frozen_bootstrap_digest
+            return result
 
         try:
             committed = await self.database.commit_resolved(request, apply)
@@ -127,6 +149,8 @@ class SQLiteStorySessionOpenPort(StorySessionOpenPort):
             "session_id": initial.id,
             "initial_session_digest": session_digest,
         }
+        if frozen_bootstrap_digest is not None:
+            expected_result["bootstrap_digest"] = frozen_bootstrap_digest
         if committed.value != expected_result:
             raise StorySessionOpenError("story_session_corrupt")
 

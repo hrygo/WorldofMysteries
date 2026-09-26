@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-FIRST-TURN-CI-EVIDENCE",
+  "capsule_revision": 1,
+  "task_id": "M1-FIRST-TURN-CI-EVIDENCE",
+  "title": "登记 PR #204 CI 全绿证据",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-26T12:04:55.824183+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "e9682db71b60195318c140237835a484f542af0a",
+    "target_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "context_snapshot": "sha256:3fb5361356ce4d17c072d4b75e94628abee93b44726f8458b4c64e979a24484b"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_primary_evidence_has_explicit_limits@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:55",
+      "symbol:ArtifactVerificationContract@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:84",
+      "symbol:CaptureSpec@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:108",
+      "symbol:Grid@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:117",
+      "symbol:_parse_float@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:126",
+      "symbol:parse_contract@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:133",
+      "symbol:registry_order@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:170",
+      "symbol:asset_names@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:180",
+      "symbol:artifact_tasks@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:190",
+      "symbol:slot_order@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:203",
+      "symbol:grid_area@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:230",
+      "symbol:resolve_grid@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:246",
+      "symbol:grid_origin_capture_pixels@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:271",
+      "symbol:expected_slot_rect@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:292",
+      "symbol:grid_for@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:317",
+      "symbol:expected_asset_scale@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:333",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:350",
+      "symbol:capture_plan@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:380",
+      "symbol:asset_path@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:401",
+      "symbol:portable_path@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:406",
+      "symbol:write_preferences@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:422",
+      "symbol:clear_preferences@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:443",
+      "symbol:clear_saved_window_frame@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:454",
+      "symbol:enable_accessibility_state@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:467",
+      "symbol:restore_accessibility_state@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:488",
+      "symbol:open_verification_window@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:505",
+      "symbol:match_capture@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:543",
+      "symbol:assert_arrangement_consistent@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:556",
+      "symbol:surface_entries@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:598",
+      "symbol:build_evidence@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:630"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 906,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_primary_evidence_has_explicit_limits",
+      "ArtifactVerificationContract",
+      "CaptureSpec",
+      "Grid",
+      "_parse_float",
+      "parse_contract",
+      "registry_order",
+      "asset_names",
+      "artifact_tasks",
+      "slot_order",
+      "grid_area",
+      "resolve_grid",
+      "grid_origin_capture_pixels",
+      "expected_slot_rect",
+      "grid_for",
+      "expected_asset_scale",
+      "probe_text_regions",
+      "capture_plan",
+      "asset_path",
+      "portable_path",
+      "write_preferences",
+      "clear_preferences",
+      "clear_saved_window_frame",
+      "enable_accessibility_state",
+      "restore_accessibility_state",
+      "open_verification_window",
+      "match_capture",
+      "assert_arrangement_consistent",
+      "surface_entries",
+      "build_evidence"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

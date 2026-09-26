@@ -33,6 +33,7 @@ class FinalizedStoryInput:
     session_id: str
     input_mode: InputMode
     raw_input: str
+    public_expected_store_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,7 @@ class TurnInputCommand:
     raw_input: str
     input_sha256: str
     base_revisions: BaseRevisions
+    public_expected_store_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +60,7 @@ class TurnInputReceipt:
     base_revisions: BaseRevisions
     status: TurnInputStatus
     committed_world_revision: int | None
+    public_expected_store_revision: int | None = None
     replayed: bool = False
 
 
@@ -141,6 +144,10 @@ class StoryTurnInputService:
         if not isinstance(value.input_mode, InputMode):
             raise StoryInputCommandError("invalid_input_mode")
         _bounded(value.raw_input, "raw_input", limit=16_384)
+        _optional_revision(
+            value.public_expected_store_revision,
+            "public_expected_store_revision",
+        )
         digest = _input_digest(value.raw_input)
 
         # Recovery precedes current-session lookup. A lost ACK may be retried after
@@ -151,6 +158,8 @@ class StoryTurnInputService:
                 existing.session_id != value.session_id
                 or existing.input_mode is not value.input_mode
                 or existing.input_sha256 != digest
+                or existing.public_expected_store_revision
+                != value.public_expected_store_revision
             ):
                 raise StoryInputCommandError("input_turn_identity_conflict")
             return replace(existing, replayed=True)
@@ -178,6 +187,7 @@ class StoryTurnInputService:
                 character=session.base_revisions.character,
                 story=session.story_state.revision,
             ),
+            public_expected_store_revision=value.public_expected_store_revision,
         )
         receipt = await self._intake.receive(command)
         self._require_receipt_matches(command, receipt)
@@ -207,8 +217,21 @@ class StoryTurnInputService:
             or receipt.input_mode is not command.input_mode
             or receipt.input_sha256 != command.input_sha256
             or receipt.base_revisions != command.base_revisions
+            or receipt.public_expected_store_revision
+            != command.public_expected_store_revision
         ):
             raise StoryInputCommandError("durable_intake_receipt_mismatch")
+
+
+def _optional_revision(value: object, field: str) -> None:
+    if value is None:
+        return
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 0 <= value < 2**63 - 1
+    ):
+        raise StoryInputCommandError(f"invalid_{field}")
 
 
 @dataclass(frozen=True, slots=True)

@@ -157,6 +157,54 @@ shutdown
 
 IPC 不暴露 AgentScope `Msg`, `Agent`, `Pipeline` 类型。
 
+### 11.1 可信首轮 Story Session Control Wire Mapping
+
+现有 envelope 1.0、framing 与鉴权方式不变。Golden 001 工程验证入口在
+`contracts/protocol/story_session_control.schema.json` 中冻结，使用独立 `$defs`，
+不修改领域 Schema：
+
+| 概念 API | Wire method | Payload schema |
+|---|---|---|
+| `world_home` / first story entry | `story.entry.get` | `entry_get_request` → `entry_get_response` |
+| `start_story` | `story.session.open` | `session_open_request` → `session_open_response` |
+| 只读恢复 | `story.session.get` | `session_get_request` → `session_get_response` |
+| `submit_advice` | `story.advice.submit` | `advice_submit_request` → `advice_submit_response` |
+| 结果查询 | `story.advice.get` | `advice_get_request` → `advice_get_response` |
+
+固定范围：
+
+- 仅接受 `scenario_id=golden_001`，仅支持服务端 entry 返回的原始首轮建议文本；
+  固定工程模式 `golden_deterministic` 不替代 intake、领域裁决、Resolver、事务、
+  Outbox 或恢复执行。
+- `entry_get_request` 是只读入口；`session_open_request` 才创建且仅在
+  服务端可信初始化成功后提交。
+- 客户端不得发送数据库路径、worldline、protagonist、seed、初始状态、规则、
+  hidden truth、初始 revision 或完整 `StorySession`。
+- `public_story_session_view` 是独立 allowlist 投影，不是完整领域对象删字段后的结果。
+  它禁止携带 `secret_states`、`hidden_truth`、压力、内部目标、未发现 clue、原始
+  `StateDelta`、完整 world/character 或 seed digest。
+- `story.advice.submit` 的 envelope `idempotency_key` 必须等于
+  `input_turn_id`；`story.session.open` 必须等于 `open_request_id`。缺失或不一致
+  按 `schema_invalid` 拒绝。`request_id` / `trace_id` 仅作为传输关联，不进入业务幂等摘要。
+- `expected_story_revision` 与 `expected_store_revision` 是调用方在读取 view 后冻结的
+  CAS 前提；前者比较 Story 进展，后者比较 SQLite store revision。两者不得互换。
+  重试时业务幂等 ID、原始文本和预期 revision 必须保持首次值。
+- `world/character` 基准 revision（Golden 001 为 103/27）是领域一致性前提，不是
+  SQLite `world_meta.revision`，不得用于 store CAS。
+- JSON Schema 负责字段、类型、上限、枚举、未知字段和 receipt 条件形状；session
+  归属、scenario 绑定、receipt/session 身份一致性、幂等键相等性属于服务端与 DTO
+  语义校验，必须 fail closed。
+
+公共上限与版本：
+
+- `schema_version="1.0"`；ID 非空、含至少一个非空白字符、无 NUL、最多 256 字符。
+- revision 为 `0..2**63-1` 的 JSON 整数并拒绝 bool/字符串；写请求的
+  `expected_*_revision` 小于 `2**63-1`。
+- `raw_input` 非空、含至少一个非空白字符、无 NUL、最多 16,384 字符；
+  服务端固定按 TEXT 处理，不支持本迭代的自由文本模型路径。
+- `found=false` 时省略 receipt/session；`committed` receipt 必须同时包含
+  `committed_store_revision` 与 `committed_story_revision`，其他状态禁止携带二者。
+
 ## 12. Error Taxonomy
 
 标准错误至少包括：

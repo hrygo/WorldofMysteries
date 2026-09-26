@@ -1,0 +1,174 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-FIRST-TURN-PACKAGE-PROBE",
+  "capsule_revision": 1,
+  "task_id": "M1-FIRST-TURN-PACKAGE-PROBE",
+  "title": "打包探针补齐首轮 Swift 源文件闭包",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-26T11:48:56.753674+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "ae6282e22ec1680880a2822a6b0104c2440b7f00",
+    "target_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "context_snapshot": "sha256:b1374779a84081a81a3fef945e4a43f8b4690dd4419c57a26bc8b19214ec51fa"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": [
+      "scripts/build_macos_package.py"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_application_owns_action_identity_turn_actor_and_evidence@engine/tests/test_action_intent_proposal.py:168",
+      "symbol:load_turn@engine/tests/test_advice_commit_proposal.py:183",
+      "symbol:commit_turn@engine/tests/test_advice_commit_proposal.py:191",
+      "symbol:test_real_story_first_turn_reopens_across_processes@engine/tests/test_app_engine_session.py:344",
+      "symbol:test_speechrail_capability_probe_consumes_one_atomic_safe_snapshot@engine/tests/test_audio_adapter.py:229",
+      "symbol:test_speechrail_capability_probe_uses_etag_304_only_with_verified_cache@engine/tests/test_audio_adapter.py:308",
+      "symbol:test_speechrail_capability_probe_rejects_unknown_or_incomplete_schema@engine/tests/test_audio_adapter.py:339",
+      "symbol:test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence@engine/tests/test_audio_adapter.py:364",
+      "symbol:test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party@engine/tests/test_audio_adapter.py:385",
+      "symbol:test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network@engine/tests/test_audio_adapter.py:407",
+      "symbol:test_openai_audio_adapter_exposes_capability_probe_on_same_config@engine/tests/test_audio_adapter.py:425",
+      "symbol:test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable@engine/tests/test_audio_adapter.py:458",
+      "symbol:test_speechrail_capability_probe_reports_partial_discovery_as_degraded@engine/tests/test_audio_adapter.py:473",
+      "symbol:first_fetch@engine/tests/test_audio_adapter.py:311",
+      "symbol:_turn@engine/tests/test_audio_disclosure.py:316",
+      "symbol:test_audio_authorizer_returns_only_exact_committed_narrative_segment@engine/tests/test_audio_disclosure.py:360",
+      "symbol:test_audio_authorizer_rejects_turn_before_narrative_ready@engine/tests/test_audio_disclosure.py:387",
+      "symbol:load_turn@engine/tests/test_audio_disclosure.py:308",
+      "symbol:validated_turn@engine/tests/test_audio_track_repository.py:96",
+      "symbol:test_cleanup_db_first_crash_leaves_retryable_orphan_not_phantom_row@engine/tests/test_audio_track_repository.py:437",
+      "symbol:test_runtime_stager_requires_private_data_sqlite_probe@engine/tests/test_bundle_engine.py:243",
+      "symbol:test_runtime_stager_packages_module_relative_story_content@engine/tests/test_bundle_engine.py:250",
+      "symbol:test_packaged_probe_source_closure_tracks_media_protocol_dependency@engine/tests/test_bundle_engine.py:260",
+      "symbol:test_golden_001_turns_advice_matches_schema@engine/tests/test_contracts_schema.py:103",
+      "symbol:test_gameplay_epoch_ignores_turn_revision_but_rotates_on_checkpoint_dimension@engine/tests/test_gameplay_context.py:150",
+      "symbol:_read@engine/tests/test_golden_first_turn.py:29",
+      "symbol:_canonical_digest@engine/tests/test_golden_first_turn.py:33",
+      "symbol:_bundle_payload@engine/tests/test_golden_first_turn.py:46",
+      "symbol:Source@engine/tests/test_golden_first_turn.py:75",
+      "symbol:_bootstrap@engine/tests/test_golden_first_turn.py:80"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 939,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_application_owns_action_identity_turn_actor_and_evidence",
+      "load_turn",
+      "commit_turn",
+      "test_real_story_first_turn_reopens_across_processes",
+      "test_speechrail_capability_probe_consumes_one_atomic_safe_snapshot",
+      "test_speechrail_capability_probe_uses_etag_304_only_with_verified_cache",
+      "test_speechrail_capability_probe_rejects_unknown_or_incomplete_schema",
+      "test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence",
+      "test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party",
+      "test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network",
+      "test_openai_audio_adapter_exposes_capability_probe_on_same_config",
+      "test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable",
+      "test_speechrail_capability_probe_reports_partial_discovery_as_degraded",
+      "first_fetch",
+      "_turn",
+      "test_audio_authorizer_returns_only_exact_committed_narrative_segment",
+      "test_audio_authorizer_rejects_turn_before_narrative_ready",
+      "load_turn",
+      "validated_turn",
+      "test_cleanup_db_first_crash_leaves_retryable_orphan_not_phantom_row",
+      "test_runtime_stager_requires_private_data_sqlite_probe",
+      "test_runtime_stager_packages_module_relative_story_content",
+      "test_packaged_probe_source_closure_tracks_media_protocol_dependency",
+      "test_golden_001_turns_advice_matches_schema",
+      "test_gameplay_epoch_ignores_turn_revision_but_rotates_on_checkpoint_dimension",
+      "_read",
+      "_canonical_digest",
+      "_bundle_payload",
+      "Source",
+      "_bootstrap"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

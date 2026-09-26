@@ -70,6 +70,7 @@ def _frozen(row: dict) -> FrozenTurnInput:
         ),
         status=TurnInputStatus(row["status"]),
         committed_world_revision=row["committed_world_revision"],
+        public_expected_store_revision=row["public_expected_store_revision"],
     )
 
 

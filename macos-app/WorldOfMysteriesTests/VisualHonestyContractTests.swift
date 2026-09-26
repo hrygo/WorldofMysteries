@@ -152,6 +152,25 @@ struct VisualHonestyContractTests {
         #expect(content.contains("观察者询问"))
     }
 
+    @Test("live first-turn panel stays separate from the demo surfaces")
+    func liveFirstTurnPanelIsSeparateFromDemoData() throws {
+        let content = try source("macos-app/WorldOfMysteries/ContentView.swift")
+        let appState = try source("macos-app/WorldOfMysteries/AppState.swift")
+        let panel = try source("macos-app/WorldOfMysteries/StorySessionPanel.swift")
+
+        // The live panel exists, and the demo surfaces keep their honest label.
+        #expect(content.contains("StorySessionPanel(model: appState.storyModel)"))
+        #expect(content.contains("isShowingDemoData"))
+        #expect(appState.contains("public var isShowingDemoData: Bool { true }"))
+        // Story entry is gated on the advertised capability and a real world service.
+        #expect(appState.contains("handshake.capabilities.contains(\"story.entry.get\")"))
+        #expect(appState.contains("guard health.worldReady"))
+        // The panel states the verification scope instead of claiming generated narrative.
+        #expect(panel.contains("工程验证 · 固定首轮"))
+        #expect(panel.contains("不是生成叙事"))
+        #expect(panel.contains("语音仍禁用"))
+    }
+
     private func source(_ relativePath: String) throws -> String {
         try String(
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),

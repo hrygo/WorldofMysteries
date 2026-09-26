@@ -14,11 +14,20 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     public let executableURL: URL
     public let moduleDirectory: URL
     public let runtimeRoot: URL?
+    /// Explicit persistent storage root for story facts. Never inferred from cwd
+    /// and never accepted over IPC.
+    public let dataRoot: URL?
 
-    public init(executableURL: URL, moduleDirectory: URL, runtimeRoot: URL? = nil) {
+    public init(
+        executableURL: URL,
+        moduleDirectory: URL,
+        runtimeRoot: URL? = nil,
+        dataRoot: URL? = nil
+    ) {
         self.executableURL = executableURL
         self.moduleDirectory = moduleDirectory
         self.runtimeRoot = runtimeRoot
+        self.dataRoot = dataRoot
     }
 
     public static func bundled(in bundle: Bundle = .main) throws -> Self {
@@ -48,9 +57,19 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
             }
         }
         let configuration = Self(executableURL: root.appendingPathComponent("bin/python3"),
-                                 moduleDirectory: root.appendingPathComponent("engine", isDirectory: true))
+                                 moduleDirectory: root.appendingPathComponent("engine", isDirectory: true),
+                                 dataRoot: Self.defaultDataRoot())
         try configuration.validate()
         return configuration
+    }
+
+    /// Application Support engineering root; the App bundle is never used for
+    /// user facts and the directory survives正常退出与强退。
+    public static func defaultDataRoot(_ fileManager: FileManager = .default) -> URL? {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        return support?
+            .appendingPathComponent("WorldofMysteries", isDirectory: true)
+            .appendingPathComponent("Engineering/Golden001/Data", isDirectory: true)
     }
 
     func validate() throws {
@@ -58,6 +77,9 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
         guard executableURL.isFileURL, moduleDirectory.isFileURL,
               files.isExecutableFile(atPath: executableURL.path),
               files.fileExists(atPath: moduleDirectory.appendingPathComponent("infrastructure/ipc_server.py").path) else {
+            throw EngineConnectionError.runtimeUnavailable
+        }
+        if let dataRoot, (!dataRoot.isFileURL || dataRoot.path.isEmpty) {
             throw EngineConnectionError.runtimeUnavailable
         }
     }
@@ -215,6 +237,7 @@ public actor EngineProcessManager {
             child.currentDirectoryURL = config.moduleDirectory
             child.arguments = ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
                                "--token-fd", "0", "--parent-pid", String(ProcessInfo.processInfo.processIdentifier)]
+                + (config.dataRoot.map { ["--data-root", $0.path] } ?? [])
             child.environment = ProcessInfo.processInfo.environment.filter {
                 !$0.key.hasPrefix("PYTHON") && !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("LD_") && $0.key != "VIRTUAL_ENV"
             }

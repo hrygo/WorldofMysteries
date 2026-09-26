@@ -96,6 +96,7 @@ class IntakePort:
             base_revisions=command.base_revisions,
             status=TurnInputStatus.RECEIVED,
             committed_world_revision=None,
+            public_expected_store_revision=command.public_expected_store_revision,
         )
         self.records[command.input_turn_id] = receipt
         return receipt
@@ -154,6 +155,48 @@ async def test_lost_ack_recovers_frozen_command_before_reading_newer_session():
     assert recovered.base_revisions.story == 3
     assert sessions.loads == 1
     assert len(intake.received) == 1
+
+
+async def test_public_expected_store_revision_round_trips_and_must_match_on_replay():
+    sessions = SessionPort()
+    intake = IntakePort()
+    service = StoryTurnInputService(sessions=sessions, intake=intake)
+    value = FinalizedStoryInput(
+        input_turn_id="input-turn-public-1",
+        session_id="session-1",
+        input_mode=InputMode.TEXT,
+        raw_input="先别问医生病人的事，我想看看他的反应。",
+        public_expected_store_revision=7,
+    )
+
+    first = await service.receive(value)
+    recovered = await service.receive(value)
+
+    assert first.public_expected_store_revision == 7
+    assert recovered.public_expected_store_revision == 7
+    assert recovered.replayed
+    with pytest.raises(StoryInputCommandError, match="input_turn_identity_conflict"):
+        await service.receive(replace(value, public_expected_store_revision=8))
+
+
+@pytest.mark.parametrize("revision", [True, -1, 2**63 - 1, "7"])
+async def test_invalid_public_expected_store_revision_is_rejected(revision):
+    sessions = SessionPort()
+    intake = IntakePort()
+    service = StoryTurnInputService(sessions=sessions, intake=intake)
+    value = replace(
+        voice_input(),
+        public_expected_store_revision=revision,
+    )
+
+    with pytest.raises(
+        StoryInputCommandError,
+        match="invalid_public_expected_store_revision",
+    ):
+        await service.receive(value)
+
+    assert sessions.loads == 0
+    assert intake.received == []
 
 
 async def test_same_input_turn_with_changed_text_or_mode_fails_before_session_lookup():

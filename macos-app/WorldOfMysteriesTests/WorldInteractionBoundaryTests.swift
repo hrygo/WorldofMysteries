@@ -160,4 +160,32 @@ struct WorldInteractionBoundaryTests {
         #expect(projection().title == "未知卡牌")
         #expect(!projection().accessibilityLabel.contains("SECRET_"))
     }
+
+    @Test("首轮面板在未接入 world service 时不进入任何真实动作")
+    @MainActor
+    func storyPanelStaysInertWithoutAttachedEngine() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let (model, _) = StorySessionModelTests.makeModel(
+            log: log, journal: journal,
+            entryView: try StorySessionModelTests.entry(
+                session: try StorySessionModelTests.view()),
+            openView: try StoryOpenViewDTO(
+                session: try StorySessionModelTests.view(),
+                openedStoreRevision: 1, replayed: false),
+            submitView: try StorySessionModelTests.submitResult(),
+            adviceView: try StorySessionModelTests.adviceFound())
+
+        #expect(model.state == .unavailable)
+        #expect(!model.canStartStory)
+        #expect(!model.canSubmitStory)
+        #expect(!model.canRecover)
+        #expect(!model.canContinuePending)
+
+        model.draft = "先别问医生病人的事，我想看看他的反应。"
+        await model.submit()
+        await model.recover()
+        #expect(log.values.isEmpty)
+        #expect(model.state == .unavailable)
+    }
 }

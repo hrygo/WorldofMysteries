@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/story_session_control.schema.json",
+  "title": "World of Mysteries trusted first-turn Story Session control v1.0",
+  "description": "Typed payload contracts carried inside authenticated Engine IPC envelopes for the golden_001 trusted first-turn flow. JSON Schema validates wire shape; session ownership, scenario binding, envelope idempotency equality and revision-token provenance require service/DTO semantic validation.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "world_time": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775806
+    },
+    "raw_input": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "scenario_id": {
+      "const": "golden_001"
+    },
+    "mode": {
+      "const": "golden_deterministic"
+    },
+    "session_status": {
+      "enum": [
+        "active",
+        "suspended",
+        "closing",
+        "finalized",
+        "cancelled",
+        "recovery_required"
+      ]
+    },
+    "protagonist_view": {
+      "type": "object",
+      "required": ["id", "display_name"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "display_name": {"$ref": "#/$defs/display_name"}
+      },
+      "additionalProperties": false
+    },
+    "scene_view": {
+      "type": "object",
+      "required": ["id", "location_id", "display_name"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "location_id": {"$ref": "#/$defs/identifier"},
+        "display_name": {"$ref": "#/$defs/display_name"}
+      },
+      "additionalProperties": false
+    },
+    "clue_view": {
+      "type": "object",
+      "required": ["id", "display_name"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "display_name": {"$ref": "#/$defs/display_name"}
+      },
+      "additionalProperties": false
+    },
+    "public_story_session_view": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "session_id",
+        "mode",
+        "status",
+        "story_revision",
+        "turn",
+        "observed_store_revision",
+        "world_time",
+        "protagonist",
+        "scene",
+        "discovered_clues",
+        "can_submit"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "scenario_id": {"$ref": "#/$defs/scenario_id"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "mode": {"$ref": "#/$defs/mode"},
+        "status": {"$ref": "#/$defs/session_status"},
+        "story_revision": {"$ref": "#/$defs/revision"},
+        "turn": {"$ref": "#/$defs/revision"},
+        "observed_store_revision": {"$ref": "#/$defs/revision"},
+        "world_time": {"$ref": "#/$defs/world_time"},
+        "protagonist": {"$ref": "#/$defs/protagonist_view"},
+        "scene": {"$ref": "#/$defs/scene_view"},
+        "discovered_clues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/clue_view"},
+          "uniqueItems": true
+        },
+        "can_submit": {"type": "boolean"},
+        "last_committed_turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["input_turn_id", "session_id", "turn_id", "status"],
+      "properties": {
+        "input_turn_id": {"$ref": "#/$defs/identifier"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "status": {"enum": ["received", "cancelled", "committed"]},
+        "committed_store_revision": {"$ref": "#/$defs/revision"},
+        "committed_story_revision": {"$ref": "#/$defs/revision"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status": {"const": "committed"}},
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["committed_store_revision", "committed_story_revision"]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {"required": ["committed_store_revision"]},
+                {"required": ["committed_story_revision"]}
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "committed_receipt": {
+      "allOf": [
+        {"$ref": "#/$defs/receipt"},
+        {
+          "properties": {"status": {"const": "committed"}},
+          "required": ["status"]
+        }
+      ]
+    },
+    "entry_get_request": {
+      "type": "object",
+      "required": ["schema_version", "scenario_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "scenario_id": {"$ref": "#/$defs/scenario_id"}
+      },
+      "additionalProperties": false
+    },
+    "session_open_request": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "open_request_id",
+        "expected_store_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "scenario_id": {"$ref": "#/$defs/scenario_id"},
+        "open_request_id": {"$ref": "#/$defs/identifier"},
+        "expected_store_revision": {"$ref": "#/$defs/expected_revision"}
+      },
+      "additionalProperties": false
+    },
+    "session_get_request": {
+      "type": "object",
+      "required": ["schema_version", "session_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "advice_submit_request": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "input_turn_id",
+        "raw_input",
+        "expected_story_revision",
+        "expected_store_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "input_turn_id": {"$ref": "#/$defs/identifier"},
+        "raw_input": {"$ref": "#/$defs/raw_input"},
+        "expected_story_revision": {"$ref": "#/$defs/expected_revision"},
+        "expected_store_revision": {"$ref": "#/$defs/expected_revision"}
+      },
+      "additionalProperties": false
+    },
+    "advice_get_request": {
+      "type": "object",
+      "required": ["schema_version", "session_id", "input_turn_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "input_turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "entry_get_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scenario_id",
+        "mode",
+        "supported_advice",
+        "observed_store_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "scenario_id": {"$ref": "#/$defs/scenario_id"},
+        "mode": {"$ref": "#/$defs/mode"},
+        "supported_advice": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/raw_input"},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "observed_store_revision": {"$ref": "#/$defs/revision"},
+        "session": {"$ref": "#/$defs/public_story_session_view"},
+        "pending_input_turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "session_open_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session",
+        "opened_store_revision",
+        "replayed"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session": {"$ref": "#/$defs/public_story_session_view"},
+        "opened_store_revision": {"$ref": "#/$defs/revision"},
+        "replayed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "session_get_response": {
+      "type": "object",
+      "required": ["schema_version", "session"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session": {"$ref": "#/$defs/public_story_session_view"}
+      },
+      "additionalProperties": false
+    },
+    "advice_submit_response": {
+      "type": "object",
+      "required": ["schema_version", "receipt", "session", "replayed"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "receipt": {"$ref": "#/$defs/committed_receipt"},
+        "session": {"$ref": "#/$defs/public_story_session_view"},
+        "replayed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "advice_get_response": {
+      "type": "object",
+      "required": ["schema_version", "found", "replayed"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "found": {"type": "boolean"},
+        "receipt": {"$ref": "#/$defs/receipt"},
+        "session": {"$ref": "#/$defs/public_story_session_view"},
+        "replayed": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"found": {"const": true}},
+            "required": ["found"]
+          },
+          "then": {
+            "required": ["receipt", "session"]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {"required": ["receipt"]},
+                {"required": ["session"]}
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

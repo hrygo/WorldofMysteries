@@ -36,6 +36,11 @@ PACKAGE_PROBE_SWIFT_SOURCES = (
     'EngineRuntimeModels',
     'EngineSocketTransport',
     'MediaProtocol',
+    # The production client now carries the trusted first-turn surface, so the
+    # packaged probe must compile its DTOs, retry journal and session model.
+    'StorySessionControl',
+    'StoryRequestJournal',
+    'StorySessionModel',
     'EngineIPCClient',
     'EngineProcessManager',
 )

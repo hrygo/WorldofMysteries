@@ -110,4 +110,13 @@ struct BundledRuntimeTests {
             try EngineRuntimeLease.create(root: root)
         }
     }
+
+    @Test("Story facts live in a persistent user directory, never a temporary or bundled path")
+    func persistentEngineeringDataRoot() throws {
+        let root = try #require(EngineLaunchConfiguration.defaultDataRoot())
+        #expect(root.path.hasSuffix("/WorldofMysteries/Engineering/Golden001/Data"))
+        #expect(root.path.contains("/Library/Application Support/"))
+        #expect(!root.path.hasPrefix(FileManager.default.temporaryDirectory.path))
+        #expect(!root.path.contains(".app/"), "用户事实不得写进 App bundle")
+    }
 }
