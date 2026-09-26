@@ -6,6 +6,7 @@ prerequisite is missing. Linux can also run this as supplementary compatibility.
 from __future__ import annotations
 
 from contextlib import closing
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -342,6 +343,8 @@ def story_session(tmp_path):
 
 def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine, story_session):
     home, data_root, runtime = story_session
+    canon = story_engine / 'infrastructure/story_content/canon.db'
+    canon_digest = hashlib.sha256(canon.read_bytes()).hexdigest()
 
     opened = _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime),
                     'story-open')
@@ -365,6 +368,8 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
     assert reopened['clues'] == submitted['clues']
     assert _world_counts(data_root) == {
         'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
+    # A full product first turn must never write the read-only canon artifact.
+    assert hashlib.sha256(canon.read_bytes()).hexdigest() == canon_digest
 
 
 def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_engine, story_session):
