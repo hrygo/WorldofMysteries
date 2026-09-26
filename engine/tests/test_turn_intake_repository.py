@@ -50,7 +50,11 @@ def base_revisions() -> BaseRevisions:
     return BaseRevisions(world=0, character=0, story=0)
 
 
-def request(*, raw_input: str = "请调查那扇门。") -> TurnIntakeRequest:
+def request(
+    *,
+    raw_input: str = "请调查那扇门。",
+    public_expected_store_revision: int | None = None,
+) -> TurnIntakeRequest:
     return TurnIntakeRequest(
         input_turn_id="input-turn-1",
         session_id="session-intake",
@@ -59,6 +63,7 @@ def request(*, raw_input: str = "请调查那扇门。") -> TurnIntakeRequest:
         input_mode=InputMode.VOICE,
         raw_input=raw_input,
         base_revisions=base_revisions(),
+        public_expected_store_revision=public_expected_store_revision,
     )
 
 
@@ -194,6 +199,34 @@ async def test_same_input_turn_id_with_different_text_fails_closed(tmp_path):
         assert (await repo.load("input-turn-1")).raw_input == "请调查那扇门。"
     finally:
         await database.close()
+
+
+async def test_public_expected_store_revision_survives_restart_and_identity_conflict(
+    tmp_path,
+):
+    database, paths = await open_database(tmp_path)
+    try:
+        repo = SQLiteTurnIntakeRepository(database)
+        first = await repo.receive(
+            request(public_expected_store_revision=7)
+        )
+        assert first.record.public_expected_store_revision == 7
+        with pytest.raises(TurnIntakeConflict, match="different input"):
+            await repo.receive(
+                request(public_expected_store_revision=8)
+            )
+    finally:
+        await database.close()
+
+    reopened = await DatabaseManager.open(
+        paths,
+        expected_sqlite_version=sqlite3.sqlite_version,
+    )
+    try:
+        recovered = await SQLiteTurnIntakeRepository(reopened).load("input-turn-1")
+        assert recovered.public_expected_store_revision == 7
+    finally:
+        await reopened.close()
 
 
 async def test_cancel_before_commit_wins_without_world_revision(tmp_path):

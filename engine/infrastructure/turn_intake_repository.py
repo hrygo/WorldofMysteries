@@ -59,6 +59,7 @@ class TurnIntakeRequest:
     input_mode: InputMode
     raw_input: str
     base_revisions: BaseRevisions
+    public_expected_store_revision: int | None = None
 
     def __post_init__(self) -> None:
         for value, field in (
@@ -79,6 +80,12 @@ class TurnIntakeRequest:
             raise StorageError("Invalid turn intake raw input")
         if not isinstance(self.base_revisions, BaseRevisions):
             raise StorageError("Invalid turn intake base revisions")
+        if self.public_expected_store_revision is not None and (
+            isinstance(self.public_expected_store_revision, bool)
+            or not isinstance(self.public_expected_store_revision, int)
+            or self.public_expected_store_revision < 0
+        ):
+            raise StorageError("Invalid public expected store revision")
 
     @property
     def input_sha256(self) -> str:
@@ -97,6 +104,7 @@ class TurnIntakeRecord:
     base_revisions: BaseRevisions
     status: TurnIntakeStatus
     committed_world_revision: int | None
+    public_expected_store_revision: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +138,7 @@ def _from_row(row: dict) -> TurnIntakeRecord:
         ),
         status=TurnIntakeStatus(row["status"]),
         committed_world_revision=row["committed_world_revision"],
+        public_expected_store_revision=row["public_expected_store_revision"],
     )
 
 
@@ -143,6 +152,8 @@ def _same_request(record: TurnIntakeRecord, request: TurnIntakeRequest) -> bool:
         and record.raw_input == request.raw_input
         and record.input_sha256 == request.input_sha256
         and record.base_revisions == request.base_revisions
+        and record.public_expected_store_revision
+        == request.public_expected_store_revision
     )
 
 
@@ -175,7 +186,8 @@ class SQLiteTurnIntakeRepository:
                 "input_turn_id,session_id,turn_id,idempotency_key,input_mode,"
                 "raw_input,input_sha256,base_world_revision,base_character_revision,"
                 "base_story_revision,status,committed_world_revision"
-                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                ",public_expected_store_revision"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?)",
                 (
                     request.input_turn_id,
                     request.session_id,
@@ -188,6 +200,7 @@ class SQLiteTurnIntakeRepository:
                     request.base_revisions.character,
                     request.base_revisions.story,
                     TurnIntakeStatus.RECEIVED.value,
+                    request.public_expected_store_revision,
                 ),
             )
             rows = tx.execute(
@@ -351,6 +364,7 @@ def _to_application_receipt(
         base_revisions=record.base_revisions,
         status=ApplicationTurnInputStatus(record.status.value),
         committed_world_revision=record.committed_world_revision,
+        public_expected_store_revision=record.public_expected_store_revision,
         replayed=replayed,
     )
 
@@ -379,6 +393,7 @@ class SQLiteTurnInputCommandPort:
             input_mode=command.input_mode,
             raw_input=command.raw_input,
             base_revisions=command.base_revisions,
+            public_expected_store_revision=command.public_expected_store_revision,
         )
         if request.input_sha256 != command.input_sha256:
             raise TurnIntakeConflict(

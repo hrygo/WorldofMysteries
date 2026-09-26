@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-TRUSTED-BOOTSTRAP",
+  "capsule_revision": 1,
+  "task_id": "M1-TRUSTED-BOOTSTRAP",
+  "title": "实现可信首轮内容装载与原子 bootstrap 持久化",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-26T07:08:01.851132+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "1faf86bf731d19aa74fb77b35525ce051406f106",
+    "target_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "context_snapshot": "sha256:d8662d447969a2c437953938a43c7fc1eeda885dabe73fd84b9702a63a583d87"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": [
+      "engine/infrastructure/migrations/010_world_story_bootstrap.sql"
+    ]
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:StorageError@engine/infrastructure/database_schema.py:17",
+      "symbol:check_file@engine/infrastructure/database_schema.py:21",
+      "symbol:connect@engine/infrastructure/database_schema.py:33",
+      "symbol:integrity@engine/infrastructure/database_schema.py:52",
+      "symbol:statements@engine/infrastructure/database_schema.py:59",
+      "symbol:_migration_script@engine/infrastructure/database_schema.py:71",
+      "symbol:_apply_migration@engine/infrastructure/database_schema.py:79",
+      "symbol:_validate_migration_backup@engine/infrastructure/database_schema.py:85",
+      "symbol:_ensure_world_migration_backup@engine/infrastructure/database_schema.py:100",
+      "symbol:initialize@engine/infrastructure/database_schema.py:133",
+      "symbol:read_rows@engine/infrastructure/database_schema.py:182",
+      "symbol:BootstrapError@engine/infrastructure/ipc_server.py:47",
+      "symbol:read_bootstrap_token@engine/infrastructure/ipc_server.py:51",
+      "symbol:TurnIntakeConflict@engine/infrastructure/turn_intake_repository.py:32",
+      "symbol:TurnIntakeStatus@engine/infrastructure/turn_intake_repository.py:36",
+      "symbol:_identifier@engine/infrastructure/turn_intake_repository.py:42",
+      "symbol:TurnIntakeRequest@engine/infrastructure/turn_intake_repository.py:54",
+      "symbol:TurnIntakeRecord@engine/infrastructure/turn_intake_repository.py:89",
+      "symbol:TurnIntakeReceiveResult@engine/infrastructure/turn_intake_repository.py:103",
+      "symbol:TurnIntakeCancellation@engine/infrastructure/turn_intake_repository.py:109",
+      "symbol:_from_row@engine/infrastructure/turn_intake_repository.py:117",
+      "symbol:_same_request@engine/infrastructure/turn_intake_repository.py:136",
+      "symbol:SQLiteTurnIntakeRepository@engine/infrastructure/turn_intake_repository.py:149",
+      "symbol:_to_application_receipt@engine/infrastructure/turn_intake_repository.py:339",
+      "symbol:SQLiteTurnInputCommandPort@engine/infrastructure/turn_intake_repository.py:358",
+      "symbol:SQLitePendingTurnControlPort@engine/infrastructure/turn_intake_repository.py:398",
+      "symbol:__post_init__@engine/infrastructure/turn_intake_repository.py:63",
+      "symbol:input_sha256@engine/infrastructure/turn_intake_repository.py:84",
+      "symbol:__init__@engine/infrastructure/turn_intake_repository.py:150",
+      "symbol:receive@engine/infrastructure/turn_intake_repository.py:153"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 765,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "StorageError",
+      "check_file",
+      "connect",
+      "integrity",
+      "statements",
+      "_migration_script",
+      "_apply_migration",
+      "_validate_migration_backup",
+      "_ensure_world_migration_backup",
+      "initialize",
+      "read_rows",
+      "BootstrapError",
+      "read_bootstrap_token",
+      "TurnIntakeConflict",
+      "TurnIntakeStatus",
+      "_identifier",
+      "TurnIntakeRequest",
+      "TurnIntakeRecord",
+      "TurnIntakeReceiveResult",
+      "TurnIntakeCancellation",
+      "_from_row",
+      "_same_request",
+      "SQLiteTurnIntakeRepository",
+      "_to_application_receipt",
+      "SQLiteTurnInputCommandPort",
+      "SQLitePendingTurnControlPort",
+      "__post_init__",
+      "input_sha256",
+      "__init__",
+      "receive"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [
+      "M1-TRUSTED-INITIALIZER"
+    ],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}

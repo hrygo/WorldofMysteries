@@ -45,6 +45,7 @@ def command():
         raw_input=text,
         input_sha256=hashlib.sha256(text.encode()).hexdigest(),
         base_revisions=BaseRevisions(world=0, character=0, story=0),
+        public_expected_store_revision=7,
     )
 
 
@@ -78,6 +79,11 @@ async def test_player_advice_survives_restart_and_lost_ack_without_second_model_
         first = await service.interpret("input-advice-1")
         assert not first.replayed
         assert model.calls == 1
+        frozen = await SQLitePlayerAdviceRepository(database).load_input(
+            "input-advice-1"
+        )
+        assert frozen is not None
+        assert frozen.public_expected_store_revision == 7
         meta = await database.read_world("SELECT revision FROM world_meta")
         assert meta[0]["revision"] == 0
     finally:
