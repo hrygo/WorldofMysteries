@@ -237,6 +237,14 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
             target = modules / Path(name).relative_to('engine')
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
+        # The trusted Golden content is generated, never tracked: the artifact is
+        # produced by the same build script the repository tests exercise.
+        story_content = run([str(python), '-I', '-B', str(ROOT/'scripts/build_story_content.py'),
+                             '--out', str(modules/'infrastructure/story_content/canon.db')],
+                            cwd=work, log=logs/'story-content-build.log', env=env)
+        story_content_summary = json.loads(story_content.strip().splitlines()[-1])
+        if story_content_summary['scenario_id'] != 'golden_001':
+            raise BundleError('Unexpected story content scenario')
         # Exercise the installed AgentScope 2.x message API without creating services or calling a model.
         code = """import agentscope,aiosqlite,pydantic,pydantic_core,openai,jsonschema,sqlite3,ssl,ctypes,sys,json,_wom_sqlite3
 from importlib.metadata import distributions,version
@@ -253,6 +261,18 @@ print(json.dumps({'agentscope':version('agentscope'),'python':sys.version.split(
         raw = run([str(python), '-I', '-B', '-c', code], cwd=work,
                   log=logs/'dependency-probe.log', env=env)
         dependencies = json.loads(raw.strip().splitlines()[-1])
+        # The packaged engine must resolve its content artifact from the module
+        # directory, never from a repository cwd or environment variable.
+        relocated = work / 'story-content-probe'
+        relocated.mkdir()
+        probe_code = ("import json,sys;sys.path.insert(0,sys.argv[1]);"
+                      "from infrastructure.story_runtime import default_content_path;"
+                      "p=default_content_path();"
+                      "print(json.dumps({'content_artifact_exists':p.is_file()}))")
+        relocation = json.loads(run([str(python), '-I', '-B', '-c', probe_code, str(modules)],
+                                    cwd=relocated, log=logs/'story-content-relocation.log', env=env).strip().splitlines()[-1])
+        if not relocation['content_artifact_exists']:
+            raise BundleError('Packaged story content is not module-relative')
         # Installation-created bytecode is not required. Runtime always launches with -B.
         for cache in list(runtime.rglob('__pycache__')):
             if cache.is_dir() and not cache.is_symlink():
@@ -266,6 +286,7 @@ print(json.dumps({'agentscope':version('agentscope'),'python':sys.version.split(
             'source_commit': subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
             'runtime_archive_sha256': lock['sha256'], 'dependency_lock_sha256': sha256(ROOT/'engine/uv.lock'),
             'runtime_source': lock, 'data_sqlite': data_sqlite, 'dependencies': dependencies['packages'],
+            'story_content': story_content_summary,
             'inventory_phase': 'before-code-signing', 'files': source_inventory(runtime)}
         (runtime/'runtime-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
         # All upstream runtime and wheel license data are preserved without pruning.
