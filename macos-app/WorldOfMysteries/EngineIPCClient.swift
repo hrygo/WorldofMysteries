@@ -220,6 +220,104 @@ public actor EngineIPCClient {
         return transport.events
     }
 
+    // MARK: - Trusted first-turn story surface
+
+    public func storyEntry(
+        scenarioId: String = StoryControl.scenarioId,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryEntryViewDTO {
+        try await storyRequest(
+            method: "story.entry.get",
+            payload: StoryEntryRequestDTO(scenarioId: scenarioId),
+            traceId: traceId
+        )
+    }
+
+    public func storyOpen(
+        openRequestId: String,
+        expectedStoreRevision: Int,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryOpenViewDTO {
+        // The envelope idempotency key must equal the business identity.
+        try await storyRequest(
+            method: "story.session.open",
+            payload: try StorySessionOpenRequestDTO(
+                openRequestId: openRequestId,
+                expectedStoreRevision: expectedStoreRevision),
+            traceId: traceId,
+            idempotencyKey: openRequestId
+        )
+    }
+
+    public func storySession(
+        sessionId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StorySessionGetViewDTO {
+        try await storyRequest(
+            method: "story.session.get",
+            payload: try StorySessionGetRequestDTO(sessionId: sessionId),
+            traceId: traceId
+        )
+    }
+
+    public func storySubmit(
+        _ request: StoryAdviceSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyRequest(
+            method: "story.advice.submit",
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
+    public func storyAdvice(
+        sessionId: String,
+        inputTurnId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceGetViewDTO {
+        try await storyRequest(
+            method: "story.advice.get",
+            payload: try StoryAdviceGetRequestDTO(
+                sessionId: sessionId, inputTurnId: inputTurnId),
+            traceId: traceId
+        )
+    }
+
+    private func storyRequest<Payload: Encodable, View: Decodable>(
+        method: String,
+        payload: Payload,
+        traceId: String,
+        idempotencyKey: String? = nil
+    ) async throws -> View {
+        let encoded = try JSONEncoder().encode(payload)
+        let wire = try JSONDecoder().decode([String: AnyCodableValue].self, from: encoded)
+        let response = try await send(
+            envelope: IPCEnvelope(
+                kind: "request",
+                traceId: traceId,
+                requestId: UUID().uuidString,
+                idempotencyKey: idempotencyKey,
+                method: method,
+                payload: wire
+            )
+        )
+        guard response.status == "ok" else {
+            if response.error?.code == "method_not_supported" {
+                throw EngineConnectionError.methodUnavailable
+            }
+            if let error = response.error {
+                throw StoryControlServiceError(code: error.code, retryable: error.retryable)
+            }
+            throw EngineConnectionError.invalidFrame
+        }
+        guard let view = try response.decodePayload(as: View.self) else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return view
+    }
+
     public func connectionFailures() throws -> AsyncStream<EngineConnectionError> {
         guard let transport, isConnected else { throw EngineConnectionError.notConnected }
         return transport.failures
@@ -232,5 +330,45 @@ public actor EngineIPCClient {
         let previous = transport
         transport = nil
         await previous?.close()
+    }
+}
+
+/// `StorySessionModel` depends on this narrow surface; the actor keeps its richer
+/// trace-id variants for diagnostics.
+extension EngineIPCClient: StoryEngineClient {
+    public func storyEntry(scenarioId: String) async throws -> StoryEntryViewDTO {
+        try await storyEntry(scenarioId: scenarioId, traceId: UUID().uuidString)
+    }
+
+    public func storyOpen(
+        openRequestId: String,
+        expectedStoreRevision: Int
+    ) async throws -> StoryOpenViewDTO {
+        try await storyOpen(
+            openRequestId: openRequestId,
+            expectedStoreRevision: expectedStoreRevision,
+            traceId: UUID().uuidString
+        )
+    }
+
+    public func storySession(sessionId: String) async throws -> StorySessionGetViewDTO {
+        try await storySession(sessionId: sessionId, traceId: UUID().uuidString)
+    }
+
+    public func storySubmit(
+        _ request: StoryAdviceSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storySubmit(request, traceId: UUID().uuidString)
+    }
+
+    public func storyAdvice(
+        sessionId: String,
+        inputTurnId: String
+    ) async throws -> StoryAdviceGetViewDTO {
+        try await storyAdvice(
+            sessionId: sessionId,
+            inputTurnId: inputTurnId,
+            traceId: UUID().uuidString
+        )
     }
 }

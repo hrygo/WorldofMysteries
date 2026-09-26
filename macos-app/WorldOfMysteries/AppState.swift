@@ -12,6 +12,8 @@ public final class AppState {
     public private(set) var engineHandshake: EngineHandshake?
     public let ipcClient: EngineIPCClient
     public let processManager: EngineProcessManager
+    /// Independent trusted first-turn state. It never rewrites the demo snapshot.
+    public let storyModel: StorySessionModel
 
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var stopTask: Task<Void, Never>?
@@ -35,6 +37,7 @@ public final class AppState {
     public init(ipcClient: EngineIPCClient = EngineIPCClient(), processManager: EngineProcessManager = EngineProcessManager()) {
         self.ipcClient = ipcClient
         self.processManager = processManager
+        self.storyModel = StorySessionModel(client: ipcClient)
     }
 
     public func startAndConnect() async {
@@ -79,6 +82,7 @@ public final class AppState {
             let failures = try await ipcClient.connectionFailures()
             engineHandshake = welcome
             engineHealth = health
+            await syncStoryAvailability(handshake: welcome, health: health)
             connectionState = health.worldReady && welcome.capabilities.contains("world.home") ? .ready : .transportReady
             monitorTask = Task { [weak self] in
                 for await failure in failures {
@@ -115,10 +119,19 @@ public final class AppState {
 
     public func updateActiveArtifactContext(_ context: ArtifactContext?) { activeArtifactContext = context }
 
+    /// Story entry is only offered when the Engine really advertises it and the
+    /// world service is up. A transport-only Engine leaves the panel unavailable.
+    private func syncStoryAvailability(handshake: EngineHandshake, health: EngineHealth) async {
+        storyModel.detachForConnectionChange()
+        guard health.worldReady, handshake.capabilities.contains("story.entry.get") else { return }
+        await storyModel.attach()
+    }
+
     private func clearRuntime() {
         engineHealth = nil
         engineHandshake = nil
         activeArtifactContext = nil
+        storyModel.detachForConnectionChange()
     }
 
     /// Idempotent stop barrier: a new start waits until cancelled startup and teardown

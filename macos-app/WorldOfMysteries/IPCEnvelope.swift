@@ -10,7 +10,7 @@ private nonisolated struct IPCWireKey: CodingKey {
 /// Protocol errors intentionally contain no incoming payload or authentication token.
 public nonisolated enum IPCContractError: Error { case invalidEnvelope }
 
-private nonisolated func checkWireKeys(
+nonisolated func checkWireKeys(
     _ decoder: any Decoder, allowed: Set<String>, required: Set<String>
 ) throws {
     let values = try decoder.container(keyedBy: IPCWireKey.self)
