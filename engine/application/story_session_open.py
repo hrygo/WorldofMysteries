@@ -7,6 +7,7 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from contracts import StorySession, StorySessionStatus
+from .story_initialization import StorySessionBootstrap
 
 _MAX_SQLITE_REVISION = 2**63 - 1
 
@@ -18,6 +19,7 @@ class OpenStorySessionCommand:
     store_expected_revision: int
     request_id: str
     trace_id: str
+    bootstrap: StorySessionBootstrap | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +136,7 @@ def _freeze_command(command: OpenStorySessionCommand) -> OpenStorySessionCommand
         raise StorySessionOpenError("invalid_initial_session")
 
     _require_text(state.world_time, "invalid_world_time")
+    frozen_bootstrap = _freeze_bootstrap(command.bootstrap)
 
     return OpenStorySessionCommand(
         initial_session=frozen_initial,
@@ -141,7 +144,23 @@ def _freeze_command(command: OpenStorySessionCommand) -> OpenStorySessionCommand
         store_expected_revision=command.store_expected_revision,
         request_id=command.request_id,
         trace_id=command.trace_id,
+        bootstrap=frozen_bootstrap,
     )
+
+
+def _freeze_bootstrap(
+    bootstrap: StorySessionBootstrap | None,
+) -> StorySessionBootstrap | None:
+    if bootstrap is None:
+        return None
+    if not isinstance(bootstrap, StorySessionBootstrap):
+        raise StorySessionOpenError("invalid_bootstrap")
+    try:
+        return StorySessionBootstrap.model_validate(
+            bootstrap.model_dump(mode="json", exclude_none=False)
+        )
+    except (TypeError, ValueError, ValidationError):
+        raise StorySessionOpenError("invalid_bootstrap") from None
 
 
 def _require_text(value: object, code: str, *, limit: int = 256) -> str:

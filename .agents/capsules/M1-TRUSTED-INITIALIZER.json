@@ -1,0 +1,147 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-TRUSTED-INITIALIZER",
+  "capsule_revision": 1,
+  "task_id": "M1-TRUSTED-INITIALIZER",
+  "title": "实现可信 Golden 001 首轮初始化",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-26T06:57:21.882533+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "8a6a9515c795b892264b5c5ab5bae4335e972df5",
+    "target_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "context_snapshot": "sha256:a3fb71f9e8549bf0ab02f85a0929fc349d843c8a6c09818a18fbca33d9218e8e"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_summary_escapes_untrusted_reason_text@engine/tests/test_ci_changed_scope.py:52",
+      "symbol:test_pull_request_scope_uses_trusted_base_classifier@engine/tests/test_ci_workflow.py:24",
+      "symbol:AgentScopeAdapterProtocol@engine/ai/agentscope_adapter.py:18",
+      "symbol:PreparedAgentScopeAdapter@engine/ai/agentscope_adapter.py:22",
+      "symbol:send@engine/ai/agentscope_adapter.py:19",
+      "symbol:__init__@engine/ai/agentscope_adapter.py:23",
+      "symbol:send@engine/ai/agentscope_adapter.py:27",
+      "symbol:CacheUsage@engine/ai/cache_metrics.py:9",
+      "symbol:normalize_usage@engine/ai/cache_metrics.py:23",
+      "symbol:aggregate_hit_rate@engine/ai/cache_metrics.py:68",
+      "symbol:hit_rate@engine/ai/cache_metrics.py:17",
+      "symbol:number@engine/ai/cache_metrics.py:28",
+      "symbol:GameplayCacheDecision@engine/ai/gameplay_cache.py:16",
+      "symbol:GameplayCachePlanner@engine/ai/gameplay_cache.py:24",
+      "symbol:GameplayAIGateway@engine/ai/gameplay_cache.py:55",
+      "symbol:decide@engine/ai/gameplay_cache.py:31",
+      "symbol:__init__@engine/ai/gameplay_cache.py:57",
+      "symbol:execute@engine/ai/gameplay_cache.py:63",
+      "symbol:TokenCount@engine/ai/gateway.py:23",
+      "symbol:ModelReply@engine/ai/gateway.py:29",
+      "symbol:PreparedTransport@engine/ai/gateway.py:34",
+      "symbol:ExecutionBudget@engine/ai/gateway.py:39",
+      "symbol:ProposalResult@engine/ai/gateway.py:59",
+      "symbol:AttemptObservation@engine/ai/gateway.py:72",
+      "symbol:AIGatewayProtocol@engine/ai/gateway.py:82",
+      "symbol:CacheAwareGateway@engine/ai/gateway.py:89",
+      "symbol:send@engine/ai/gateway.py:35",
+      "symbol:__post_init__@engine/ai/gateway.py:46",
+      "symbol:proposal@engine/ai/gateway.py:67",
+      "symbol:execute@engine/ai/gateway.py:83"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 615,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_summary_escapes_untrusted_reason_text",
+      "test_pull_request_scope_uses_trusted_base_classifier",
+      "AgentScopeAdapterProtocol",
+      "PreparedAgentScopeAdapter",
+      "send",
+      "__init__",
+      "send",
+      "CacheUsage",
+      "normalize_usage",
+      "aggregate_hit_rate",
+      "hit_rate",
+      "number",
+      "GameplayCacheDecision",
+      "GameplayCachePlanner",
+      "GameplayAIGateway",
+      "decide",
+      "__init__",
+      "execute",
+      "TokenCount",
+      "ModelReply",
+      "PreparedTransport",
+      "ExecutionBudget",
+      "ProposalResult",
+      "AttemptObservation",
+      "AIGatewayProtocol",
+      "CacheAwareGateway",
+      "send",
+      "__post_init__",
+      "proposal",
+      "execute"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}
