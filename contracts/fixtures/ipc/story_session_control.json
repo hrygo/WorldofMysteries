@@ -1,0 +1,430 @@
+{
+  "supported_advice": "先别问医生病人的事，我想看看他的反应。",
+  "cases": [
+    {
+      "id": "entry_get_request_valid",
+      "shape": "entry_get_request",
+      "value": {"schema_version": "1.0", "scenario_id": "golden_001"},
+      "valid": true
+    },
+    {
+      "id": "session_open_request_valid",
+      "shape": "session_open_request",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "open_request_id": "open_first_001",
+        "expected_store_revision": 0
+      },
+      "valid": true
+    },
+    {
+      "id": "session_get_request_valid",
+      "shape": "session_get_request",
+      "value": {"schema_version": "1.0", "session_id": "session_0123456789abcdef0123456789abcdef"},
+      "valid": true
+    },
+    {
+      "id": "advice_submit_request_valid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": "先别问医生病人的事，我想看看他的反应。",
+        "expected_story_revision": 0,
+        "expected_store_revision": 1
+      },
+      "valid": true
+    },
+    {
+      "id": "advice_get_request_valid",
+      "shape": "advice_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001"
+      },
+      "valid": true
+    },
+    {
+      "id": "entry_get_response_before_open_valid",
+      "shape": "entry_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "mode": "golden_deterministic",
+        "supported_advice": ["先别问医生病人的事，我想看看他的反应。"],
+        "observed_store_revision": 0
+      },
+      "valid": true
+    },
+    {
+      "id": "entry_get_response_existing_pending_valid",
+      "shape": "entry_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "mode": "golden_deterministic",
+        "supported_advice": ["先别问医生病人的事，我想看看他的反应。"],
+        "observed_store_revision": 2,
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 0,
+          "turn": 0,
+          "observed_store_revision": 2,
+          "world_time": "1349-05-14T09:00:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [],
+          "can_submit": true
+        },
+        "pending_input_turn_id": "input_turn_first_001"
+      },
+      "valid": true
+    },
+    {
+      "id": "session_open_response_valid",
+      "shape": "session_open_response",
+      "value": {
+        "schema_version": "1.0",
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 0,
+          "turn": 0,
+          "observed_store_revision": 1,
+          "world_time": "1349-05-14T09:00:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [],
+          "can_submit": true
+        },
+        "opened_store_revision": 1,
+        "replayed": false
+      },
+      "valid": true
+    },
+    {
+      "id": "session_get_response_after_commit_valid",
+      "shape": "session_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 1,
+          "turn": 1,
+          "observed_store_revision": 2,
+          "world_time": "1349-05-14T09:03:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [
+            {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
+          ],
+          "can_submit": false,
+          "last_committed_turn_id": "turn_first_001"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "advice_submit_response_valid",
+      "shape": "advice_submit_response",
+      "value": {
+        "schema_version": "1.0",
+        "receipt": {
+          "input_turn_id": "input_turn_first_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "turn_id": "turn_first_001",
+          "status": "committed",
+          "committed_store_revision": 2,
+          "committed_story_revision": 1
+        },
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 1,
+          "turn": 1,
+          "observed_store_revision": 2,
+          "world_time": "1349-05-14T09:03:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [
+            {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
+          ],
+          "can_submit": false,
+          "last_committed_turn_id": "turn_first_001"
+        },
+        "replayed": false
+      },
+      "valid": true
+    },
+    {
+      "id": "advice_get_response_received_valid",
+      "shape": "advice_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "found": true,
+        "receipt": {
+          "input_turn_id": "input_turn_first_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "turn_id": "turn_first_001",
+          "status": "received"
+        },
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 0,
+          "turn": 0,
+          "observed_store_revision": 2,
+          "world_time": "1349-05-14T09:00:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [],
+          "can_submit": false
+        },
+        "replayed": true
+      },
+      "valid": true
+    },
+    {
+      "id": "advice_get_response_not_found_valid",
+      "shape": "advice_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "found": false,
+        "replayed": false
+      },
+      "valid": true
+    },
+    {
+      "id": "entry_get_request_unknown_field_invalid",
+      "shape": "entry_get_request",
+      "value": {"schema_version": "1.0", "scenario_id": "golden_001", "seed": "forbidden"},
+      "valid": false
+    },
+    {
+      "id": "session_open_request_null_invalid",
+      "shape": "session_open_request",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "open_request_id": "open_first_001",
+        "expected_store_revision": null
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_request_bool_revision_invalid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": "先别问医生病人的事，我想看看他的反应。",
+        "expected_story_revision": true,
+        "expected_store_revision": 1
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_request_revision_limit_invalid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": "先别问医生病人的事，我想看看他的反应。",
+        "expected_story_revision": 9223372036854775807,
+        "expected_store_revision": 1
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_request_empty_input_invalid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": "",
+        "expected_story_revision": 0,
+        "expected_store_revision": 1
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_request_whitespace_input_invalid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": " \t\n",
+        "expected_story_revision": 0,
+        "expected_store_revision": 1
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_request_nul_input_invalid",
+      "shape": "advice_submit_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "input_turn_id": "input_turn_first_001",
+        "raw_input": "valid\u0000suffix",
+        "expected_story_revision": 0,
+        "expected_store_revision": 1
+      },
+      "valid": false
+    },
+    {
+      "id": "invalid_scenario_id",
+      "shape": "entry_get_request",
+      "value": {"schema_version": "1.0", "scenario_id": "golden_002"},
+      "valid": false
+    },
+    {
+      "id": "invalid_schema_version",
+      "shape": "entry_get_request",
+      "value": {"schema_version": "2.0", "scenario_id": "golden_001"},
+      "valid": false
+    },
+    {
+      "id": "session_view_hidden_field_invalid",
+      "shape": "public_story_session_view",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "mode": "golden_deterministic",
+        "status": "active",
+        "story_revision": 0,
+        "turn": 0,
+        "observed_store_revision": 1,
+        "world_time": "1349-05-14T09:00:00+00:00",
+        "protagonist": {"id": "klein", "display_name": "克莱恩"},
+        "scene": {
+          "id": "consultation_room",
+          "location_id": "harvey_clinic",
+          "display_name": "哈维诊所 · 诊室"
+        },
+        "discovered_clues": [],
+        "can_submit": true,
+        "secret_states": {"secret_doctor_truth": "hidden"}
+      },
+      "valid": false
+    },
+    {
+      "id": "committed_receipt_missing_committed_revisions_invalid",
+      "shape": "receipt",
+      "value": {
+        "input_turn_id": "input_turn_first_001",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_first_001",
+        "status": "committed"
+      },
+      "valid": false
+    },
+    {
+      "id": "received_receipt_with_committed_revision_invalid",
+      "shape": "receipt",
+      "value": {
+        "input_turn_id": "input_turn_first_001",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_first_001",
+        "status": "received",
+        "committed_store_revision": 2
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_get_found_false_with_receipt_invalid",
+      "shape": "advice_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "found": false,
+        "receipt": {
+          "input_turn_id": "input_turn_first_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "turn_id": "turn_first_001",
+          "status": "received"
+        },
+        "replayed": false
+      },
+      "valid": false
+    },
+    {
+      "id": "advice_submit_non_committed_receipt_invalid",
+      "shape": "advice_submit_response",
+      "value": {
+        "schema_version": "1.0",
+        "receipt": {
+          "input_turn_id": "input_turn_first_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "turn_id": "turn_first_001",
+          "status": "received"
+        },
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 0,
+          "turn": 0,
+          "observed_store_revision": 2,
+          "world_time": "1349-05-14T09:00:00+00:00",
+          "protagonist": {"id": "klein", "display_name": "克莱恩"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [],
+          "can_submit": false
+        },
+        "replayed": true
+      },
+      "valid": false
+    }
+  ]
+}

@@ -1,20 +1,20 @@
 {
   "project_name": "World of Mysteries",
   "version": "0.1.0",
-  "last_updated": "2026-09-25",
+  "last_updated": "2026-09-26",
   "current_phase": {
     "phase_id": "Phase 1",
     "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
     "status": "IN_PROGRESS",
-      "progress_summary": "截至 2026-09-25，持久 Session Open 与真实首轮 Advice→COMMIT 已在候选分支完成并通过 FULL_P0；候选基于 main@0890eb3，代码 head b848ad6、凭单提交 710d7bf，尚未推送或合并。Story turn 从 0 到 1，开场与首轮分别持久化；Engine 组合根、UDS/IPC/App 接线、全领域结算、Golden 五轮与真机发布仍未验收。"
+      "progress_summary": "截至 2026-09-26，持久 Session Open 与真实首轮 Advice→COMMIT 已通过 PR #202 合入 main（合并提交 26999fc，当前 main@dccdbd7）。当前迭代转入可信初始化、最小授权投影、Engine 组合根/IPC 与 App 首轮真实接线；M1 仍未闭环，全领域结算、Golden 五轮与真机发布仍未验收。"
   },
   "gates_health": {
-    "ast_fitness": "PASSED: 2026-09-25 FULL_P0 Stage 1 对候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 通过；不等同于产品运行验收",
-    "schemas_integrity": "PASSED: 2026-09-25 FULL_P0 Stage 2 在候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 通过；本迭代未修改产品 Schema",
-    "python_tests": "PASSED: 2026-09-25 FULL_P0 Stage 2，Python 3.14.7 / uv 0.12.18，全引擎与契约测试通过",
-    "swift_tests": "PASSED: 2026-09-25 FULL_P0 Stage 3 Swift 6 测试与 Stage 4 arm64 Xcode App Target Build 均通过",
-    "ci_cd_readiness": "CONFIGURED_NOT_RECHECKED: 本候选尚未推送或创建 PR；本地 FULL_P0 Work Receipt 不代表主线 CI 或合入授权",
-    "golden_001_runtime": "PARTIAL: 候选测试真实覆盖 Session Open 与首轮 COMMIT、重放、数据库重开、CAS/并发及生命周期 fault hooks；G001–G012 五轮、全领域结算与 App/进程重启连续性仍未验收"
+    "ast_fitness": "HISTORICAL_PASS: PR #202 候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 在 2026-09-25 FULL_P0 Stage 1 通过；当前迭代尚未重跑 FULL_P0",
+    "schemas_integrity": "IN_PROGRESS: T1 新增 story_session_control 协议 schema 并完成定向契约测试；当前迭代 FULL_P0 尚未重跑",
+    "python_tests": "HISTORICAL_PASS: PR #202 候选在 Python 3.14.7 / uv 0.12.18 下通过 FULL_P0；当前迭代结果以新凭单为准",
+    "swift_tests": "HISTORICAL_PASS: PR #202 候选通过 Swift 6 测试与 arm64 App 构建；当前迭代尚未重跑",
+    "ci_cd_readiness": "CONFIGURED: PR #202 已合入；main 当前为 dccdbd7。本轮本地验证尚未推送或创建 PR",
+    "golden_001_runtime": "PARTIAL: PR #202 测试真实覆盖 Session Open 与首轮 COMMIT、重放、数据库重开、CAS/并发及生命周期 fault hooks；G001–G012 五轮、全领域结算与 App/进程重启连续性仍未验收"
   },
   "completed_phases": [
     {
@@ -64,7 +64,7 @@
       "phase": "Phase 1",
       "status": "IN_PROGRESS",
       "lead_role": "AGT-ARB",
-      "description": "真实独立 Engine、UDS 通路与 App 生命周期；Session Open 与首轮持久链有未合入候选证据，但服务端 #44、客户端 #45、Engine 组合根和 App 首轮接线仍待交付，未实现业务保持 fail-closed。",
+      "description": "真实独立 Engine、UDS 通路与 App 生命周期；Session Open 与首轮持久链已通过 PR #202 入库，但服务端 #44、客户端 #45、可信初始化、Engine 组合根和 App 首轮接线仍待交付，未实现业务保持 fail-closed。",
       "tracking_issues": [
         44,
         45
@@ -148,7 +148,7 @@
   "critical_path": {
     "next_milestone_id": "M1",
     "next_milestone_name": "Local Engine 运行守护与 UDS IPC 双向通路",
-    "strategic_rationale": "Session Open 与第一条 Advice→COMMIT 已在基于 main@0890eb3 的候选代码中通过 FULL_P0，但尚未推送或合并。M1 仍未闭环：下一步先明确可信 StorySeed/世界角色装载与最小授权 UI 投影，再把 opener 接入 Engine 组合根、受限 UDS/IPC 与 App 首轮交互；之后补齐全领域结算和 Golden 五轮，再进入真实模型与设备验收。",
+    "strategic_rationale": "Session Open 与第一条 Advice→COMMIT 已通过 PR #202 合入 main。M1 仍未闭环：下一步先冻结可信 Story Session wire 契约，再实现可信 initialization/持久绑定、最小授权 UI 投影和 Engine runtime，最后接通 App 首轮交互；之后补齐全领域结算和 Golden 五轮，再进入真实模型与设备验收。",
     "target_deliverables": [
       "定义可信 StorySeed/世界与角色装载边界及最小授权 UI 投影；客户端不得上传完整 StorySession 或隐藏事实",
       "将 StorySessionOpenService 与 SQLite adapter 接入 Engine 组合根及受限 IPC；App 从合法初始会话开始，使真实输入从 turn 1 到达 COMMIT",
@@ -158,25 +158,25 @@
       "目标 Mac 的随包、设备与发布验收仍须另行绑定当前 SHA；本地 FULL_P0 不替代这些验收"
     ],
     "dispatch": {
-      "assigned_role": "AGT-DATA",
-      "role_title": "Engine 基础设施实现（服务端切片）",
-      "task_id": "M1-ENGINE-IPC",
-      "task_title": "实现独立 Local Engine UDS 服务与生命周期",
-      "issue": 44,
+      "assigned_role": "AGT-ARB",
+      "role_title": "可信首轮契约与范围冻结",
+      "task_id": "M1-FIRST-TURN-CONTRACT",
+      "task_title": "冻结可信首轮 Story Session wire 契约",
+      "issue": 43,
       "authorized_scope": [
-        "engine/infrastructure/",
-        "engine/tests/"
+        "contracts/",
+        "docs/"
       ],
       "forbidden_patterns": [
         "macos-app/**",
         "engine/domain/**",
+        "engine/infrastructure/**",
         "engine/ai/**",
-        "contracts/**",
         ".hacf/**",
         ".github/**"
       ],
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-DATA --task-id M1-ENGINE-IPC --title \"实现独立 Local Engine UDS 服务与生命周期\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/m1-engine-ipc --role AGT-DATA --task-id M1-ENGINE-IPC"
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-ARB --task-id M1-FIRST-TURN-CONTRACT --title \"冻结可信首轮 Story Session wire 契约\"",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/m1-first-turn-contract --role AGT-ARB --task-id M1-FIRST-TURN-CONTRACT"
     }
   },
   "historical_gate_reports": [
@@ -198,8 +198,8 @@
     "tracking_issue": 43,
     "current_stage": "A",
     "source_review_base_sha": "c0c18ae31d76dac54b981e7855de87024f8d9e09",
-    "decision": "持久 Session Open 与真实首轮链已在候选分支通过软件门禁；下一步可信初始化/授权投影和 Engine 组合根、IPC、App 接线，再全领域结算与五轮，之后真实模型/基础语音和独立用户体验；不重开已批准美术构图。",
-    "evidence_boundary": "2026-09-25 候选代码 head b848ad66f159f7a2d493da51ce23e716b0d5fbc2 的 FULL_P0 Work Receipt 已通过，Receipt 独立提交为 710d7bf5d96a23268be09822a14934b2a12ad2f8；审查未发现 Critical/Important/Required 问题。候选仍未推送、开 PR 或合并。软件门禁不代表 M1/M2/M5 完成、App 可玩、全 Golden 五轮、设备或发布验收。",
+    "decision": "持久 Session Open 与真实首轮链已通过 PR #202 合入；当前迭代按 Luna 方案先冻结可信首轮契约，再推进可信初始化、授权投影、Engine runtime、内容打包与 App 接线；不重开已批准美术构图。",
+    "evidence_boundary": "PR #202 已于 2026-09-25 合入 main，合并提交为 26999fc61c074292224cdb7ce6c6ad89aca16c35；随后 main 推进到 dccdbd76ef488281cda86be01a6857754b91b7c0。2026-09-25 候选 FULL_P0 Work Receipt 仅证明当时交付链通过软件门禁，不代表 M1/M2/M5 完成、App 可玩、全 Golden 五轮、设备或发布验收。",
     "candidate_evidence": {
       "main_base_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
       "code_head_sha": "b848ad66f159f7a2d493da51ce23e716b0d5fbc2",
@@ -207,7 +207,9 @@
       "work_receipt_id": "RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159",
       "gate_profile": "FULL_P0",
       "gate_result": "passed",
-      "integration_state": "local candidate; not pushed, no PR, not merged"
+      "integration_state": "merged via PR #202",
+      "merge_commit_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+      "current_main_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0"
     },
     "parallel_ready": [
       {
