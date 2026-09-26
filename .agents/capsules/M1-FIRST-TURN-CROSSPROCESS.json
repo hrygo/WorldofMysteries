@@ -1,0 +1,172 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-M1-FIRST-TURN-CROSSPROCESS",
+  "capsule_revision": 1,
+  "task_id": "M1-FIRST-TURN-CROSSPROCESS",
+  "title": "真实双进程首轮：重开、lost ACK、pending 续跑与非法输入",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-26T11:13:07.587037+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "86054e1a2fe9ddf1b7231c6d9bb4301c970f44d2",
+    "target_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "context_snapshot": "sha256:b558f9316ea447606e6a1e1f324533b11e7defa3ff5de499dcf5c3bbae535ca6"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_application_owns_action_identity_turn_actor_and_evidence@engine/tests/test_action_intent_proposal.py:168",
+      "symbol:load_turn@engine/tests/test_advice_commit_proposal.py:183",
+      "symbol:commit_turn@engine/tests/test_advice_commit_proposal.py:191",
+      "symbol:test_real_story_first_turn_reopens_across_processes@engine/tests/test_app_engine_session.py:343",
+      "symbol:first_fetch@engine/tests/test_audio_adapter.py:311",
+      "symbol:_turn@engine/tests/test_audio_disclosure.py:316",
+      "symbol:test_audio_authorizer_returns_only_exact_committed_narrative_segment@engine/tests/test_audio_disclosure.py:360",
+      "symbol:test_audio_authorizer_rejects_turn_before_narrative_ready@engine/tests/test_audio_disclosure.py:387",
+      "symbol:load_turn@engine/tests/test_audio_disclosure.py:308",
+      "symbol:validated_turn@engine/tests/test_audio_track_repository.py:96",
+      "symbol:test_cleanup_db_first_crash_leaves_retryable_orphan_not_phantom_row@engine/tests/test_audio_track_repository.py:437",
+      "symbol:test_golden_001_turns_advice_matches_schema@engine/tests/test_contracts_schema.py:103",
+      "symbol:test_gameplay_epoch_ignores_turn_revision_but_rotates_on_checkpoint_dimension@engine/tests/test_gameplay_context.py:150",
+      "symbol:_read@engine/tests/test_golden_first_turn.py:29",
+      "symbol:_canonical_digest@engine/tests/test_golden_first_turn.py:33",
+      "symbol:_bundle_payload@engine/tests/test_golden_first_turn.py:46",
+      "symbol:Source@engine/tests/test_golden_first_turn.py:75",
+      "symbol:_bootstrap@engine/tests/test_golden_first_turn.py:80",
+      "symbol:_frozen@engine/tests/test_golden_first_turn.py:88",
+      "symbol:test_interpreter_uses_only_frozen_semantic_template@engine/tests/test_golden_first_turn.py:104",
+      "symbol:test_interpreter_rejects_any_other_text@engine/tests/test_golden_first_turn.py:118",
+      "symbol:test_proposer_rebinds_identity_and_evidence_later@engine/tests/test_golden_first_turn.py:131",
+      "symbol:load@engine/tests/test_golden_first_turn.py:76",
+      "symbol:_read@engine/tests/test_golden_turn1_durable.py:25",
+      "symbol:_initial_session@engine/tests/test_golden_turn1_durable.py:29",
+      "symbol:_turn1_delta@engine/tests/test_golden_turn1_durable.py:77",
+      "symbol:_validated_turn@engine/tests/test_golden_turn1_durable.py:104",
+      "symbol:_open_database@engine/tests/test_golden_turn1_durable.py:122",
+      "symbol:_rows@engine/tests/test_golden_turn1_durable.py:136",
+      "symbol:test_golden_turn1_commit_survives_close_reopen_and_replay@engine/tests/test_golden_turn1_durable.py:141"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 816,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_application_owns_action_identity_turn_actor_and_evidence",
+      "load_turn",
+      "commit_turn",
+      "test_real_story_first_turn_reopens_across_processes",
+      "first_fetch",
+      "_turn",
+      "test_audio_authorizer_returns_only_exact_committed_narrative_segment",
+      "test_audio_authorizer_rejects_turn_before_narrative_ready",
+      "load_turn",
+      "validated_turn",
+      "test_cleanup_db_first_crash_leaves_retryable_orphan_not_phantom_row",
+      "test_golden_001_turns_advice_matches_schema",
+      "test_gameplay_epoch_ignores_turn_revision_but_rotates_on_checkpoint_dimension",
+      "_read",
+      "_canonical_digest",
+      "_bundle_payload",
+      "Source",
+      "_bootstrap",
+      "_frozen",
+      "test_interpreter_uses_only_frozen_semantic_template",
+      "test_interpreter_rejects_any_other_text",
+      "test_proposer_rebinds_identity_and_evidence_later",
+      "load",
+      "_read",
+      "_initial_session",
+      "_turn1_delta",
+      "_validated_turn",
+      "_open_database",
+      "_rows",
+      "test_golden_turn1_commit_survives_close_reopen_and_replay"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

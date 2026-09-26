@@ -11,6 +11,10 @@ struct AppEngineDriver {
     static func main() async throws {
         let args = CommandLine.arguments
         let mode = args[1]
+        if mode.hasPrefix("story-") {
+            try await runStoryMode(mode: mode, args: args)
+            return
+        }
         if mode == "peer" {
             let variant = args[4]
             // Fragment reassembly is not a 300ms latency benchmark. Deliberate
@@ -154,6 +158,133 @@ struct AppEngineDriver {
             await client.disconnect()
             await manager.terminateEngine()
             throw error
+        }
+    }
+
+    // MARK: - Real Swift App → independent Engine → disk first turn
+
+    /// Drives the production AppState/StorySessionModel against a real child
+    /// Engine process. Every mode prints one `STORY {json}` fact line so the
+    /// pytest launcher can compare processes and the on-disk database.
+    @MainActor
+    private static func runStoryMode(mode: String, args: [String]) async throws {
+        let manager = EngineProcessManager(configuration: EngineLaunchConfiguration(
+            executableURL: URL(fileURLWithPath: args[2]), moduleDirectory: URL(fileURLWithPath: args[3]),
+            runtimeRoot: URL(fileURLWithPath: args[4]), dataRoot: URL(fileURLWithPath: args[5])))
+        let app = AppState(ipcClient: EngineIPCClient(requestTimeout: 5), processManager: manager)
+        do {
+            await app.startAndConnect()
+            guard app.connectionState == .transportReady, app.engineHealth?.worldReady == true else {
+                fatalError("Story engine never reported world readiness")
+            }
+            let model = app.storyModel
+            try await performStoryAction(mode: mode, model: model)
+            guard await waitForStory(mode: mode, model: model, seconds: 25) else {
+                fatalError("Story mode \(mode) never reached its expected outcome: \(stateName(model.state))")
+            }
+            try emitStoryFacts(mode: mode, model: model)
+            await app.shutdown()
+            print("PASS \(mode)")
+        } catch {
+            await app.shutdown()
+            throw error
+        }
+    }
+
+    @MainActor
+    private static func performStoryAction(mode: String, model: StorySessionModel) async throws {
+        switch mode {
+        case "story-open", "story-open-lost-ack":
+            guard model.state == .notStarted else {
+                fatalError("Expected an unopened scenario, saw \(stateName(model.state))")
+            }
+            await model.startStory()
+        case "story-submit", "story-submit-lost-ack", "story-submit-unsupported",
+             "story-submit-interrupted":
+            guard model.state == .ready, model.view?.turn == 0 else {
+                fatalError("Expected a ready turn=0 session, saw \(stateName(model.state))")
+            }
+            model.fillSupportedAdvice()
+            guard !model.draft.isEmpty else { fatalError("Engine advertised no first-turn advice") }
+            if mode == "story-submit-unsupported" {
+                model.draft = "先问问医生今天还有没有别的预约。"
+            }
+            await model.submit()
+        case "story-continue-pending":
+            guard model.state == .pending, model.canContinuePending else {
+                fatalError("Expected a recoverable pending request, saw \(stateName(model.state))")
+            }
+            await model.continuePendingRequest()
+        default:
+            break  // story-reopen / story-recover-open are pure read modes.
+        }
+    }
+
+    @MainActor
+    private static func emitStoryFacts(mode: String, model: StorySessionModel) throws {
+        var facts: [String: Any] = [
+            "mode": mode,
+            "state": stateName(model.state),
+            "draft": model.draft,
+            "supported_advice": model.supportedAdvice,
+            "can_continue_pending": model.canContinuePending,
+        ]
+        if let view = model.view {
+            facts["session_id"] = view.sessionId
+            facts["session_status"] = view.status
+            facts["turn"] = view.turn
+            facts["story_revision"] = view.storyRevision
+            facts["observed_store_revision"] = view.observedStoreRevision
+            facts["world_time"] = view.worldTime
+            facts["clues"] = view.discoveredClues.map { $0.displayName }
+        }
+        if let pending = model.pendingInputTurnId { facts["pending_input_turn_id"] = pending }
+        if let code = model.lastServiceCode { facts["last_service_code"] = code }
+        let encoded = try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
+        print("STORY " + (String(data: encoded, encoding: .utf8) ?? "{}"))
+    }
+
+    @MainActor
+    private static func waitForStory(mode: String, model: StorySessionModel, seconds: Double) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(seconds))
+        while ContinuousClock.now < deadline {
+            if storyOutcome(mode: mode, model: model) { return true }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        return storyOutcome(mode: mode, model: model)
+    }
+
+    @MainActor
+    private static func storyOutcome(mode: String, model: StorySessionModel) -> Bool {
+        switch mode {
+        case "story-open", "story-open-lost-ack", "story-recover-open":
+            return model.state == .ready && model.view?.turn == 0
+        case "story-submit", "story-submit-lost-ack", "story-reopen", "story-continue-pending":
+            return model.state == .completed && model.view?.turn == 1
+        case "story-submit-unsupported":
+            return model.state == .failed(code: "deterministic_input_unsupported")
+                && !model.draft.isEmpty && model.view?.turn == 0
+        case "story-submit-interrupted":
+            // The Engine died before the domain COMMIT: the App must stop in a
+            // recoverable read-only state instead of inventing an outcome.
+            return !model.state.isBusy && model.state != .unavailable
+        default:
+            return false
+        }
+    }
+
+    private static func stateName(_ state: StorySessionModel.State) -> String {
+        switch state {
+        case .unavailable: return "unavailable"
+        case .loading: return "loading"
+        case .notStarted: return "not_started"
+        case .opening: return "opening"
+        case .ready: return "ready"
+        case .submitting: return "submitting"
+        case .recovering: return "recovering"
+        case .pending: return "pending"
+        case .completed: return "completed"
+        case .failed: return "failed"
         }
     }
 }
