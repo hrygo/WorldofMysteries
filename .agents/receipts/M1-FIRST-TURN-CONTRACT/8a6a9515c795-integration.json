@@ -1,0 +1,141 @@
+{
+  "receipt_id": "RCP-INTEGRATION-M1-FIRST-TURN-CONTRACT-8a6a9515c795",
+  "receipt_type": "integration",
+  "task_id": "M1-FIRST-TURN-CONTRACT",
+  "capsule_id": "CAP-M1-FIRST-TURN-CONTRACT",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3f4180e45b4abf4cdb081a8af731accef3b03767f9278cf7e50803563eef0371",
+  "diff_digest": "sha256:fd844775a7fda1acde762b71544ed702d982205e5c059ff696241265ea4b9132",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+  "head_commit": "8a6a9515c795b892264b5c5ab5bae4335e972df5",
+  "target_ref": "main",
+  "target_sha": "8a6a9515c795b892264b5c5ab5bae4335e972df5",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-m1-first-turn-contract",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-26T06:52:08.463168+00:00",
+      "finished_at": "2026-09-26T06:52:08.557229+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-m1-first-turn-contract/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-26T06:52:08.557461+00:00",
+      "finished_at": "2026-09-26T06:53:09.921996+00:00",
+      "raw_log_digest": "sha256:a32733e1f8eb571224a3fd5a984710236e62a308fc0da9e5796c688df3c033b2",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/codex-m1-first-turn-contract/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-m1-first-turn-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-26T06:53:09.922167+00:00",
+      "finished_at": "2026-09-26T06:53:55.560106+00:00",
+      "raw_log_digest": "sha256:bbf9657fd20c742bdb2377cf96ff97488e43563d973510a2c90f2d8723174ce2",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-m1-first-turn-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-26T06:53:55.560257+00:00",
+      "finished_at": "2026-09-26T06:53:58.151526+00:00",
+      "raw_log_digest": "sha256:a2daff6afc5efe72ecbe4a4431b0b3780a710a45faf4e77289d5abc1419dd391",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/capsules/M1-FIRST-TURN-CONTRACT.json",
+      ".agents/receipts/M1-FIRST-TURN-CONTRACT/0fa0d2c241b4.json",
+      "contracts/fixtures/ipc/story_session_control.json",
+      "contracts/protocol/story_session_control.schema.json",
+      "contracts/tests/test_story_session_control.py",
+      "docs/03_工程规范/Engine_API_Contracts_v1.0.md",
+      "docs/PROJECT_STATE.json"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-26T06:52:08.462681+00:00",
+  "finished_at": "2026-09-26T06:56:08.291212+00:00",
+  "verdict": "passed",
+  "merge_authorizing": true,
+  "merge": {
+    "strategy": "fast-forward",
+    "expected_main_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+    "merged_sha": "8a6a9515c795b892264b5c5ab5bae4335e972df5",
+    "cas_verified": true,
+    "post_merge_smoke": "passed"
+  },
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
