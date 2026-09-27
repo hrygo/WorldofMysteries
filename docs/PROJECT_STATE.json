@@ -6,15 +6,15 @@
   "phase_id": "Phase 1",
   "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
   "status": "IN_PROGRESS",
-  "progress_summary": "截至 2026-09-27，Golden 五轮迭代的 T0–T6b 与结算接线（B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING）已在本地 main 完成并留有 Work/Integration Receipt（main 022857e）。真实五轮端到端运行此前暴露的生产缺口——打包运行时从未触发结算与 COMMIT 后表达——已关闭：SettlingCommitPort 让每次 COMMIT 后发布 BeatPlan/NarrativeBlock，第五轮结算 Episode；磁盘上真实产出 1 episodes / 1 episode_finalizations / 5 beat_plans / 5 narrative_blocks / 作者 unresolved_threads，重启不重提交。接线同时修正了 T3 遗留的契约路径错位（可重定位 bundle 中 artifact schema 解析到错误根目录，是静默无 Episode 的直接原因）与作者字段误绑。T4–T6b 及结算接线均通过 FULL_P0 本地预演与合入后 smoke，但未推送、未创建 PR。下一步是 T7（B-GOLDEN-ACCEPTANCE）：八个 Engine 终止检查点的跨进程证据、同一最终 SHA 的 GUI 观察、适用门禁收口；真实模型与 TTS 仍不属本轮。"
+  "progress_summary": "截至 2026-09-27，Golden 五轮迭代的 T0–T6b、结算接线（B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING）与八检查点故障注入基础设施（B-FAULT-POINTS）已在本地 main 完成并留有 Work/Integration Receipt（main 8493b04）。B-FAULT-POINTS 为八个 Engine 终止检查点新增按语义命名的 DatabaseManager.checkpoint() 通道（复用既有 fault_hook，生产环境无故障开关），覆盖 intake 落盘后、回合提交后、BeatPlan 发布后、NarrativeBlock 发布后、Episode 结算事务内与结算提交后六个可定位 stage，并以 7 个跨进程故障测试同时断言进程恢复与磁盘事实：提交前窗口（CP1/CP2+CP3）零回合提交、续跑只提交一次；提交后窗口（CP4–CP6）零重复提交且 BeatPlan/NarrativeBlock 精确停在注入阶段；结算窗口（CP7/CP8）证明 Episode 要么整体存在要么完全不存在。CP2/CP3（action intent / resolver）为纯内存阶段，用「intake 已落盘、回合未提交」的可观测等价边界覆盖。全部通过 FULL_P0 预合入与合入后 smoke（Python 1208）。未推送、未创建 PR。下一步是 T7（B-GOLDEN-ACCEPTANCE）：同一最终 SHA 的 GUI 观察记录、G010 音频重生成不改事实的可控音频链验证、适用门禁收口；真实模型与 TTS 仍不属本轮。"
  },
  "gates_health": {
-  "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T6b Integration Receipt .agents/receipts/B-APP-FIVE-TURN-EVIDENCE/a7e9c54cff03-integration.json）",
-  "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与完整 Python 套件（T6b 本地集成凭单，main 3838459）",
-  "python_tests": "PASSED: 完整 engine 套件在 2026-09-27 T6b FULL_P0 预合入及合入后均通过（含 21 项真实 App-Engine 跨进程测试，main 3838459）",
-  "swift_tests": "PASSED: 2026-09-27 T6b FULL_P0 的 swift test（390 tests）与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-APP-FIVE-TURN-EVIDENCE",
-  "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4/T5 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
-  "golden_001_runtime": "PARTIAL: T0–T6b 与结算接线已在本地 main 完成并留凭单——五轮状态机由提交状态驱动、逐轮建议、随包五轮内容、关闭回合契约、五轮跨进程驱动、既有单/双进程恢复，以及真实运行的 BeatPlan/NarrativeBlock/Episode 结算证据（episodes/episode_finalizations/character_episode_memories/episode_knowledge_changes/beat_plans/narrative_blocks 均在磁盘断言）。仍未验收：Story Book 回放 UI、八个 Engine 故障检查点（T7）、同一 SHA 的 GUI 观察、真实模型和 TTS"
+  "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（B-FAULT-POINTS Integration Receipt .agents/receipts/B-FAULT-POINTS/7c155710743f-integration.json）",
+  "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与完整 Python 套件（B-FAULT-POINTS 本地集成凭单，main 8493b04）",
+  "python_tests": "PASSED: 完整 engine 套件 1208 项在 2026-09-27 B-FAULT-POINTS FULL_P0 预合入及合入后均通过（含 29 项真实 App-Engine 跨进程测试，其中 7 项为八检查点故障用例）",
+  "swift_tests": "PASSED: 2026-09-27 B-FAULT-POINTS FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；本地集成凭单见 .agents/receipts/B-FAULT-POINTS/",
+  "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4–T6b、结算接线与 B-FAULT-POINTS 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
+  "golden_001_runtime": "PARTIAL: T0–T6b、结算接线与 B-FAULT-POINTS 已在本地 main 完成并留凭单——五轮状态机由提交状态驱动、逐轮建议、随包五轮内容、关闭回合契约、五轮跨进程驱动、真实运行的 BeatPlan/NarrativeBlock/Episode 结算证据，以及八个 Engine 终止检查点的跨进程故障证据（每个同时断言进程恢复与磁盘事实，证明零重复提交、零部分结算）。仍未验收：同一最终 SHA 的 GUI 观察记录、G010 音频重生成不改事实、Story Book 回放 UI、真实模型与 TTS"
  },
  "completed_phases": [
   {
@@ -148,38 +148,39 @@
  "critical_path": {
   "next_milestone_id": "B-GOLDEN-ACCEPTANCE",
   "next_milestone_name": "T7 Golden 验收：八个 Engine 终止检查点 + 同一 SHA 的 GUI 观察",
-  "strategic_rationale": "T0–T6b 与 B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING 全部完成并在本地 main 留有 Work/Integration Receipt（main 022857e）。结算缺口已关闭：打包运行时经 SettlingCommitPort 在每次 COMMIT 后发布 BeatPlan/NarrativeBlock，第五轮从随包作者化 Episode 输入与真实提交证据结算 Episode；真实五轮跨进程运行在磁盘上产出 1 episodes、1 episode_finalizations、>=1 character_episode_memories、>=1 episode_knowledge_changes、5 beat_plans、5 narrative_blocks，ending=partial_truth，作者 unresolved_threads 保留，重启进程不重提交。接线过程中还修正了 T3 遗留的两处缺陷：finalizer 误把作者字段 unresolved_threads 与运行期 active_conflicts 绑定（生产不可满足），以及 artifact 契约路径在可重定位 bundle 中解析错位（parents[2] 应为 bundle 根），后者正是此前真实运行静默无 Episode 的直接原因。T7 现在可以建立在「运行时真的会结算」之上：逐项覆盖八个 Engine 终止检查点（每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算），产出与同一最终 SHA 绑定的 GUI 观察记录，并收口适用门禁证据。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型与 TTS 不属于本轮。",
+  "strategic_rationale": "T0–T6b、B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING 与 B-FAULT-POINTS 全部完成并在本地 main 留有 Work/Integration Receipt（main 8493b04）。结算缺口已关闭：打包运行时经 SettlingCommitPort 在每次 COMMIT 后发布 BeatPlan/NarrativeBlock，第五轮从随包作者化 Episode 与真实提交证据结算；真实五轮跨进程运行在磁盘产出 1 episodes、1 episode_finalizations、5 beat_plans、5 narrative_blocks，ending=partial_truth，重启不重提交。八个 Engine 终止检查点现已逐一可定位注入并有跨进程证据：CP1（advice 落盘后）与 CP2/CP3（resolver 后、commit 前）证明提交前窗口零回合提交、续跑只提交一次；CP4–CP6（回合提交后、BeatPlan 后、Narrative 后）证明零重复提交且表达精确停位；CP7/CP8（Episode 结算事务内、结算提交后投影前）证明 Episode 要么整体存在要么完全不存在。T7 余下工作：把同一最终 SHA 的 GUI 观察记录与跨进程结果绑定、补 G010（音频重生成不改事实与表达）的可控音频链验证、收口适用门禁证据。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型与 TTS 不属于本轮。",
   "target_deliverables": [
    "App 可完成开始、连续五轮提交、结算、退出与返回，并保留未知结果与 pending 的明确状态",
    "第 5 轮后明确结束固定验证；不默许第 6 轮或任意文本输入",
    "Story Book 回放同一 Episode 与历史表达，不重新调用 Resolver 或重新生成历史文本",
    "随包五轮内容不依赖源码目录；Runtime 组合根按需装配五轮目录与 BeatPlan/表达/结算端口",
-   "逐项覆盖八个 Engine 终止检查点，每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算",
+   "G010：音频重生成不改变 NarrativeBlock 与 StoryState，用现有可控音频链验证事实不变，不冒充真实 TTS 验收",
    "GUI 观察记录与跨进程结果绑定同一最终 SHA；观察不能由源码检查或截图单独替代",
    "真实 LLM、自由文本、真实 TTS 质量与正式发行验收保留为后继里程碑"
   ],
   "dispatch": {
    "assigned_role": "AGT-QA",
-   "role_title": "作者化 Episode 内容（fixtures/golden_001）",
-   "task_id": "B-EPISODE-CONTENT",
-   "task_title": "新增独立的作者化 Episode 输入（不复用测试 oracle）",
+   "role_title": "Golden 验收证据收口与 GUI 观察记录",
+   "task_id": "B-GOLDEN-ACCEPTANCE",
+   "task_title": "在同一最终 SHA 上收口全部验收证据并记录 GUI 观察",
    "authorized_scope": [
+    "engine/tests/",
+    "macos-app/WorldOfMysteriesTests/",
     "fixtures/golden_001/",
-    "engine/tests/"
+    "docs/06_实施基线/"
    ],
    "forbidden_patterns": [
-    "macos-app/**",
+    "macos-app/WorldOfMysteries/**",
     "engine/domain/**",
     "engine/ai/**",
-    "engine/infrastructure/**",
     "engine/application/**",
+    "engine/infrastructure/**",
     ".hacf/**",
     ".github/**",
-    "docs/**",
     "scripts/**"
    ],
-   "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-EPISODE-CONTENT --title \"作者化 Episode 内容\" --target-ref main（worktree 内执行）",
-   "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-episode-content"
+   "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-GOLDEN-ACCEPTANCE --title \"Golden 验收证据收口\"",
+   "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-golden-acceptance"
   }
  },
  "historical_gate_reports": [
@@ -201,7 +202,7 @@
   "tracking_issue": 43,
   "current_stage": "B",
   "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-  "decision": "T0–T6b 已在本地 main 完成并留凭单。当前进入 B-EPISODE-CONTENT（AGT-QA）先落地独立的作者化 Episode 输入，随后 B-EPISODE-WIRING（AGT-DATA）完成结算/表达的运行时接线与五轮结算跨进程证据；之后是 T7 Golden 验收（八个故障点、同一 SHA 的 GUI 观察）。T4–T6b 仅本地 FULL_P0 预演，未推送、未创建 PR；真实模型和 TTS 不属于本轮。",
+  "decision": "T0–T6b、结算接线与 B-FAULT-POINTS 已在本地 main 完成并留凭单（main 8493b04）。八个 Engine 终止检查点已可逐一注入并有跨进程故障证据。当前推进 T7（B-GOLDEN-ACCEPTANCE）：在同一最终 SHA 上完成 GUI 观察记录、G010 可控音频链验证与适用门禁收口。以上均为本地 FULL_P0 预演，未推送、未创建 PR；真实模型与 TTS 不属于本轮。",
   "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
   "parallel_ready": [],
   "iteration_evidence": {
@@ -264,6 +265,29 @@
    "integration_state": "merged via PR #202",
    "merge_commit_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
    "main_sha_when_recorded": "dccdbd76ef488281cda86be01a6857754b91b7c0"
+  },
+  "dispatch": {
+   "assigned_role": "AGT-QA",
+   "role_title": "作者化 Episode 内容（fixtures/golden_001）",
+   "task_id": "B-EPISODE-CONTENT",
+   "task_title": "新增独立的作者化 Episode 输入（不复用测试 oracle）",
+   "authorized_scope": [
+    "fixtures/golden_001/",
+    "engine/tests/"
+   ],
+   "forbidden_patterns": [
+    "macos-app/**",
+    "engine/domain/**",
+    "engine/ai/**",
+    "engine/infrastructure/**",
+    "engine/application/**",
+    ".hacf/**",
+    ".github/**",
+    "docs/**",
+    "scripts/**"
+   ],
+   "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-EPISODE-CONTENT --title \"作者化 Episode 内容\" --target-ref main（worktree 内执行）",
+   "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-episode-content"
   }
  }
 }
