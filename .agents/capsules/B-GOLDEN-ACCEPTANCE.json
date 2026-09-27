@@ -1,0 +1,172 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-B-GOLDEN-ACCEPTANCE",
+  "capsule_revision": 1,
+  "task_id": "B-GOLDEN-ACCEPTANCE",
+  "title": "Implement B-GOLDEN-ACCEPTANCE",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-27T10:31:42.212239+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "f0162c6721776c55ddf890adced73cd4aba554d7",
+    "target_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "context_snapshot": "sha256:5122dabc21f602b936b56504a259ef915fdd9fb1ac49abfcc16398aefa373739"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once@engine/tests/test_app_engine_session.py:599",
+      "symbol:test_acceptance_checkpoint_after_commit_never_recommits@engine/tests/test_app_engine_session.py:647",
+      "symbol:test_acceptance_checkpoint_settlement_is_atomic_and_never_refinalizes@engine/tests/test_app_engine_session.py:688",
+      "symbol:test_all_golden_advice_action_beats_and_narrative_match_schema_and_python@engine/tests/test_contracts_pydantic.py:76",
+      "symbol:test_all_golden_knowledge_matches_schema_and_python@engine/tests/test_contracts_pydantic.py:94",
+      "symbol:test_golden_001_character_matches_schema@engine/tests/test_contracts_schema.py:58",
+      "symbol:test_golden_001_world_matches_schema@engine/tests/test_contracts_schema.py:66",
+      "symbol:test_golden_001_seed_matches_schema@engine/tests/test_contracts_schema.py:74",
+      "symbol:test_golden_001_expected_episode_matches_schema@engine/tests/test_contracts_schema.py:82",
+      "symbol:test_golden_001_knowledge_matches_schema@engine/tests/test_contracts_schema.py:90",
+      "symbol:test_golden_001_turns_advice_matches_schema@engine/tests/test_contracts_schema.py:103",
+      "symbol:_golden_character@engine/tests/test_domain_settlement.py:48",
+      "symbol:_golden_advice_and_intent@engine/tests/test_domain_settlement.py:53",
+      "symbol:test_world_event_candidate_cannot_publish_hidden_golden_truth@engine/tests/test_domain_settlement.py:376",
+      "symbol:test_authored_episode_agrees_with_the_golden_oracle@engine/tests/test_episode_authoring_content.py:48",
+      "symbol:_read@engine/tests/test_golden_first_turn.py:29",
+      "symbol:_canonical_digest@engine/tests/test_golden_first_turn.py:33",
+      "symbol:_bundle_payload@engine/tests/test_golden_first_turn.py:46",
+      "symbol:Source@engine/tests/test_golden_first_turn.py:75",
+      "symbol:_bootstrap@engine/tests/test_golden_first_turn.py:80",
+      "symbol:_frozen@engine/tests/test_golden_first_turn.py:88",
+      "symbol:test_interpreter_uses_only_frozen_semantic_template@engine/tests/test_golden_first_turn.py:104",
+      "symbol:test_interpreter_rejects_any_other_text@engine/tests/test_golden_first_turn.py:118",
+      "symbol:test_proposer_rebinds_identity_and_evidence_later@engine/tests/test_golden_first_turn.py:131",
+      "symbol:load@engine/tests/test_golden_first_turn.py:76",
+      "symbol:_read@engine/tests/test_golden_five_turn_application.py:62",
+      "symbol:_canonical_digest@engine/tests/test_golden_five_turn_application.py:66",
+      "symbol:_bundle_payload@engine/tests/test_golden_five_turn_application.py:79",
+      "symbol:_catalog@engine/tests/test_golden_five_turn_application.py:112",
+      "symbol:Source@engine/tests/test_golden_five_turn_application.py:120"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 860,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once",
+      "test_acceptance_checkpoint_after_commit_never_recommits",
+      "test_acceptance_checkpoint_settlement_is_atomic_and_never_refinalizes",
+      "test_all_golden_advice_action_beats_and_narrative_match_schema_and_python",
+      "test_all_golden_knowledge_matches_schema_and_python",
+      "test_golden_001_character_matches_schema",
+      "test_golden_001_world_matches_schema",
+      "test_golden_001_seed_matches_schema",
+      "test_golden_001_expected_episode_matches_schema",
+      "test_golden_001_knowledge_matches_schema",
+      "test_golden_001_turns_advice_matches_schema",
+      "_golden_character",
+      "_golden_advice_and_intent",
+      "test_world_event_candidate_cannot_publish_hidden_golden_truth",
+      "test_authored_episode_agrees_with_the_golden_oracle",
+      "_read",
+      "_canonical_digest",
+      "_bundle_payload",
+      "Source",
+      "_bootstrap",
+      "_frozen",
+      "test_interpreter_uses_only_frozen_semantic_template",
+      "test_interpreter_rejects_any_other_text",
+      "test_proposer_rebinds_identity_and_evidence_later",
+      "load",
+      "_read",
+      "_canonical_digest",
+      "_bundle_payload",
+      "_catalog",
+      "Source"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
