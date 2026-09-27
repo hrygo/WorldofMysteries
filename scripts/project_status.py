@@ -56,9 +56,15 @@ def cmd_status(state: dict, as_json: bool = False):
 
     print("\n【4. 全局里程碑推进全景】")
     for m in state["milestones"]:
-        status_badge = "🟢" if m["status"] == "READY" else ("⚪" if m["status"] == "BLOCKED" else "🟡")
+        status = m["status"]
+        status_badge = {
+            "COMPLETED": "✅",
+            "READY": "🟢",
+            "IN_PROGRESS": "🟡",
+            "BLOCKED": "⚪",
+        }.get(status, "❓")
         deps = f" (前置依赖: {', '.join(m['depends_on'])})" if "depends_on" in m else ""
-        print(f"  {status_badge} [{m['id']}] {m['name']} [{m['lead_role']}]{deps}")
+        print(f"  {status_badge} [{m['id']}] {m['name']} [{m['lead_role']}] [{status}]{deps}")
 
     print("\n💡 提示: 运行 `python3 scripts/project_status.py next` 查看下一步科学推进方向。")
     print("=" * 72)

@@ -30,6 +30,48 @@ import agent_capsule  # noqa: E402
 import collab_pipeline  # noqa: E402
 import gate_profile  # noqa: E402
 import hacf_policy  # noqa: E402
+import project_status  # noqa: E402
+
+
+def test_project_status_renders_completed_milestones_clearly(capsys):
+    """Completed milestones must not share the in-progress badge in the status report."""
+    state = {
+        "project_name": "World of Mysteries",
+        "version": "0.1.0",
+        "last_updated": "2026-09-27",
+        "current_phase": {
+            "phase_id": "Phase 1",
+            "phase_name": "Persistent World Alpha",
+            "status": "IN_PROGRESS",
+            "progress_summary": "",
+        },
+        "gates_health": {},
+        "completed_phases": [],
+        "milestones": [
+            {
+                "id": "M5-PREP",
+                "name": "Golden assertions",
+                "status": "COMPLETED",
+                "lead_role": "AGT-QA",
+            },
+            {
+                "id": "M3",
+                "name": "Outcome resolver",
+                "status": "BLOCKED",
+                "lead_role": "AGT-DOM",
+            },
+        ],
+    }
+
+    project_status.cmd_status(state)
+
+    report = capsys.readouterr().out
+    completed_line = next(line for line in report.splitlines() if "[M5-PREP]" in line)
+    blocked_line = next(line for line in report.splitlines() if "[M3]" in line)
+    assert "✅ [M5-PREP]" in completed_line
+    assert "[COMPLETED]" in completed_line
+    assert "⚪ [M3]" in blocked_line
+    assert "[BLOCKED]" in blocked_line
 
 
 def test_gate_registry_digests_match_protected_profiles():

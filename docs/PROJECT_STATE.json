@@ -6,15 +6,15 @@
     "phase_id": "Phase 1",
     "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
     "status": "IN_PROGRESS",
-    "progress_summary": "截至 2026-09-27，可信开场与 App 真实首轮闭环已随 PR #204 合入 main (merge commit 5b08c807)。PR 上 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查均通过。首轮验收不等于 M1 整体完成；Golden 五轮、全领域结算、Episode Finalization、重启记忆回访、真实 LLM 质量、TTS 与目标设备/发布验收仍未完成。"
+    "progress_summary": "截至 2026-09-27，可信开场与 App 真实首轮闭环已随 PR #204 合入；Golden 五轮迭代的 T0–T3 现已在本地 main 完成并留有 Work/Integration Receipt（T3 集成头 a6ddaf69）。T3 通过 FULL_P0 本地预演但未推送、未创建 PR。下一步是 T4 五轮 Application 编排；T5–T7、完整 Golden 五轮运行、重启记忆回访、真实 LLM 质量、TTS 与目标设备/发布验收仍未完成。"
   },
   "gates_health": {
-    "ast_fitness": "PASSED: 2026-09-26 FULL_P0 Stage 1（凭单 .agents/receipts/M1-FIRST-TURN-CROSSPROCESS/9a07f40b39f5.json，head 9a07f40）",
-    "schemas_integrity": "PASSED: 产品 schema 与新增 story_session_control 协议 schema/fixtures 一致性测试纳入 FULL_P0 Stage 2（1113 passed）",
-    "python_tests": "PASSED: 1113 passed（engine 下 uv run --locked --extra dev pytest, Python 3.14.7），含 5 项真实双进程 App→Engine 首轮场景",
-    "swift_tests": "PASSED: swift test 全量通过 + xcodebuild arm64 App Target 构建（2026-09-26 FULL_P0 Stage 3/4，见 M1-FIRST-TURN-APP 与 M1-FIRST-TURN-CROSSPROCESS 凭单）",
-    "ci_cd_readiness": "PASSED: PR #204 已于 2026-09-26 合入 main；PR head d3a5b2f 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 Relocatable sandboxed arm64 package 均通过。merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。",
-    "golden_001_runtime": "PARTIAL: 固定模式首轮（open→submit→COMMIT→公开投影）已在真实独立 Engine 与生产 Swift App 双进程下验证，含丢 ACK 只读恢复与 pending 显式续跑；Golden 五轮、全领域结算、真实模型与 TTS 仍未验收"
+    "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T3 Integration Receipt .agents/receipts/B-DURABLE-SETTLEMENT/a6ddaf69fea5-integration.json）",
+    "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与 1179 项 Python 测试（T3 本地集成凭单）",
+    "python_tests": "PASSED: 1179 passed（engine 下 uv run --locked --extra dev pytest, Python 3.14.7），2026-09-27 T3 FULL_P0 预合入及合入后均通过",
+    "swift_tests": "PASSED: 2026-09-27 T3 FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-DURABLE-SETTLEMENT",
+    "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T3 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
+    "golden_001_runtime": "PARTIAL: 首轮真实 App→Engine 双进程与 T3 的 world.db 原子领域事件、Episode Finalization、Outbox/重建能力已分别验证；T4 尚未开放五轮应用路径，T5–T7 的回访与故障矩阵、真实模型和 TTS 仍未验收"
   },
   "completed_phases": [
     {
@@ -85,13 +85,13 @@
       "id": "M5-PREP",
       "name": "Golden 001 断言与故障恢复测试准备",
       "phase": "Phase 1",
-      "status": "READY",
+      "status": "COMPLETED",
       "depends_on": [],
       "lead_role": "AGT-QA",
       "tracking_issues": [
         47
       ],
-      "description": "立即对齐固定五轮、G001–G012、八个故障点与重启断言；不等待真实 LLM，不以 fixture 存在、skip 或骨架检查冒充完整回归通过。"
+      "description": "T1 B-GOLDEN-ASSERTIONS 已完成 G001–G012、固定五轮 expected 与八个故障点追踪矩阵测试准备。此状态仅代表验收准备完成，不代表 M5 真实五轮运行通过。"
     },
     {
       "id": "M3",
@@ -146,9 +146,9 @@
     }
   ],
   "critical_path": {
-    "next_milestone_id": "M5-PREP",
-    "next_milestone_name": "Golden 001 断言与故障恢复测试准备",
-    "strategic_rationale": "PR #204 已合入且首轮通过真实 App→Engine 双进程验收，首轮接线不再是当前阻塞项。下一步先完成五轮断言与恢复矩阵，再按依赖完成 M2 权威持久化和 M3 确定性领域结算，最后验证 M5 五轮、Episode、重启、投影重建与 App 体验。M1/M2/M5 均不得因首轮或准备任务而提前标记完成；真实模型和 TTS 留在后续阶段。",
+    "next_milestone_id": "B-FIVE-TURN-APPLICATION",
+    "next_milestone_name": "Golden 五轮应用编排与 COMMIT 后表达",
+    "strategic_rationale": "T0–T3 已完成：断言准备、纯领域 reducer 与 world.db 原子持久化均已在本地 main 集成。当前按执行计划推进 T4，把应用服务从首轮限制扩展到五轮，并接入已验证 overlays、T2 reducers、事务提交、COMMIT 后表达和 Finalization。T3 的 immutable bootstrap 与 turn_*_changes 是事件源；T5 必须在重启读取和 retrieval 重建时按序回放这些事件。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型和 TTS 仍不属于本轮。",
     "target_deliverables": [
       "对 Golden 五轮分别执行真实 intake、Proposal、Resolver、Validator 与 COMMIT，并逐轮比较独立 expected 状态",
       "支持经领域校验的 Story、Character、Knowledge、Relationship 与 WorldEvent 写回；不得静默丢弃 StateDelta overlays",
@@ -159,25 +159,27 @@
       "真实 LLM、自由文本、真实 TTS 质量与正式发行验收保留为后继里程碑"
     ],
     "dispatch": {
-      "assigned_role": "AGT-QA",
-      "role_title": "Golden 五轮断言与故障恢复准备",
-      "task_id": "B-GOLDEN-ASSERTIONS",
-      "task_title": "落实 Golden 五轮断言与故障恢复准备",
-      "issue": 47,
+      "assigned_role": "AGT-AI",
+      "role_title": "Golden 五轮 Application 编排",
+      "task_id": "B-FIVE-TURN-APPLICATION",
+      "task_title": "实现 Golden 五轮应用编排",
       "authorized_scope": [
-        "engine/tests/",
-        "fixtures/golden_001/"
+        "engine/application/",
+        "engine/ai/",
+        "engine/tests/"
       ],
       "forbidden_patterns": [
         "engine/domain/**",
         "engine/infrastructure/**",
-        "engine/ai/**",
-        "engine/application/**",
+        "macos-app/**",
         "contracts/**",
-        "macos-app/**"
+        "fixtures/**",
+        ".hacf/**",
+        ".github/**",
+        "docs/**"
       ],
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-GOLDEN-ASSERTIONS --title \"落实 Golden 五轮断言与故障恢复准备\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-golden-assertions --role AGT-QA --task-id B-GOLDEN-ASSERTIONS"
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-AI --task-id B-FIVE-TURN-APPLICATION --title \"实现 Golden 五轮应用编排\" --target-ref main（在 worktree_command 创建的隔离工作区内执行）",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-five-turn-application"
     }
   },
   "historical_gate_reports": [
@@ -199,28 +201,9 @@
     "tracking_issue": 43,
     "current_stage": "B",
     "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-    "decision": "PR #204 的可信开场与 App 真实首轮闭环已合入 main。当前按 Golden 001 B 阶段推进：先落实断言与故障恢复准备，再实现所需 M2/M3 持久领域闭环，完成五轮、Episode 结算、退出重开与记忆回访；真实模型和 TTS 不属于本轮。",
+    "decision": "T0–T3 已在本地 main 完成：修正迭代基线、建立 G001–G012 断言、实现 T2 reducers、提交 world.db 原子持久结算。当前进入 T4 B-FIVE-TURN-APPLICATION；之后依次 T5 记忆回访、T6 App 联调、T7 Golden 验收。T3 仅证明持久化底座，五轮运行尚未验收；真实模型和 TTS 不属于本轮。",
     "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
-    "parallel_ready": [
-      {
-        "task_id": "B-GOLDEN-ASSERTIONS",
-        "lead_role": "AGT-QA",
-        "issue": 47
-      },
-      {
-        "task_id": "M2-DATA-KERNEL",
-        "lead_role": "AGT-DATA",
-        "issue": 46
-      },
-      {
-        "task_id": "B-DOMAIN-SETTLEMENT",
-        "lead_role": "AGT-DOM",
-        "depends_on": [
-          "M2-DATA-KERNEL",
-          "B-GOLDEN-ASSERTIONS"
-        ]
-      }
-    ],
+    "parallel_ready": [],
     "iteration_evidence": {
       "base_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
       "code_head_sha": "9a07f40b39f571dbe356ef52c742689dcb045f09",
