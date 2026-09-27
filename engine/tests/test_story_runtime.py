@@ -821,6 +821,9 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
             trace_id="trace-open-five",
         )
         session_id = opened.session.session_id
+        # Before any turn the client is offered the first fixed advice.
+        entry = await facade.entry(GOLDEN_SCENARIO_ID)
+        assert entry.supported_advice == [catalog.advice_templates[1].raw_input]
         for turn in range(1, 6):
             advice = catalog.advice_templates[turn]
             view = await facade.submit(
@@ -837,6 +840,15 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
             assert view.receipt.status == "committed"
             assert view.receipt.committed_story_revision == turn
             assert view.session.turn == turn
+            # After each turn the client is offered exactly the next fixed
+            # advice, so it can drive the whole scenario over IPC.
+            entry = await facade.entry(GOLDEN_SCENARIO_ID)
+            if turn < 5:
+                assert entry.supported_advice == [
+                    catalog.advice_templates[turn + 1].raw_input
+                ]
+            else:
+                assert entry.supported_advice == []
         # After the fifth turn the fixed verification is closed.
         assert view.session.can_submit is False
         # A sixth turn is rejected by the five-turn boundary.

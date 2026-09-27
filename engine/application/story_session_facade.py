@@ -208,17 +208,31 @@ class StorySessionFacade:
         _scenario(scenario_id)
         snapshot = await self._query.entry(scenario_id)
         session_view = None
+        supported_advice = list(snapshot.supported_advice)
         if snapshot.session is not None:
             session_view = self._project_record(
                 snapshot.session,
                 pending=snapshot.session.pending_input_turn_id is not None
                 or snapshot.pending_input_turn_id is not None,
             )
+            # Expose the current turn's expected advice so the client can drive
+            # every remaining fixed turn (and can resume a pending submit with
+            # the same advice). Once the final turn has committed, no further
+            # advice is accepted.
+            next_turn = snapshot.session.session.story_state.turn + 1
+            if next_turn <= self._first_turn.max_turn:
+                supported_advice = [
+                    self._first_turn.expected_input(
+                        snapshot.session.bootstrap, next_turn
+                    )
+                ]
+            else:
+                supported_advice = []
         elif snapshot.pending_input_turn_id is not None:
             raise StoryFacadeError("recovery_required")
         return StoryEntryView(
             scenario_id=scenario_id,
-            supported_advice=list(snapshot.supported_advice),
+            supported_advice=supported_advice,
             observed_store_revision=snapshot.observed_store_revision,
             session=session_view,
             pending_input_turn_id=snapshot.pending_input_turn_id,
