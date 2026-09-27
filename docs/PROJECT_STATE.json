@@ -6,15 +6,15 @@
     "phase_id": "Phase 1",
     "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
     "status": "IN_PROGRESS",
-    "progress_summary": "截至 2026-09-27，可信开场与 App 真实首轮闭环已随 PR #204 合入；Golden 五轮迭代的 T0–T3 现已在本地 main 完成并留有 Work/Integration Receipt（T3 集成头 a6ddaf69）。T3 通过 FULL_P0 本地预演但未推送、未创建 PR。下一步是 T4 五轮 Application 编排；T5–T7、完整 Golden 五轮运行、重启记忆回访、真实 LLM 质量、TTS 与目标设备/发布验收仍未完成。"
+    "progress_summary": "截至 2026-09-27，可信开场与 App 真实首轮闭环已随 PR #204 合入；Golden 五轮迭代的 T0–T5 现已在本地 main 完成并留有 Work/Integration Receipt（T5b 集成头 8fafdfc：T4 五轮应用编排、T5a BeatPlan 持久化与重启读取/retrieval 重建、T5b 授权 Episode Memory 召回）。T4/T5 均通过 FULL_P0 本地预演与合入后 smoke 但未推送、未创建 PR。下一步是 T6 App 五轮联调与 Story Book 回放（含随包五轮内容）；T7 Golden 验收、真实 LLM 质量、TTS 与目标设备/发布验收仍未完成。"
   },
   "gates_health": {
-    "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T3 Integration Receipt .agents/receipts/B-DURABLE-SETTLEMENT/a6ddaf69fea5-integration.json）",
-    "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与 1179 项 Python 测试（T3 本地集成凭单）",
-    "python_tests": "PASSED: 1179 passed（engine 下 uv run --locked --extra dev pytest, Python 3.14.7），2026-09-27 T3 FULL_P0 预合入及合入后均通过",
-    "swift_tests": "PASSED: 2026-09-27 T3 FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-DURABLE-SETTLEMENT",
-    "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T3 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
-    "golden_001_runtime": "PARTIAL: 首轮真实 App→Engine 双进程与 T3 的 world.db 原子领域事件、Episode Finalization、Outbox/重建能力已分别验证；T4 尚未开放五轮应用路径，T5–T7 的回访与故障矩阵、真实模型和 TTS 仍未验收"
+    "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T5b Integration Receipt .agents/receipts/B-MEMORY-RECALL/9d739ca52eeb-integration.json）",
+    "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与 1195 项 Python 测试（T5b 本地集成凭单）",
+    "python_tests": "PASSED: 1195 passed（engine 下 uv run --locked --extra dev pytest, Python 3.14.7），2026-09-27 T5b FULL_P0 预合入及合入后均通过",
+    "swift_tests": "PASSED: 2026-09-27 T5b FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-MEMORY-RECALL",
+    "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4/T5 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
+    "golden_001_runtime": "PARTIAL: T0–T5 已在本地 main 完成并留凭单——五轮真实事务提交与 COMMIT 后表达、Episode Finalization、BeatPlan 持久化、关闭重开后 Story Book 重启读取、retrieval.db 幂等重建、授权 Context Compiler 召回与隐藏事实拒绝均有证据；App 五轮 UI/Story Book 回放（T6）、八个 Engine 故障检查点的跨进程证据与同一 SHA 的 GUI 观察（T7）、真实模型和 TTS 仍未验收"
   },
   "completed_phases": [
     {
@@ -146,40 +146,37 @@
     }
   ],
   "critical_path": {
-    "next_milestone_id": "B-FIVE-TURN-APPLICATION",
-    "next_milestone_name": "Golden 五轮应用编排与 COMMIT 后表达",
-    "strategic_rationale": "T0–T3 已完成：断言准备、纯领域 reducer 与 world.db 原子持久化均已在本地 main 集成。当前按执行计划推进 T4，把应用服务从首轮限制扩展到五轮，并接入已验证 overlays、T2 reducers、事务提交、COMMIT 后表达和 Finalization。T3 的 immutable bootstrap 与 turn_*_changes 是事件源；T5 必须在重启读取和 retrieval 重建时按序回放这些事件。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型和 TTS 仍不属于本轮。",
+    "next_milestone_id": "B-APP-FIVE-TURN",
+    "next_milestone_name": "App 五轮联调、Story Book 回放与随包内容",
+    "strategic_rationale": "T0–T5 已完成：断言、领域 reducer、world.db 原子持久化、五轮应用编排与 COMMIT 后表达、BeatPlan 持久化、重启读取与 retrieval 幂等重建、授权记忆召回均已在本地 main 集成并留有凭单。T3 的 immutable bootstrap 与 turn_*_changes 作为事件源，已在 T5 的重启读取与投影重建中按序回放验证。当前推进 T6：AGT-MAC 让 App 完成开始、五轮提交、结算、退出与返回并提供 Story Book 回放；同时需解决随包五轮内容不依赖源码目录的问题（Runtime 组合根目前刻意未切换到五轮目录加载）。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型和 TTS 仍不属于本轮。",
     "target_deliverables": [
-      "对 Golden 五轮分别执行真实 intake、Proposal、Resolver、Validator 与 COMMIT，并逐轮比较独立 expected 状态",
-      "支持经领域校验的 Story、Character、Knowledge、Relationship 与 WorldEvent 写回；不得静默丢弃 StateDelta overlays",
-      "在 COMMIT 之后持久化 BeatPlan/NarrativeBlock；表达失败与重生成不得重跑裁决或改变已提交事实",
-      "将 Episode、episode memory、knowledge、relationship evidence 与 world event 作为单一 world.db Finalization 事务提交，提供幂等重放",
-      "关闭重开后读取同一 Episode/历史表达；授权 Context Compiler 可召回记忆；retrieval.db 从权威事实幂等重建",
-      "App 完成五轮、结算、关闭与返回，并覆盖 Golden Runtime 规定的八个 Engine 故障检查点及同一 SHA 的 GUI 观察记录",
+      "App 可完成开始、连续五轮提交、结算、退出与返回，并保留未知结果与 pending 的明确状态",
+      "第 5 轮后明确结束固定验证；不默许第 6 轮或任意文本输入",
+      "Story Book 回放同一 Episode 与历史表达，不重新调用 Resolver 或重新生成历史文本",
+      "随包五轮内容不依赖源码目录；Runtime 组合根按需装配五轮目录与 BeatPlan/表达/结算端口",
+      "逐项覆盖八个 Engine 终止检查点，每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算",
+      "GUI 观察记录与跨进程结果绑定同一最终 SHA；观察不能由源码检查或截图单独替代",
       "真实 LLM、自由文本、真实 TTS 质量与正式发行验收保留为后继里程碑"
     ],
     "dispatch": {
-      "assigned_role": "AGT-AI",
-      "role_title": "Golden 五轮 Application 编排",
-      "task_id": "B-FIVE-TURN-APPLICATION",
-      "task_title": "实现 Golden 五轮应用编排",
+      "assigned_role": "AGT-MAC",
+      "role_title": "macOS App 五轮联调与 Story Book 回放",
+      "task_id": "B-APP-FIVE-TURN",
+      "task_title": "App 完成五轮、结算、关闭与返回并提供 GUI 观察证据",
       "authorized_scope": [
-        "engine/application/",
-        "engine/ai/",
-        "engine/tests/"
+        "macos-app/WorldOfMysteries/",
+        "macos-app/WorldOfMysteriesTests/"
       ],
       "forbidden_patterns": [
-        "engine/domain/**",
-        "engine/infrastructure/**",
-        "macos-app/**",
+        "engine/**",
         "contracts/**",
         "fixtures/**",
         ".hacf/**",
         ".github/**",
         "docs/**"
       ],
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-AI --task-id B-FIVE-TURN-APPLICATION --title \"实现 Golden 五轮应用编排\" --target-ref main（在 worktree_command 创建的隔离工作区内执行）",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-five-turn-application"
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-MAC --task-id B-APP-FIVE-TURN --title \"App 五轮联调、Story Book 回放与随包内容\" --target-ref main（在 worktree_command 创建的隔离工作区内执行）",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-app-five-turn"
     }
   },
   "historical_gate_reports": [
@@ -201,7 +198,7 @@
     "tracking_issue": 43,
     "current_stage": "B",
     "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-    "decision": "T0–T3 已在本地 main 完成：修正迭代基线、建立 G001–G012 断言、实现 T2 reducers、提交 world.db 原子持久结算。当前进入 T4 B-FIVE-TURN-APPLICATION；之后依次 T5 记忆回访、T6 App 联调、T7 Golden 验收。T3 仅证明持久化底座，五轮运行尚未验收；真实模型和 TTS 不属于本轮。",
+    "decision": "T0–T5 已在本地 main 完成：修正迭代基线、G001–G012 断言、T2 reducers、world.db 原子持久结算、五轮应用编排与 COMMIT 后表达、BeatPlan 持久化与 Story Book 重启读取、retrieval.db 幂等重建、授权 Episode Memory 召回。当前进入 T6 B-APP-FIVE-TURN（AGT-MAC）；之后 T7 Golden 验收。T4/T5 仅本地 FULL_P0 预演，未推送、未创建 PR；真实模型和 TTS 不属于本轮。",
     "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
     "parallel_ready": [],
     "iteration_evidence": {
