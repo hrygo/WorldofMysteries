@@ -196,9 +196,47 @@ public final class VoiceProcessingAudioGraph {
         let targetRate = configuration.targetSampleRate
         captureContinuation = sink
 
-        input.installTap(
-            onBus: 0,
+        Self.installCaptureTap(
+            on: input,
             bufferSize: configuration.tapFrameCount,
+            inputFormat: inputFormat,
+            outputFormat: outputFormat,
+            converter: converter,
+            sink: sink,
+            targetRate: targetRate
+        )
+
+        do {
+            try startEngineIfNeeded()
+            captureActive = true
+            return channel.stream
+        } catch {
+            input.removeTap(onBus: 0)
+            captureContinuation = nil
+            sink.finish(throwing: error)
+            throw error
+        }
+    }
+
+    /// Installs the capture tap from a nonisolated context.
+    ///
+    /// `AVAudioEngine` dispatches this callback on its realtime audio thread.
+    /// A closure formed inside this `@MainActor` type inherits that isolation,
+    /// and the first buffer trips Swift's isolation check and traps with
+    /// SIGTRAP -- only on a real microphone, which is why the automated suite
+    /// never saw it. Building the closure here keeps it off the main actor.
+    nonisolated private static func installCaptureTap(
+        on node: AVAudioNode,
+        bufferSize: AVAudioFrameCount,
+        inputFormat: AVAudioFormat,
+        outputFormat: AVAudioFormat,
+        converter: AVAudioConverter,
+        sink: AsyncThrowingStream<MicrophonePCM16Chunk, any Error>.Continuation,
+        targetRate: Int
+    ) {
+        node.installTap(
+            onBus: 0,
+            bufferSize: bufferSize,
             format: inputFormat
         ) { buffer, _ in
             guard buffer.frameLength > 0 else { return }
@@ -266,17 +304,6 @@ public final class VoiceProcessingAudioGraph {
                     throwing: MicrophoneCaptureFailure.bufferOverflow
                 )
             }
-        }
-
-        do {
-            try startEngineIfNeeded()
-            captureActive = true
-            return channel.stream
-        } catch {
-            input.removeTap(onBus: 0)
-            captureContinuation = nil
-            sink.finish(throwing: error)
-            throw error
         }
     }
 

@@ -3,9 +3,11 @@
 日期：2026-09-19；2026-09-28 按 SpeechRail 4.0（`3a1b02e0`）修订用例，并补录 B 层实机证据。状态：**验收规范**。
 关联[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)、[实施任务](Voice_First_Implementation_Plan_v2.0.md)。
 
-> **本轮出具 A 层与 B 层证据**。V-IN-11 ~ V-IN-20 及既有 A 层用例已有回归覆盖；
-> **B 层（固定真实 SpeechRail）已于 2026-09-28 实机执行**，证据见 §1.1；
-> **C（macOS 真机玩法）本轮未执行**，不得据 A/B 层结论推断其通过。未跑即未通过，不得补写推断值。
+> **本轮出具 A、B、C 三层证据**。V-IN-11 ~ V-IN-20 及既有 A 层用例已有回归覆盖；
+> **B 层（固定真实 SpeechRail）证据见 §1.1**，**C 层（macOS 真机）证据见 §1.2**。
+> C 层在本次实机中**发现并修复了一个必然触发的崩溃**，并**判定当前路由不具备全双工能力**；
+> 扬声器实际发声一项在本机路由上**无法验证**，已如实标注，未以推断值补写。
+> 未跑即未通过，不得补写推断值。
 
 ## 1. 四层证据必须分别出具
 
@@ -68,6 +70,100 @@ WOM_LIVE_API_KEY=<本机 SpeechRail 凭据> \
 
 未知项：`voice_revision` 为 `null`（system voice 未经用户发布路径），故带
 `expected_voice_revision` 的分支与 pinned voice 的 upgrade/rollback 行为本轮**未覆盖**。
+
+### 1.2 C 层实机证据（2026-09-28）
+
+执行对象为**用户环境默认音频路由**，未指定、未切换任何设备。
+
+| 字段 | 取值 |
+|---|---|
+| 平台 | macOS 26+ / arm64 |
+| 默认输入 | 蓝牙耳机（OpenFit Pro by Shokz），1 ch @ 16 kHz |
+| 默认输出 | 同上蓝牙耳机 |
+| 备选设备 | “FeiHH”的麦克风、MacBook Pro 麦克风/扬声器（均未被选用） |
+| 麦克风权限 | 已授权（TCC authorized） |
+| 工具版本 | Swift 6 / Xcode 27 SDK，swift-testing 2084 |
+| 用例数 | 4 项（`macos-app/WorldOfMysteriesTests/VoiceDeviceAcceptanceTests.swift`） |
+
+#### C-01 修复：真实麦克风必然触发的 SIGTRAP 崩溃（严重）
+
+首次执行 C 层时，采集用例直接以 `SIGTRAP` 崩溃。崩溃栈：
+
+```
+_dispatch_assert_queue_fail
+dispatch_assert_queue
+_swift_task_checkIsolatedSwift
+closure #1 in MicrophoneCaptureSession.start()
+AVAudioNodeTap::TapMessage::RealtimeMessenger_Perform()
+```
+
+根因：`MicrophoneCaptureSession` 与 `VoiceProcessingAudioGraph` 均标注 `@MainActor`，
+其 `installTap` 回调继承 MainActor 隔离。`AVAudioEngine` 把该回调派发到**音频实时线程**，
+第一个音频缓冲区到达时触发 Swift 隔离断言并陷入 `SIGTRAP`。
+
+影响：任何接有真实麦克风的用户，一有音频流进来即崩溃。
+**A/B 层永远测不到**——CI 从不构造真实 `AVAudioEngine`，该回调永不执行；
+`VoiceProcessingDuplexGraphTests` 的注释亦已写明“device-backed half 属于人工验收项”。
+
+修复：把 `installTap` 的调用与闭包体一并移入 `nonisolated` 静态函数，
+使闭包在非隔离上下文中创建，不再继承 MainActor。两条采集路径同步修复。
+修复后同一用例通过，重复执行稳定。
+
+#### C-02 硬件无关性：应用未挑选用户硬件（符合要求）
+
+代码审计：**无**硬编码设备名，**无** `setPreferredSampleRate` /
+`setPreferredInputDevice` / `setPreferredOutputDevice`，**无** 指定 `AudioDeviceCreateID`。
+输入侧经 `AVAudioConverter` 由设备原生率重采样至 24 kHz；输出侧经 `mainMixerNode`
+由 `AVAudioEngine` 自动转换至设备率。两条路径均与设备率无关。
+
+实机验证：在 16 kHz 蓝牙路由上，采集产出的每一块 PCM 均为 24 kHz / 单声道，
+24 kHz 线格式亦被 16 kHz 输出设备正常接受。**用户不需要更换硬件。**
+
+#### C-03 当前路由不具备全双工能力
+
+`duplex=half_duplex_ptt reason=deviceUnavailable`（两次重复执行结果一致）：
+在语音处理输入已开启的状态下，`startPlayback` 拒绝加入播放。
+
+该蓝牙耳机可保持语音处理输入打开，却无法在其上叠加播放。
+按“必须都支持”的产品要求，正确行为是落到 `VoiceProcessingDuplexProvision.halfDuplexPTT`
+而非让本轮失败——该枚举已存在，本次未改动。
+
+#### C-04 扬声器实际发声：本机路由无法验证（如实标注）
+
+尝试以“播放中 vs 静音时麦克风 RMS 差值”做设备无关测量，结果**不可用**：
+
+- 差值在重复执行间于 `-72 dB` ~ `+10 dB` 间跳动；
+- 一次静音基线采到满刻度（peak = 1.0）的环境声；
+- 多次采到 `6.103515625e-05`，恰为 Int16 的 **2 个 LSB**（量化底噪）。
+
+原因：蓝牙耳机的麦克风在耳机腔体内，不在房间中；且 AEC 的设计目的正是消除该自回声，
+残留必然低于量化底噪。**本测量无法区分「AEC 消除了回声」与「耳机麦克风根本没听到」，
+因此不构成证据，C-04 判定为 unknown。**
+
+用例因此只报告不断言：固定阈值会在应用**必须支持**的硬件上失败，
+把不确定当通过则是撒谎。已内置 `at_quantisation_floor` 与 `emission_detected` 标记供复跑判读。
+
+#### C 层小结
+
+| 项 | 结论 |
+|---|---|
+| 真实麦克风崩溃 | **已定位并修复**（SIGTRAP，必然触发） |
+| 设备无关（不挑硬件） | ✅ 代码审计 + 16 kHz 路由实机验证 |
+| 采集重采样至 24 kHz | ✅ 实机 |
+| 24 kHz 线格式播放 | ✅ 实机 |
+| 语音处理启用 | ✅ 实机 |
+| 全双工 | ❌ 本路由不支持，落半双工 PTT（受支持模式） |
+| 扬声器实际发声 | **unknown** —— 本路由无法测量 |
+
+复跑方式（opt-in，默认 skip，不进任何门禁档案）：
+
+```bash
+cd macos-app
+WOM_DEVICE_ACCEPTANCE=1 swift test --no-parallel --filter VoiceDeviceAcceptance
+```
+
+**必须串行执行**：连续开关语音处理 I/O 会让蓝牙路由短暂不可用；
+这不是 App 缺陷（真实会话不会这样开关），但测试序列需要 `makeGraph` 的有界重试与 settle。
 
 ## 2. 自动化回归矩阵（测试名称建议，待实现）
 
