@@ -6,13 +6,13 @@
   "title": "BeatPlan 持久化与重启读取",
   "assigned_role": "AGT-DATA",
   "status": "CREATED",
-  "created_at": "2026-09-27T11:51:26.666907+00:00",
+  "created_at": "2026-09-27T11:54:12.267906+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "aaeae52bdb9156023f3ac8aa5c1f55cef1722653",
+    "base_sha": "f6203b507396af5da899e0c9248b2f4a1f0c356b",
     "target_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-    "context_snapshot": "sha256:ea0c4e5f515cb6d3a83963b2b3bea7fccd0d7366dc8af903505522cca85bac58"
+    "context_snapshot": "sha256:911fe6ed3e71d9e720a4aa94a7aaf021600858b98c6fb6ac54c3a92a533b13f9"
   },
   "scope": {
     "read": [
@@ -32,7 +32,9 @@
       ".hacf/**",
       ".github/**"
     ],
-    "privileged_grants": []
+    "privileged_grants": [
+      "engine/infrastructure/migrations/012_world_beat_plans.sql"
+    ]
   },
   "context": {
     "core_manifest": [
