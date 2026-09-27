@@ -1,0 +1,138 @@
+{
+  "receipt_id": "RCP-INTEGRATION-B-SCOPE-CONTRACT-6ebff6195771",
+  "receipt_type": "integration",
+  "task_id": "B-SCOPE-CONTRACT",
+  "capsule_id": "CAP-B-SCOPE-CONTRACT",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3a834662d63a636bb47503a6fcd4606f9d58d0c0c1e048e0f40ce97d213d0f84",
+  "diff_digest": "sha256:119a944e6d9310a1d739e331cc549851b84c3e4f08a81574f9a1e02e0f3166bf",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+  "head_commit": "6ebff6195771e7f8a4c9ec5cbaa4c73026addcef",
+  "target_ref": "main",
+  "target_sha": "6ebff6195771e7f8a4c9ec5cbaa4c73026addcef",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-b-scope-contract",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T01:21:33.332827+00:00",
+      "finished_at": "2026-09-27T01:21:33.362815+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-b-scope-contract/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T01:21:33.362891+00:00",
+      "finished_at": "2026-09-27T01:22:12.145425+00:00",
+      "raw_log_digest": "sha256:1cb2f5d24f173cdd2b8b884371998fce8b7b38f0778b76bb36379cee0743659d",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/codex-b-scope-contract/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-b-scope-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T01:22:12.145523+00:00",
+      "finished_at": "2026-09-27T01:22:36.061271+00:00",
+      "raw_log_digest": "sha256:b8767a777378a3db03afe11fe0ffe017d76328e2484aa4d3cc9ce84b91392f36",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-b-scope-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T01:22:36.061588+00:00",
+      "finished_at": "2026-09-27T01:22:38.258035+00:00",
+      "raw_log_digest": "sha256:3d741a0f5a928fe76f3bcc190c6a9bfef146be1e26dc43238cae75a39344636f",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/capsules/B-SCOPE-CONTRACT.json",
+      ".agents/receipts/B-SCOPE-CONTRACT/b32b5e555422.json",
+      "docs/06_实施基线/2026-09-26_Golden_Five_Turn_Iteration_Plan.md",
+      "docs/PROJECT_STATE.json"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-27T01:21:33.332629+00:00",
+  "finished_at": "2026-09-27T01:23:54.023033+00:00",
+  "verdict": "passed",
+  "merge_authorizing": true,
+  "merge": {
+    "strategy": "fast-forward",
+    "expected_main_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "merged_sha": "6ebff6195771e7f8a4c9ec5cbaa4c73026addcef",
+    "cas_verified": true,
+    "post_merge_smoke": "passed"
+  },
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
