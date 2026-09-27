@@ -1,0 +1,147 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-B-PER-TURN-ADVICE",
+  "capsule_revision": 1,
+  "task_id": "B-PER-TURN-ADVICE",
+  "title": "逐轮建议下发与会话视图",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-27T11:51:26.237245+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "aaeae52bdb9156023f3ac8aa5c1f55cef1722653",
+    "target_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "context_snapshot": "sha256:079ac4dd344597559c65485ff71741d8fdaae66adc65a2f26de3bc18938accd4"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:GoldenFirstTurnInterpreter@engine/ai/golden_first_turn.py:28",
+      "symbol:GoldenFirstTurnProposer@engine/ai/golden_first_turn.py:51",
+      "symbol:GoldenFirstTurnFactory@engine/ai/golden_first_turn.py:92",
+      "symbol:__init__@engine/ai/golden_first_turn.py:29",
+      "symbol:interpret@engine/ai/golden_first_turn.py:32",
+      "symbol:__init__@engine/ai/golden_first_turn.py:52",
+      "symbol:propose@engine/ai/golden_first_turn.py:55",
+      "symbol:max_turn@engine/ai/golden_first_turn.py:96",
+      "symbol:expected_input@engine/ai/golden_first_turn.py:99",
+      "symbol:interpreter_for@engine/ai/golden_first_turn.py:106",
+      "symbol:proposer_for@engine/ai/golden_first_turn.py:112",
+      "symbol:policy_for_turn@engine/ai/golden_first_turn.py:118",
+      "symbol:domain_validation_for@engine/ai/golden_first_turn.py:140",
+      "symbol:GoldenExpressionTemplate@engine/ai/golden_five_turn.py:47",
+      "symbol:GoldenTurnTemplate@engine/ai/golden_five_turn.py:53",
+      "symbol:GoldenFiveTurnCatalog@engine/ai/golden_five_turn.py:60",
+      "symbol:GoldenTurnInterpreter@engine/ai/golden_five_turn.py:156",
+      "symbol:GoldenTurnProposer@engine/ai/golden_five_turn.py:181",
+      "symbol:GoldenFiveTurnFactory@engine/ai/golden_five_turn.py:217",
+      "symbol:_turn_number@engine/ai/golden_five_turn.py:300",
+      "symbol:_policy@engine/ai/golden_five_turn.py:310",
+      "symbol:_turn_one@engine/ai/golden_five_turn.py:325",
+      "symbol:_turn_two@engine/ai/golden_five_turn.py:352",
+      "symbol:_turn_three@engine/ai/golden_five_turn.py:395",
+      "symbol:_turn_four@engine/ai/golden_five_turn.py:429",
+      "symbol:_turn_five@engine/ai/golden_five_turn.py:484",
+      "symbol:__init__@engine/ai/golden_five_turn.py:63",
+      "symbol:advice_templates@engine/ai/golden_five_turn.py:79",
+      "symbol:expression_templates@engine/ai/golden_five_turn.py:83",
+      "symbol:template@engine/ai/golden_five_turn.py:86"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 647,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "GoldenFirstTurnInterpreter",
+      "GoldenFirstTurnProposer",
+      "GoldenFirstTurnFactory",
+      "__init__",
+      "interpret",
+      "__init__",
+      "propose",
+      "max_turn",
+      "expected_input",
+      "interpreter_for",
+      "proposer_for",
+      "policy_for_turn",
+      "domain_validation_for",
+      "GoldenExpressionTemplate",
+      "GoldenTurnTemplate",
+      "GoldenFiveTurnCatalog",
+      "GoldenTurnInterpreter",
+      "GoldenTurnProposer",
+      "GoldenFiveTurnFactory",
+      "_turn_number",
+      "_policy",
+      "_turn_one",
+      "_turn_two",
+      "_turn_three",
+      "_turn_four",
+      "_turn_five",
+      "__init__",
+      "advice_templates",
+      "expression_templates",
+      "template"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}

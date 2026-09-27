@@ -1,0 +1,144 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-B-MEMORY-READ",
+  "capsule_revision": 1,
+  "task_id": "B-MEMORY-READ",
+  "title": "BeatPlan 持久化与重启读取",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-27T11:51:26.666907+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "aaeae52bdb9156023f3ac8aa5c1f55cef1722653",
+    "target_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "context_snapshot": "sha256:ea0c4e5f515cb6d3a83963b2b3bea7fccd0d7366dc8af903505522cca85bac58"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:read_media_frame@engine/infrastructure/audio/media_protocol.py:236",
+      "symbol:ready@engine/infrastructure/audio/realtime_tts.py:176",
+      "symbol:_read_frame@engine/infrastructure/audio/websocket_transport.py:231",
+      "symbol:read_world@engine/infrastructure/database_manager.py:475",
+      "symbol:read_canon@engine/infrastructure/database_manager.py:481",
+      "symbol:read_rows@engine/infrastructure/database_schema.py:183",
+      "symbol:_read_json@engine/infrastructure/episode_settlement.py:36",
+      "symbol:_memory_artifact@engine/infrastructure/episode_settlement.py:235",
+      "symbol:read_frame@engine/infrastructure/ipc_framing.py:90",
+      "symbol:read_bootstrap_token@engine/infrastructure/ipc_server.py:52",
+      "symbol:production_driver_ready@engine/infrastructure/sqlite_runtime.py:31",
+      "symbol:test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence@engine/tests/test_audio_adapter.py:364",
+      "symbol:test_media_reader_rejects_oversize_header_before_body_allocation@engine/tests/test_audio_adapter.py:557",
+      "symbol:_read_masked_client_websocket_frame@engine/tests/test_audio_adapter.py:1108",
+      "symbol:_MemoryMediaWriter@engine/tests/test_audio_adapter.py:1225",
+      "symbol:MemoryDisclosurePort@engine/tests/test_audio_disclosure.py:302",
+      "symbol:test_audio_authorizer_rejects_turn_before_narrative_ready@engine/tests/test_audio_disclosure.py:387",
+      "symbol:test_publish_beat_is_durable_idempotent_and_advances_to_beat_ready@engine/tests/test_beat_plan_repository.py:35",
+      "symbol:test_inventory_is_relative_and_does_not_read_symlink_target@engine/tests/test_bundle_engine.py:112",
+      "symbol:read@engine/tests/test_bundle_engine.py:209",
+      "symbol:_read@engine/tests/test_contracts_pydantic.py:31",
+      "symbol:test_development_driver_fallback_is_never_production_ready@engine/tests/test_data_sqlite_runtime.py:72",
+      "symbol:test_episode_finalization_rejects_private_event_memory_for_unaware_character@engine/tests/test_database_domain_settlement.py:884",
+      "symbol:test_episode_bundle_read_during_finalization_sees_one_complete_snapshot@engine/tests/test_database_domain_settlement.py:1167",
+      "symbol:track_read_world@engine/tests/test_database_domain_settlement.py:1184",
+      "symbol:test_database_reader_does_not_block_on_writer_and_cancel_does_not_undo_commit@engine/tests/test_database_manager.py:278",
+      "symbol:test_database_backup_reads_live_wal_and_never_overwrites@engine/tests/test_database_manager.py:380",
+      "symbol:_read@engine/tests/test_episode_authoring_content.py:29",
+      "symbol:_command@engine/tests/test_episode_memory_recall.py:21",
+      "symbol:test_authorized_episode_memory_is_recalled_for_its_subject@engine/tests/test_episode_memory_recall.py:35"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 862,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "read_media_frame",
+      "ready",
+      "_read_frame",
+      "read_world",
+      "read_canon",
+      "read_rows",
+      "_read_json",
+      "_memory_artifact",
+      "read_frame",
+      "read_bootstrap_token",
+      "production_driver_ready",
+      "test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence",
+      "test_media_reader_rejects_oversize_header_before_body_allocation",
+      "_read_masked_client_websocket_frame",
+      "_MemoryMediaWriter",
+      "MemoryDisclosurePort",
+      "test_audio_authorizer_rejects_turn_before_narrative_ready",
+      "test_publish_beat_is_durable_idempotent_and_advances_to_beat_ready",
+      "test_inventory_is_relative_and_does_not_read_symlink_target",
+      "read",
+      "_read",
+      "test_development_driver_fallback_is_never_production_ready",
+      "test_episode_finalization_rejects_private_event_memory_for_unaware_character",
+      "test_episode_bundle_read_during_finalization_sees_one_complete_snapshot",
+      "track_read_world",
+      "test_database_reader_does_not_block_on_writer_and_cancel_does_not_undo_commit",
+      "test_database_backup_reads_live_wal_and_never_overwrites",
+      "_read",
+      "_command",
+      "test_authorized_episode_memory_is_recalled_for_its_subject"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
