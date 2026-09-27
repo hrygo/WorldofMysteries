@@ -418,9 +418,9 @@ public nonisolated struct StoryEntryViewDTO: Codable, Sendable, Equatable {
         mode = try container.decode(String.self, forKey: .mode)
         guard mode == StoryControl.mode else { throw StoryControlError.invalidPayload }
         supportedAdvice = try container.decode([String].self, forKey: .supportedAdvice)
-        guard !supportedAdvice.isEmpty, supportedAdvice.count <= 8 else {
-            throw StoryControlError.invalidPayload
-        }
+        // An empty list is the Engine's closed-run signal: the fixed scenario
+        // finished and no further submit is authorized.
+        guard supportedAdvice.count <= 8 else { throw StoryControlError.invalidPayload }
         for advice in supportedAdvice { _ = try StoryControl.rawInput(advice) }
         observedStoreRevision = try StoryControl.revision(
             container.decode(Int.self, forKey: .observedStoreRevision))

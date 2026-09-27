@@ -7,9 +7,9 @@ frozen bootstrap that later persistence must write atomically with the open.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -33,6 +33,13 @@ ENGINEERING_NAMESPACE = "engineering-golden001"
 SUPPORTED_ADVICE = "先别问医生病人的事，我想看看他的反应。"
 SCENE_ID = "consultation_room"
 SCENE_DISPLAY_NAME = "哈维诊所 · 诊室"
+GOLDEN_CLUE_DISPLAY_NAMES = {
+    "clue_doctor_pause": "医生的停顿",
+    "clue_appointment_book": "异常的预约记录",
+    "clue_removed_page": "被撕去的预约页",
+    "clue_basement_powder": "门框黑粉",
+    "clue_jonathan_note": "Jonathan 的纸片",
+}
 SCENARIO_TITLE = "不存在的预约"
 DOCTOR_ACTOR_ID = "npc_doctor_morris"
 _MAX_TEXT = 256
@@ -350,10 +357,12 @@ def _pressure(seed: dict[str, Any]) -> dict[str, float]:
 
 
 def _validate_presentation(presentation: ScenarioPresentation) -> None:
+    legacy_clue_names = {"clue_doctor_pause": "医生的停顿"}
     if (
         presentation.scenario_title != SCENARIO_TITLE
         or presentation.scene_display_name != SCENE_DISPLAY_NAME
-        or presentation.clue_display_names != {"clue_doctor_pause": "医生的停顿"}
+        or presentation.clue_display_names
+        not in (legacy_clue_names, GOLDEN_CLUE_DISPLAY_NAMES)
     ):
         raise StoryInitializationError("unsupported_presentation")
 
@@ -365,7 +374,7 @@ def _session_id(open_request_id: str) -> str:
             f"{ENGINEERING_NAMESPACE}\0"
             f"{GOLDEN_SCENARIO_ID}\0"
             f"{open_request_id}"
-        ).encode("utf-8")
+        ).encode()
     ).hexdigest()
     return f"session_{digest[:32]}"
 

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+from dataclasses import dataclass
 
 from application.story_turn_commit import StoryCommitPort, StoryTurnCommitResult
 from contracts import StateDelta, StorySession, StoryState, TurnTransaction
@@ -24,6 +26,131 @@ def _canonical_json(model) -> str:
         separators=(",", ":"),
         allow_nan=False,
     )
+
+
+def _domain_change_id(delta_id: str, kind: str, ordinal: int, payload_json: str) -> str:
+    digest = hashlib.sha256(
+        "\0".join((delta_id, kind, str(ordinal), payload_json)).encode("utf-8")
+    ).hexdigest()
+    return f"change_{digest}"
+
+
+@dataclass(frozen=True, slots=True)
+class _TurnDomainChange:
+    id: str
+    kind: str
+    ordinal: int
+    subjects: tuple[str, ...]
+    payload_json: str
+
+
+def _turn_domain_changes(delta: StateDelta) -> tuple[_TurnDomainChange, ...]:
+    groups = (
+        (
+            "character",
+            delta.character_deltas,
+            lambda item: (item.character_id,),
+        ),
+        (
+            "relationship",
+            delta.relationship_deltas or [],
+            lambda item: (item.from_character_id, item.to_character_id),
+        ),
+        (
+            "knowledge",
+            delta.knowledge_candidates or [],
+            lambda item: (item.character_id, item.proposition_id),
+        ),
+        (
+            "world_event",
+            delta.world_event_candidates,
+            lambda item: (item.event_type,),
+        ),
+    )
+    changes: list[_TurnDomainChange] = []
+    for kind, values, subjects in groups:
+        for ordinal, value in enumerate(values):
+            payload_json = _canonical_json(value)
+            changes.append(
+                _TurnDomainChange(
+                    id=_domain_change_id(delta.id, kind, ordinal, payload_json),
+                    kind=kind,
+                    ordinal=ordinal,
+                    subjects=subjects(value),
+                    payload_json=payload_json,
+                )
+            )
+    return tuple(changes)
+
+
+def _turn_domain_event(
+    change: _TurnDomainChange,
+    *,
+    session: StorySession,
+    delta: StateDelta,
+    turn: TurnTransaction,
+) -> StoredEvent:
+    return StoredEvent(
+        event_id=f"story-domain-change:{change.id}",
+        aggregate_id=session.id,
+        event_type=f"story.domain.{change.kind}.candidate",
+        payload={
+            "change_id": change.id,
+            "state_delta_id": delta.id,
+            "change": json.loads(change.payload_json),
+        },
+        cause_id=delta.id,
+        turn_id=turn.id,
+    )
+
+
+def _persist_turn_domain_changes(
+    tx: DomainTransaction,
+    *,
+    session: StorySession,
+    delta: StateDelta,
+    turn: TurnTransaction,
+    changes: tuple[_TurnDomainChange, ...],
+) -> None:
+    """Write validated cross-domain candidates as immutable, commit-linked facts."""
+    for change in changes:
+        common = (
+            change.id,
+            session.id,
+            turn.id,
+            delta.id,
+            change.ordinal,
+        )
+        if change.kind == "character":
+            tx.execute(
+                "INSERT INTO turn_character_changes("
+                "id,session_id,turn_id,state_delta_id,ordinal,character_id,"
+                "payload_json,committed_world_revision) VALUES (?,?,?,?,?,?,?,?)",
+                (*common, change.subjects[0], change.payload_json, tx.revision),
+            )
+        elif change.kind == "relationship":
+            tx.execute(
+                "INSERT INTO turn_relationship_changes("
+                "id,session_id,turn_id,state_delta_id,ordinal,from_character_id,"
+                "to_character_id,payload_json,committed_world_revision) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (*common, *change.subjects, change.payload_json, tx.revision),
+            )
+        elif change.kind == "knowledge":
+            tx.execute(
+                "INSERT INTO turn_knowledge_changes("
+                "id,session_id,turn_id,state_delta_id,ordinal,character_id,"
+                "proposition_id,payload_json,committed_world_revision) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (*common, *change.subjects, change.payload_json, tx.revision),
+            )
+        else:
+            tx.execute(
+                "INSERT INTO turn_world_events("
+                "id,session_id,turn_id,state_delta_id,ordinal,event_type,"
+                "payload_json,committed_world_revision) VALUES (?,?,?,?,?,?,?,?)",
+                (*common, change.subjects[0], change.payload_json, tx.revision),
+            )
 
 
 def _decode_story_session_row(row) -> StorySession:
@@ -85,11 +212,42 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
         request_id: str,
         trace_id: str,
     ) -> StoryTurnCommitResult:
+        # Snapshot every caller-owned nested model before the writer queue await.
+        try:
+            session = StorySession.model_validate(
+                session.model_dump(mode="json", exclude_none=True)
+            )
+            delta = StateDelta.model_validate(
+                delta.model_dump(mode="json", exclude_none=True)
+            )
+            turn = TurnTransaction.model_validate(
+                turn.model_dump(mode="json", exclude_none=True)
+            )
+        except (AttributeError, TypeError, ValueError):
+            raise StorageError("Invalid Story commit payload") from None
+
+        if session.status == "finalized":
+            raise StorageError("StorySession can only be finalized by Episode finalization")
         if session.story_state.world_time is None:
             raise StorageError("Committed StoryState requires world_time")
         if turn.committed_story_revision != session.story_state.revision:
             raise StorageError("Committed turn/story revisions differ")
 
+        semantic_payload = {
+            "session": session.model_dump(mode="json", exclude_none=True),
+            "delta": delta.model_dump(mode="json", exclude_none=True),
+            "turn": turn.model_dump(mode="json", exclude_none=True),
+        }
+        settlement_digest = hashlib.sha256(
+            json.dumps(
+                semantic_payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        domain_changes = _turn_domain_changes(delta)
         operation = {
             "kind": "story.turn.commit",
             "session_id": session.id,
@@ -98,6 +256,7 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
             "story_revision": session.story_state.revision,
             "domain_base_world_revision": session.base_revisions.world,
             "domain_base_character_revision": session.base_revisions.character,
+            "settlement_digest": settlement_digest,
         }
         event = StoredEvent(
             event_id=f"story.turn.{turn.id}.r{session.story_state.revision}",
@@ -119,7 +278,18 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
             request_id=request_id,
             trace_id=trace_id,
             operation=operation,
-            events=(event,),
+            events=(
+                event,
+                *(
+                    _turn_domain_event(
+                        change,
+                        session=session,
+                        delta=delta,
+                        turn=turn,
+                    )
+                    for change in domain_changes
+                ),
+            ),
         )
 
         def apply(tx: DomainTransaction):
@@ -157,6 +327,10 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
                     or current["worldline_id"] != session.worldline_id
                 ):
                     raise StorageError("StorySession identity mismatch")
+                if current["status"] == "finalized":
+                    raise StorageError(
+                        "Finalized StorySession cannot accept new turns"
+                    )
                 if current["story_revision"] != turn.base_revisions.story:
                     raise RevisionConflict("Story revision does not match")
                 tx.execute(
@@ -232,6 +406,13 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
                     _canonical_json(turn),
                     tx.revision,
                 ),
+            )
+            _persist_turn_domain_changes(
+                tx,
+                session=session,
+                delta=delta,
+                turn=turn,
+                changes=domain_changes,
             )
             if intake is not None:
                 tx.execute(

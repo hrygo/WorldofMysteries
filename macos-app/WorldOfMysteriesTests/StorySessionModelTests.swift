@@ -45,10 +45,11 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     private let lock = NSLock()
     private let log: StoryCallLog
     private let journal: MemoryStoryJournal
-    private let entryView: StoryEntryViewDTO
+    private var entryView: StoryEntryViewDTO
     private let openView: StoryOpenViewDTO
 
     private var submitView: StoryAdviceSubmitViewDTO?
+    private var submitQueue: [StoryAdviceSubmitViewDTO] = []
     private var adviceView: StoryAdviceGetViewDTO
     private var submitError: (any Error)?
     private var openError: (any Error)?
@@ -67,6 +68,10 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     }
 
     func setSubmitError(_ error: (any Error)?) { lock.withLock { submitError = error } }
+    func setEntryView(_ view: StoryEntryViewDTO) { lock.withLock { entryView = view } }
+    /// Queued results model the Engine's per-turn views: each fixed turn
+    /// commits its own revision and advertises the next advice.
+    func enqueueSubmitView(_ view: StoryAdviceSubmitViewDTO) { lock.withLock { submitQueue.append(view) } }
     func setOpenError(_ error: (any Error)?) { lock.withLock { openError = error } }
     func setAdvice(_ view: StoryAdviceGetViewDTO) { lock.withLock { adviceView = view } }
 
@@ -92,7 +97,7 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     func storyEntry(scenarioId: String) async throws -> StoryEntryViewDTO {
         log.append("client.entry")
-        return entryView
+        return lock.withLock { entryView }
     }
 
     func storyOpen(openRequestId: String, expectedStoreRevision: Int) async throws -> StoryOpenViewDTO {
@@ -112,7 +117,10 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     func storySubmit(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO {
         log.append("client.submit")
-        let state = lock.withLock { (gateStream, submitError, submitView) }
+        let state = lock.withLock { () -> (AsyncStream<Void>?, (any Error)?, StoryAdviceSubmitViewDTO?) in
+            let next = submitQueue.isEmpty ? submitView : submitQueue.removeFirst()
+            return (gateStream, submitError, next)
+        }
         if let gate = state.0 { for await _ in gate { break } }
         if let error = state.1 { throw error }
         guard let view = state.2 else { throw EngineConnectionError.invalidFrame }
@@ -158,9 +166,21 @@ struct StorySessionModelTests {
         return try JSONDecoder().decode(StoryPublicViewDTO.self, from: Data(json.utf8))
     }
 
+    static let firstAdvice = "先别问医生病人的事，我想看看他的反应。"
+    static let turnAdvice = [
+        "先别问医生病人的事，我想看看他的反应。",
+        "我注意到他的手一直插在口袋里。",
+        "把话题引向诊所楼下的传闻。",
+        "追问他刚才停顿时在想什么。",
+        "直接告诉他我知道他隐瞒了什么。",
+    ]
+
+    static func advice(forTurn turn: Int) -> String { turnAdvice[turn - 1] }
+
     static func entry(session: StoryPublicViewDTO? = nil,
                       pendingInputTurnId: String? = nil,
-                      storeRevision: Int = 0) throws -> StoryEntryViewDTO {
+                      storeRevision: Int = 0,
+                      advice: [String]? = nil) throws -> StoryEntryViewDTO {
         let sessionJSON = session.map { view -> String in
             let data = try? JSONEncoder().encode(view)
             return data.flatMap { String(data: $0, encoding: .utf8) } ?? "null"
@@ -171,7 +191,7 @@ struct StorySessionModelTests {
           "schema_version": "1.0",
           "scenario_id": "golden_001",
           "mode": "golden_deterministic",
-          "supported_advice": ["先别问医生病人的事，我想看看他的反应。"],
+          "supported_advice": \(adviceJSON(advice ?? [firstAdvice])),
           "observed_store_revision": \(storeRevision)
           \(session == nil ? "" : #", "session": \#(sessionJSON)"#)
           \(pending)
@@ -180,7 +200,15 @@ struct StorySessionModelTests {
         return try JSONDecoder().decode(StoryEntryViewDTO.self, from: Data(json.utf8))
     }
 
-    static func submitResult() throws -> StoryAdviceSubmitViewDTO {
+    static func adviceJSON(_ advice: [String]) -> String {
+        "[" + advice.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+    }
+
+    /// Committed fixed turn `turn`: story revision equals the turn number, the
+    /// store revision advances independently, and `can_submit` stays true until
+    /// the fifth turn closes the run.
+    static func submitResult(turn: Int = 1, canSubmit: Bool? = nil) throws -> StoryAdviceSubmitViewDTO {
+        let open = canSubmit ?? (turn < 5)
         let json = """
         {
           "schema_version": "1.0",
@@ -189,37 +217,49 @@ struct StorySessionModelTests {
             "session_id": "session_1",
             "turn_id": "turn_first_001",
             "status": "committed",
-            "committed_store_revision": 2,
-            "committed_story_revision": 1
+            "committed_store_revision": \(turn + 1),
+            "committed_story_revision": \(turn)
           },
-          "session": {
-            "schema_version": "1.0",
-            "scenario_id": "golden_001",
-            "session_id": "session_1",
-            "mode": "golden_deterministic",
-            "status": "active",
-            "story_revision": 1,
-            "turn": 1,
-            "observed_store_revision": 2,
-            "world_time": "1899-03-01T08:00:00Z",
-            "protagonist": {"id": "char_evelyn_gray", "display_name": "伊芙琳·格雷"},
-            "scene": {"id": "consultation_room", "location_id": "harvey_clinic",
-                      "display_name": "哈维诊所 · 诊室"},
-            "discovered_clues": [{"id": "clue_doctor_pause", "display_name": "医生的停顿"}],
-            "can_submit": false,
-            "last_committed_turn_id": "turn_first_001"
-          },
+          "session": \(sessionJSON(turn: turn, storeRevision: turn + 1, canSubmit: open)),
           "replayed": false
         }
         """
         return try JSONDecoder().decode(StoryAdviceSubmitViewDTO.self, from: Data(json.utf8))
     }
 
-    static func adviceFound(committed: Bool = true) throws -> StoryAdviceGetViewDTO {
+    static func sessionJSON(turn: Int, storeRevision: Int, canSubmit: Bool) -> String {
+        let clues = turn > 0
+            ? #"[{"id": "clue_doctor_pause", "display_name": "医生的停顿"}]"#
+            : "[]"
+        let lastTurn = turn > 0 ? #", "last_committed_turn_id": "turn_first_001""# : ""
+        return """
+        {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_1",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": \(turn),
+          "turn": \(turn),
+          "observed_store_revision": \(storeRevision),
+          "world_time": "1899-03-01T08:00:00Z",
+          "protagonist": {"id": "char_evelyn_gray", "display_name": "伊芙琳·格雷"},
+          "scene": {"id": "consultation_room", "location_id": "harvey_clinic",
+                    "display_name": "哈维诊所 · 诊室"},
+          "discovered_clues": \(clues),
+          "can_submit": \(canSubmit)
+          \(lastTurn)
+        }
+        """
+    }
+
+    static func adviceFound(committed: Bool = true,
+                            session: StoryPublicViewDTO? = nil) throws -> StoryAdviceGetViewDTO {
         let status = committed ? "committed" : "received"
         let committedFields = committed
             ? #", "committed_store_revision": 2, "committed_story_revision": 1"#
             : ""
+        let sessionField = session.map { #", "session": \#(sessionJSON(turn: $0.turn, storeRevision: $0.observedStoreRevision, canSubmit: $0.canSubmit))"# } ?? ""
         let json = """
         {
           "schema_version": "1.0",
@@ -230,7 +270,8 @@ struct StorySessionModelTests {
             "turn_id": "turn_first_001",
             "status": "\(status)"
             \(committedFields)
-          },
+          }
+          \(sessionField),
           "replayed": true
         }
         """
@@ -287,27 +328,136 @@ struct StorySessionModelTests {
         #expect(!log.values.contains("client.open"))
     }
 
-    @Test("First turn completes once and then refuses a second submission")
-    func firstTurnIsSingleShot() async throws {
+    @Test("A committed turn reopens the next fixed turn instead of closing the run")
+    func committedTurnReopensNextFixedTurn() async throws {
         let log = StoryCallLog()
         let journal = MemoryStoryJournal()
-        let (model, _) = Self.makeModel(
+        let (model, client) = Self.makeModel(
             log: log, journal: journal,
             entryView: try Self.entry(session: Self.view()),
             openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
                                            replayed: false),
-            submitView: try Self.submitResult(), adviceView: try Self.adviceFound())
+            submitView: try Self.submitResult(turn: 1), adviceView: try Self.adviceFound())
         await model.refreshEntry()
         #expect(model.state == .ready)
+        #expect(!model.isFirstTurnSaved)
         model.fillSupportedAdvice()
+        // The post-commit read observes the just-committed turn and advertises
+        // exactly the next fixed advice.
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
         await model.submit()
-        #expect(model.state == .completed)
+        #expect(model.state == .ready)
         #expect(model.isFirstTurnSaved)
+        #expect(!model.isFixedRunComplete)
         #expect(model.draft.isEmpty)
+        #expect(model.view?.turn == 1)
         #expect(model.view?.discoveredClues.first?.displayName == "医生的停顿")
+        #expect(model.supportedAdvice == [Self.advice(forTurn: 2)])
+        #expect(model.statusText == "填入第 2 轮建议后提交")
         #expect(!model.canSubmitStory)
+    }
+
+    /// Regression: the real `StorySessionPanel` composer wiring must still reach
+    /// the Engine.
+    ///
+    /// `AdviceDraftSubmission` empties the binding *synchronously* as soon as the
+    /// handler returns, and the panel's handler only *enqueues* an async
+    /// submission. A handler that re-reads `model.draft` therefore always sees an
+    /// empty string, fails the `canSubmitStory` guard and silently drops the
+    /// advice — which is exactly what a human clicking 提交建议 did in the GUI.
+    @Test("The real composer wiring still submits after it empties the binding")
+    func composerDeliverySurvivesOptimisticDraftClear() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: try Self.submitResult(turn: 1), adviceView: try Self.adviceFound())
+        await model.refreshEntry()
+        #expect(model.state == .ready)
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+
+        model.fillSupportedAdvice()
+        #expect(model.draft == Self.advice(forTurn: 1))
+
+        // Exactly how StorySessionPanel drives AdviceInputField.
+        let delivered = AdviceDraftSubmission.submit(
+            readDraft: { model.draft },
+            writeDraft: { model.draft = $0 },
+            isEnabled: true,
+            handler: { advice in
+                Task { @MainActor in await model.submit(advice: advice) }
+            })
+        #expect(delivered)
+        // The composer already cleared the binding before the Task body runs.
+        #expect(model.draft.isEmpty)
+
+        // Bounded wait for the *outcome*, not for the call: the client logs
+        // `client.submit` before the Engine answers, so waiting on the call
+        // would race the response under load. A handler that lost the advice
+        // never commits, and must fail the assertions instead of hanging.
+        for _ in 0..<200 {
+            if model.view?.turn == 1 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(log.values.contains("client.submit"))
+        #expect(model.view?.turn == 1)
+        #expect(model.statusText == "填入第 2 轮建议后提交")
+    }
+
+    @Test("Five fixed turns commit in order and close after the fifth")
+    func fiveTurnsRunToCompletion() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: nil,
+            adviceView: try Self.adviceFound(session: Self.view(
+                turn: 5, storyRevision: 5, storeRevision: 6, canSubmit: false)))
+        client.setEntryView(try Self.entry(session: Self.view(), advice: [Self.advice(forTurn: 1)]))
+        await model.refreshEntry()
+        #expect(model.state == .ready)
+
+        for turn in 1...5 {
+            #expect(model.state == .ready)
+            #expect(model.view?.turn == turn - 1)
+            #expect(model.supportedAdvice == [Self.advice(forTurn: turn)])
+            model.fillSupportedAdvice()
+            #expect(model.draft == Self.advice(forTurn: turn))
+            client.enqueueSubmitView(try Self.submitResult(turn: turn))
+            // The post-commit read observes the just-committed turn.
+            client.setEntryView(try Self.entry(
+                session: Self.view(turn: turn, storyRevision: turn, storeRevision: turn + 1,
+                                   canSubmit: turn < 5),
+                storeRevision: turn + 1,
+                advice: turn < 5 ? [Self.advice(forTurn: turn + 1)] : []))
+            await model.submit()
+            #expect(model.draft.isEmpty)
+            #expect(model.view?.storyRevision == turn)
+            if turn < 5 {
+                #expect(model.state == .ready)
+                #expect(!model.isFixedRunComplete)
+            } else {
+                #expect(model.state == .completed)
+                #expect(model.isFixedRunComplete)
+            }
+        }
+        #expect(model.supportedAdvice.isEmpty)
+        #expect(!model.canSubmitStory)
+        #expect(model.statusText == "第 5 轮已保存 · 固定五轮验证已完成")
+        model.fillSupportedAdvice()
+        #expect(model.draft.isEmpty)
         await model.submit()
-        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.submit" }.count == 5)
     }
 
     @Test("Unsupported text keeps the draft and drops the frozen identity")
@@ -348,9 +498,13 @@ struct StorySessionModelTests {
         #expect(model.state == .recovering)
         #expect(log.values.filter { $0 == "client.submit" }.count == 1)
 
-        client.setAdvice(try Self.adviceFound(committed: true))
+        // The read-only recovery adopts the committed view the Engine reports.
+        client.setAdvice(try Self.adviceFound(
+            committed: true,
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2)))
         await model.recover()
-        #expect(model.state == .completed)
+        #expect(model.state == .ready)
+        #expect(model.view?.turn == 1)
         #expect(log.values.filter { $0 == "client.submit" }.count == 1)
         #expect(log.values.contains("client.advice"))
     }
@@ -375,8 +529,12 @@ struct StorySessionModelTests {
         #expect(model.statusText == "请求已记录，尚未提交")
 
         client.setSubmitError(nil)
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
         await model.continuePendingRequest()
-        #expect(model.state == .completed)
+        #expect(model.state == .ready)
+        #expect(model.view?.turn == 1)
         #expect(log.values.filter { $0 == "client.submit" }.count == 2)
     }
 
@@ -443,10 +601,17 @@ struct StorySessionModelTests {
         #expect(model.canRetrySameRequest)
         #expect(model.statusText == "未查到提交记录，可显式重试同一请求")
 
-        client.setAdvice(try Self.adviceFound(committed: true))
+        client.setAdvice(try Self.adviceFound(
+            committed: true,
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2)))
         client.setSubmitError(nil)
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
         await model.retryFrozenSubmission()
-        #expect(model.state == .completed)
+        #expect(model.state == .ready)
+        #expect(model.view?.turn == 1)
+        #expect(log.values.filter { $0 == "client.submit" }.count == 2)
     }
 }
 

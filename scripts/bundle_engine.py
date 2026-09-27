@@ -29,6 +29,11 @@ from build_data_sqlite import stage_data_sqlite
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / 'macos-app/Packaging/python-runtime.lock.json'
 ENGINE_DIRS = ('domain', 'application', 'infrastructure', 'ai', 'contracts')
+RUNTIME_CONTRACT_SCHEMAS = (
+    'character_knowledge.schema.json',
+    'character_memory.schema.json',
+    'world_event.schema.json',
+)
 MAX_EXPANDED_BYTES = 2 * 1024**3
 
 
@@ -39,6 +44,28 @@ class BundleError(RuntimeError):
 def sha256(path: Path) -> str:
     with path.open('rb') as source:
         return hashlib.file_digest(source, 'sha256').hexdigest()
+
+
+def stage_contract_schemas(runtime: Path) -> tuple[str, ...]:
+    """Copy the schemas required by the runtime finalizer into its relocatable root."""
+    source_root = ROOT / 'contracts' / 'schemas'
+    target_root = runtime / 'contracts' / 'schemas'
+    target_root.mkdir(parents=True, exist_ok=True)
+    for name in RUNTIME_CONTRACT_SCHEMAS:
+        source = source_root / name
+        target = target_root / name
+        if source.is_symlink() or not source.is_file():
+            raise BundleError('Required runtime contract schema is unavailable')
+        if target.exists() or target.is_symlink():
+            raise BundleError('Runtime contract schema destination already exists')
+        try:
+            json.loads(source.read_text(encoding='utf-8'))
+        except (OSError, TypeError, ValueError):
+            raise BundleError('Required runtime contract schema is invalid') from None
+        shutil.copyfile(source, target)
+        if sha256(source) != sha256(target):
+            raise BundleError('Runtime contract schema copy failed verification')
+    return RUNTIME_CONTRACT_SCHEMAS
 
 
 def read_lock(path: Path = LOCK) -> dict:
@@ -228,6 +255,7 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
         data_sqlite = stage_data_sqlite(runtime, logs, env=env)
         modules = runtime / 'engine'
         modules.mkdir()
+        stage_contract_schemas(runtime)
         tracked = subprocess.check_output(['git', 'ls-files', '-z', '--',
                     *['engine/'+d for d in ENGINE_DIRS]], cwd=ROOT).decode().split('\0')
         for name in filter(None, tracked):
@@ -265,14 +293,27 @@ print(json.dumps({'agentscope':version('agentscope'),'python':sys.version.split(
         # directory, never from a repository cwd or environment variable.
         relocated = work / 'story-content-probe'
         relocated.mkdir()
-        probe_code = ("import json,sys;sys.path.insert(0,sys.argv[1]);"
+        probe_code = ("import json,sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);"
                       "from infrastructure.story_runtime import default_content_path;"
                       "p=default_content_path();"
-                      "print(json.dumps({'content_artifact_exists':p.is_file()}))")
+                      "five=p.parent/'five_turn';"
+                      "episode=p.parent/'episode.json';"
+                      "memory=p.parent/'episode_memory.json';"
+                      "print(json.dumps({'content_artifact_exists':p.is_file(),"
+                      "'five_turn_exists':five.is_dir(),"
+                      "'five_turn_files':len(list(five.rglob('*.json'))) if five.is_dir() else 0,"
+                      "'episode_exists':episode.is_file(),"
+                      "'episode_memory_exists':memory.is_file()}))")
         relocation = json.loads(run([str(python), '-I', '-B', '-c', probe_code, str(modules)],
                                     cwd=relocated, log=logs/'story-content-relocation.log', env=env).strip().splitlines()[-1])
         if not relocation['content_artifact_exists']:
             raise BundleError('Packaged story content is not module-relative')
+        if not relocation['five_turn_exists'] or relocation['five_turn_files'] != 20:
+            raise BundleError('Packaged five-turn content is missing or incomplete')
+        # The runtime settles the fifth turn from the packaged Episode input; a
+        # bundle without it would commit the story but silently skip settlement.
+        if not relocation['episode_exists'] or not relocation['episode_memory_exists']:
+            raise BundleError('Packaged Episode settlement content is missing')
         # Installation-created bytecode is not required. Runtime always launches with -B.
         for cache in list(runtime.rglob('__pycache__')):
             if cache.is_dir() and not cache.is_symlink():

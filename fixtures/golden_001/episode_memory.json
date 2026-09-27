@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "id": "memory.evelyn.golden_001",
+  "character_id": "char_evelyn_gray",
+  "worldline_id": "wl_main",
+  "memory_type": "episode",
+  "summary": "在诊所调查到 Jonathan 留下的片段，但真正组织仪式的人仍未知。",
+  "importance": {
+    "overall": 0.7,
+    "emotional": 0.2,
+    "relationship": 0.3,
+    "identity": 0.1
+  },
+  "source_ids": [],
+  "retention": "long"
+}

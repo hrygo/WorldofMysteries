@@ -99,27 +99,35 @@ public final class StorySessionModel {
         }
     }
 
-    public var isFirstTurnSaved: Bool { view?.turn ?? 0 > 0 && state == .completed }
+    /// At least one fixed turn is durably committed. Further turns may follow.
+    public var isFirstTurnSaved: Bool { view?.turn ?? 0 > 0 }
+
+    /// The fixed run reached its final turn: the Engine advertises no further
+    /// advice and refuses a sixth submit.
+    public var isFixedRunComplete: Bool { state == .completed && view?.canSubmit == false }
+
+    /// Next fixed turn number, derived from committed turns only.
+    private var nextTurnNumber: Int { (view?.turn ?? 0) + 1 }
 
     public var statusText: String {
         switch state {
-        case .unavailable: return "本地引擎未提供首轮故事能力"
-        case .loading: return "正在读取首轮验证入口…"
-        case .notStarted: return "工程验证 · 固定首轮"
+        case .unavailable: return "本地引擎未提供固定五轮故事能力"
+        case .loading: return "正在读取固定五轮验证入口…"
+        case .notStarted: return "工程验证 · 固定五轮"
         case .opening: return "正在创建可信开场…"
-        case .ready: return "填入首轮建议后提交"
-        case .submitting: return "正在提交第 1 轮…"
+        case .ready: return "填入第 \(nextTurnNumber) 轮建议后提交"
+        case .submitting: return "正在提交第 \(nextTurnNumber) 轮…"
         case .recovering: return "正在确认是否已保存…"
         case .pending: return "请求已记录，尚未提交"
-        case .completed: return "第 1 轮已保存"
+        case .completed: return "第 \(view?.turn ?? 0) 轮已保存 · 固定五轮验证已完成"
         case .failed(let code): return Self.failureText(code)
         }
     }
 
     static func failureText(_ code: String) -> String {
         switch code {
-        case "deterministic_input_unsupported": return "仅支持指定的首轮建议，可修改后重试"
-        case "iteration_limit_reached": return "首轮验证已完成，后续回合尚未开放"
+        case "deterministic_input_unsupported": return "仅支持本轮指定的建议，可修改后重试"
+        case "iteration_limit_reached": return "固定五轮验证已完成，后续回合不再开放"
         case "revision_conflict": return "状态已变化，请刷新只读结果"
         case "recovery_required": return "恢复受阻，保留现有数据"
         case "input_not_found": return "未查到提交记录，可显式重试同一请求"
@@ -148,7 +156,8 @@ public final class StorySessionModel {
     }
 
     public func fillSupportedAdvice() {
-        guard let advice = supportedAdvice.first else { return }
+        // A closed run advertises no acceptable input: never refill a stale hint.
+        guard state == .ready, let advice = supportedAdvice.first else { return }
         draft = advice
     }
 
@@ -185,14 +194,20 @@ public final class StorySessionModel {
         if let record, let frozen = record.frozenSubmission, frozen.sessionId == session.sessionId {
             if session.turn > 0 {
                 clearCommittedJournal()
-                state = .completed
+                state = Self.settledState(session)
                 canRetrySameRequest = false
             } else {
                 await recover()
             }
             return
         }
-        state = session.turn > 0 ? .completed : .ready
+        state = Self.settledState(session)
+    }
+
+    /// A committed turn is only "completed" when the Engine stops advertising
+    /// `can_submit`; the fixed five-turn run stays `.ready` between turns.
+    static func settledState(_ session: StoryPublicViewDTO) -> State {
+        session.canSubmit ? .ready : .completed
     }
 
     /// A lost open ACK is recovered by re-issuing the frozen identity, never a new one.
@@ -250,10 +265,28 @@ public final class StorySessionModel {
 
     public func submit() async {
         guard canSubmitStory, let view else { return }
+        await submit(rawInput: draft, view: view)
+    }
+
+    /// Submit the exact advice the composer delivered.
+    ///
+    /// `AdviceDraftSubmission` hands the handler its trimmed advice and then
+    /// empties the binding *synchronously*, before the handler's `Task` body
+    /// runs. A handler that re-reads `draft` therefore always observes an empty
+    /// string and silently fails the `canSubmitStory` guard, so the panel must
+    /// carry its own frozen text instead of depending on the draft surviving.
+    public func submit(advice: String) async {
+        guard state == .ready, let view, view.canSubmit else { return }
+        await submit(rawInput: advice, view: view)
+    }
+
+    private func submit(rawInput: String, view: StoryPublicViewDTO) async {
+        let trimmed = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         let frozen = StoryFrozenSubmission(
             sessionId: view.sessionId,
             inputTurnId: idFactory(),
-            rawInput: draft,
+            rawInput: trimmed,
             expectedStoryRevision: view.storyRevision,
             expectedStoreRevision: view.observedStoreRevision)
         await submit(frozen)
@@ -292,10 +325,43 @@ public final class StorySessionModel {
             draft = ""
             try? journal.save(record.withPhase(.committed))
             lastServiceCode = nil
-            state = .completed
+            state = Self.settledState(result.session)
+            if result.session.canSubmit {
+                // The commit is durable; only the next turn's advice is still
+                // unknown, and a failed read must never rewrite committed facts.
+                await refreshAdviceAfterCommit(attempt: attempt)
+            } else {
+                // `can_submit == false` is the Engine's closed-run signal, so the
+                // last turn's advice must not stay advertised.
+                supportedAdvice = []
+            }
         } catch {
             guard attempt == generation else { return }
             await handleSubmitFailure(error, frozen: frozen)
+        }
+    }
+
+    /// Read-only refresh of the next turn's advice after a durable commit.
+    ///
+    /// The Engine only advertises the expected input for the current turn, so
+    /// the client re-reads the entry instead of guessing. A transport failure
+    /// here leaves the committed turn visible and never rewrites facts; the
+    /// next explicit refresh re-syncs the advice.
+    private func refreshAdviceAfterCommit(attempt: UInt64) async {
+        do {
+            let entry = try await client.storyEntry(scenarioId: StoryControl.scenarioId)
+            guard attempt == generation else { return }
+            supportedAdvice = entry.supportedAdvice
+            pendingInputTurnId = entry.pendingInputTurnId
+            guard let session = entry.session else { return }
+            view = session
+            if entry.pendingInputTurnId != nil {
+                state = .pending
+            } else {
+                state = Self.settledState(session)
+            }
+        } catch {
+            // Committed facts stay authoritative; only the advice hint is stale.
         }
     }
 
@@ -359,7 +425,8 @@ public final class StorySessionModel {
             case "committed":
                 try? journal.save(record.withPhase(.committed))
                 canRetrySameRequest = false
-                state = .completed
+                let settled = found.session ?? view
+                state = settled.map(Self.settledState) ?? .completed
             case "received":
                 canRetrySameRequest = true
                 state = .pending

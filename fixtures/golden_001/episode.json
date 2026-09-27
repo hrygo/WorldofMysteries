@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "id": "ep_golden_001",
+  "world_id": "world_001",
+  "worldline_id": "wl_main",
+  "story_seed_id": "seed_golden_001",
+  "protagonist_ids": [
+    "char_evelyn_gray"
+  ],
+  "title": "不存在的预约",
+  "start_world_time": "1349-06-12T21:40:00",
+  "ending": {
+    "type": "partial_truth",
+    "main_problem": "partially_resolved"
+  },
+  "secret_states": {},
+  "discovered_clue_ids": [],
+  "narrative_block_ids": [],
+  "unresolved_threads": [
+    "jonathan_current_location",
+    "occult_group_identity"
+  ],
+  "worldline_divergence": false,
+  "character_event_ids": [],
+  "relationship_event_ids": [],
+  "knowledge_change_ids": [],
+  "memory_ids": [],
+  "world_event_ids": []
+}

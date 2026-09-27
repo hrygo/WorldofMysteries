@@ -260,18 +260,18 @@ def _build_v9_world(path: Path) -> None:
         connection.execute("COMMIT")
 
 
-def test_v9_world_migrates_to_v10_with_backup_and_preserves_legacy_data(tmp_path):
+def test_v9_world_migrates_to_v12_with_backup_and_preserves_legacy_data(tmp_path):
     path = tmp_path / "Worlds" / "v9" / "world.db"
     _build_v9_world(path)
 
     with connect(path) as connection:
         initialize(connection, "world", path=path)
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 12
         assert connection.execute(
             "SELECT value FROM legacy_bootstrap_marker WHERE id='preserve-me'"
         ).fetchone()[0] == "preserve-me"
 
-    backup = path.with_name("world.db.pre-migration-v9-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v9-to-v12.bak")
     assert backup.is_file()
     assert backup.exists()
     with connect(backup, readonly=True) as snapshot:

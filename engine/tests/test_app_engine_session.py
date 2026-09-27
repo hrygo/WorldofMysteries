@@ -5,11 +5,9 @@ prerequisite is missing. Linux can also run this as supplementary compatibility.
 """
 from __future__ import annotations
 
-from contextlib import closing
 import hashlib
 import json
 import os
-from pathlib import Path
 import selectors
 import shutil
 import socket
@@ -20,6 +18,8 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import closing
+from pathlib import Path
 
 import pytest
 
@@ -29,9 +29,21 @@ ENGINE_DIR = ROOT / 'engine'
 ENGINE_PACKAGES = ('domain', 'application', 'infrastructure', 'ai', 'contracts')
 WORLD_DIRECTORY = 'engineering-golden001'
 UNSUPPORTED_TEXT = '先问问医生今天还有没有别的预约。'
+# The frozen fixed-run advice, exactly as the packaged five-turn content ships it.
+TURN_ADVICE = (
+    '先别问医生病人的事，我想看看他的反应。',
+    '检查预约簿，但别让他发现。',
+    '我觉得地下室有问题，先听听下面有没有声音。',
+    '不要直接进去，想办法让医生先离开。',
+    '已经够了，把我们知道的东西整理清楚，然后离开。',
+)
+FIVE_CLUE_DISPLAY_NAMES = (
+    '医生的停顿', '异常的预约记录', '被撕去的预约页', '门框黑粉', 'Jonathan 的纸片',
+)
 
 sys.path.insert(0, str(ROOT / 'scripts'))
-import build_story_content as content_builder  # noqa: E402
+import build_story_content as content_builder
+import bundle_engine
 
 
 @pytest.fixture(scope='module')
@@ -262,9 +274,18 @@ raise SystemExit(production.main())
 
 @pytest.fixture(scope='module')
 def story_engine(tmp_path_factory):
-    """Staged module tree: production packages plus a test-only launcher wrapper."""
+    """Staged module tree mirroring the relocatable bundle layout.
 
-    staged = tmp_path_factory.mktemp('story-engine')
+    The real packager keeps the engine packages under `<root>/engine/` and the
+    runtime contract schemas at `<root>/contracts/schemas/`. This fixture
+    reproduces that exact relative layout (plus the test-only launcher wrapper)
+    so the Episode finalizer resolves its artifact contracts from the same
+    trusted root the shipped Engine uses.
+    """
+
+    root = tmp_path_factory.mktemp('story-engine')
+    staged = root / 'engine'
+    staged.mkdir()
     for name in ENGINE_PACKAGES:
         shutil.copytree(ENGINE_DIR / name, staged / name,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -274,8 +295,19 @@ def story_engine(tmp_path_factory):
     entry.write_text(LAUNCHER_WRAPPER, encoding='utf-8')
     (staged / '_wom_sqlite3.py').write_text(HOST_SQLITE_SHIM, encoding='utf-8')
     # The artifact is produced by the same build script the packaging step uses.
+    payload = content_builder.build_payload()
     content_builder.write_artifact(
-        staged / 'infrastructure/story_content/canon.db', content_builder.build_payload())
+        staged / 'infrastructure/story_content/canon.db', payload)
+    content_builder.write_five_turn_directory(
+        staged / 'infrastructure/story_content', payload['seed'])
+    content_builder.write_episode_artifacts(staged / 'infrastructure/story_content')
+    # The packager ships the three artifact contracts the Episode finalizer
+    # validates against; stage them exactly as the bundle does.
+    assert bundle_engine.stage_contract_schemas(root) == (
+        'character_knowledge.schema.json',
+        'character_memory.schema.json',
+        'world_event.schema.json',
+    )
     # Only the entrypoint file was replaced; the production copy is byte-identical.
     assert (staged / 'infrastructure/_ipc_server_production.py').read_bytes() == production_bytes
     assert production_bytes == (ENGINE_DIR / 'infrastructure/ipc_server.py').read_bytes()
@@ -353,8 +385,10 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
 
     submitted = _facts(_run_story(app_driver, story_engine, 'story-submit', home, data_root, runtime),
                        'story-submit')
-    assert submitted['state'] == 'completed' and submitted['turn'] == 1
+    # One committed turn reopens the fixed run with exactly the next turn's advice.
+    assert submitted['state'] == 'ready' and submitted['turn'] == 1
     assert submitted['session_id'] == opened['session_id']
+    assert submitted['supported_advice'] == [TURN_ADVICE[1]]
     assert '医生的停顿' in submitted['clues']
     journal = (home / 'Library/Application Support/WorldofMysteries/Engineering/Golden001/Journal'
                / 'first-turn-request.json')
@@ -362,14 +396,72 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
 
     reopened = _facts(_run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
                       'story-reopen')
-    assert reopened['state'] == 'completed' and reopened['turn'] == 1
+    assert reopened['state'] == 'ready' and reopened['turn'] == 1
     assert reopened['session_id'] == submitted['session_id']
     assert reopened['story_revision'] == 1
     assert reopened['clues'] == submitted['clues']
+    assert reopened['supported_advice'] == [TURN_ADVICE[1]]
     assert _world_counts(data_root) == {
         'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
     # A full product first turn must never write the read-only canon artifact.
     assert hashlib.sha256(canon.read_bytes()).hexdigest() == canon_digest
+    # The advice the client submitted is the packaged frozen content, verbatim.
+    staged_advice = json.loads(
+        (story_engine / 'infrastructure/story_content/five_turn/turns/01_advice.json')
+        .read_text(encoding='utf-8'))['raw_input']
+    assert staged_advice == TURN_ADVICE[0]
+    assert opened['supported_advice'] == [TURN_ADVICE[0]]
+
+
+def test_real_story_five_turns_commit_settle_and_close(app_driver, story_engine, story_session):
+    home, data_root, runtime = story_session
+    opened = _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime),
+                    'story-open')
+    assert opened['state'] == 'ready' and opened['turn'] == 0
+
+    # One App process drives the whole fixed run through real IPC.
+    finished = _facts(_run_story(app_driver, story_engine, 'story-five-turn', home, data_root,
+                                 runtime, timeout=180),
+                      'story-five-turn')
+    assert finished['state'] == 'completed' and finished['turn'] == 5
+    assert finished['story_revision'] == 5
+    assert finished['session_id'] == opened['session_id']
+    assert finished['supported_advice'] == []
+    assert sorted(finished['clues']) == sorted(FIVE_CLUE_DISPLAY_NAMES)
+    counts = _world_counts(data_root)
+    # Seven commits: the session bootstrap, the five committed turns, and the
+    # Episode finalization, which is itself one durable domain commit.
+    assert counts == {'commits': 7, 'intakes': 5, 'sessions': 1, 'bootstraps': 1}
+
+    # The packaged runtime really settles: Episode + all five artifact groups
+    # are durable, and frozen expression (BeatPlan + NarrativeBlock) exists
+    # for every committed turn.
+    world = Path(data_root) / 'Worlds' / WORLD_DIRECTORY / 'world.db'
+    with closing(sqlite3.connect(f'file:{world}?mode=ro', uri=True)) as connection:
+        def count(table):
+            return connection.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+
+        assert count('episodes') == 1
+        assert count('episode_finalizations') == 1
+        assert count('character_episode_memories') >= 1
+        assert count('episode_knowledge_changes') >= 1
+        assert count('beat_plans') == 5
+        assert count('narrative_blocks') == 5
+        ending = connection.execute(
+            "SELECT payload_json FROM episodes").fetchone()[0]
+    episode = json.loads(ending)
+    assert episode['ending']['type'] == 'partial_truth'
+    assert set(episode['unresolved_threads']) == {
+        'jonathan_current_location', 'occult_group_identity'}
+
+    # A brand-new process re-reads the closed run and never recommits.
+    reopened = _facts(_run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
+                      'story-reopen')
+    assert reopened['state'] == 'completed' and reopened['turn'] == 5
+    assert reopened['story_revision'] == 5
+    assert reopened['clues'] == finished['clues']
+    assert reopened['supported_advice'] == []
+    assert _world_counts(data_root) == counts
 
 
 def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_engine, story_session):
@@ -380,7 +472,7 @@ def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_eng
     lost = _facts(_run_story(app_driver, story_engine, 'story-submit-lost-ack', home, data_root,
                              runtime, fault={'action': 'exit', 'stages': ['after_commit']}),
                   'story-submit-lost-ack')
-    assert lost['state'] == 'completed' and lost['turn'] == 1
+    assert lost['state'] == 'ready' and lost['turn'] == 1
     committed = _world_counts(data_root)
     assert committed == {'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
 
@@ -411,7 +503,7 @@ def test_real_story_pending_request_waits_for_explicit_continuation(
     resumed = _facts(_run_story(app_driver, story_engine, 'story-continue-pending', home, data_root,
                                 runtime),
                      'story-continue-pending')
-    assert resumed['state'] == 'completed' and resumed['turn'] == 1
+    assert resumed['state'] == 'ready' and resumed['turn'] == 1
     assert _world_counts(data_root) == {
         'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
 
@@ -446,3 +538,184 @@ def test_real_story_unsupported_input_keeps_draft_and_writes_nothing(
     assert rejected['turn'] == 0
     assert _world_counts(data_root) == {
         'commits': 1, 'intakes': 0, 'sessions': 1, 'bootstraps': 1}
+
+
+# ---------------------------------------------------------------------------
+# Golden acceptance: the eight Engine termination checkpoints
+#
+# The runtime specification (`docs/07_工程启动/golden_001_runtime/README.md` §6)
+# requires the Engine to be killable at eight semantic boundaries, and the
+# iteration plan (checkpoint C) requires every fault test to prove BOTH process
+# recovery AND disk facts — zero duplicate commits, zero partial settlement.
+# The named checkpoints below announce those boundaries through the same
+# already-injected `fault_hook` (production stays fault-switch free), so a fault
+# plan can target one exact boundary and the assertions can tell "turn
+# committed" from "settlement committed".
+# ---------------------------------------------------------------------------
+
+
+def _durable_counts(data_root):
+    """Row counts for every table the eight acceptance checkpoints observe."""
+
+    world = Path(data_root) / 'Worlds' / WORLD_DIRECTORY / 'world.db'
+    assert world.is_file(), f'Missing world database: {world}'
+    tables = (
+        'domain_commits',
+        'turn_intake_commands',
+        'turn_advice_interpretations',
+        'turn_transactions',
+        'beat_plans',
+        'narrative_blocks',
+        'episodes',
+        'episode_finalizations',
+        'character_episode_memories',
+    )
+    with closing(sqlite3.connect(f'file:{world}?mode=ro', uri=True)) as connection:
+        return {
+            table: connection.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+            for table in tables
+        }
+
+
+@pytest.mark.parametrize(
+    'stage,expected_interpretations',
+    [
+        # CP1 "after advice": the PlayerAdvice intake is durable, but the
+        # interpretation has not run and nothing is committed.
+        ('after_advice_intake', 0),
+        # CP2 "after action intent" and CP3 "after resolver before commit" share
+        # this durable window. The interpretation is committed in its own
+        # transaction before the domain COMMIT, and the resolver is a pure
+        # in-memory function, so the two are indistinguishable on disk: both
+        # mean "intent recorded, turn not committed". CP2's precise in-memory
+        # point lives in the application layer, outside this capsule's
+        # infrastructure write scope, so it is covered here at the equivalent
+        # durable boundary (the same approach the pre-existing `before_commit`
+        # recovery test already exercises).
+        ('before_commit', 1),
+    ],
+    ids=['cp1_after_advice', 'cp2_cp3_after_intent_before_commit'],
+)
+def test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once(
+        app_driver, story_engine, story_session, stage, expected_interpretations):
+    home, data_root, runtime = story_session
+    _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime), 'story-open')
+
+    # The Engine dies inside the first submit, before any domain commit.
+    interrupted = _facts(
+        _run_story(app_driver, story_engine, 'story-submit-interrupted', home, data_root,
+                   runtime, fault={'action': 'exit', 'stages': [stage]}),
+        'story-submit-interrupted')
+    assert interrupted['state'] in {'pending', 'recovering', 'failed'}
+    assert interrupted['turn'] == 0
+    counts = _durable_counts(data_root)
+    # The intake is durable (and, past the interpretation, so is the
+    # interpretation) — but the turn never committed: zero turn commits, zero
+    # expression, zero episode. The App must not invent an outcome.
+    assert counts['domain_commits'] == 1              # session bootstrap only
+    assert counts['turn_intake_commands'] == 1
+    assert counts['turn_advice_interpretations'] == expected_interpretations
+    assert counts['turn_transactions'] == 0
+    assert counts['beat_plans'] == 0
+    assert counts['narrative_blocks'] == 0
+    assert counts['episodes'] == 0
+
+    # A brand-new process continues the durable intent and commits the turn
+    # exactly once — never a second interpretation, never a duplicate commit.
+    resumed = _facts(
+        _run_story(app_driver, story_engine, 'story-continue-pending', home, data_root, runtime),
+        'story-continue-pending')
+    assert resumed['state'] == 'ready' and resumed['turn'] == 1
+    after = _durable_counts(data_root)
+    assert after['domain_commits'] == 2               # bootstrap + the one turn
+    assert after['turn_transactions'] == 1
+    assert after['turn_advice_interpretations'] == 1  # exactly one interpretation
+
+
+@pytest.mark.parametrize(
+    'stage,beat_plans,narrative_blocks',
+    [
+        # CP4 "immediately after commit": the turn is durable, no expression yet.
+        ('after_turn_commit', 0, 0),
+        # CP5 "after beat plan": the frozen BeatPlan is durable, narrative pending.
+        ('after_beat_plan', 1, 0),
+        # CP6 "after narrative": the frozen expression is complete, run continues.
+        ('after_narrative', 1, 1),
+    ],
+    ids=['cp4_immediately_after_commit', 'cp5_after_beat_plan', 'cp6_after_narrative'],
+)
+def test_acceptance_checkpoint_after_commit_never_recommits(
+        app_driver, story_engine, story_session, stage, beat_plans, narrative_blocks):
+    home, data_root, runtime = story_session
+    _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime), 'story-open')
+
+    # The Engine dies after the first turn is durably committed, at the given
+    # expression boundary, before it can answer the client. This is the
+    # "facts saved, expression pending" split: the App must recover the
+    # committed turn from durable state, never re-commit it.
+    lost = _facts(
+        _run_story(app_driver, story_engine, 'story-submit-lost-ack', home, data_root,
+                   runtime, fault={'action': 'exit', 'stages': [stage]}),
+        'story-submit-lost-ack')
+    assert lost['state'] == 'ready' and lost['turn'] == 1
+    counts = _durable_counts(data_root)
+    assert counts['domain_commits'] == 2               # bootstrap + one committed turn
+    assert counts['turn_transactions'] == 1
+    assert counts['beat_plans'] == beat_plans
+    assert counts['narrative_blocks'] == narrative_blocks
+    assert counts['episodes'] == 0                    # a single turn never finalizes
+
+    # A brand-new process re-reads the same committed turn and adds no commit.
+    reopened = _facts(
+        _run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
+        'story-reopen')
+    assert reopened['turn'] == 1
+    assert _durable_counts(data_root) == counts
+
+
+@pytest.mark.parametrize(
+    'stage,episode_rows',
+    [
+        # CP7 "during finalization transaction": every settlement row is written
+        # but the transaction is NOT committed, so the Episode is wholly absent.
+        ('during_finalization', 0),
+        # CP8 "after finalization commit before projection": the Episode is
+        # durably committed while the rebuildable retrieval projection lags.
+        ('after_finalization_commit', 1),
+    ],
+    ids=['cp7_during_finalization', 'cp8_after_finalization_commit'],
+)
+def test_acceptance_checkpoint_settlement_is_atomic_and_never_refinalizes(
+        app_driver, story_engine, story_session, stage, episode_rows):
+    home, data_root, runtime = story_session
+    _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime), 'story-open')
+
+    # Drive all five turns; the fault terminates the Engine inside the fifth
+    # turn's settlement, so the App loses the final acknowledgement. The
+    # driver tolerates the lost final ack; a brand-new process proves the
+    # durable facts.
+    finished = _facts(
+        _run_story(app_driver, story_engine, 'story-five-turn-final-lost', home, data_root,
+                   runtime, fault={'action': 'exit', 'stages': [stage]}, timeout=180),
+        'story-five-turn-final-lost')
+    assert finished['state'] in {'ready', 'completed', 'failed', 'recovering', 'pending'}
+
+    counts = _durable_counts(data_root)
+    # All five turns committed exactly once; the frozen expression for every
+    # committed turn is durable regardless of how far settlement got.
+    assert counts['domain_commits'] == 6 + episode_rows   # bootstrap + 5 turns (+ episode)
+    assert counts['turn_transactions'] == 5
+    assert counts['beat_plans'] == 5
+    assert counts['narrative_blocks'] == 5
+    # The Episode is either wholly committed or wholly absent — never partial.
+    assert counts['episodes'] == episode_rows
+    assert counts['episode_finalizations'] == episode_rows
+    assert bool(counts['character_episode_memories']) == bool(episode_rows)
+
+    # A brand-new process re-opens the closed run and never re-finalizes.
+    reopened = _facts(
+        _run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
+        'story-reopen')
+    assert reopened['turn'] == 5
+    assert reopened['supported_advice'] == []
+    assert _durable_counts(data_root) == counts

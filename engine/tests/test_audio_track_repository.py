@@ -297,6 +297,89 @@ async def test_redub_creates_new_revision_and_cannot_overwrite_original_narrativ
         await database.close()
 
 
+async def test_audio_regeneration_never_changes_narrative_or_story_state(tmp_path):
+    """G010: regenerating audio must not alter the narrative or the story state.
+
+    The controllable audio chain — a `DryRenderRecipe` plus local PCM bytes —
+    stands in for the role real TTS will later play, so this proves the
+    invariant without pretending to be a real-TTS acceptance. A redub creates a
+    new, independently resolvable AudioTrack revision that really does serve
+    different audio, while the frozen NarrativeBlock, the committed turn and the
+    session's story state stay byte-identical and the world revision never moves.
+    """
+    database, paths = await open_database(tmp_path)
+    try:
+        await prepare_story(database)
+
+        async def committed_facts():
+            return {
+                "narrative": await database.read_world(
+                    "SELECT id,turn_id,session_id,source_story_revision,payload_json "
+                    "FROM narrative_blocks ORDER BY id"
+                ),
+                "turns": await database.read_world(
+                    "SELECT id,status,committed_story_revision,narrative_block_id,"
+                    "state_delta_id FROM turn_transactions ORDER BY id"
+                ),
+                "sessions": await database.read_world(
+                    "SELECT id,status,story_revision,story_state_json "
+                    "FROM story_sessions ORDER BY id"
+                ),
+                "world_revision": await world_revision(database),
+            }
+
+        before = await committed_facts()
+
+        original_take = await publish_take(
+            database, paths, speed=1.0, pcm=b"\x01\x00\x02\x00"
+        )
+        # A genuinely different render: new take bytes under a different recipe.
+        redub_take = await publish_take(
+            database, paths, speed=0.9, pcm=b"\x03\x00\x04\x00\x05\x00"
+        )
+        assert redub_take.take_id != original_take.take_id
+
+        async def allow(_request):
+            return True
+
+        store = SQLiteAudioTakeStore(
+            database,
+            paths.world.parent / "assets",
+            manifest_hmac_key=b"k" * 32,
+        )
+        repository = SQLiteAudioTrackRepository(
+            database, authorize_redub=allow
+        )
+        original = track(original_take.take_id)
+        await repository.publish(original)
+        redub = track(
+            redub_take.take_id,
+            revision=2,
+            unit_id="speech-redub",
+            supersedes=original.track_id,
+        )
+        await repository.publish(redub)
+
+        # The redub is a real revision, not a no-op: StoryBook replay resolves it
+        # and hands back the regenerated audio rather than the original take.
+        resolved = await OfflineStoryBookReplayResolver(
+            repository, store, authorize=allow
+        ).resolve(redub.track_id)
+        assert resolved.track == redub
+        assert resolved.units[0].take.take_id == redub_take.take_id
+        assert await repository.latest(original.track_family_id) == redub
+        # The superseded original stays readable and stays pinned.
+        assert await repository.load(original.track_id) == original
+        assert await repository.pinned_take_ids() == frozenset(
+            {original_take.take_id, redub_take.take_id}
+        )
+
+        # G010: regenerating the audio moved nothing but the audio track.
+        assert await committed_facts() == before
+    finally:
+        await database.close()
+
+
 async def test_redub_must_extend_latest_revision_and_take_must_exist(tmp_path):
     database, paths = await open_database(tmp_path)
     try:

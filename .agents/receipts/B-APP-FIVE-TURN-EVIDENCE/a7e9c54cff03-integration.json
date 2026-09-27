@@ -1,0 +1,147 @@
+{
+  "receipt_id": "RCP-INTEGRATION-B-APP-FIVE-TURN-EVIDENCE-a7e9c54cff03",
+  "receipt_type": "integration",
+  "task_id": "B-APP-FIVE-TURN-EVIDENCE",
+  "capsule_id": "CAP-B-APP-FIVE-TURN-EVIDENCE",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d58f1d97128dc890a6b78b131e56093c9f5668bf3cfc69c2086a3843442fd184",
+  "diff_digest": "sha256:88e04902cb4085bcb8f748d504b39f36ab0f0da502c811e807ccd137a07446c8",
+  "assigned_role": "AGT-DATA",
+  "risk_class": "high",
+  "base_commit": "195fca6de72d612a6954363e5d288afb0b6ef283",
+  "head_commit": "a7e9c54cff0360a8ffc201548d6da84c039a34f3",
+  "target_ref": "main",
+  "target_sha": "a7e9c54cff0360a8ffc201548d6da84c039a34f3",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-b-app-five-turn",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T07:57:11.722339+00:00",
+      "finished_at": "2026-09-27T07:57:11.754053+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-b-app-five-turn/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T07:57:11.754135+00:00",
+      "finished_at": "2026-09-27T07:57:50.025784+00:00",
+      "raw_log_digest": "sha256:d3cb01ff3447b8f31a4b26f9cd6c9f98696acb5e8ae39878d8ac4b4c7fd7b04e",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-b-app-five-turn/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-b-app-five-turn/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T07:57:50.025887+00:00",
+      "finished_at": "2026-09-27T07:58:12.752676+00:00",
+      "raw_log_digest": "sha256:68dcf814bdd42f6e34ed87a2c4953c8b39a147be96db601239b829e7f771af5b",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-b-app-five-turn/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-27T07:58:12.752912+00:00",
+      "finished_at": "2026-09-27T07:58:13.908139+00:00",
+      "raw_log_digest": "sha256:d59f7be0bed5553e9f631e81264e6d6c27cf874dd8dd97e9b211805b2cee5cad",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/capsules/B-APP-FIVE-TURN-EVIDENCE.json",
+      ".agents/capsules/B-APP-FIVE-TURN.json",
+      ".agents/receipts/B-APP-FIVE-TURN-EVIDENCE/05901a395442.json",
+      ".agents/receipts/B-APP-FIVE-TURN/3649bfac0cf7.json",
+      "contracts/fixtures/ipc/story_session_control.json",
+      "engine/tests/fixtures/app_engine_driver.swift",
+      "engine/tests/test_app_engine_session.py",
+      "macos-app/WorldOfMysteries/ContentView.swift",
+      "macos-app/WorldOfMysteries/StorySessionControl.swift",
+      "macos-app/WorldOfMysteries/StorySessionModel.swift",
+      "macos-app/WorldOfMysteries/StorySessionPanel.swift",
+      "macos-app/WorldOfMysteriesTests/StorySessionModelTests.swift",
+      "macos-app/WorldOfMysteriesTests/VisualHonestyContractTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DATA",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-27T07:57:11.722163+00:00",
+  "finished_at": "2026-09-27T07:59:23.450712+00:00",
+  "verdict": "passed",
+  "merge_authorizing": true,
+  "merge": {
+    "strategy": "fast-forward",
+    "expected_main_sha": "195fca6de72d612a6954363e5d288afb0b6ef283",
+    "merged_sha": "a7e9c54cff0360a8ffc201548d6da84c039a34f3",
+    "cas_verified": true,
+    "post_merge_smoke": "passed"
+  },
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

@@ -50,10 +50,26 @@ class DeterministicOutcomeResolver:
             "turn_id": intent.turn_id,
             "outcome": rule.effect.outcome,
             "story_delta": rule.effect.story_delta(),
-            "character_deltas": [],
-            "world_event_candidates": [],
+            "character_deltas": [
+                item.model_dump(mode="json", exclude_none=True)
+                for item in rule.effect.character_deltas
+            ],
+            "world_event_candidates": [
+                item.model_dump(mode="json", exclude_none=True)
+                for item in rule.effect.world_event_candidates
+            ],
             "evidence_ids": evidence_ids,
         }
+        if rule.effect.relationship_deltas:
+            payload["relationship_deltas"] = [
+                item.model_dump(mode="json", exclude_none=True)
+                for item in rule.effect.relationship_deltas
+            ]
+        if rule.effect.knowledge_candidates:
+            payload["knowledge_candidates"] = [
+                item.model_dump(mode="json", exclude_none=True)
+                for item in rule.effect.knowledge_candidates
+            ]
         if rule.effect.pressure_delta:
             payload["pressure_delta"] = dict(rule.effect.pressure_delta)
 

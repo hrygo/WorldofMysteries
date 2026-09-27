@@ -1,4 +1,4 @@
-"""Safe ordered world.db v1→v10 migration and Story bootstrap schema tests."""
+"""Safe ordered world.db v1→v12 migration and Story bootstrap schema tests."""
 from __future__ import annotations
 
 from contextlib import closing
@@ -51,14 +51,38 @@ def _tables(path: Path) -> set[str]:
         }
 
 
-def test_fresh_world_initializes_directly_to_v10_without_migration_backup(tmp_path):
+def test_fresh_world_initializes_directly_to_v12_without_migration_backup(tmp_path):
     path = tmp_path / "Worlds" / "fresh" / "world.db"
     path.parent.mkdir(parents=True)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 12
         integrity(conn)
-    assert {"story_sessions", "story_session_bootstraps", "story_state_deltas", "turn_transactions", "turn_intake_commands", "turn_advice_interpretations", "voice_bindings", "narrative_blocks", "delivery_cursors", "audio_takes", "audio_tracks", "audio_track_units"} <= _tables(path)
+    assert {
+        "story_sessions",
+        "story_session_bootstraps",
+        "story_state_deltas",
+        "turn_transactions",
+        "turn_intake_commands",
+        "turn_advice_interpretations",
+        "voice_bindings",
+        "narrative_blocks",
+        "delivery_cursors",
+        "audio_takes",
+        "audio_tracks",
+        "audio_track_units",
+        "turn_character_changes",
+        "turn_relationship_changes",
+        "turn_knowledge_changes",
+        "turn_world_events",
+        "episodes",
+        "episode_character_events",
+        "episode_relationship_events",
+        "episode_knowledge_changes",
+        "character_episode_memories",
+        "episode_world_events",
+        "episode_finalizations",
+    } <= _tables(path)
     assert not list(path.parent.glob("*.pre-migration-*.bak"))
 
 
@@ -68,13 +92,13 @@ def test_existing_v1_world_is_backed_up_then_migrated_without_data_loss(tmp_path
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         assert conn.execute(
             "SELECT value FROM legacy_story_marker WHERE id='existing'"
         ).fetchone()[0] == "preserve-me"
         integrity(conn)
 
-    backup = path.with_name("world.db.pre-migration-v1-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v12.bak")
     assert backup.is_file() and _version(backup) == 1
     assert "story_sessions" not in _tables(backup)
     with closing(connect(backup, readonly=True)) as snapshot:
@@ -102,13 +126,13 @@ def test_migration_failure_rolls_back_source_and_leaves_recoverable_snapshot(tmp
     assert _version(path) == 1
     assert "must_rollback" not in _tables(path)
     assert "story_sessions" not in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v1-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v12.bak")
     assert backup.is_file() and _version(backup) == 1
 
     monkeypatch.setattr(database_schema, "_apply_migration", original)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-    assert _version(path) == 10
+    assert _version(path) == 12
 
 
 def test_repeated_open_does_not_replace_migration_backup(tmp_path):
@@ -116,14 +140,14 @@ def test_repeated_open_does_not_replace_migration_backup(tmp_path):
     _build_v1_world(path)
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-    backup = path.with_name("world.db.pre-migration-v1-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v1-to-v12.bak")
     before = hashlib.sha256(backup.read_bytes()).hexdigest()
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
 
     assert hashlib.sha256(backup.read_bytes()).hexdigest() == before
-    assert _version(path) == 10
+    assert _version(path) == 12
 
 
 @pytest.mark.parametrize("role", ["runtime", "retrieval"])
@@ -132,6 +156,72 @@ def test_non_world_database_versions_remain_v1(tmp_path, role):
     with closing(connect(path)) as conn:
         initialize(conn, role)
         assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSIONS[role] == 1
+
+
+def _build_v10_world(path: Path, *, store_id: str = "store-v10") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(connect(path)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        directory = Path(database_schema.__file__).with_name("migrations")
+        for version in range(1, 11):
+            script = next(directory.glob(f"{version:03}_world*.sql"))
+            for statement in statements(script.read_text(encoding="utf-8")):
+                conn.execute(statement)
+        conn.execute(f"PRAGMA application_id={APPLICATION_IDS['world']}")
+        conn.execute("PRAGMA user_version=10")
+        conn.execute("INSERT INTO world_meta VALUES (1, ?, 0)", (store_id,))
+        conn.execute(
+            "CREATE TABLE legacy_v10_marker(id TEXT PRIMARY KEY,value TEXT NOT NULL) STRICT"
+        )
+        conn.execute("INSERT INTO legacy_v10_marker VALUES ('existing','preserve-me')")
+        conn.execute("COMMIT")
+        integrity(conn)
+
+
+def test_existing_v10_world_is_backed_up_then_additively_migrated_to_v12(tmp_path):
+    path = tmp_path / "Worlds" / "v10-existing" / "world.db"
+    _build_v10_world(path)
+
+    with closing(connect(path)) as conn:
+        initialize(conn, "world", path=path)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
+        assert conn.execute(
+            "SELECT value FROM legacy_v10_marker WHERE id='existing'"
+        ).fetchone()[0] == "preserve-me"
+        integrity(conn)
+
+    backup = path.with_name("world.db.pre-migration-v10-to-v12.bak")
+    assert backup.is_file() and _version(backup) == 10
+    assert "episodes" not in _tables(backup)
+    with closing(connect(backup, readonly=True)) as snapshot:
+        assert snapshot.execute(
+            "SELECT value FROM legacy_v10_marker WHERE id='existing'"
+        ).fetchone()[0] == "preserve-me"
+        integrity(snapshot)
+
+
+def test_v10_to_v12_migration_failure_rolls_back_and_keeps_recoverable_backup(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "Worlds" / "v10-failure" / "world.db"
+    _build_v10_world(path, store_id="store-v10-failure")
+    original = database_schema._apply_migration
+
+    def fail_after_partial_ddl(conn, role, version):
+        if role == "world" and version == 12:
+            conn.execute("CREATE TABLE must_rollback_v12(id INTEGER) STRICT")
+            raise RuntimeError("injected v12 migration failure")
+        return original(conn, role, version)
+
+    monkeypatch.setattr(database_schema, "_apply_migration", fail_after_partial_ddl)
+    with closing(connect(path)) as conn:
+        with pytest.raises(RuntimeError, match="injected v12 migration failure"):
+            initialize(conn, "world", path=path)
+    assert _version(path) == 10
+    assert "must_rollback_v12" not in _tables(path)
+    assert "episodes" not in _tables(path)
+    backup = path.with_name("world.db.pre-migration-v10-to-v12.bak")
+    assert backup.is_file() and _version(backup) == 10
 
 
 def test_future_world_schema_still_fails_closed(tmp_path):
@@ -171,12 +261,12 @@ def test_existing_v3_world_gets_narrative_table_with_recoverable_backup(tmp_path
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         integrity(conn)
 
     assert "narrative_blocks" in _tables(path)
     assert "delivery_cursors" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v3-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v3-to-v12.bak")
     assert backup.is_file() and _version(backup) == 3
     assert "narrative_blocks" not in _tables(backup)
 
@@ -242,7 +332,7 @@ def test_existing_v4_world_gets_delivery_cursor_table_with_recoverable_backup(tm
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         assert conn.execute(
             "SELECT id FROM story_sessions WHERE id='session-v4'"
         ).fetchone()[0] == "session-v4"
@@ -250,7 +340,7 @@ def test_existing_v4_world_gets_delivery_cursor_table_with_recoverable_backup(tm
 
     assert "delivery_cursors" in _tables(path)
     assert "audio_takes" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v4-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v4-to-v12.bak")
     assert backup.is_file() and _version(backup) == 4
     assert "narrative_blocks" in _tables(backup)
     assert "delivery_cursors" not in _tables(backup)
@@ -279,12 +369,12 @@ def test_existing_v5_world_gets_audio_take_table_with_recoverable_backup(tmp_pat
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         integrity(conn)
 
     assert "audio_takes" in _tables(path)
     assert "audio_tracks" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v5-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v5-to-v12.bak")
     assert backup.is_file() and _version(backup) == 5
     assert "delivery_cursors" in _tables(backup)
     assert "audio_takes" not in _tables(backup)
@@ -313,11 +403,11 @@ def test_existing_v6_world_gets_storybook_track_tables_with_recoverable_backup(t
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         integrity(conn)
 
     assert {"audio_tracks", "audio_track_units"} <= _tables(path)
-    backup = path.with_name("world.db.pre-migration-v6-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v6-to-v12.bak")
     assert backup.is_file() and _version(backup) == 6
     assert "audio_takes" in _tables(backup)
     assert "audio_tracks" not in _tables(backup)
@@ -346,11 +436,11 @@ def test_existing_v7_world_gets_turn_intake_table_with_recoverable_backup(tmp_pa
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         integrity(conn)
 
     assert "turn_intake_commands" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v7-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v7-to-v12.bak")
     assert backup.is_file() and _version(backup) == 7
     assert "audio_tracks" in _tables(backup)
     assert "turn_intake_commands" not in _tables(backup)
@@ -379,11 +469,11 @@ def test_existing_v8_world_gets_player_advice_table_with_recoverable_backup(tmp_
 
     with closing(connect(path)) as conn:
         initialize(conn, "world", path=path)
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 12
         integrity(conn)
 
     assert "turn_advice_interpretations" in _tables(path)
-    backup = path.with_name("world.db.pre-migration-v8-to-v10.bak")
+    backup = path.with_name("world.db.pre-migration-v8-to-v12.bak")
     assert backup.is_file() and _version(backup) == 8
     assert "turn_intake_commands" in _tables(backup)
     assert "turn_advice_interpretations" not in _tables(backup)

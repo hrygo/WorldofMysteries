@@ -11,16 +11,26 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai.golden_first_turn import GoldenFirstTurnFactory
+from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     StoryInitializationService,
     TrustedScenarioBundle,
 )
 from application.story_session_facade import StorySessionFacade
+from application.post_commit_expression import PostCommitExpressionService
 from application.story_session_open import StorySessionOpenService
 
+from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
+from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
+from .episode_settlement import (
+    FiveTurnSettlement,
+    SettlingCommitPort,
+    _SettlementBeatPlanPort,
+)
+from .narrative_block_repository import SQLiteNarrativeBlockRepository
+from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -31,11 +41,27 @@ from .turn_intake_repository import SQLiteTurnInputCommandPort
 
 ENGINEERING_WORLD_ID = "engineering-golden001"
 CONTENT_ARTIFACT_NAME = "canon.db"
+FIVE_TURN_DIRNAME = "five_turn"
 
 
 def default_content_path() -> Path:
     """Locate the packaged content artifact relative to the installed module."""
     return Path(__file__).resolve().parent / "story_content" / CONTENT_ARTIFACT_NAME
+
+
+def load_five_turn_catalog(
+    content_path: Path, seed: dict
+) -> GoldenFiveTurnCatalog:
+    """Load the frozen five-turn catalog from the module-relative content dir.
+
+    The packaged runtime resolves the catalog next to the content artifact, never
+    from a repository directory or environment variable, so the shipped App can
+    complete all five fixed turns without the source tree.
+    """
+    base = Path(content_path).parent / FIVE_TURN_DIRNAME
+    return GoldenFiveTurnCatalog.from_directory(
+        base / "turns", base / "mock", seed=seed
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +111,13 @@ class StoryRuntime:
         self._database = database
         self._facade = facade
         self._content = content
+        # Durable capabilities reachable from the composition root. Frozen
+        # expression (BeatPlan), Story Book restart reads and the rebuildable
+        # retrieval projection. The five-turn catalog is resolved from the
+        # module-relative packaged content, so the App can run all five turns.
+        self._beat_plans = SQLiteBeatPlanRepository(database)
+        self._episodes = SQLiteEpisodeFinalizationRepository(database)
+        self._projector = OutboxProjector(database)
         self._handlers = story_control_handlers(facade)
 
     @classmethod
@@ -97,13 +130,16 @@ class StoryRuntime:
     ) -> StoryRuntime:
         content_repository = SQLiteStoryContentRepository(config.content_path)
         content = await content_repository.load(GOLDEN_SCENARIO_ID)
+        catalog = load_five_turn_catalog(config.content_path, content.seed)
         database = await DatabaseManager.open(
             config.paths(),
             expected_sqlite_version=expected_sqlite_version,
             fault_hook=fault_hook,
         )
         try:
-            facade = cls._build_facade(database, content_repository, content)
+            facade = cls._build_facade(
+                database, content_repository, content, catalog, config.content_path
+            )
         except BaseException:
             await database.close()
             raise
@@ -114,7 +150,21 @@ class StoryRuntime:
         database: DatabaseManager,
         content_repository: SQLiteStoryContentRepository,
         content: TrustedScenarioBundle,
+        catalog: GoldenFiveTurnCatalog,
+        content_path: Path,
     ) -> StorySessionFacade:
+        factory = GoldenFiveTurnFactory(catalog)
+        settlement = FiveTurnSettlement(
+            database=database,
+            expression=PostCommitExpressionService(
+                templates=factory.expression_templates,
+                beats=_SettlementBeatPlanPort(
+                    SQLiteBeatPlanRepository(database), database
+                ),
+                narratives=SQLiteNarrativeBlockRepository(database),
+            ),
+            content_path=content_path,
+        )
         return StorySessionFacade(
             initialization=StoryInitializationService(content_repository),
             open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
@@ -124,8 +174,10 @@ class StoryRuntime:
             ),
             intake=SQLiteTurnInputCommandPort(database),
             advice=SQLitePlayerAdviceRepository(database),
-            story=SQLiteStorySessionCommitPort(database),
-            first_turn=GoldenFirstTurnFactory(),
+            story=SettlingCommitPort(
+                SQLiteStorySessionCommitPort(database), settlement
+            ),
+            first_turn=factory,
         )
 
     @property
@@ -135,6 +187,18 @@ class StoryRuntime:
     @property
     def capabilities(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))
+
+    @property
+    def beat_plans(self) -> SQLiteBeatPlanRepository:
+        return self._beat_plans
+
+    @property
+    def episodes(self) -> SQLiteEpisodeFinalizationRepository:
+        return self._episodes
+
+    async def rebuild_retrieval_projection(self):
+        """Idempotently rebuild the disposable retrieval projection from world.db."""
+        return await self._projector.rebuild()
 
     @property
     def scenario_id(self) -> str:

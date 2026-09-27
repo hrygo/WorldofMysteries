@@ -17,7 +17,12 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from application.story_initialization import GOLDEN_SCENARIO_ID, SUPPORTED_ADVICE
+from application.story_initialization import (
+    GOLDEN_CLUE_DISPLAY_NAMES,
+    GOLDEN_SCENARIO_ID,
+    SUPPORTED_ADVICE,
+)
+from application.story_session_facade import StoryFacadeError, SubmitAdviceCommand
 from contracts.envelope import EngineIPCEnvelope
 from infrastructure.database_manager import DatabasePaths
 from infrastructure.ipc_framing import encode_frame, read_frame, write_frame
@@ -28,11 +33,18 @@ from infrastructure.story_runtime import (
     ENGINEERING_WORLD_ID,
     StoryRuntime,
     StoryRuntimeConfig,
+    load_five_turn_catalog,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures" / "golden_001"
 RUNTIME_FIXTURES = ROOT / "docs" / "07_工程启动" / "golden_001_runtime"
+# The runtime resolves the five-turn catalog from the module-relative packaged
+# content, so the test emits it with the same build code the packager runs.
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+from build_story_content import write_episode_artifacts, write_five_turn_directory
+
 CONTROL_SCHEMA = json.loads(
     (ROOT / "contracts" / "protocol" / "story_session_control.schema.json").read_text(
         encoding="utf-8"
@@ -106,7 +118,7 @@ def _bundle_payload() -> dict:
         "presentation": {
             "scenario_title": "不存在的预约",
             "scene_display_name": "哈维诊所 · 诊室",
-            "clue_display_names": {"clue_doctor_pause": "医生的停顿"},
+            "clue_display_names": dict(GOLDEN_CLUE_DISPLAY_NAMES),
         },
         "advice_template": advice,
         "action_intent_template": _read(
@@ -137,6 +149,8 @@ def _write_content_artifact(path: Path) -> Path:
             ),
         )
         connection.commit()
+    write_five_turn_directory(path.parent, payload["seed"])
+    write_episode_artifacts(path.parent)
     return path
 
 
@@ -376,7 +390,7 @@ async def test_story_runtime_serves_public_first_turn_over_real_ipc(
         assert receipt["committed_store_revision"] == 2
         assert receipt["committed_story_revision"] == 1
         assert submitted["payload"]["session"]["turn"] == 1
-        assert submitted["payload"]["session"]["can_submit"] is False
+        assert submitted["payload"]["session"]["can_submit"] is True
         assert submitted["payload"]["session"]["discovered_clues"] == [
             {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
         ]
@@ -413,7 +427,9 @@ async def test_story_runtime_serves_public_first_turn_over_real_ipc(
             "req-turn-2", idempotency_key="input_turn_2",
         )
         assert closed_turn["status"] == "error"
-        assert closed_turn["error"]["code"] == "iteration_limit_reached"
+        # A second turn is now legitimate, so the stale expected revisions in the
+        # reused submit body are rejected before any turn-limit or commit.
+        assert closed_turn["error"]["code"] == "revision_conflict"
         assert closed_turn["error"]["retryable"] is False
 
         key_mismatch = await _call(
@@ -469,7 +485,7 @@ async def test_story_runtime_reopens_same_durable_session(
         entry = await _call(reader, writer, "story.entry.get", _entry_body(), "req-entry")
         assert entry["payload"]["session"]["session_id"] == session_id
         assert entry["payload"]["session"]["turn"] == 1
-        assert entry["payload"]["session"]["can_submit"] is False
+        assert entry["payload"]["session"]["can_submit"] is True
         assert entry["payload"]["session"]["discovered_clues"] == [
             {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
         ]
@@ -495,7 +511,7 @@ async def test_story_runtime_reopens_same_durable_session(
             "req-turn-2", idempotency_key="input_turn_2",
         )
         assert second_turn["status"] == "error"
-        assert second_turn["error"]["code"] == "iteration_limit_reached"
+        assert second_turn["error"]["code"] == "revision_conflict"
         assert _count_world_commits(root) == 2
     finally:
         await _close(server, reader, writer)
@@ -784,3 +800,71 @@ def test_product_cli_serves_first_turn_across_two_real_processes(
         if client is not None:
             client.close()
         _stop_product_engine(restarted, token)
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_path: Path):
+    """The packaged runtime completes the fixed five-turn scenario end to end."""
+    content = _write_content_artifact(tmp_path / "canon.db")
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content)
+    try:
+        # The catalog is resolved from the module-relative packaged content, not
+        # the repository source tree.
+        catalog = load_five_turn_catalog(content, _bundle_payload()["seed"])
+        assert len(catalog.expression_templates) == 5
+        facade = runtime._facade
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open-five-turn",
+            expected_store_revision=0,
+            request_id="req-open-five",
+            trace_id="trace-open-five",
+        )
+        session_id = opened.session.session_id
+        # Before any turn the client is offered the first fixed advice.
+        entry = await facade.entry(GOLDEN_SCENARIO_ID)
+        assert entry.supported_advice == [catalog.advice_templates[1].raw_input]
+        for turn in range(1, 6):
+            advice = catalog.advice_templates[turn]
+            view = await facade.submit(
+                SubmitAdviceCommand(
+                    session_id=session_id,
+                    input_turn_id=f"input_turn_{turn:02d}",
+                    raw_input=advice.raw_input,
+                    expected_story_revision=turn - 1,
+                    expected_store_revision=turn,
+                    request_id=f"req-turn-{turn:02d}",
+                    trace_id=f"trace-turn-{turn:02d}",
+                )
+            )
+            assert view.receipt.status == "committed"
+            assert view.receipt.committed_story_revision == turn
+            assert view.session.turn == turn
+            # After each turn the client is offered exactly the next fixed
+            # advice, so it can drive the whole scenario over IPC.
+            entry = await facade.entry(GOLDEN_SCENARIO_ID)
+            if turn < 5:
+                assert entry.supported_advice == [
+                    catalog.advice_templates[turn + 1].raw_input
+                ]
+            else:
+                assert entry.supported_advice == []
+        # After the fifth turn the fixed verification is closed.
+        assert view.session.can_submit is False
+        # A sixth turn is rejected: the packaged runtime finalizes the Episode
+        # on the fifth COMMIT, so the session is no longer active.
+        with pytest.raises(StoryFacadeError, match="story_session_not_active"):
+            await facade.submit(
+                SubmitAdviceCommand(
+                    session_id=session_id,
+                    input_turn_id="input_turn_06",
+                    raw_input=catalog.advice_templates[5].raw_input,
+                    expected_story_revision=5,
+                    expected_store_revision=6,
+                    request_id="req-turn-06",
+                    trace_id="trace-turn-06",
+                )
+            )
+    finally:
+        await runtime.close()

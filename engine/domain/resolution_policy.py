@@ -7,7 +7,15 @@ will eventually create/validate these rules; Golden tests may inject fixed rules
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Any, Mapping, Sequence
+
+from contracts.models import (
+    CharacterDelta,
+    KnowledgeCandidate,
+    RelationshipDelta,
+    WorldEventCandidate,
+)
 
 
 SECRET_STATES = frozenset({"hidden", "suspected", "partial", "revealed"})
@@ -25,6 +33,28 @@ class StoryEffect:
     secret_state_updates: tuple[tuple[str, str], ...] = ()
     world_time_delta_minutes: int | float | None = None
     pressure_delta: tuple[tuple[str, int | float], ...] = ()
+    character_deltas: tuple[CharacterDelta, ...] = ()
+    relationship_deltas: tuple[RelationshipDelta, ...] = ()
+    knowledge_candidates: tuple[KnowledgeCandidate, ...] = ()
+    world_event_candidates: tuple[WorldEventCandidate, ...] = ()
+
+    def __post_init__(self) -> None:
+        for field_name, expected_type in (
+            ("character_deltas", CharacterDelta),
+            ("relationship_deltas", RelationshipDelta),
+            ("knowledge_candidates", KnowledgeCandidate),
+            ("world_event_candidates", WorldEventCandidate),
+        ):
+            values = tuple(getattr(self, field_name))
+            if any(not isinstance(value, expected_type) for value in values):
+                raise ResolutionPolicyError(
+                    f"Resolution {field_name} must contain validated domain contracts"
+                )
+            object.__setattr__(
+                self,
+                field_name,
+                tuple(value.model_copy(deep=True) for value in values),
+            )
 
     def story_delta(self) -> dict[str, Any]:
         payload: dict[str, Any] = {}
@@ -101,6 +131,30 @@ class ResolutionPolicy:
             pressure = dict(rule.effect.pressure_delta)
             if len(pressure) != len(rule.effect.pressure_delta) or any(not key for key in pressure):
                 raise ResolutionPolicyError("Pressure deltas require unique nonempty ids")
+            world_time_delta = rule.effect.world_time_delta_minutes
+            if world_time_delta is not None and (
+                isinstance(world_time_delta, bool)
+                or not isinstance(world_time_delta, (int, float))
+                or (isinstance(world_time_delta, float) and not math.isfinite(world_time_delta))
+            ):
+                raise ResolutionPolicyError(
+                    "World time delta must be a finite number"
+                )
+            if any(
+                isinstance(amount, bool) or not isinstance(amount, (int, float))
+                or (isinstance(amount, float) and not math.isfinite(amount))
+                for amount in pressure.values()
+            ):
+                raise ResolutionPolicyError("Pressure deltas must be finite numbers")
+            for character_delta in rule.effect.character_deltas:
+                if not character_delta.evidence_ids:
+                    raise ResolutionPolicyError("Character deltas require evidence")
+            for relationship_delta in rule.effect.relationship_deltas:
+                if not relationship_delta.evidence_ids:
+                    raise ResolutionPolicyError("Relationship deltas require evidence")
+            for candidate in rule.effect.knowledge_candidates:
+                if not candidate.source_ref:
+                    raise ResolutionPolicyError("Knowledge candidates require a source reference")
             index[signature] = rule
         object.__setattr__(self, "_by_signature", index)
 

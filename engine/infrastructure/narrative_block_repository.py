@@ -164,6 +164,9 @@ class SQLiteNarrativeBlockRepository:
         authoritative_narrative = await self.load_narrative_block(frozen_narrative.id)
         if authoritative_turn != result["turn"] or authoritative_narrative != result["narrative"]:
             raise StorageError("Post-COMMIT narrative result differs from durable state")
+        # Acceptance checkpoint "after narrative": the frozen NarrativeBlock is
+        # durable for this turn. A fault here must recover to a complete turn.
+        self.database.checkpoint("after_narrative")
         return NarrativePublishResult(
             turn=authoritative_turn,
             narrative=authoritative_narrative,

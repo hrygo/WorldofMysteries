@@ -115,6 +115,47 @@ def test_inventory_is_relative_and_does_not_read_symlink_target(tmp_path):
     assert bundler.source_inventory(root) == {'a':hashlib.sha256(b'a').hexdigest()}
 
 
+def test_artifact_contract_schemas_are_staged_at_runtime_root(tmp_path, monkeypatch):
+    repository = tmp_path / 'repository'
+    source = repository / 'contracts' / 'schemas'
+    source.mkdir(parents=True)
+    schema_names = (
+        'character_knowledge.schema.json',
+        'character_memory.schema.json',
+        'world_event.schema.json',
+    )
+    for schema_name in schema_names:
+        (source / schema_name).write_text(
+            json.dumps({'$schema': 'https://json-schema.org/draft/2020-12/schema'}),
+            encoding='utf-8',
+        )
+    monkeypatch.setattr(bundler, 'ROOT', repository)
+
+    runtime = tmp_path / 'runtime'
+    staged = bundler.stage_contract_schemas(runtime)
+
+    assert staged == schema_names
+    assert {
+        path.name for path in (runtime / 'contracts' / 'schemas').iterdir()
+    } == set(schema_names)
+    assert all(
+        (runtime / 'contracts' / 'schemas' / name).read_bytes()
+        == (source / name).read_bytes()
+        for name in schema_names
+    )
+    assert set(bundler.source_inventory(runtime)) == {
+        f'contracts/schemas/{name}' for name in schema_names
+    }
+
+
+def test_runtime_stager_copies_artifact_schemas_before_creating_manifest():
+    source = (Path(__file__).resolve().parents[2] / 'scripts/bundle_engine.py').read_text()
+    assert 'stage_contract_schemas(runtime)' in source
+    assert source.index('stage_contract_schemas(runtime)') < source.index(
+        'source_inventory(runtime)'
+    )
+
+
 def test_foreign_platform_cannot_build_or_claim_success(tmp_path,monkeypatch):
     monkeypatch.setattr(bundler.sys,'platform','linux')
     with pytest.raises(bundler.BundleError): bundler.stage_engine(tmp_path/'new',tmp_path/'logs')

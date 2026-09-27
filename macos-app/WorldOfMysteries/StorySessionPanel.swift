@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// 工程验证 · 固定首轮面板。
+/// 工程验证 · 固定五轮面板。
 ///
-/// 它只驱动真实 IPC：开场、提交、恢复都来自本地引擎的持久事实。未接线的
-/// 示例页面继续保留「示例数据」标记，本面板不把它们改名为真实数据。
+/// 它只驱动真实 IPC：开场、五轮提交、恢复都来自本地引擎的持久事实。未接线
+/// 的示例页面继续保留「示例数据」标记，本面板不把它们改名为真实数据。
 public struct StorySessionPanel: View {
     @Bindable public var model: StorySessionModel
 
@@ -26,7 +26,7 @@ public struct StorySessionPanel: View {
         HStack(spacing: DesignTokens.Spacing.xs) {
             WOMIcon(system: .advice, size: .compact)
                 .foregroundStyle(Color.Mystic.brassGoldPrimary)
-            Text("工程验证 · 固定首轮")
+            Text("工程验证 · 固定五轮")
                 .font(Font.Mystic.titleSmall)
                 .foregroundStyle(Color.Mystic.brassGoldPrimary)
             Text("固定模式")
@@ -48,7 +48,7 @@ public struct StorySessionPanel: View {
                 sessionSummary(view)
             }
             actions
-            Text("固定模式只接受指定首轮建议；输入持久化、领域裁决与事务执行真实代码，不是生成叙事。")
+            Text("固定模式每轮只接受引擎指定建议；输入持久化、领域裁决与事务执行真实代码，不是生成叙事。")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -85,19 +85,22 @@ public struct StorySessionPanel: View {
                 text: $model.draft,
                 targetCharacter: model.view?.protagonist.displayName ?? "当前角色",
                 onVoiceTapped: nil,
-                onSubmitAdvice: { _ in
-                    Task { await model.submit() }
+                onSubmitAdvice: { advice in
+                    // `AdviceDraftSubmission` empties the binding as soon as this
+                    // handler returns, so the delivered text — not the draft —
+                    // has to reach the Engine.
+                    Task { await model.submit(advice: advice) }
                 }
             )
             HStack(spacing: DesignTokens.Spacing.sm) {
-                Button("填入首轮建议") { model.fillSupportedAdvice() }
+                Button("填入本轮建议") { model.fillSupportedAdvice() }
                     .buttonStyle(WOMButtonStyle(.secondary))
                 Text("语音仍禁用")
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
             }
         case .completed:
-            Text("后续回合尚未开放；已提交的第 1 轮可以随时重新读取。")
+            Text("固定五轮验证已完成；已提交的 5 轮可以随时重新读取。")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
