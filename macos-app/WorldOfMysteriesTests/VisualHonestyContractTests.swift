@@ -166,7 +166,7 @@ struct VisualHonestyContractTests {
         #expect(appState.contains("handshake.capabilities.contains(\"story.entry.get\")"))
         #expect(appState.contains("guard health.worldReady"))
         // The panel states the verification scope instead of claiming generated narrative.
-        #expect(panel.contains("工程验证 · 固定首轮"))
+        #expect(panel.contains("工程验证 · 固定五轮"))
         #expect(panel.contains("不是生成叙事"))
         #expect(panel.contains("语音仍禁用"))
     }

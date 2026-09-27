@@ -259,7 +259,7 @@ public struct ContentView: View {
                 characterAnchorCard
             }
 
-            // 真实首轮闭环与示例页面共存：本面板只显示已提交的持久事实。
+            // 真实五轮闭环与示例页面共存：本面板只显示已提交的持久事实。
             StorySessionPanel(model: appState.storyModel)
 
             FateArtifactInterventionView()
