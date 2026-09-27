@@ -1,12 +1,12 @@
 """Atomic world.db persistence for finalized Episodes and their domain artifacts."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import lru_cache
 import hashlib
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
-from typing import Mapping
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
@@ -109,7 +109,7 @@ ORDER BY episode_artifacts.kind,episode_artifacts.ordinal
 """
 
 
-@lru_cache(maxsize=None)
+@cache
 def _artifact_validator(group_name: str) -> Draft202012Validator | None:
     schema_name = _ARTIFACT_SCHEMAS.get(group_name)
     if schema_name is None:
@@ -572,6 +572,31 @@ class SQLiteEpisodeFinalizationRepository:
         )
         if not rows:
             raise StorageError("Episode finalization was not found")
+        return self._result_from_rows(rows)
+
+    async def load_by_session(self, session_id: str) -> EpisodeFinalizationResult:
+        """Story Book restart read: resolve a session's finalized Episode bundle.
+
+        Reads only committed world.db authority; never re-invokes the resolver or
+        regenerates narrative. Returns the single finalized Episode bound to the
+        session, or raises StorageError when the session has not been finalized.
+        """
+        if (
+            not isinstance(session_id, str)
+            or not session_id.strip()
+            or len(session_id) > 256
+            or "\x00" in session_id
+        ):
+            raise StorageError("StorySession identity is invalid")
+        episode_rows = await self._database.read_world(
+            "SELECT id FROM episodes WHERE session_id=?", (session_id,)
+        )
+        if len(episode_rows) != 1:
+            raise StorageError("Session does not have exactly one finalized Episode")
+        return await self.load(episode_rows[0]["id"])
+
+    @staticmethod
+    def _result_from_rows(rows) -> EpisodeFinalizationResult:
         try:
             episode = Episode.model_validate(json.loads(rows[0]["episode_payload"]))
         except (TypeError, ValueError, json.JSONDecodeError):

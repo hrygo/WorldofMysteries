@@ -8,25 +8,33 @@ outcome and never means that a completed COMMIT was undone.
 from __future__ import annotations
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import inspect
 import json
 import os
-from pathlib import Path
 import re
-from .sqlite_runtime import sqlite3
 import tempfile
 import threading
-from typing import Callable, Protocol
 import uuid
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Protocol
 
-from .database_schema import SQLITE_VERSION, StorageError, check_file, connect, initialize, integrity, read_rows
-from .sqlite_runtime import BUNDLED_DATA_SQLITE
+from .database_schema import (
+    SQLITE_VERSION,
+    StorageError,
+    check_file,
+    connect,
+    initialize,
+    integrity,
+    read_rows,
+)
+from .sqlite_runtime import BUNDLED_DATA_SQLITE, sqlite3
 
 
 class DatabaseManagerProtocol(Protocol):
@@ -294,7 +302,7 @@ class PostCommitTransaction:
             return [dict(row) for row in cursor] if cursor.description else []
 
 
-_POST_COMMIT_INSERT_TABLES = frozenset({'narrative_blocks'})
+_POST_COMMIT_INSERT_TABLES = frozenset({'narrative_blocks', 'beat_plans'})
 _POST_COMMIT_UPDATE_COLUMNS = {
     'turn_transactions': frozenset({'status', 'narrative_block_id', 'transaction_json'}),
 }
@@ -673,7 +681,7 @@ class DatabaseManager:
             conn.execute('INSERT INTO domain_commits VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                          (revision, record['worldline_id'], record['idempotency_key'], digest,
                           record['request_id'], record['trace_id'], record['world_time'],
-                          datetime.now(timezone.utc).isoformat(), _json(record['operation']), result_json))
+                          datetime.now(UTC).isoformat(), _json(record['operation']), result_json))
             for event in record['events']:
                 conn.execute('INSERT INTO domain_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                              (event['event_id'], revision, record['worldline_id'], record['world_time'],

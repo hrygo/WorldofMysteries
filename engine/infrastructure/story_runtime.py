@@ -20,7 +20,10 @@ from application.story_initialization import (
 from application.story_session_facade import StorySessionFacade
 from application.story_session_open import StorySessionOpenService
 
+from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
+from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
+from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -85,6 +88,13 @@ class StoryRuntime:
         self._database = database
         self._facade = facade
         self._content = content
+        # T5 durable capabilities reachable from the composition root. Frozen
+        # expression (BeatPlan), Story Book restart reads and the rebuildable
+        # retrieval projection. The five-turn catalog stays out of this root
+        # until its content is packaged (T6); wiring here is data-layer only.
+        self._beat_plans = SQLiteBeatPlanRepository(database)
+        self._episodes = SQLiteEpisodeFinalizationRepository(database)
+        self._projector = OutboxProjector(database)
         self._handlers = story_control_handlers(facade)
 
     @classmethod
@@ -135,6 +145,18 @@ class StoryRuntime:
     @property
     def capabilities(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))
+
+    @property
+    def beat_plans(self) -> SQLiteBeatPlanRepository:
+        return self._beat_plans
+
+    @property
+    def episodes(self) -> SQLiteEpisodeFinalizationRepository:
+        return self._episodes
+
+    async def rebuild_retrieval_projection(self):
+        """Idempotently rebuild the disposable retrieval projection from world.db."""
+        return await self._projector.rebuild()
 
     @property
     def scenario_id(self) -> str:
