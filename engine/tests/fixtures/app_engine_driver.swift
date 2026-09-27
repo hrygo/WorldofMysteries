@@ -215,6 +215,22 @@ struct AppEngineDriver {
                 fatalError("Expected a recoverable pending request, saw \(stateName(model.state))")
             }
             await model.continuePendingRequest()
+        case "story-five-turn":
+            guard model.state == .ready, model.view?.turn == 0 else {
+                fatalError("Expected a ready turn=0 session, saw \(stateName(model.state))")
+            }
+            // Drive the whole fixed run: every turn must use exactly the advice
+            // the Engine advertised for that turn, and the fifth one closes it.
+            for expected in 1...5 {
+                model.fillSupportedAdvice()
+                guard !model.draft.isEmpty else {
+                    fatalError("Engine advertised no advice for turn \(expected)")
+                }
+                await model.submit()
+                guard model.view?.turn == expected else {
+                    fatalError("Turn \(expected) did not commit; saw \(String(describing: model.view?.turn))")
+                }
+            }
         default:
             break  // story-reopen / story-recover-open are pure read modes.
         }
@@ -260,7 +276,11 @@ struct AppEngineDriver {
         case "story-open", "story-open-lost-ack", "story-recover-open":
             return model.state == .ready && model.view?.turn == 0
         case "story-submit", "story-submit-lost-ack", "story-reopen", "story-continue-pending":
-            return model.state == .completed && model.view?.turn == 1
+            // One committed turn keeps the fixed run open for the next advice.
+            return model.state == .ready && model.view?.turn == 1
+        case "story-five-turn":
+            return model.state == .completed && model.view?.turn == 5
+                && model.view?.storyRevision == 5 && model.supportedAdvice.isEmpty
         case "story-submit-unsupported":
             return model.state == .failed(code: "deterministic_input_unsupported")
                 && !model.draft.isEmpty && model.view?.turn == 0

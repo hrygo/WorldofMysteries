@@ -29,6 +29,17 @@ ENGINE_DIR = ROOT / 'engine'
 ENGINE_PACKAGES = ('domain', 'application', 'infrastructure', 'ai', 'contracts')
 WORLD_DIRECTORY = 'engineering-golden001'
 UNSUPPORTED_TEXT = '先问问医生今天还有没有别的预约。'
+# The frozen fixed-run advice, exactly as the packaged five-turn content ships it.
+TURN_ADVICE = (
+    '先别问医生病人的事，我想看看他的反应。',
+    '检查预约簿，但别让他发现。',
+    '我觉得地下室有问题，先听听下面有没有声音。',
+    '不要直接进去，想办法让医生先离开。',
+    '已经够了，把我们知道的东西整理清楚，然后离开。',
+)
+FIVE_CLUE_DISPLAY_NAMES = (
+    '医生的停顿', '异常的预约记录', '被撕去的预约页', '门框黑粉', 'Jonathan 的纸片',
+)
 
 sys.path.insert(0, str(ROOT / 'scripts'))
 import build_story_content as content_builder
@@ -356,8 +367,10 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
 
     submitted = _facts(_run_story(app_driver, story_engine, 'story-submit', home, data_root, runtime),
                        'story-submit')
-    assert submitted['state'] == 'completed' and submitted['turn'] == 1
+    # One committed turn reopens the fixed run with exactly the next turn's advice.
+    assert submitted['state'] == 'ready' and submitted['turn'] == 1
     assert submitted['session_id'] == opened['session_id']
+    assert submitted['supported_advice'] == [TURN_ADVICE[1]]
     assert '医生的停顿' in submitted['clues']
     journal = (home / 'Library/Application Support/WorldofMysteries/Engineering/Golden001/Journal'
                / 'first-turn-request.json')
@@ -365,14 +378,21 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
 
     reopened = _facts(_run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
                       'story-reopen')
-    assert reopened['state'] == 'completed' and reopened['turn'] == 1
+    assert reopened['state'] == 'ready' and reopened['turn'] == 1
     assert reopened['session_id'] == submitted['session_id']
     assert reopened['story_revision'] == 1
     assert reopened['clues'] == submitted['clues']
+    assert reopened['supported_advice'] == [TURN_ADVICE[1]]
     assert _world_counts(data_root) == {
         'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
     # A full product first turn must never write the read-only canon artifact.
     assert hashlib.sha256(canon.read_bytes()).hexdigest() == canon_digest
+    # The advice the client submitted is the packaged frozen content, verbatim.
+    staged_advice = json.loads(
+        (story_engine / 'infrastructure/story_content/five_turn/turns/01_advice.json')
+        .read_text(encoding='utf-8'))['raw_input']
+    assert staged_advice == TURN_ADVICE[0]
+    assert opened['supported_advice'] == [TURN_ADVICE[0]]
 
 
 def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_engine, story_session):
@@ -383,7 +403,7 @@ def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_eng
     lost = _facts(_run_story(app_driver, story_engine, 'story-submit-lost-ack', home, data_root,
                              runtime, fault={'action': 'exit', 'stages': ['after_commit']}),
                   'story-submit-lost-ack')
-    assert lost['state'] == 'completed' and lost['turn'] == 1
+    assert lost['state'] == 'ready' and lost['turn'] == 1
     committed = _world_counts(data_root)
     assert committed == {'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
 
@@ -414,7 +434,7 @@ def test_real_story_pending_request_waits_for_explicit_continuation(
     resumed = _facts(_run_story(app_driver, story_engine, 'story-continue-pending', home, data_root,
                                 runtime),
                      'story-continue-pending')
-    assert resumed['state'] == 'completed' and resumed['turn'] == 1
+    assert resumed['state'] == 'ready' and resumed['turn'] == 1
     assert _world_counts(data_root) == {
         'commits': 2, 'intakes': 1, 'sessions': 1, 'bootstraps': 1}
 

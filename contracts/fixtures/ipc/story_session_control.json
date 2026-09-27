@@ -60,6 +60,40 @@
       "valid": true
     },
     {
+      "id": "entry_get_response_after_final_turn_valid",
+      "shape": "entry_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "scenario_id": "golden_001",
+        "mode": "golden_deterministic",
+        "supported_advice": [],
+        "observed_store_revision": 6,
+        "session": {
+          "schema_version": "1.0",
+          "scenario_id": "golden_001",
+          "session_id": "session_0123456789abcdef0123456789abcdef",
+          "mode": "golden_deterministic",
+          "status": "active",
+          "story_revision": 5,
+          "turn": 5,
+          "observed_store_revision": 6,
+          "world_time": "1899-03-01T09:40:00Z",
+          "protagonist": {"id": "evelyn", "display_name": "伊芙琳·格雷"},
+          "scene": {
+            "id": "consultation_room",
+            "location_id": "harvey_clinic",
+            "display_name": "哈维诊所 · 诊室"
+          },
+          "discovered_clues": [
+            {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
+          ],
+          "can_submit": false,
+          "last_committed_turn_id": "turn_0123456789abcdef0123456789abcdef"
+        }
+      },
+      "valid": true
+    },
+    {
       "id": "entry_get_response_existing_pending_valid",
       "shape": "entry_get_response",
       "value": {
