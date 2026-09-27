@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import sqlite3 as stdlib_sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -97,11 +97,11 @@ class CountingFirstTurn(GoldenFirstTurnFactory):
         self.interpreter_calls = 0
         self.proposer_calls = 0
 
-    def interpreter_for(self, bootstrap):
+    def interpreter_for(self, bootstrap, turn_number=1):
         self.interpreter_calls += 1
         return super().interpreter_for(bootstrap)
 
-    def proposer_for(self, bootstrap):
+    def proposer_for(self, bootstrap, turn_number=1):
         self.proposer_calls += 1
         return super().proposer_for(bootstrap)
 

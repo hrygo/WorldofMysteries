@@ -307,7 +307,10 @@ async def test_unsupported_session_overlay_fails_before_any_commit(tmp_path):
         unsupported = StateDelta.model_validate(payload)
         turn = _validated_turn(unsupported)
         service = StoryTurnCommitService(SQLiteStorySessionCommitPort(database))
-        with pytest.raises(StoryTurnValidationError, match="does not yet persist"):
+        with pytest.raises(
+            StoryTurnValidationError,
+            match="cross-domain overlays require an authorized validation context",
+        ):
             await service.commit_validated(
                 initial,
                 unsupported,

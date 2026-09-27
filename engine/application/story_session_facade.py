@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import hashlib
+from dataclasses import dataclass
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts import InputMode, StorySession, StorySessionStatus
-from domain.resolution_policy import ResolutionPolicy, ResolutionRule, StoryEffect
 from domain.resolver import DeterministicOutcomeResolver
 
 from .advice_action import AdviceActionIntentService
@@ -149,9 +148,28 @@ class StorySessionQueryPort(Protocol):
 
 
 class StoryFirstTurnPort(Protocol):
-    def interpreter_for(self, bootstrap: StorySessionBootstrap): ...
+    @property
+    def max_turn(self) -> int: ...
 
-    def proposer_for(self, bootstrap: StorySessionBootstrap): ...
+    def expected_input(
+        self, bootstrap: StorySessionBootstrap, turn_number: int
+    ) -> str: ...
+
+    def interpreter_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int
+    ): ...
+
+    def proposer_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int
+    ): ...
+
+    def policy_for_turn(
+        self, bootstrap: StorySessionBootstrap, turn_number: int
+    ): ...
+
+    def domain_validation_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int
+    ): ...
 
 
 class _SessionReadAdapter:
@@ -280,7 +298,8 @@ class StorySessionFacade:
                     raise StoryFacadeError("revision_conflict")
             else:
                 snapshot = await self._query.session(command.session_id)
-                self._validate_new(command, snapshot)
+                turn_number = snapshot.session.story_state.turn + 1
+                self._validate_new(command, snapshot, turn_number)
                 receipt = await StoryTurnInputService(
                     sessions=self._session_read,
                     intake=self._intake,
@@ -296,25 +315,35 @@ class StorySessionFacade:
                 if receipt.status is TurnInputStatus.CANCELLED:
                     raise StoryFacadeError("input_turn_cancelled")
 
+            turn_number = snapshot.session.story_state.turn + 1
             interpretation = PlayerAdviceInterpretationService(
                 durable=self._advice,
-                interpreter=self._first_turn.interpreter_for(snapshot.bootstrap),
+                interpreter=self._first_turn.interpreter_for(
+                    snapshot.bootstrap, turn_number
+                ),
             )
             proposal = AdviceActionIntentService(
                 durable=self._advice,
                 sessions=self._session_read,
-                proposer=self._first_turn.proposer_for(snapshot.bootstrap),
+                proposer=self._first_turn.proposer_for(
+                    snapshot.bootstrap, turn_number
+                ),
             )
             commit = AdviceCommitService(
                 durable=self._advice,
                 proposal=proposal,
                 story=self._story,
                 resolver=DeterministicOutcomeResolver(),
+                domain_context=lambda number: self._first_turn.domain_validation_for(
+                    snapshot.bootstrap, number
+                ),
             )
             await interpretation.interpret(command.input_turn_id)
             result = await commit.commit(
                 command.input_turn_id,
-                policy=_opening_policy(snapshot.bootstrap),
+                policy=self._first_turn.policy_for_turn(
+                    snapshot.bootstrap, turn_number
+                ),
                 store_expected_revision=command.expected_store_revision,
                 request_id=command.request_id,
                 trace_id=command.trace_id,
@@ -368,6 +397,7 @@ class StorySessionFacade:
                 bootstrap=record.bootstrap,
                 observed_store_revision=record.observed_store_revision,
                 has_pending_input=pending,
+                max_turn=self._first_turn.max_turn,
             )
         except StoryPublicViewError as exc:
             raise StoryFacadeError(exc.code) from None
@@ -389,10 +419,11 @@ class StorySessionFacade:
         ):
             raise StoryFacadeError("input_turn_identity_conflict")
 
-    @staticmethod
     def _validate_new(
+        self,
         command: SubmitAdviceCommand,
         snapshot: StorySessionSnapshotRecord,
+        turn_number: int,
     ) -> None:
         session = snapshot.session
         if session.id != command.session_id:
@@ -401,39 +432,25 @@ class StorySessionFacade:
             raise StoryFacadeError("story_session_not_active")
         if snapshot.pending_input_turn_id is not None:
             raise StoryFacadeError("pending_turn_exists")
-        if session.story_state.turn != 0 or session.story_state.revision != 0:
+        if (
+            turn_number != session.story_state.turn + 1
+            or session.story_state.revision != turn_number - 1
+            or turn_number > self._first_turn.max_turn
+        ):
             raise StoryFacadeError("iteration_limit_reached")
         if (
             command.expected_story_revision != session.story_state.revision
             or command.expected_store_revision != snapshot.observed_store_revision
         ):
             raise StoryFacadeError("revision_conflict")
-        supported = snapshot.bootstrap.advice_template["raw_input"]
+        supported = self._first_turn.expected_input(
+            snapshot.bootstrap, turn_number
+        )
         if command.raw_input != supported:
             raise StoryFacadeError("deterministic_input_unsupported")
 
     def _lock(self, session_id: str) -> asyncio.Lock:
         return self._locks.setdefault(session_id, asyncio.Lock())
-
-
-def _opening_policy(bootstrap: StorySessionBootstrap):
-    return ResolutionPolicy.from_story_seed(
-        bootstrap.seed,
-        [
-            ResolutionRule(
-                rule_id="observe-morris-reaction",
-                intent="observe_subject",
-                action_types=("continue_conversation",),
-                effect=StoryEffect(
-                    outcome="partial_success",
-                    clue_ids_add=("clue_doctor_pause",),
-                    pressure_delta=(("doctor_suspicion", 0),),
-                ),
-                evidence_ids=("policy.golden001.opening",),
-            )
-        ],
-        policy_id="golden001-opening-policy",
-    )
 
 
 def _receipt_from_record(record: StoredInputRecord) -> AdviceReceiptView:

@@ -18,6 +18,11 @@ from application.advice_interpretation import (
 from application.story_initialization import StorySessionBootstrap
 from contracts import AdherenceType, InputMode, PlayerAdvice
 from contracts.models import ExpectedCost, IntentAction, PerceivedRisk
+from domain.resolution_policy import (
+    ResolutionPolicy,
+    ResolutionRule,
+    StoryEffect,
+)
 
 
 class GoldenFirstTurnInterpreter:
@@ -87,8 +92,75 @@ class GoldenFirstTurnProposer:
 class GoldenFirstTurnFactory:
     """Create per-session deterministic adapters from the frozen bootstrap."""
 
-    def interpreter_for(self, bootstrap: StorySessionBootstrap):
+    @property
+    def max_turn(self) -> int:
+        return 1
+
+    def expected_input(
+        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+    ) -> str:
+        if turn_number != 1:
+            raise AdviceActionError("iteration_limit_reached")
+        return str(bootstrap.advice_template["raw_input"])
+
+    def interpreter_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+    ):
+        self.expected_input(bootstrap, turn_number)
         return GoldenFirstTurnInterpreter(bootstrap)
 
-    def proposer_for(self, bootstrap: StorySessionBootstrap):
+    def proposer_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+    ):
+        self.expected_input(bootstrap, turn_number)
         return GoldenFirstTurnProposer(bootstrap)
+
+    def policy_for_turn(
+        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+    ) -> ResolutionPolicy:
+        self.expected_input(bootstrap, turn_number)
+        return ResolutionPolicy.from_story_seed(
+            bootstrap.seed,
+            [
+                ResolutionRule(
+                    rule_id="observe-morris-reaction",
+                    intent="observe_subject",
+                    action_types=("continue_conversation",),
+                    effect=StoryEffect(
+                        outcome="partial_success",
+                        clue_ids_add=("clue_doctor_pause",),
+                        pressure_delta=(("doctor_suspicion", 0),),
+                    ),
+                    evidence_ids=("policy.golden001.opening",),
+                )
+            ],
+            policy_id="golden001-opening-policy",
+        )
+
+    def domain_validation_for(
+        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+    ):
+        from application.story_turn_commit import DomainValidationContext
+
+        self.expected_input(bootstrap, turn_number)
+        hidden_truth = bootstrap.seed.get("hidden_truth", {})
+        return DomainValidationContext(
+            known_character_ids=tuple(
+                str(item) for item in bootstrap.seed.get("actor_ids", []) if item
+            ),
+            authorized_evidence_ids=frozenset(
+                {
+                    *(
+                        str(item["id"])
+                        for item in bootstrap.seed.get("clues", [])
+                        if isinstance(item, dict) and item.get("id")
+                    ),
+                    "policy.golden001.opening",
+                }
+            ),
+            hidden_fact_literals=tuple(
+                str(value)
+                for value in hidden_truth.values()
+                if isinstance(value, str) and value
+            ),
+        )

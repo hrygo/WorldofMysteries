@@ -9,6 +9,7 @@ Lost-ACK retries recover the committed turn instead of invoking the model again.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from typing import Protocol
 
 from contracts import (
@@ -20,6 +21,7 @@ from contracts import (
     TurnStatus,
     TurnTransaction,
 )
+from domain.domain_candidate_validator import validate_resolved_state_delta
 from domain.resolution_policy import ResolutionPolicy
 from domain.resolver import OutcomeResolverProtocol
 
@@ -30,6 +32,7 @@ from .advice_action import (
 )
 from .advice_interpretation import FrozenTurnInput
 from .story_turn_commit import (
+    DomainValidationContext,
     StoryCommitPort,
     StoryTurnCommitResult,
     StoryTurnCommitService,
@@ -78,11 +81,13 @@ class AdviceCommitService:
         proposal: AdviceActionIntentService,
         story: StoryTurnCommitPort,
         resolver: OutcomeResolverProtocol,
+        domain_context: Callable[[int], DomainValidationContext] | None = None,
     ) -> None:
         self._durable = durable
         self._proposal = proposal
         self._story = story
         self._resolver = resolver
+        self._domain_context = domain_context
 
     async def commit(
         self,
@@ -126,6 +131,25 @@ class AdviceCommitService:
         )
         if not isinstance(delta, StateDelta) or delta.turn_id != frozen.turn_id:
             raise AdviceCommitError("resolver_identity_mismatch")
+        domain_context = None
+        if self._domain_context is not None:
+            try:
+                domain_context = self._domain_context(
+                    frozen.base_revisions.story + 1
+                ).with_runtime_identities(
+                    proposal.advice.id,
+                    proposal.action_intent.id,
+                )
+                validate_resolved_state_delta(
+                    proposal.action_intent,
+                    policy,
+                    delta,
+                    known_character_ids=domain_context.known_character_ids,
+                    authorized_evidence_ids=domain_context.authorized_evidence_ids,
+                    hidden_fact_literals=domain_context.hidden_fact_literals,
+                )
+            except ValueError as exc:
+                raise AdviceCommitError("domain_candidate_validation_failed") from exc
 
         turn = TurnTransaction.model_validate(
             {
@@ -142,7 +166,10 @@ class AdviceCommitService:
                 "narrative_block_id": None,
             }
         )
-        return await StoryTurnCommitService(self._story).commit_validated(
+        return await StoryTurnCommitService(
+            self._story,
+            domain_context=domain_context,
+        ).commit_validated(
             session,
             delta,
             turn,

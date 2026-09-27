@@ -16,11 +16,29 @@ from contracts import (
     TurnStatus,
     TurnTransaction,
 )
+from domain.domain_candidate_validator import validate_state_delta_overlays
 from domain.story_state_reducer import apply_story_delta
 
 
 class StoryTurnValidationError(ValueError):
     """The candidate turn cannot cross the durable Session fact boundary."""
+
+
+@dataclass(frozen=True, slots=True)
+class DomainValidationContext:
+    """Authorized facts a single turn may use for cross-domain candidates."""
+
+    known_character_ids: tuple[str, ...]
+    authorized_evidence_ids: frozenset[str]
+    hidden_fact_literals: tuple[str, ...] = ()
+
+    def with_runtime_identities(self, *identities: str) -> DomainValidationContext:
+        return DomainValidationContext(
+            known_character_ids=self.known_character_ids,
+            authorized_evidence_ids=self.authorized_evidence_ids
+            | frozenset(identities),
+            hidden_fact_literals=self.hidden_fact_literals,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +64,17 @@ class StoryCommitPort(Protocol):
 
 
 class StoryTurnCommitService:
-    def __init__(self, port: StoryCommitPort):
+    def __init__(
+        self,
+        port: StoryCommitPort,
+        *,
+        domain_context: DomainValidationContext | None = None,
+    ):
         self._port = port
+        self._domain_context = domain_context
 
-    @staticmethod
     def _validate(
+        self,
         session: StorySession,
         delta: StateDelta,
         turn: TurnTransaction,
@@ -72,16 +96,22 @@ class StoryTurnCommitService:
         ):
             raise StoryTurnValidationError("turn base revisions are stale")
 
-        # The first durable vertical slice persists StoryState only. Refuse richer
-        # overlays rather than silently dropping committed facts.
         if (
             delta.character_deltas
             or delta.relationship_deltas
             or delta.knowledge_candidates
             or delta.world_event_candidates
         ):
-            raise StoryTurnValidationError(
-                "this durable slice does not yet persist non-story session overlays"
+            if self._domain_context is None:
+                raise StoryTurnValidationError(
+                    "cross-domain overlays require an authorized validation context"
+                )
+            context = self._domain_context
+            validate_state_delta_overlays(
+                delta,
+                known_character_ids=context.known_character_ids,
+                authorized_evidence_ids=context.authorized_evidence_ids,
+                hidden_fact_literals=context.hidden_fact_literals,
             )
 
     async def commit_validated(

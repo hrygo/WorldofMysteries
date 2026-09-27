@@ -67,6 +67,7 @@ class StoryPublicViewProjector:
         observed_store_revision: int,
         last_committed_turn_id: str | None = None,
         has_pending_input: bool = False,
+        max_turn: int = 1,
     ) -> PublicStorySessionView:
         if not isinstance(session, StorySession):
             raise StoryPublicViewError("invalid_story_session")
@@ -101,7 +102,7 @@ class StoryPublicViewProjector:
 
         can_submit = (
             session.status is StorySessionStatus.ACTIVE
-            and session.story_state.turn == 0
+            and session.story_state.turn < max_turn
             and not has_pending_input
         )
         try:
