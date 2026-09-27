@@ -1,269 +1,269 @@
 {
-  "project_name": "World of Mysteries",
-  "version": "0.1.0",
-  "last_updated": "2026-09-27",
-  "current_phase": {
-    "phase_id": "Phase 1",
-    "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
-    "status": "IN_PROGRESS",
-    "progress_summary": "截至 2026-09-27，可信开场与 App 真实首轮闭环已随 PR #204 合入；Golden 五轮迭代的 T0–T6b 已在本地 main 完成并留有 Work/Integration Receipt（T6b 集成头 3838459：T6a 随包五轮内容、T6a-2 逐轮建议暴露、契约允许关闭回合空建议、T6b-1 App 五轮状态机与多轮 UI、T6b 证据五轮跨进程驱动）。T4–T6b 均通过 FULL_P0 本地预演与合入后 smoke 但未推送、未创建 PR。真实五轮端到端运行暴露一个生产缺口：打包运行时从未触发 PostCommitExpressionService 与 EpisodeFinalizationService（仅单测直调），因此真实五轮不会产生 BeatPlan/NarrativeBlock/已结算 Episode。下一步是接线该结算/表达服务并补回五轮结算跨进程证据，然后才是 T7 八个故障点、同一 SHA 的 GUI 观察与真实模型/TTS 验收。"
-  },
-  "gates_health": {
-    "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T6b Integration Receipt .agents/receipts/B-APP-FIVE-TURN-EVIDENCE/a7e9c54cff03-integration.json）",
-    "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与完整 Python 套件（T6b 本地集成凭单，main 3838459）",
-    "python_tests": "PASSED: 完整 engine 套件在 2026-09-27 T6b FULL_P0 预合入及合入后均通过（含 21 项真实 App-Engine 跨进程测试，main 3838459）",
-    "swift_tests": "PASSED: 2026-09-27 T6b FULL_P0 的 swift test（390 tests）与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-APP-FIVE-TURN-EVIDENCE",
-    "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4/T5 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
-    "golden_001_runtime": "PARTIAL: T0–T6b 已在本地 main 完成并留凭单——五轮状态机由提交状态驱动、逐轮建议、随包五轮内容、关闭回合契约、五轮跨进程驱动与既有单/双进程恢复均有证据；但真实五轮端到端尚未触发结算与 COMMIT 后表达（生产缺口，见 progress_summary），BeatPlan/NarrativeBlock/Episode 的真实运行证据、Story Book 回放 UI、八个 Engine 故障检查点（T7）、同一 SHA 的 GUI 观察、真实模型和 TTS 仍未验收"
-  },
-  "completed_phases": [
-    {
-      "phase_id": "Phase 0",
-      "phase_name": "基线契约与协同基础设施 (Baseline Contracts & HACF 2.1)",
-      "completed_at": "2026-09-16",
-      "key_deliverables": [
-        "28 个跨语言强类型 JSON Schemas 冻结",
-        "本地三阶段极速门禁 (AST 检查 + Python 25 项测试 + Swift 8 项并发测试 100% 通过)",
-        "HACF 2.1 不可变任务契约 (agent_capsule.py) + 受保护门禁档案 (.hacf/gates) + 独立工作区事务流水线 (collab_pipeline.py) + Work/Integration Receipt 证据链 (ADR-004)",
-        "GitHub Actions 工业级双层防御流与 CODEOWNERS 权限矩阵",
-        "macOS 26+ 平台基线全面对齐与持久化术语加固"
-      ]
-    }
-  ],
-  "milestones": [
-    {
-      "id": "M0-UI-SPEC",
-      "name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
-      "phase": "Design Baseline",
-      "status": "COMPLETED",
-      "lead_role": "AGT-MAC",
-      "description": "具象化锚定桌面端心智模型：8 个一级视图 + 2 个超凡高光场景（灰雾长桌、仪式魔法）共 12 幅高保真原型闭环，反向锁定 DTO 与流式事件契约",
-      "deliverables": [
-        "docs/05_UI/assets/01_概念参考/01_世界首页_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/02_人物档案_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/03_命运干预_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/04_故事沉浸_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/05_卡牌详情_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/06_卡牌馆_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/07_故事书_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/08_世界线_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/09_调查笔记_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/10_系统设置_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/11_灰雾之上_概念参考.png",
-        "docs/05_UI/assets/01_概念参考/12_仪式魔法_概念参考.png",
-        "docs/05_UI/assets/README.md",
-        "docs/05_UI/UI_交互基线_v1.0.md",
-        "docs/03_工程规范/macOS_App_高保真视觉与交互设计规范_v1.0.md"
-      ],
-      "deliverable_storage": "本机资产：12 张高保真原型参考位于 docs/05_UI/assets/01_概念参考/，由 .gitignore 排除、不入库；仓库内只保留路径索引与 README 说明。",
-      "completion_scope": "仅设计基线完成，不等同于 App 真实运行、正式美术入库或产品体验完成。"
-    },
-    {
-      "id": "M1",
-      "name": "Local Engine 运行守护与 UDS IPC 双向通路",
-      "phase": "Phase 1",
-      "status": "IN_PROGRESS",
-      "lead_role": "AGT-ARB",
-      "description": "真实独立 Engine、UDS 通路与 App 生命周期。Session Open 与首轮持久闭环 (PR #202、#204) 已合入；现有证据证明首轮固定模式与双进程恢复，不代表完整多轮业务已交付。M1 仍未整体闭环：#44/#45 的剩余生命周期面、全领域结算、Golden 五轮，以及真实模型/TTS 与设备验收仍待交付。",
-      "tracking_issues": [
-        44,
-        45
-      ]
-    },
-    {
-      "id": "M2",
-      "name": "SQLite 四库物理隔离架构与单写多读连接池",
-      "phase": "Phase 1",
-      "status": "READY",
-      "lead_role": "AGT-DATA",
-      "description": "落地 canon.db 只读隔离、world.db 权威强事务、retrieval.db 可重建投影、runtime.db 非领域缓存、Outbox 与故障恢复。",
-      "tracking_issues": [
-        46
-      ]
-    },
-    {
-      "id": "M5-PREP",
-      "name": "Golden 001 断言与故障恢复测试准备",
-      "phase": "Phase 1",
-      "status": "COMPLETED",
-      "depends_on": [],
-      "lead_role": "AGT-QA",
-      "tracking_issues": [
-        47
-      ],
-      "description": "T1 B-GOLDEN-ASSERTIONS 已完成 G001–G012、固定五轮 expected 与八个故障点追踪矩阵测试准备。此状态仅代表验收准备完成，不代表 M5 真实五轮运行通过。"
-    },
-    {
-      "id": "M3",
-      "name": "确定性 Outcome Resolver 与状态机实现",
-      "phase": "Phase 2",
-      "status": "BLOCKED",
-      "depends_on": [
-        "M2"
-      ],
-      "lead_role": "AGT-DOM",
-      "description": "以固定模型输出驱动真实确定性 Resolver、Validators 与状态机；Application 编排由 AGT-AI 分角色协作，真实 LLM 不作为本阶段前置。"
-    },
-    {
-      "id": "M4",
-      "name": "AgentScope 2.0.8 适配与 Proposal 网关",
-      "phase": "Phase 2",
-      "status": "BLOCKED",
-      "depends_on": [
-        "M5"
-      ],
-      "lead_role": "AGT-AI",
-      "description": "在确定性 Golden Mock 闭环通过后进行真实模型端到端接入；版本固定、接口与离线适配准备可并行，不延后知识授权边界。"
-    },
-    {
-      "id": "M5",
-      "name": "Golden 001 端到端 5 轮状态全景回归",
-      "phase": "Phase 3",
-      "status": "BLOCKED",
-      "depends_on": [
-        "M1",
-        "M2",
-        "M3",
-        "M5-PREP"
-      ],
-      "lead_role": "AGT-QA",
-      "description": "只替代模型输出的真实五轮运行：编排、裁决、事务、Outbox、Finalization、恢复与记忆回访都执行真实代码。准备完成不等于本里程碑通过。",
-      "tracking_issues": [
-        47
-      ]
-    },
-    {
-      "id": "M6",
-      "name": "macOS App 语音流式交互与发布门禁",
-      "phase": "Phase 3",
-      "status": "BLOCKED",
-      "depends_on": [
-        "M4",
-        "M5"
-      ],
-      "lead_role": "AGT-VOICE",
-      "description": "真实模型/基础语音、Story Book 历史回放、核心路径可独立使用及目标 Mac 发布验证；TTS 失败不改变已提交事实。"
-    }
-  ],
-  "critical_path": {
-    "next_milestone_id": "B-EPISODE-CONTENT",
-    "next_milestone_name": "作者化 Episode 内容 + 五轮结算/表达运行时接线",
-    "strategic_rationale": "T0–T6b 已完成。真实五轮跨进程运行暴露生产缺口：打包运行时（story_runtime/facade）从未调用 PostCommitExpressionService 与 EpisodeFinalizationService，二者仅在单测中被直调，因此真实五轮只提交轮次，不产生 BeatPlan/NarrativeBlock/已结算 Episode，EpisodeFinalizationRepository.finalize 在生产中是死代码。结算接线分两枚胶囊：(1) B-EPISODE-CONTENT（AGT-QA，fixtures/golden_001/**）新增独立的作者化 Episode 输入 episode.json（仅叙事字段：title/ending/unresolved_threads/narrative_block_ids/记忆摘要），刻意不复用 expected_episode.json——build_story_content 明确设计为随包内容不读测试 oracle；(2) B-EPISODE-WIRING（AGT-DATA，engine/infrastructure + engine/tests，scripts/build_story_content.py 与 bundle_engine.py 需 grant）新增生产结算模块（从提交证据构造 EpisodeFinalizationCommand，绑定真实提交 ID，并保留作者 unresolved_threads——T4 测试曾误用 active_conflicts 覆盖，T1 断言要求固定作者集合）、SettlingCommitPort 装饰器（COMMIT 后触发表达发布，第五轮触发结算，失败不回滚已提交事实、可重放）、story_runtime 组合根接线，并补回 test_real_story_five_turns_commit_settle_and_close 在磁盘上断言 episodes/episode_finalizations/character_episode_memories/episode_knowledge_changes。完成该接线后进入 T7：八个 Engine 终止检查点、同一最终 SHA 的 GUI 观察、适用门禁证据。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型和 TTS 不属于本轮。",
-    "target_deliverables": [
-      "App 可完成开始、连续五轮提交、结算、退出与返回，并保留未知结果与 pending 的明确状态",
-      "第 5 轮后明确结束固定验证；不默许第 6 轮或任意文本输入",
-      "Story Book 回放同一 Episode 与历史表达，不重新调用 Resolver 或重新生成历史文本",
-      "随包五轮内容不依赖源码目录；Runtime 组合根按需装配五轮目录与 BeatPlan/表达/结算端口",
-      "逐项覆盖八个 Engine 终止检查点，每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算",
-      "GUI 观察记录与跨进程结果绑定同一最终 SHA；观察不能由源码检查或截图单独替代",
-      "真实 LLM、自由文本、真实 TTS 质量与正式发行验收保留为后继里程碑"
-    ],
-    "dispatch": {
-      "assigned_role": "AGT-QA",
-      "role_title": "作者化 Episode 内容（fixtures/golden_001）",
-      "task_id": "B-EPISODE-CONTENT",
-      "task_title": "新增独立的作者化 Episode 输入（不复用测试 oracle）",
-      "authorized_scope": [
-        "fixtures/golden_001/",
-        "engine/tests/"
-      ],
-      "forbidden_patterns": [
-        "macos-app/**",
-        "engine/domain/**",
-        "engine/ai/**",
-        "engine/infrastructure/**",
-        "engine/application/**",
-        ".hacf/**",
-        ".github/**",
-        "docs/**",
-        "scripts/**"
-      ],
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-EPISODE-CONTENT --title \"作者化 Episode 内容\" --target-ref main（worktree 内执行）",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-episode-content"
-    }
-  },
-  "historical_gate_reports": [
-    {
-      "reported_as_of": "2026-09-16",
-      "verified_head_sha": null,
-      "scope_note": "保留原状态文件的历史报告，不补造其绑定 SHA；这些数据不构成当前提交或产品可用性的证据。",
-      "gates_health": {
-        "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
-        "schemas_integrity": "PASSED (28/28 product+protocol schemas + 3 engineering contracts)",
-        "python_tests": "PASSED (38/38 passed in <1s, incl. 13 HACF governance tests)",
-        "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
-        "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
-      }
-    }
-  ],
-  "execution_focus": {
-    "plan_path": "docs/06_实施基线/2026-09-26_Golden_Five_Turn_Iteration_Plan.md",
-    "tracking_issue": 43,
-    "current_stage": "B",
-    "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-    "decision": "T0–T6b 已在本地 main 完成并留凭单。当前进入 B-EPISODE-CONTENT（AGT-QA）先落地独立的作者化 Episode 输入，随后 B-EPISODE-WIRING（AGT-DATA）完成结算/表达的运行时接线与五轮结算跨进程证据；之后是 T7 Golden 验收（八个故障点、同一 SHA 的 GUI 观察）。T4–T6b 仅本地 FULL_P0 预演，未推送、未创建 PR；真实模型和 TTS 不属于本轮。",
-    "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
-    "parallel_ready": [],
-    "iteration_evidence": {
-      "base_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
-      "code_head_sha": "9a07f40b39f571dbe356ef52c742689dcb045f09",
-      "branch": "codex/trusted-session-app-first-turn",
-      "work_receipts": [
-        {
-          "task_id": "M1-FIRST-TURN-CONTRACT",
-          "head_commit": "0fa0d2c241b4"
-        },
-        {
-          "task_id": "M1-TRUSTED-INITIALIZER",
-          "head_commit": "07e7b58dd4b7"
-        },
-        {
-          "task_id": "M1-TRUSTED-BOOTSTRAP",
-          "head_commit": "43118b66b76e"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-SERVICE",
-          "head_commit": "3b26aa3a64cb"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-RUNTIME",
-          "head_commit": "7b3ec83e5360"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-APP",
-          "head_commit": "f45fbf4c463a"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-QA",
-          "head_commit": "84abf727a1d3"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-CONTENT",
-          "head_commit": "e319814dedd5"
-        },
-        {
-          "task_id": "M1-FIRST-TURN-CROSSPROCESS",
-          "head_commit": "9a07f40b39f5"
-        }
-      ],
-      "gate_profile": "FULL_P0",
-      "gate_result": "passed",
-      "verified_scope": "契约/初始化/持久 bootstrap/facade+投影/runtime+IPC/内容制品/App 接线/真实双进程首轮与恢复",
-      "unverified_scope": "Golden 五轮、全领域结算、真实模型质量、TTS、目标 Mac GUI/设备与正式发布验收",
-      "delivery_state": "PR #204 于 2026-09-26 合入 main；PR head d3a5b2f 的全部必需检查与 arm64 随包检查通过。",
-      "pull_request_head_sha": "d3a5b2f61faa7fa4bed7689596524b7b5c67fa66",
-      "merge_commit_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31"
-    },
-    "historical_pr_202_candidate_evidence": {
-      "main_base_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
-      "code_head_sha": "b848ad66f159f7a2d493da51ce23e716b0d5fbc2",
-      "receipt_commit_sha": "710d7bf5d96a23268be09822a14934b2a12ad2f8",
-      "work_receipt_id": "RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159",
-      "gate_profile": "FULL_P0",
-      "gate_result": "passed",
-      "integration_state": "merged via PR #202",
-      "merge_commit_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
-      "main_sha_when_recorded": "dccdbd76ef488281cda86be01a6857754b91b7c0"
-    }
+ "project_name": "World of Mysteries",
+ "version": "0.1.0",
+ "last_updated": "2026-09-27",
+ "current_phase": {
+  "phase_id": "Phase 1",
+  "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
+  "status": "IN_PROGRESS",
+  "progress_summary": "截至 2026-09-27，Golden 五轮迭代的 T0–T6b 与结算接线（B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING）已在本地 main 完成并留有 Work/Integration Receipt（main 022857e）。真实五轮端到端运行此前暴露的生产缺口——打包运行时从未触发结算与 COMMIT 后表达——已关闭：SettlingCommitPort 让每次 COMMIT 后发布 BeatPlan/NarrativeBlock，第五轮结算 Episode；磁盘上真实产出 1 episodes / 1 episode_finalizations / 5 beat_plans / 5 narrative_blocks / 作者 unresolved_threads，重启不重提交。接线同时修正了 T3 遗留的契约路径错位（可重定位 bundle 中 artifact schema 解析到错误根目录，是静默无 Episode 的直接原因）与作者字段误绑。T4–T6b 及结算接线均通过 FULL_P0 本地预演与合入后 smoke，但未推送、未创建 PR。下一步是 T7（B-GOLDEN-ACCEPTANCE）：八个 Engine 终止检查点的跨进程证据、同一最终 SHA 的 GUI 观察、适用门禁收口；真实模型与 TTS 仍不属本轮。"
+ },
+ "gates_health": {
+  "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（T6b Integration Receipt .agents/receipts/B-APP-FIVE-TURN-EVIDENCE/a7e9c54cff03-integration.json）",
+  "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与完整 Python 套件（T6b 本地集成凭单，main 3838459）",
+  "python_tests": "PASSED: 完整 engine 套件在 2026-09-27 T6b FULL_P0 预合入及合入后均通过（含 21 项真实 App-Engine 跨进程测试，main 3838459）",
+  "swift_tests": "PASSED: 2026-09-27 T6b FULL_P0 的 swift test（390 tests）与 Xcode arm64 App Target build 均通过；本地集成凭单见 B-APP-FIVE-TURN-EVIDENCE",
+  "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4/T5 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
+  "golden_001_runtime": "PARTIAL: T0–T6b 与结算接线已在本地 main 完成并留凭单——五轮状态机由提交状态驱动、逐轮建议、随包五轮内容、关闭回合契约、五轮跨进程驱动、既有单/双进程恢复，以及真实运行的 BeatPlan/NarrativeBlock/Episode 结算证据（episodes/episode_finalizations/character_episode_memories/episode_knowledge_changes/beat_plans/narrative_blocks 均在磁盘断言）。仍未验收：Story Book 回放 UI、八个 Engine 故障检查点（T7）、同一 SHA 的 GUI 观察、真实模型和 TTS"
+ },
+ "completed_phases": [
+  {
+   "phase_id": "Phase 0",
+   "phase_name": "基线契约与协同基础设施 (Baseline Contracts & HACF 2.1)",
+   "completed_at": "2026-09-16",
+   "key_deliverables": [
+    "28 个跨语言强类型 JSON Schemas 冻结",
+    "本地三阶段极速门禁 (AST 检查 + Python 25 项测试 + Swift 8 项并发测试 100% 通过)",
+    "HACF 2.1 不可变任务契约 (agent_capsule.py) + 受保护门禁档案 (.hacf/gates) + 独立工作区事务流水线 (collab_pipeline.py) + Work/Integration Receipt 证据链 (ADR-004)",
+    "GitHub Actions 工业级双层防御流与 CODEOWNERS 权限矩阵",
+    "macOS 26+ 平台基线全面对齐与持久化术语加固"
+   ]
   }
+ ],
+ "milestones": [
+  {
+   "id": "M0-UI-SPEC",
+   "name": "macOS App 高保真沉浸式 UI/UX 设计与视觉锚定",
+   "phase": "Design Baseline",
+   "status": "COMPLETED",
+   "lead_role": "AGT-MAC",
+   "description": "具象化锚定桌面端心智模型：8 个一级视图 + 2 个超凡高光场景（灰雾长桌、仪式魔法）共 12 幅高保真原型闭环，反向锁定 DTO 与流式事件契约",
+   "deliverables": [
+    "docs/05_UI/assets/01_概念参考/01_世界首页_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/02_人物档案_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/03_命运干预_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/04_故事沉浸_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/05_卡牌详情_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/06_卡牌馆_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/07_故事书_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/08_世界线_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/09_调查笔记_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/10_系统设置_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/11_灰雾之上_概念参考.png",
+    "docs/05_UI/assets/01_概念参考/12_仪式魔法_概念参考.png",
+    "docs/05_UI/assets/README.md",
+    "docs/05_UI/UI_交互基线_v1.0.md",
+    "docs/03_工程规范/macOS_App_高保真视觉与交互设计规范_v1.0.md"
+   ],
+   "deliverable_storage": "本机资产：12 张高保真原型参考位于 docs/05_UI/assets/01_概念参考/，由 .gitignore 排除、不入库；仓库内只保留路径索引与 README 说明。",
+   "completion_scope": "仅设计基线完成，不等同于 App 真实运行、正式美术入库或产品体验完成。"
+  },
+  {
+   "id": "M1",
+   "name": "Local Engine 运行守护与 UDS IPC 双向通路",
+   "phase": "Phase 1",
+   "status": "IN_PROGRESS",
+   "lead_role": "AGT-ARB",
+   "description": "真实独立 Engine、UDS 通路与 App 生命周期。Session Open 与首轮持久闭环 (PR #202、#204) 已合入；现有证据证明首轮固定模式与双进程恢复，不代表完整多轮业务已交付。M1 仍未整体闭环：#44/#45 的剩余生命周期面、全领域结算、Golden 五轮，以及真实模型/TTS 与设备验收仍待交付。",
+   "tracking_issues": [
+    44,
+    45
+   ]
+  },
+  {
+   "id": "M2",
+   "name": "SQLite 四库物理隔离架构与单写多读连接池",
+   "phase": "Phase 1",
+   "status": "READY",
+   "lead_role": "AGT-DATA",
+   "description": "落地 canon.db 只读隔离、world.db 权威强事务、retrieval.db 可重建投影、runtime.db 非领域缓存、Outbox 与故障恢复。",
+   "tracking_issues": [
+    46
+   ]
+  },
+  {
+   "id": "M5-PREP",
+   "name": "Golden 001 断言与故障恢复测试准备",
+   "phase": "Phase 1",
+   "status": "COMPLETED",
+   "depends_on": [],
+   "lead_role": "AGT-QA",
+   "tracking_issues": [
+    47
+   ],
+   "description": "T1 B-GOLDEN-ASSERTIONS 已完成 G001–G012、固定五轮 expected 与八个故障点追踪矩阵测试准备。此状态仅代表验收准备完成，不代表 M5 真实五轮运行通过。"
+  },
+  {
+   "id": "M3",
+   "name": "确定性 Outcome Resolver 与状态机实现",
+   "phase": "Phase 2",
+   "status": "BLOCKED",
+   "depends_on": [
+    "M2"
+   ],
+   "lead_role": "AGT-DOM",
+   "description": "以固定模型输出驱动真实确定性 Resolver、Validators 与状态机；Application 编排由 AGT-AI 分角色协作，真实 LLM 不作为本阶段前置。"
+  },
+  {
+   "id": "M4",
+   "name": "AgentScope 2.0.8 适配与 Proposal 网关",
+   "phase": "Phase 2",
+   "status": "BLOCKED",
+   "depends_on": [
+    "M5"
+   ],
+   "lead_role": "AGT-AI",
+   "description": "在确定性 Golden Mock 闭环通过后进行真实模型端到端接入；版本固定、接口与离线适配准备可并行，不延后知识授权边界。"
+  },
+  {
+   "id": "M5",
+   "name": "Golden 001 端到端 5 轮状态全景回归",
+   "phase": "Phase 3",
+   "status": "BLOCKED",
+   "depends_on": [
+    "M1",
+    "M2",
+    "M3",
+    "M5-PREP"
+   ],
+   "lead_role": "AGT-QA",
+   "description": "只替代模型输出的真实五轮运行：编排、裁决、事务、Outbox、Finalization、恢复与记忆回访都执行真实代码。准备完成不等于本里程碑通过。",
+   "tracking_issues": [
+    47
+   ]
+  },
+  {
+   "id": "M6",
+   "name": "macOS App 语音流式交互与发布门禁",
+   "phase": "Phase 3",
+   "status": "BLOCKED",
+   "depends_on": [
+    "M4",
+    "M5"
+   ],
+   "lead_role": "AGT-VOICE",
+   "description": "真实模型/基础语音、Story Book 历史回放、核心路径可独立使用及目标 Mac 发布验证；TTS 失败不改变已提交事实。"
+  }
+ ],
+ "critical_path": {
+  "next_milestone_id": "B-GOLDEN-ACCEPTANCE",
+  "next_milestone_name": "T7 Golden 验收：八个 Engine 终止检查点 + 同一 SHA 的 GUI 观察",
+  "strategic_rationale": "T0–T6b 与 B-EPISODE-CONTENT、B-IPC-CLOSED-RUN、B-EPISODE-WIRING 全部完成并在本地 main 留有 Work/Integration Receipt（main 022857e）。结算缺口已关闭：打包运行时经 SettlingCommitPort 在每次 COMMIT 后发布 BeatPlan/NarrativeBlock，第五轮从随包作者化 Episode 输入与真实提交证据结算 Episode；真实五轮跨进程运行在磁盘上产出 1 episodes、1 episode_finalizations、>=1 character_episode_memories、>=1 episode_knowledge_changes、5 beat_plans、5 narrative_blocks，ending=partial_truth，作者 unresolved_threads 保留，重启进程不重提交。接线过程中还修正了 T3 遗留的两处缺陷：finalizer 误把作者字段 unresolved_threads 与运行期 active_conflicts 绑定（生产不可满足），以及 artifact 契约路径在可重定位 bundle 中解析错位（parents[2] 应为 bundle 根），后者正是此前真实运行静默无 Episode 的直接原因。T7 现在可以建立在「运行时真的会结算」之上：逐项覆盖八个 Engine 终止检查点（每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算），产出与同一最终 SHA 绑定的 GUI 观察记录，并收口适用门禁证据。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型与 TTS 不属于本轮。",
+  "target_deliverables": [
+   "App 可完成开始、连续五轮提交、结算、退出与返回，并保留未知结果与 pending 的明确状态",
+   "第 5 轮后明确结束固定验证；不默许第 6 轮或任意文本输入",
+   "Story Book 回放同一 Episode 与历史表达，不重新调用 Resolver 或重新生成历史文本",
+   "随包五轮内容不依赖源码目录；Runtime 组合根按需装配五轮目录与 BeatPlan/表达/结算端口",
+   "逐项覆盖八个 Engine 终止检查点，每个故障测试同时核对进程恢复与磁盘事实，证明零重复提交、零部分结算",
+   "GUI 观察记录与跨进程结果绑定同一最终 SHA；观察不能由源码检查或截图单独替代",
+   "真实 LLM、自由文本、真实 TTS 质量与正式发行验收保留为后继里程碑"
+  ],
+  "dispatch": {
+   "assigned_role": "AGT-QA",
+   "role_title": "作者化 Episode 内容（fixtures/golden_001）",
+   "task_id": "B-EPISODE-CONTENT",
+   "task_title": "新增独立的作者化 Episode 输入（不复用测试 oracle）",
+   "authorized_scope": [
+    "fixtures/golden_001/",
+    "engine/tests/"
+   ],
+   "forbidden_patterns": [
+    "macos-app/**",
+    "engine/domain/**",
+    "engine/ai/**",
+    "engine/infrastructure/**",
+    "engine/application/**",
+    ".hacf/**",
+    ".github/**",
+    "docs/**",
+    "scripts/**"
+   ],
+   "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-QA --task-id B-EPISODE-CONTENT --title \"作者化 Episode 内容\" --target-ref main（worktree 内执行）",
+   "worktree_command": "python3 scripts/collab_pipeline.py start --branch codex/b-episode-content"
+  }
+ },
+ "historical_gate_reports": [
+  {
+   "reported_as_of": "2026-09-16",
+   "verified_head_sha": null,
+   "scope_note": "保留原状态文件的历史报告，不补造其绑定 SHA；这些数据不构成当前提交或产品可用性的证据。",
+   "gates_health": {
+    "ast_fitness": "PASSED (4/4 checks: Domain 0 DB/AI deps, App 0 direct DB, AI 0 SQL)",
+    "schemas_integrity": "PASSED (28/28 product+protocol schemas + 3 engineering contracts)",
+    "python_tests": "PASSED (38/38 passed in <1s, incl. 13 HACF governance tests)",
+    "swift_tests": "PASSED (8/8 passed in <0.01s, Swift 6 strict concurrency, 0 data races)",
+    "ci_cd_readiness": "PASSED (GitHub Actions 3-stage gates, Dependabot, CODEOWNERS active)"
+   }
+  }
+ ],
+ "execution_focus": {
+  "plan_path": "docs/06_实施基线/2026-09-26_Golden_Five_Turn_Iteration_Plan.md",
+  "tracking_issue": 43,
+  "current_stage": "B",
+  "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+  "decision": "T0–T6b 已在本地 main 完成并留凭单。当前进入 B-EPISODE-CONTENT（AGT-QA）先落地独立的作者化 Episode 输入，随后 B-EPISODE-WIRING（AGT-DATA）完成结算/表达的运行时接线与五轮结算跨进程证据；之后是 T7 Golden 验收（八个故障点、同一 SHA 的 GUI 观察）。T4–T6b 仅本地 FULL_P0 预演，未推送、未创建 PR；真实模型和 TTS 不属于本轮。",
+  "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
+  "parallel_ready": [],
+  "iteration_evidence": {
+   "base_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
+   "code_head_sha": "9a07f40b39f571dbe356ef52c742689dcb045f09",
+   "branch": "codex/trusted-session-app-first-turn",
+   "work_receipts": [
+    {
+     "task_id": "M1-FIRST-TURN-CONTRACT",
+     "head_commit": "0fa0d2c241b4"
+    },
+    {
+     "task_id": "M1-TRUSTED-INITIALIZER",
+     "head_commit": "07e7b58dd4b7"
+    },
+    {
+     "task_id": "M1-TRUSTED-BOOTSTRAP",
+     "head_commit": "43118b66b76e"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-SERVICE",
+     "head_commit": "3b26aa3a64cb"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-RUNTIME",
+     "head_commit": "7b3ec83e5360"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-APP",
+     "head_commit": "f45fbf4c463a"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-QA",
+     "head_commit": "84abf727a1d3"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-CONTENT",
+     "head_commit": "e319814dedd5"
+    },
+    {
+     "task_id": "M1-FIRST-TURN-CROSSPROCESS",
+     "head_commit": "9a07f40b39f5"
+    }
+   ],
+   "gate_profile": "FULL_P0",
+   "gate_result": "passed",
+   "verified_scope": "契约/初始化/持久 bootstrap/facade+投影/runtime+IPC/内容制品/App 接线/真实双进程首轮与恢复",
+   "unverified_scope": "Golden 五轮、全领域结算、真实模型质量、TTS、目标 Mac GUI/设备与正式发布验收",
+   "delivery_state": "PR #204 于 2026-09-26 合入 main；PR head d3a5b2f 的全部必需检查与 arm64 随包检查通过。",
+   "pull_request_head_sha": "d3a5b2f61faa7fa4bed7689596524b7b5c67fa66",
+   "merge_commit_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31"
+  },
+  "historical_pr_202_candidate_evidence": {
+   "main_base_sha": "0890eb308b833c9afdf9ade9ef147cf63b4d4a2f",
+   "code_head_sha": "b848ad66f159f7a2d493da51ce23e716b0d5fbc2",
+   "receipt_commit_sha": "710d7bf5d96a23268be09822a14934b2a12ad2f8",
+   "work_receipt_id": "RCP-WORK-VOICE-V09-SESSION-OPEN-QA-b848ad66f159",
+   "gate_profile": "FULL_P0",
+   "gate_result": "passed",
+   "integration_state": "merged via PR #202",
+   "merge_commit_sha": "26999fc61c074292224cdb7ce6c6ad89aca16c35",
+   "main_sha_when_recorded": "dccdbd76ef488281cda86be01a6857754b91b7c0"
+  }
+ }
 }
