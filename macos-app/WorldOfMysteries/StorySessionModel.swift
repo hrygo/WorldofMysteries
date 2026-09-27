@@ -265,10 +265,28 @@ public final class StorySessionModel {
 
     public func submit() async {
         guard canSubmitStory, let view else { return }
+        await submit(rawInput: draft, view: view)
+    }
+
+    /// Submit the exact advice the composer delivered.
+    ///
+    /// `AdviceDraftSubmission` hands the handler its trimmed advice and then
+    /// empties the binding *synchronously*, before the handler's `Task` body
+    /// runs. A handler that re-reads `draft` therefore always observes an empty
+    /// string and silently fails the `canSubmitStory` guard, so the panel must
+    /// carry its own frozen text instead of depending on the draft surviving.
+    public func submit(advice: String) async {
+        guard state == .ready, let view, view.canSubmit else { return }
+        await submit(rawInput: advice, view: view)
+    }
+
+    private func submit(rawInput: String, view: StoryPublicViewDTO) async {
+        let trimmed = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         let frozen = StoryFrozenSubmission(
             sessionId: view.sessionId,
             inputTurnId: idFactory(),
-            rawInput: draft,
+            rawInput: trimmed,
             expectedStoryRevision: view.storyRevision,
             expectedStoreRevision: view.observedStoreRevision)
         await submit(frozen)

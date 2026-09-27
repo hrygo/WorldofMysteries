@@ -169,6 +169,13 @@ struct VisualHonestyContractTests {
         #expect(panel.contains("工程验证 · 固定五轮"))
         #expect(panel.contains("不是生成叙事"))
         #expect(panel.contains("语音仍禁用"))
+        // The composer empties its binding synchronously once the handler returns,
+        // so the panel must forward the advice it was handed. Re-reading the
+        // draft from the enqueued Task would always find it empty and silently
+        // drop the submission — the panel would look live but commit nothing.
+        #expect(panel.contains("onSubmitAdvice: { advice in"))
+        #expect(panel.contains("model.submit(advice: advice)"))
+        #expect(!panel.contains("Task { await model.submit() }"))
     }
 
     private func source(_ relativePath: String) throws -> String {

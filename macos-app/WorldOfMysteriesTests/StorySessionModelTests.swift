@@ -359,6 +359,58 @@ struct StorySessionModelTests {
         #expect(!model.canSubmitStory)
     }
 
+    /// Regression: the real `StorySessionPanel` composer wiring must still reach
+    /// the Engine.
+    ///
+    /// `AdviceDraftSubmission` empties the binding *synchronously* as soon as the
+    /// handler returns, and the panel's handler only *enqueues* an async
+    /// submission. A handler that re-reads `model.draft` therefore always sees an
+    /// empty string, fails the `canSubmitStory` guard and silently drops the
+    /// advice — which is exactly what a human clicking 提交建议 did in the GUI.
+    @Test("The real composer wiring still submits after it empties the binding")
+    func composerDeliverySurvivesOptimisticDraftClear() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: try Self.submitResult(turn: 1), adviceView: try Self.adviceFound())
+        await model.refreshEntry()
+        #expect(model.state == .ready)
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+
+        model.fillSupportedAdvice()
+        #expect(model.draft == Self.advice(forTurn: 1))
+
+        // Exactly how StorySessionPanel drives AdviceInputField.
+        let delivered = AdviceDraftSubmission.submit(
+            readDraft: { model.draft },
+            writeDraft: { model.draft = $0 },
+            isEnabled: true,
+            handler: { advice in
+                Task { @MainActor in await model.submit(advice: advice) }
+            })
+        #expect(delivered)
+        // The composer already cleared the binding before the Task body runs.
+        #expect(model.draft.isEmpty)
+
+        // Bounded wait for the *outcome*, not for the call: the client logs
+        // `client.submit` before the Engine answers, so waiting on the call
+        // would race the response under load. A handler that lost the advice
+        // never commits, and must fail the assertions instead of hanging.
+        for _ in 0..<200 {
+            if model.view?.turn == 1 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(log.values.contains("client.submit"))
+        #expect(model.view?.turn == 1)
+        #expect(model.statusText == "填入第 2 轮建议后提交")
+    }
+
     @Test("Five fixed turns commit in order and close after the fifth")
     func fiveTurnsRunToCompletion() async throws {
         let log = StoryCallLog()

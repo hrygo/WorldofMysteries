@@ -85,8 +85,11 @@ public struct StorySessionPanel: View {
                 text: $model.draft,
                 targetCharacter: model.view?.protagonist.displayName ?? "当前角色",
                 onVoiceTapped: nil,
-                onSubmitAdvice: { _ in
-                    Task { await model.submit() }
+                onSubmitAdvice: { advice in
+                    // `AdviceDraftSubmission` empties the binding as soon as this
+                    // handler returns, so the delivered text — not the draft —
+                    // has to reach the Engine.
+                    Task { await model.submit(advice: advice) }
                 }
             )
             HStack(spacing: DesignTokens.Spacing.sm) {
