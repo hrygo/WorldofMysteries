@@ -252,9 +252,9 @@
         "scenario_id": {"$ref": "#/$defs/scenario_id"},
         "mode": {"$ref": "#/$defs/mode"},
         "supported_advice": {
+          "$comment": "The fixed advice accepted for the next turn. An empty list is the closed-run signal: the fixed scenario finished and no further submit is authorized.",
           "type": "array",
           "items": {"$ref": "#/$defs/raw_input"},
-          "minItems": 1,
           "uniqueItems": true
         },
         "observed_store_revision": {"$ref": "#/$defs/revision"},
