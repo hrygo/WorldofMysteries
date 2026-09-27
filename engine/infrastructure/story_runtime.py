@@ -18,11 +18,18 @@ from application.story_initialization import (
     TrustedScenarioBundle,
 )
 from application.story_session_facade import StorySessionFacade
+from application.post_commit_expression import PostCommitExpressionService
 from application.story_session_open import StorySessionOpenService
 
 from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
+from .episode_settlement import (
+    FiveTurnSettlement,
+    SettlingCommitPort,
+    _SettlementBeatPlanPort,
+)
+from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
 from .story_content_repository import SQLiteStoryContentRepository
@@ -130,7 +137,9 @@ class StoryRuntime:
             fault_hook=fault_hook,
         )
         try:
-            facade = cls._build_facade(database, content_repository, content, catalog)
+            facade = cls._build_facade(
+                database, content_repository, content, catalog, config.content_path
+            )
         except BaseException:
             await database.close()
             raise
@@ -142,7 +151,20 @@ class StoryRuntime:
         content_repository: SQLiteStoryContentRepository,
         content: TrustedScenarioBundle,
         catalog: GoldenFiveTurnCatalog,
+        content_path: Path,
     ) -> StorySessionFacade:
+        factory = GoldenFiveTurnFactory(catalog)
+        settlement = FiveTurnSettlement(
+            database=database,
+            expression=PostCommitExpressionService(
+                templates=factory.expression_templates,
+                beats=_SettlementBeatPlanPort(
+                    SQLiteBeatPlanRepository(database), database
+                ),
+                narratives=SQLiteNarrativeBlockRepository(database),
+            ),
+            content_path=content_path,
+        )
         return StorySessionFacade(
             initialization=StoryInitializationService(content_repository),
             open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
@@ -152,8 +174,10 @@ class StoryRuntime:
             ),
             intake=SQLiteTurnInputCommandPort(database),
             advice=SQLitePlayerAdviceRepository(database),
-            story=SQLiteStorySessionCommitPort(database),
-            first_turn=GoldenFiveTurnFactory(catalog),
+            story=SettlingCommitPort(
+                SQLiteStorySessionCommitPort(database), settlement
+            ),
+            first_turn=factory,
         )
 
     @property

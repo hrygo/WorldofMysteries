@@ -297,15 +297,23 @@ print(json.dumps({'agentscope':version('agentscope'),'python':sys.version.split(
                       "from infrastructure.story_runtime import default_content_path;"
                       "p=default_content_path();"
                       "five=p.parent/'five_turn';"
+                      "episode=p.parent/'episode.json';"
+                      "memory=p.parent/'episode_memory.json';"
                       "print(json.dumps({'content_artifact_exists':p.is_file(),"
                       "'five_turn_exists':five.is_dir(),"
-                      "'five_turn_files':len(list(five.rglob('*.json'))) if five.is_dir() else 0}))")
+                      "'five_turn_files':len(list(five.rglob('*.json'))) if five.is_dir() else 0,"
+                      "'episode_exists':episode.is_file(),"
+                      "'episode_memory_exists':memory.is_file()}))")
         relocation = json.loads(run([str(python), '-I', '-B', '-c', probe_code, str(modules)],
                                     cwd=relocated, log=logs/'story-content-relocation.log', env=env).strip().splitlines()[-1])
         if not relocation['content_artifact_exists']:
             raise BundleError('Packaged story content is not module-relative')
         if not relocation['five_turn_exists'] or relocation['five_turn_files'] != 20:
             raise BundleError('Packaged five-turn content is missing or incomplete')
+        # The runtime settles the fifth turn from the packaged Episode input; a
+        # bundle without it would commit the story but silently skip settlement.
+        if not relocation['episode_exists'] or not relocation['episode_memory_exists']:
+            raise BundleError('Packaged Episode settlement content is missing')
         # Installation-created bytecode is not required. Runtime always launches with -B.
         for cache in list(runtime.rglob('__pycache__')):
             if cache.is_dir() and not cache.is_symlink():

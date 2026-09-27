@@ -43,7 +43,7 @@ RUNTIME_FIXTURES = ROOT / "docs" / "07_工程启动" / "golden_001_runtime"
 # content, so the test emits it with the same build code the packager runs.
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
-from build_story_content import write_five_turn_directory
+from build_story_content import write_episode_artifacts, write_five_turn_directory
 
 CONTROL_SCHEMA = json.loads(
     (ROOT / "contracts" / "protocol" / "story_session_control.schema.json").read_text(
@@ -150,6 +150,7 @@ def _write_content_artifact(path: Path) -> Path:
         )
         connection.commit()
     write_five_turn_directory(path.parent, payload["seed"])
+    write_episode_artifacts(path.parent)
     return path
 
 
@@ -851,8 +852,9 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
                 assert entry.supported_advice == []
         # After the fifth turn the fixed verification is closed.
         assert view.session.can_submit is False
-        # A sixth turn is rejected by the five-turn boundary.
-        with pytest.raises(StoryFacadeError, match="iteration_limit_reached"):
+        # A sixth turn is rejected: the packaged runtime finalizes the Episode
+        # on the fifth COMMIT, so the session is no longer active.
+        with pytest.raises(StoryFacadeError, match="story_session_not_active"):
             await facade.submit(
                 SubmitAdviceCommand(
                     session_id=session_id,

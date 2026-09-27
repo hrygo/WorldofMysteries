@@ -114,6 +114,10 @@ def _artifact_validator(group_name: str) -> Draft202012Validator | None:
     schema_name = _ARTIFACT_SCHEMAS.get(group_name)
     if schema_name is None:
         return None
+    # The artifact contracts live at the trusted contract root beside the module
+    # directory, in the repository (`<root>/contracts/schemas`) and in the
+    # relocatable bundle alike. This file is `<root>/engine/infrastructure/<module>.py`,
+    # so the contract root is the parent of the `engine` directory.
     schema_path = (
         Path(__file__).resolve().parents[2] / "contracts" / "schemas" / schema_name
     )
@@ -261,11 +265,15 @@ def _validate_committed_story_evidence(
     changes = evidence["changes"]
     source_permissions = evidence["source_permissions"]
     character_ids = evidence["character_ids"] | {session["protagonist_id"]}
+    # `unresolved_threads` is the authored closing-narrative field (the fixed
+    # set of mysteries the Episode leaves open); it is deliberately NOT the
+    # running `active_conflicts` list. The runtime-derived facts that must match
+    # the committed StoryState are the secret states, discovered clues and the
+    # closing world time.
     if (
         episode.secret_states != story_state.secret_states
         or (episode.discovered_clue_ids or [])
         != (story_state.discovered_clue_ids or [])
-        or episode.unresolved_threads != (story_state.active_conflicts or [])
         or episode.end_world_time != story_state.world_time
     ):
         raise StorageError("Episode facts do not match committed StoryState")

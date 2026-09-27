@@ -275,8 +275,16 @@ struct AppEngineDriver {
         switch mode {
         case "story-open", "story-open-lost-ack", "story-recover-open":
             return model.state == .ready && model.view?.turn == 0
-        case "story-submit", "story-submit-lost-ack", "story-reopen", "story-continue-pending":
+        case "story-submit", "story-submit-lost-ack", "story-continue-pending":
             // One committed turn keeps the fixed run open for the next advice.
+            return model.state == .ready && model.view?.turn == 1
+        case "story-reopen":
+            // A reopened session mirrors whatever the durable run already is:
+            // an open run stays ready at its committed turn, and a closed
+            // five-turn run reopens as completed with no advice left.
+            if model.state == .completed {
+                return model.view?.turn == 5 && model.supportedAdvice.isEmpty
+            }
             return model.state == .ready && model.view?.turn == 1
         case "story-five-turn":
             return model.state == .completed && model.view?.turn == 5

@@ -289,6 +289,33 @@ def write_five_turn_directory(base: Path, seed: dict) -> dict:
     }
 
 
+def write_episode_artifacts(base: Path) -> dict:
+    """Emit the authored Episode input next to the content artifact.
+
+    The five-turn settlement binds the identity lists, world time, secrets and
+    discovered clues from the real committed turns; the packaged files carry
+    only the authored narrative. The acceptance oracle
+    (``expected_episode.json``) is deliberately never packaged.
+    """
+    base = Path(base)
+    emitted = {}
+    for name, schema in (
+        ("episode.json", "episode.schema.json"),
+        ("episode_memory.json", "character_memory.schema.json"),
+    ):
+        payload = read_json(FIXTURE_DIR / name)
+        validate_schema(schema, payload)
+        destination = base / name
+        destination.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        emitted[name] = canonical_digest(payload)
+    if (base / "expected_episode.json").exists():
+        raise StoryContentBuildError("oracle_leaked_into_packaged_content")
+    return {"relative_path": ".", "digests": emitted}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -306,6 +333,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = build_payload()
     artifact = write_artifact(args.out, payload)
     five_turn = write_five_turn_directory(Path(args.out).parent, payload["seed"])
+    episode = write_episode_artifacts(Path(args.out).parent)
     summary = {
         "scenario_id": payload["scenario_id"],
         "content_version": payload["content_version"],
@@ -313,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
         "content_digest": payload["content_digest"],
         "artifact_bytes": artifact.stat().st_size,
         "five_turn": five_turn,
+        "episode": episode,
     }
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     return 0

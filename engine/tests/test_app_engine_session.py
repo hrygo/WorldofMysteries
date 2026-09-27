@@ -43,6 +43,7 @@ FIVE_CLUE_DISPLAY_NAMES = (
 
 sys.path.insert(0, str(ROOT / 'scripts'))
 import build_story_content as content_builder
+import bundle_engine
 
 
 @pytest.fixture(scope='module')
@@ -273,9 +274,18 @@ raise SystemExit(production.main())
 
 @pytest.fixture(scope='module')
 def story_engine(tmp_path_factory):
-    """Staged module tree: production packages plus a test-only launcher wrapper."""
+    """Staged module tree mirroring the relocatable bundle layout.
 
-    staged = tmp_path_factory.mktemp('story-engine')
+    The real packager keeps the engine packages under `<root>/engine/` and the
+    runtime contract schemas at `<root>/contracts/schemas/`. This fixture
+    reproduces that exact relative layout (plus the test-only launcher wrapper)
+    so the Episode finalizer resolves its artifact contracts from the same
+    trusted root the shipped Engine uses.
+    """
+
+    root = tmp_path_factory.mktemp('story-engine')
+    staged = root / 'engine'
+    staged.mkdir()
     for name in ENGINE_PACKAGES:
         shutil.copytree(ENGINE_DIR / name, staged / name,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -290,6 +300,14 @@ def story_engine(tmp_path_factory):
         staged / 'infrastructure/story_content/canon.db', payload)
     content_builder.write_five_turn_directory(
         staged / 'infrastructure/story_content', payload['seed'])
+    content_builder.write_episode_artifacts(staged / 'infrastructure/story_content')
+    # The packager ships the three artifact contracts the Episode finalizer
+    # validates against; stage them exactly as the bundle does.
+    assert bundle_engine.stage_contract_schemas(root) == (
+        'character_knowledge.schema.json',
+        'character_memory.schema.json',
+        'world_event.schema.json',
+    )
     # Only the entrypoint file was replaced; the production copy is byte-identical.
     assert (staged / 'infrastructure/_ipc_server_production.py').read_bytes() == production_bytes
     assert production_bytes == (ENGINE_DIR / 'infrastructure/ipc_server.py').read_bytes()
@@ -393,6 +411,57 @@ def test_real_story_first_turn_reopens_across_processes(app_driver, story_engine
         .read_text(encoding='utf-8'))['raw_input']
     assert staged_advice == TURN_ADVICE[0]
     assert opened['supported_advice'] == [TURN_ADVICE[0]]
+
+
+def test_real_story_five_turns_commit_settle_and_close(app_driver, story_engine, story_session):
+    home, data_root, runtime = story_session
+    opened = _facts(_run_story(app_driver, story_engine, 'story-open', home, data_root, runtime),
+                    'story-open')
+    assert opened['state'] == 'ready' and opened['turn'] == 0
+
+    # One App process drives the whole fixed run through real IPC.
+    finished = _facts(_run_story(app_driver, story_engine, 'story-five-turn', home, data_root,
+                                 runtime, timeout=180),
+                      'story-five-turn')
+    assert finished['state'] == 'completed' and finished['turn'] == 5
+    assert finished['story_revision'] == 5
+    assert finished['session_id'] == opened['session_id']
+    assert finished['supported_advice'] == []
+    assert sorted(finished['clues']) == sorted(FIVE_CLUE_DISPLAY_NAMES)
+    counts = _world_counts(data_root)
+    # Seven commits: the session bootstrap, the five committed turns, and the
+    # Episode finalization, which is itself one durable domain commit.
+    assert counts == {'commits': 7, 'intakes': 5, 'sessions': 1, 'bootstraps': 1}
+
+    # The packaged runtime really settles: Episode + all five artifact groups
+    # are durable, and frozen expression (BeatPlan + NarrativeBlock) exists
+    # for every committed turn.
+    world = Path(data_root) / 'Worlds' / WORLD_DIRECTORY / 'world.db'
+    with closing(sqlite3.connect(f'file:{world}?mode=ro', uri=True)) as connection:
+        def count(table):
+            return connection.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+
+        assert count('episodes') == 1
+        assert count('episode_finalizations') == 1
+        assert count('character_episode_memories') >= 1
+        assert count('episode_knowledge_changes') >= 1
+        assert count('beat_plans') == 5
+        assert count('narrative_blocks') == 5
+        ending = connection.execute(
+            "SELECT payload_json FROM episodes").fetchone()[0]
+    episode = json.loads(ending)
+    assert episode['ending']['type'] == 'partial_truth'
+    assert set(episode['unresolved_threads']) == {
+        'jonathan_current_location', 'occult_group_identity'}
+
+    # A brand-new process re-reads the closed run and never recommits.
+    reopened = _facts(_run_story(app_driver, story_engine, 'story-reopen', home, data_root, runtime),
+                      'story-reopen')
+    assert reopened['state'] == 'completed' and reopened['turn'] == 5
+    assert reopened['story_revision'] == 5
+    assert reopened['clues'] == finished['clues']
+    assert reopened['supported_advice'] == []
+    assert _world_counts(data_root) == counts
 
 
 def test_real_story_lost_ack_recovers_without_recommitting(app_driver, story_engine, story_session):

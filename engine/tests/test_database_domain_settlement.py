@@ -924,8 +924,11 @@ async def test_episode_finalization_rejects_episode_secret_state_not_in_committe
 @pytest.mark.parametrize(
     ("field_name", "replacement"),
     [
+        # `discovered_clue_ids` is a committed StoryState fact. `unresolved_threads`
+        # is deliberately excluded: it is the authored closing-narrative field
+        # (the mysteries the Episode leaves open), never a mirror of the running
+        # `active_conflicts`, so it is not bound to committed StoryState.
         ("discovered_clue_ids", ["unsupported-clue"]),
-        ("unresolved_threads", []),
     ],
 )
 @pytest.mark.asyncio
