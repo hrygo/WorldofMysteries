@@ -17,12 +17,14 @@ public nonisolated enum SpeechRailRealtimeASRTurnUpdate: Sendable, Equatable {
 ///
 /// The coordinator continuously drains service events while capture is active,
 /// so server rollover items cannot accumulate unnoticed. Finalization is the
-/// existing FIFO contract: commit, then clear, then wait until the assembler
-/// proves every committed item terminal and observes cleared.
+/// FIFO barrier contract: commit, then re-send the identical effective session
+/// update. Because the service handles client events on one queue, the
+/// resulting `session.updated` can only be emitted after the commit handler
+/// has drained its ASR reader — which is exactly the proof this turn needs.
 ///
-/// Failure/timeout/cancel closes this connection instead of attempting to reuse
-/// an uncertain server buffer. The next turn must reconnect and therefore gets
-/// a new connection epoch.
+/// Every terminal — success, empty, failure, timeout or cancel — closes the
+/// connection instead of attempting to reuse an uncertain server buffer. The
+/// next turn must reconnect and therefore gets a new connection epoch.
 public actor SpeechRailRealtimeASRTurnCoordinator {
     private let connection: SpeechRailRealtimeASRConnection
     private let finalizationTimeout: Duration
@@ -70,7 +72,8 @@ public actor SpeechRailRealtimeASRTurnCoordinator {
         assembler = InputTurnAssembler(
             inputTurnID: inputTurnID,
             connectionEpoch: info.connectionEpoch,
-            startingSequence: info.lastServerSequence
+            startingSequence: info.lastServerSequence,
+            expectedSession: info.session
         )
         phaseStorage = .capturing
 
@@ -93,7 +96,7 @@ public actor SpeechRailRealtimeASRTurnCoordinator {
         }
         guard phaseStorage == .capturing, var current = assembler else {
             let result: InputTurnTerminalResult = .failed(.invalidState)
-            terminate(result)
+            await terminateAndClose(result)
             return result
         }
 
@@ -102,15 +105,14 @@ public actor SpeechRailRealtimeASRTurnCoordinator {
             assembler = current
             phaseStorage = .finalizing
 
-            // FIFO send order is part of the current SpeechRail manual-ASR
-            // contract. clear is deliberately sent immediately after commit;
-            // the service processes it only after the commit handler drains.
+            // Both events must be identical apart from event_id. The second
+            // one is the barrier; no client event id is echoed back, so the
+            // assembler matches on the configuration instead.
             _ = try await connection.commit()
-            _ = try await connection.clear()
+            _ = try await connection.resendSessionUpdate()
         } catch {
             let result: InputTurnTerminalResult = .failed(.transportFailure)
-            terminate(result)
-            await connection.close()
+            await terminateAndClose(result)
             return result
         }
 
@@ -144,48 +146,54 @@ public actor SpeechRailRealtimeASRTurnCoordinator {
 
     public func cancel() async {
         guard terminalStorage == nil else { return }
-        // Do not leave a clear acknowledgement or a late rollover item queued
-        // for another logical turn. Closing forces a new connection epoch.
-        terminate(.cancelled)
-        await connection.close()
+        // Do not leave a barrier acknowledgement or a late rollover item
+        // queued for another logical turn. Closing forces a new epoch.
+        await terminateAndClose(.cancelled)
     }
 
     private func receiveLoop(epoch: UUID) async {
         while terminalStorage == nil {
             do {
                 let envelope = try await connection.receiveEnvelope()
-                ingest(envelope, epoch: epoch)
+                await ingest(envelope, epoch: epoch)
             } catch is CancellationError {
                 return
             } catch {
                 guard terminalStorage == nil else { return }
-                terminate(.failed(.transportFailure))
-                await connection.close()
+                await terminateAndClose(.failed(.transportFailure))
                 return
             }
         }
     }
 
-    private func ingest(_ envelope: SpeechRailASRServerEnvelope, epoch: UUID) {
+    private func ingest(_ envelope: SpeechRailASRServerEnvelope, epoch: UUID) async {
         guard terminalStorage == nil, var current = assembler else { return }
         current.observe(envelope, connectionEpoch: epoch)
         assembler = current
 
         let draft = current.latestDraftText
-        if draft != lastDraft {
-            lastDraft = draft
-            updateSink.yield(.draft(draft))
+        let display = draft.isEmpty ? (current.transientHypothesisText ?? "") : draft
+        if display != lastDraft {
+            lastDraft = display
+            updateSink.yield(.draft(display))
         }
 
         if let result = current.terminalResult {
-            terminate(result)
+            await terminateAndClose(result)
         }
     }
 
     private func finalizationTimedOut() async {
         guard terminalStorage == nil, phaseStorage == .finalizing else { return }
-        terminate(.failed(.finalizationTimedOut))
+        await terminateAndClose(.failed(.finalizationTimedOut))
+    }
+
+    /// Publish exactly one terminal and always close the connection with it.
+    private func terminateAndClose(_ result: InputTurnTerminalResult) async {
+        // Close before publishing: the close cancels the receive loop, so it
+        // must not be the statement that cancels the task performing it.
         await connection.close()
+        terminate(result)
     }
 
     private func terminate(_ result: InputTurnTerminalResult) {

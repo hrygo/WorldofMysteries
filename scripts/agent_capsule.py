@@ -79,7 +79,15 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "contracts": ["engine_ipc.schema.json", "narrative_block.schema.json"],
     },
     "AGT-QA": {
-        "write": ["engine/tests/", "macos-app/WorldOfMysteriesTests/", "fixtures/golden_001/"],
+        # fixtures/speechrail_contract/ 是固定的**上游供应商契约快照**（SpeechRail
+        # realtime-events schema / cases / manifest），只作为消费者回归证据使用，
+        # 不是本项目自己的跨语言契约——那属于 contracts/ 且由 AGT-ARB 独占。
+        "write": [
+            "engine/tests/",
+            "macos-app/WorldOfMysteriesTests/",
+            "fixtures/golden_001/",
+            "fixtures/speechrail_contract/",
+        ],
         "read": ["engine/", "macos-app/", "contracts/", "fixtures/", "docs/"],
         "forbidden": [
             "engine/domain/**",

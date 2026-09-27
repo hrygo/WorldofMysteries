@@ -13,7 +13,10 @@ import re
 
 
 _IDENTIFIER_LIMIT = 256
-_MODEL_REVISION = re.compile(r"^[0-9a-f]{40}$")
+# A provider artifact revision is a wire revision, not a git object id.  It
+# follows the SpeechRail wire pattern so a 40-character hex sha stays valid
+# while a tagged artifact such as ``rev-2026-09-27.a`` is accepted too.
+_MODEL_REVISION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
 class VoiceIdentityError(ValueError):
@@ -91,7 +94,7 @@ class ProviderVoiceRevision:
         if self.model_catalog_revision is not None:
             if _MODEL_REVISION.fullmatch(self.model_catalog_revision) is None:
                 raise VoiceIdentityError(
-                    "model catalog revision must be a lowercase 40-character hex revision"
+                    "model catalog revision must be a bounded wire revision"
                 )
 
     @property

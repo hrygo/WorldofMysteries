@@ -230,7 +230,7 @@ class VoiceRenderRuntime:
             await adapter.connect(
                 expected_model_id=unit.model_id,
                 expected_model_revision=request.expected_model_revision,
-                enable_render_receipts=True,
+                require_render_receipt=True,
             )
         except (SpeechRailRealtimeTTSError, OSError, ValueError) as exc:
             code = (
@@ -248,6 +248,7 @@ class VoiceRenderRuntime:
             voice=request.voice_id,
             speed=float(request.speed),
             expected_voice_revision=request.expected_voice_revision,
+            expected_model_revision=request.expected_model_revision,
         )
         try:
             await render_realtime_tts_to_media(

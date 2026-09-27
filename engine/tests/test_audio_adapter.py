@@ -36,6 +36,8 @@ from infrastructure.audio import (
     ProbeHttpResponse,
     EngineRealtimeTTSMediaStream,
     REALTIME_TTS_SAMPLE_RATE,
+    RECEIPT_INTEGRITY_BOUNDARY,
+    split_text_segments,
     RealtimeTTSChunk,
     RealtimeTTSMediaBridgeError,
     RealtimeTTSRequest,
@@ -733,74 +735,89 @@ def test_media_control_frames_reject_binary_payload():
 
 
 class _FakeRealtimeTTSTransport:
-    def __init__(self) -> None:
+    """A peer that drives the current-only SpeechRail lifecycle step by step.
+
+    A real provider never emits a terminal before the client submitted
+    ``speechrail.tts.finish_text``, so this peer is a small state machine
+    rather than a canned script: start -> started, append_text ->
+    text_accepted, finish_text -> audio deltas + terminal, cancel ->
+    cancelled.  The ``hold_*`` switches and ``*_overrides`` hooks let a test
+    inject one specific deviation without hand-rolling the whole exchange.
+    """
+
+    def __init__(
+        self,
+        *,
+        hold_start: bool = False,
+        hold_finish: bool = False,
+        chunks: tuple[bytes, ...] = (b"\x01\x00\x02\x00", b"\x03\x00"),
+        started_overrides: dict | None = None,
+        text_ack_overrides: dict | None = None,
+        audio_delta_overrides: dict | None = None,
+        terminal: str = "completed",
+        start_error: dict | None = None,
+        receipt_overrides: dict | None = None,
+        drop_receipt: bool = False,
+    ) -> None:
         self.opened: list[tuple[str, dict[str, str]]] = []
         self.sent: list[dict[str, object]] = []
         self.closed = False
         self.session_id = "sess-tts-1"
         self.sequence = 0
         self.inbound: asyncio.Queue[dict[str, object]] = asyncio.Queue()
-        self.script_on_create = None
+        self.append_texts: list[str] = []
+        self.receipt: dict[str, object] | None = None
+        self.pcm = b"".join(chunks)
+
+        self.hold_start = hold_start
+        self.hold_finish = hold_finish
+        self.chunks = chunks
+        self.started_overrides = started_overrides or {}
+        self.text_ack_overrides = text_ack_overrides or {}
+        self.audio_delta_overrides = audio_delta_overrides or {}
+        self.terminal = terminal
+        self.start_error = start_error
+        self.receipt_overrides = receipt_overrides or {}
+        self.drop_receipt = drop_receipt
+
+    # -- transport protocol -------------------------------------------------
 
     async def open(self, url, headers):
         self.opened.append((url, dict(headers)))
-        await self.emit(
-            {
-                "type": "session.created",
-                "session": {
-                    "id": self.session_id,
-                    "type": "transcription",
-                    "input_audio_format": "pcm16",
-                    "speechrail": {"tts": {"enabled": False}},
+        await self.emit({
+            "type": "session.created",
+            "session": {
+                "id": self.session_id,
+                "type": "transcription",
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 24_000},
+                        "transcription": {"model": "whisper-1"},
+                        "turn_detection": None,
+                    }
                 },
-            }
-        )
+                "speechrail": {"task": "conversation"},
+            },
+        })
 
     async def send_json(self, payload):
         message = dict(payload)
         self.sent.append(message)
-        if message["type"] == "transcription_session.update":
-            session = message["session"]
-            speechrail = session["speechrail"]
-            await self.emit(
-                {
-                    "type": "transcription_session.updated",
-                    "session": {
-                        "id": self.session_id,
-                        "type": "transcription",
-                        "input_audio_format": "pcm16",
-                        "input_audio_transcription": {"model": "whisper-1"},
-                        "turn_detection": None,
-                        "speechrail": {
-                            "tts": {"enabled": True},
-                            "render_receipts": {
-                                "enabled": bool(
-                                    speechrail.get("render_receipts", {}).get("enabled")
-                                )
-                            },
-                        },
-                    },
-                }
-            )
-        elif message["type"] == "speechrail.tts.create" and self.script_on_create:
-            await self.script_on_create(self, message)
-        elif message["type"] == "speechrail.tts.cancel":
-            await self.emit(
-                {
-                    "type": "response.done",
-                    "response": {
-                        "id": message.get("response_id", "resp-cancel"),
-                        "object": "realtime.response",
-                        "status": "cancelled",
-                        "output": [],
-                    },
-                    "speechrail": {
-                        "kind": "tts",
-                        "orchestration": "caller",
-                        "request_id": message["request_id"],
-                    },
-                }
-            )
+        kind = message["type"]
+        if kind == "session.update":
+            await self._session_updated(message)
+        elif kind == "speechrail.tts.start":
+            if self.start_error is not None:
+                await self.emit(self.start_error)
+            elif not self.hold_start:
+                await self._started(message)
+        elif kind == "speechrail.tts.append_text":
+            await self._text_accepted(message)
+        elif kind == "speechrail.tts.finish_text":
+            if not self.hold_finish:
+                await self._terminal(message["request_id"])
+        elif kind == "speechrail.tts.cancel":
+            await self._cancelled(message["request_id"])
 
     async def receive_json(self):
         return await self.inbound.get()
@@ -816,12 +833,118 @@ class _FakeRealtimeTTSTransport:
         event.setdefault("sequence", self.sequence)
         await self.inbound.put(event)
 
+    # -- lifecycle steps ----------------------------------------------------
 
-def _receipt(*, request_id, response_id, pcm, voice="serena"):
-    return {
+    async def _session_updated(self, message):
+        await self.emit({
+            "type": "session.updated",
+            "session": {
+                "id": self.session_id,
+                "type": "transcription",
+                "audio": {
+                    "input": {
+                        "format": {"type": "audio/pcm", "rate": 24_000},
+                        "transcription": {"model": "whisper-1"},
+                        "turn_detection": None,
+                    }
+                },
+                "speechrail": message["session"]["speechrail"],
+            },
+        })
+
+    async def _started(self, message):
+        await self.emit({
+            "type": "speechrail.tts.started",
+            "task_id": "task-1",
+            "plan_id": "plan-" + "c" * 32,
+            "request_id": message["request_id"],
+            "voice_revision": "vr_test",
+            "output_format": {
+                "type": "audio/pcm",
+                "sample_rate": REALTIME_TTS_SAMPLE_RATE,
+                "channels": 1,
+            },
+            "limits": {
+                "max_append_codepoints": 512,
+                "max_total_codepoints": 8192,
+                "max_pending_codepoints": 1024,
+            },
+            **self.started_overrides,
+        })
+
+    async def _text_accepted(self, message):
+        self.append_texts.append(str(message["text"]))
+        await self.emit({
+            "type": "speechrail.tts.text_accepted",
+            "task_id": "task-1",
+            "request_id": message["request_id"],
+            "append_sequence": message["sequence"],
+            "accepted_codepoints": len(message["text"]),
+            "total_codepoints": sum(len(t) for t in self.append_texts),
+            **self.text_ack_overrides,
+        })
+
+    async def _terminal(self, request_id):
+        if self.terminal == "cancelled":
+            await self._cancelled(request_id)
+            return
+        if self.terminal == "failed":
+            await self.emit({
+                "type": "speechrail.tts.failed",
+                "task_id": "task-1",
+                "request_id": request_id,
+                "error": {
+                    "type": "server_error",
+                    "code": "tts_backend_failed",
+                    "message": "incremental TTS response failed",
+                },
+            })
+            return
+        for index, chunk in enumerate(self.chunks):
+            await self.emit({
+                "type": "speechrail.tts.audio.delta",
+                "task_id": "task-1",
+                "request_id": request_id,
+                "chunk_index": index,
+                "sample_offset": sum(len(c) // 2 for c in self.chunks[:index]),
+                "delta": base64.b64encode(chunk).decode("ascii"),
+                **self.audio_delta_overrides,
+            })
+        if not self.drop_receipt:
+            self.receipt = _receipt(
+                request_id=request_id, pcm=self.pcm, **self.receipt_overrides
+            )
+        await self.emit({
+            "type": "speechrail.tts.completed",
+            "task_id": "task-1",
+            "request_id": request_id,
+            "generated_samples": len(self.pcm) // 2,
+        })
+
+    async def _cancelled(self, request_id):
+        await self.emit({
+            "type": "speechrail.tts.cancelled",
+            "task_id": "task-1",
+            "request_id": request_id,
+        })
+
+
+class _ScriptedReceiptReader:
+    def __init__(self, transport: _FakeRealtimeTTSTransport) -> None:
+        self._transport = transport
+        self.calls: list[str] = []
+
+    async def read_by_request(self, request_id: str):
+        self.calls.append(request_id)
+        if self._transport.receipt is None:
+            raise SpeechRailRealtimeTTSError("render_receipt_missing")
+        return json.loads(json.dumps(self._transport.receipt))
+
+
+def _receipt(*, request_id, pcm, voice="serena", **overrides):
+    receipt = {
         "receipt_id": "rr_" + "a" * 32,
         "request_id": request_id,
-        "response_id": response_id,
         "status": "completed",
         "voice": {"id": voice, "revision": "vr_test"},
         "model": {
@@ -835,110 +958,36 @@ def _receipt(*, request_id, response_id, pcm, voice="serena"):
             "format": "pcm16",
             "pcm_sample_rate": REALTIME_TTS_SAMPLE_RATE,
             "channels": 1,
-            "integrity_boundary": "pcm16_after_websocket_send",
+            "integrity_boundary": RECEIPT_INTEGRITY_BOUNDARY,
             "sample_count": len(pcm) // 2,
             "pcm_sha256": hashlib.sha256(pcm).hexdigest(),
         },
         "error_code": None,
     }
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(receipt.get(key), dict):
+            receipt[key] = {**receipt[key], **value}
+        else:
+            receipt[key] = value
+    return receipt
 
 
-async def _script_completed_tts(transport, message, chunks=(b"\x01\x00\x02\x00", b"\x03\x00")):
-    response_id = "resp-1"
-    item_id = "item-1"
-    await transport.emit(
-        {
-            "type": "response.created",
-            "response": {
-                "id": response_id,
-                "object": "realtime.response",
-                "status": "in_progress",
-                "output": [],
-            },
-        }
-    )
-    await transport.emit(
-        {
-            "type": "response.output_item.added",
-            "response_id": response_id,
-            "output_index": 0,
-            "item": {
-                "id": item_id,
-                "object": "realtime.item",
-                "type": "message",
-                "role": "assistant",
-                "content": [],
-            },
-        }
-    )
-    await transport.emit(
-        {
-            "type": "response.content_part.added",
-            "response_id": response_id,
-            "item_id": item_id,
-            "output_index": 0,
-            "content_index": 0,
-            "part": {"type": "audio"},
-        }
-    )
-    for chunk in chunks:
-        await transport.emit(
-            {
-                "type": "response.output_audio.delta",
-                "response_id": response_id,
-                "item_id": item_id,
-                "output_index": 0,
-                "content_index": 0,
-                "delta": base64.b64encode(chunk).decode("ascii"),
-            }
-        )
-    await transport.emit(
-        {
-            "type": "response.output_audio.done",
-            "response_id": response_id,
-            "item_id": item_id,
-            "output_index": 0,
-            "content_index": 0,
-        }
-    )
-    await transport.emit(
-        {
-            "type": "response.output_item.done",
-            "response_id": response_id,
-            "output_index": 0,
-            "item": {"id": item_id},
-        }
-    )
-    pcm = b"".join(chunks)
-    await transport.emit(
-        {
-            "type": "response.done",
-            "response": {
-                "id": response_id,
-                "object": "realtime.response",
-                "status": "completed",
-                "output": [],
-            },
-            "speechrail": {
-                "kind": "tts",
-                "orchestration": "caller",
-                "request_id": message["request_id"],
-                "voice_revision": "vr_test",
-                "render_receipt": _receipt(
-                    request_id=message["request_id"], response_id=response_id, pcm=pcm
-                ),
-            },
-        }
+def _tts_adapter(transport, config=None, **kwargs):
+    return SpeechRailRealtimeTTSAdapter(
+        config or AudioProviderConfig(default_voice="serena"),
+        transport,
+        receipt_reader=_ScriptedReceiptReader(transport),
+        **kwargs,
     )
 
 
 @pytest.mark.asyncio
 async def test_realtime_tts_uses_current_only_handshake_and_streams_verified_pcm():
     transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = _script_completed_tts
-    config = AudioProviderConfig(default_voice="serena")
-    adapter = SpeechRailRealtimeTTSAdapter(config, transport)
-
+    config = AudioProviderConfig(default_voice="serena", api_key="sr-local-key")
+    adapter = SpeechRailRealtimeTTSAdapter(
+        config, transport, receipt_reader=_ScriptedReceiptReader(transport)
+    )
     await adapter.connect(expected_model_revision="b" * 40)
     chunks = []
 
@@ -956,30 +1005,36 @@ async def test_realtime_tts_uses_current_only_handshake_and_streams_verified_pcm
     assert transport.opened == [
         (
             "ws://127.0.0.1:8201/v1/realtime?model=whisper-1",
-            {"Authorization": "Bearer speechrail-local"},
+            {"Authorization": "Bearer sr-local-key"},
         )
     ]
     session_update = transport.sent[0]
-    assert session_update["type"] == "transcription_session.update"
-    assert session_update["session"]["input_audio_format"] == "pcm16"
+    assert session_update["type"] == "session.update"
+    assert session_update["session"]["audio"]["input"]["format"] == {
+        "type": "audio/pcm",
+        "rate": REALTIME_TTS_SAMPLE_RATE,
+    }
     assert session_update["session"]["speechrail"] == {
+        "task": "render",
         "tts": {"enabled": True},
-        "render_receipts": {"enabled": True},
-        "model_revision": {"expected": "b" * 40},
+        "alignment": {"enabled": False},
+        "diarization": {"enabled": False},
     }
-    create = transport.sent[1]
-    assert create == {
-        "type": "speechrail.tts.create",
-        "request_id": "wom-turn-1-sentence-1",
-        "text": "向前走。",
-        "voice": "serena",
-        "speed": 1.0,
-        "expected_voice_revision": "vr_test",
-    }
+    assert "render_receipts" not in session_update["session"]["speechrail"]
+    start = transport.sent[1]
+    assert start["type"] == "speechrail.tts.start"
+    assert start["task"] == "render"
+    assert start["voice"] == "serena"
+    assert start["voice_revision"] == "vr_test"
+    assert start["expected_model_revision"] == "b" * 40
+    assert "expected_voice_revision" not in start
+    assert "".join(transport.append_texts) == "向前走。"
+    assert [chunk.chunk_index for chunk in chunks] == [0, 1]
     assert [chunk.offset_frames for chunk in chunks] == [0, 2]
     assert [chunk.frame_count for chunk in chunks] == [2, 1]
     assert b"".join(chunk.pcm16 for chunk in chunks) == b"\x01\x00\x02\x00\x03\x00"
     assert terminal.status == "completed"
+    assert terminal.task_id == "task-1"
     assert terminal.total_frames == 3
     assert terminal.total_bytes == 6
     assert terminal.receipt_id == "rr_" + "a" * 32
@@ -987,63 +1042,107 @@ async def test_realtime_tts_uses_current_only_handshake_and_streams_verified_pcm
 
 
 @pytest.mark.asyncio
-async def test_realtime_tts_fails_closed_when_receipt_disagrees_with_received_pcm():
-    async def bad_receipt(transport, message):
-        await _script_completed_tts(transport, message)
-        events = []
-        while not transport.inbound.empty():
-            events.append(await transport.inbound.get())
-        events[-1]["speechrail"]["render_receipt"]["audio"]["sample_count"] = 999
-        for event in events:
-            await transport.inbound.put(event)
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = bad_receipt
-    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+async def test_realtime_tts_keeps_one_append_in_flight_and_finishes_on_the_last_ack():
+    transport = _FakeRealtimeTTSTransport(
+        started_overrides={
+            "limits": {
+                "max_append_codepoints": 4,
+                "max_total_codepoints": 64,
+                "max_pending_codepoints": 4,
+            }
+        }
+    )
+    adapter = _tts_adapter(transport)
     await adapter.connect()
+    text = "先别问医生病人的事"
+    terminal = await adapter.render(
+        RealtimeTTSRequest(text=text, voice="serena", request_id="req-split"),
+        AsyncMock(),
+    )
+    assert transport.append_texts == ["先别问医", "生病人的", "事"]
+    assert "".join(transport.append_texts) == text
+    appends = [m for m in transport.sent if m["type"] == "speechrail.tts.append_text"]
+    assert [m["sequence"] for m in appends] == [0, 1, 2]
+    # The interleaving proves one segment in flight: every append is followed by
+    # its own acknowledgement before the next segment is submitted.
+    wire_order = [
+        m["type"]
+        for m in transport.sent
+        if m["type"]
+        in {
+            "speechrail.tts.start",
+            "speechrail.tts.append_text",
+            "speechrail.tts.finish_text",
+        }
+    ]
+    assert wire_order == [
+        "speechrail.tts.start",
+        "speechrail.tts.append_text",
+        "speechrail.tts.append_text",
+        "speechrail.tts.append_text",
+        "speechrail.tts.finish_text",
+    ]
+    finish = [m for m in transport.sent if m["type"] == "speechrail.tts.finish_text"]
+    assert finish[0]["last_sequence"] == 2
+    assert terminal.status == "completed"
 
-    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_mismatch"):
+
+@pytest.mark.asyncio
+async def test_realtime_tts_splits_without_breaking_a_grapheme_cluster():
+    # "事" followed by a combining mark: the cut must move back so the cluster
+    # stays with its base character.
+    text = "abcde\U0001F1E6\U0001F1E7"
+    assert "".join(split_text_segments(text, 2)) == text
+    segments = split_text_segments(text, 2)
+    assert all(len(segment) <= 3 for segment in segments)
+    assert "".join(segments) == text
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_text_beyond_the_negotiated_total():
+    transport = _FakeRealtimeTTSTransport(
+        started_overrides={"limits": {"max_total_codepoints": 4}}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_request_invalid"):
         await adapter.render(
             RealtimeTTSRequest(
-                text="测试",
-                voice="serena",
-                request_id="req-bad-receipt",
+                text="远超上限的整段封存文本", voice="serena", request_id="req-long"
             ),
             AsyncMock(),
         )
 
 
 @pytest.mark.asyncio
-async def test_realtime_tts_rejects_odd_pcm_before_it_reaches_media_sink():
-    async def odd_audio(transport, message):
-        await transport.emit(
-            {
-                "type": "response.created",
-                "response": {"id": "resp-odd", "status": "in_progress"},
-            }
-        )
-        await transport.emit(
-            {
-                "type": "response.output_item.added",
-                "response_id": "resp-odd",
-                "item": {"id": "item-odd"},
-            }
-        )
-        await transport.emit(
-            {
-                "type": "response.output_audio.delta",
-                "response_id": "resp-odd",
-                "item_id": "item-odd",
-                "delta": base64.b64encode(b"\x00").decode("ascii"),
-            }
+async def test_realtime_tts_fails_closed_when_receipt_disagrees_with_received_pcm():
+    transport = _FakeRealtimeTTSTransport(
+        receipt_overrides={"audio": {"sample_count": 999}}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_mismatch"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-bad-receipt"),
+            AsyncMock(),
         )
 
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = odd_audio
-    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_odd_pcm_before_it_reaches_media_sink():
+    transport = _FakeRealtimeTTSTransport(
+        chunks=(b"\x00",),
+        started_overrides={
+            "limits": {
+                "max_append_codepoints": 512,
+                "max_total_codepoints": 8192,
+                "max_pending_codepoints": 1024,
+            }
+        },
+    )
+    adapter = _tts_adapter(transport)
     await adapter.connect()
     sink = AsyncMock()
-
     with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_invalid_audio"):
         await adapter.render(
             RealtimeTTSRequest(text="测试", voice="serena", request_id="req-odd"),
@@ -1053,56 +1152,230 @@ async def test_realtime_tts_rejects_odd_pcm_before_it_reaches_media_sink():
 
 
 @pytest.mark.asyncio
+async def test_realtime_tts_rejects_a_non_contiguous_sample_offset():
+    transport = _FakeRealtimeTTSTransport(
+        audio_delta_overrides={"sample_offset": 7}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_invalid_audio"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-gap"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_a_restarting_chunk_index():
+    transport = _FakeRealtimeTTSTransport(
+        audio_delta_overrides={"chunk_index": 4}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_invalid_audio"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-idx"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_an_out_of_order_append_ack():
+    transport = _FakeRealtimeTTSTransport(
+        started_overrides={
+            "limits": {
+                "max_append_codepoints": 4,
+                "max_total_codepoints": 64,
+                "max_pending_codepoints": 4,
+            }
+        },
+        text_ack_overrides={"append_sequence": 3},
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_sequence_invalid"):
+        await adapter.render(
+            RealtimeTTSRequest(
+                text="先别问医生病人的事", voice="serena", request_id="req-ack"
+            ),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_an_ack_that_undercounts_the_segment():
+    transport = _FakeRealtimeTTSTransport(
+        text_ack_overrides={"accepted_codepoints": 1}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_sequence_invalid"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-count"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_propagates_a_structured_terminal_failure():
+    transport = _FakeRealtimeTTSTransport(terminal="failed")
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_backend_failed"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-failed"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_correlates_error_by_request_id_not_by_message_text():
+    transport = _FakeRealtimeTTSTransport(
+        start_error={
+            "type": "error",
+            "request_id": "req-rejected",
+            "error": {
+                "type": "invalid_request_error",
+                "code": "tts_streaming_unsupported",
+                "message": "this voice has no incremental path",
+                "event_id": "client-event-1",
+            },
+        }
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_streaming_unsupported"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-rejected"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_an_error_addressed_to_another_request():
+    transport = _FakeRealtimeTTSTransport(
+        start_error={
+            "type": "error",
+            "request_id": "some-other-request",
+            "error": {
+                "type": "server_error",
+                "code": "backend_busy",
+                "message": "busy",
+            },
+        }
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_response_mismatch"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-mine"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_does_not_publish_success_without_a_receipt():
+    # The peer completes the utterance but never produces render evidence.
+    transport = _FakeRealtimeTTSTransport(drop_receipt=True)
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_missing"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-no-receipt"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
 async def test_realtime_tts_cancel_uses_namespaced_cancel_and_terminal_is_cancelled():
-    created = asyncio.Event()
-
-    async def wait_for_cancel(transport, message):
-        await transport.emit(
-            {
-                "type": "response.created",
-                "response": {"id": "resp-cancel", "status": "in_progress"},
-            }
-        )
-        await transport.emit(
-            {
-                "type": "response.output_item.added",
-                "response_id": "resp-cancel",
-                "item": {"id": "item-cancel"},
-            }
-        )
-        created.set()
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = wait_for_cancel
-    adapter = SpeechRailRealtimeTTSAdapter(AudioProviderConfig(default_voice="serena"), transport)
+    transport = _FakeRealtimeTTSTransport(hold_finish=True)
+    adapter = _tts_adapter(transport)
     await adapter.connect()
     render_task = asyncio.create_task(
         adapter.render(
-            RealtimeTTSRequest(text="停止前的句子", voice="serena", request_id="req-cancel"),
+            RealtimeTTSRequest(
+                text="停止前的句子", voice="serena", request_id="req-cancel"
+            ),
             AsyncMock(),
         )
     )
-    await created.wait()
-    await asyncio.sleep(0)
+    while not transport.append_texts:
+        await asyncio.sleep(0)
     await adapter.cancel_active()
-    terminal = await render_task
+    terminal = await asyncio.wait_for(render_task, timeout=2)
 
-    assert transport.sent[-1] == {
-        "type": "speechrail.tts.cancel",
-        "request_id": "req-cancel",
-        "response_id": "resp-cancel",
-    }
+    cancel = transport.sent[-1]
+    assert cancel["type"] == "speechrail.tts.cancel"
+    assert set(cancel) == {"type", "event_id", "request_id"}
+    assert cancel["request_id"] == "req-cancel"
     assert terminal.status == "cancelled"
     assert terminal.total_frames == 0
+    assert terminal.receipt_id is None
 
 
-def test_realtime_tts_rejects_plaintext_remote_endpoint():
-    adapter = SpeechRailRealtimeTTSAdapter(
-        AudioProviderConfig(base_url="http://speech.example.test:8201/v1"),
-        _FakeRealtimeTTSTransport(),
+@pytest.mark.asyncio
+async def test_realtime_tts_refuses_a_second_concurrent_utterance():
+    transport = _FakeRealtimeTTSTransport(hold_finish=True)
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+    first = asyncio.create_task(
+        adapter.render(
+            RealtimeTTSRequest(text="第一句", voice="serena", request_id="req-1"),
+            AsyncMock(),
+        )
     )
-    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_insecure_remote_endpoint"):
-        asyncio.run(adapter.connect())
+    while not transport.append_texts:
+        await asyncio.sleep(0)
+    with pytest.raises(SpeechRailRealtimeTTSError, match="tts_in_progress"):
+        await adapter.render(
+            RealtimeTTSRequest(text="第二句", voice="serena", request_id="req-2"),
+            AsyncMock(),
+        )
+    await adapter.cancel_active()
+    await asyncio.wait_for(first, timeout=2)
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_an_invalid_wire_revision():
+    transport = _FakeRealtimeTTSTransport()
+    adapter = _tts_adapter(transport)
+    with pytest.raises(
+        SpeechRailRealtimeTTSError, match="realtime_invalid_configuration"
+    ):
+        await adapter.connect(expected_model_revision="not a revision")
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_handshake_times_out_on_a_silent_peer():
+    class _SilentTransport:
+        async def open(self, url, headers):
+            return None
+
+        async def send_json(self, payload):
+            return None
+
+        async def receive_json(self):
+            await asyncio.sleep(3600)
+
+        async def close(self):
+            return None
+
+    adapter = SpeechRailRealtimeTTSAdapter(
+        AudioProviderConfig(), _SilentTransport(), receipt_reader=AsyncMock()
+    )
+    with pytest.raises(SpeechRailRealtimeTTSError, match="realtime_handshake_timeout"):
+        await asyncio.wait_for(adapter.connect(), timeout=30)
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_sends_no_authorization_header_without_a_key():
+    transport = _FakeRealtimeTTSTransport()
+    adapter = _tts_adapter(
+        transport, config=AudioProviderConfig(default_voice="serena", api_key="")
+    )
+    await adapter.connect()
+    _url, headers = transport.opened[0]
+    assert "Authorization" not in headers
 
 
 async def _read_masked_client_websocket_frame(reader):
@@ -1263,9 +1536,11 @@ async def test_realtime_tts_media_bridge_rechunks_and_finishes():
     pcm = bytes([1, 0, 2, 0, 3, 0, 4, 0])
     await stream.push(
         RealtimeTTSChunk(
-            response_id="resp",
-            item_id="item",
+            task_id="task",
+            plan_id="plan",
+            request_id="req",
             sequence=10,
+            chunk_index=0,
             offset_frames=0,
             frame_count=4,
             pcm16=pcm,
@@ -1275,7 +1550,8 @@ async def test_realtime_tts_media_bridge_rechunks_and_finishes():
     await stream.finish_completed(
         RealtimeTTSTerminal(
             request_id="req",
-            response_id="resp",
+            task_id="task",
+            plan_id="plan",
             status="completed",
             total_frames=4,
             total_bytes=8,
@@ -1302,9 +1578,11 @@ async def test_realtime_tts_media_bridge_waits_for_full_chunk_credit():
     task = asyncio.create_task(
         stream.push(
             RealtimeTTSChunk(
-                response_id="resp",
-                item_id="item",
+                task_id="task",
+                plan_id="plan",
+                request_id="req",
                 sequence=1,
+                chunk_index=0,
                 offset_frames=0,
                 frame_count=2,
                 pcm16=bytes([1, 0, 2, 0]),
@@ -1340,9 +1618,11 @@ async def test_realtime_tts_media_bridge_peer_cancel_unblocks_backpressure():
     task = asyncio.create_task(
         stream.push(
             RealtimeTTSChunk(
-                response_id="resp",
-                item_id="item",
+                task_id="task",
+                plan_id="plan",
+                request_id="req",
                 sequence=1,
+                chunk_index=0,
                 offset_frames=0,
                 frame_count=1,
                 pcm16=b"\x00\x00",
@@ -1375,9 +1655,11 @@ async def test_realtime_tts_media_bridge_terminal_mismatch_never_emits_end():
     await stream.start()
     await stream.push(
         RealtimeTTSChunk(
-            response_id="resp",
-            item_id="item",
+            task_id="task",
+            plan_id="plan",
+            request_id="req",
             sequence=1,
+            chunk_index=0,
             offset_frames=0,
             frame_count=1,
             pcm16=b"\x01\x00",
@@ -1387,7 +1669,8 @@ async def test_realtime_tts_media_bridge_terminal_mismatch_never_emits_end():
         await stream.finish_completed(
             RealtimeTTSTerminal(
                 request_id="req",
-                response_id="resp",
+                task_id="task",
+                plan_id="plan",
                 status="completed",
                 total_frames=1,
                 total_bytes=2,
@@ -1411,9 +1694,11 @@ class _BridgeCancelAdapter:
         self.chunk_started.set()
         await on_chunk(
             RealtimeTTSChunk(
-                response_id="resp-cancel-bridge",
-                item_id="item-cancel-bridge",
+                task_id="task-cancel",
+                plan_id="plan-cancel",
+                request_id=request.request_id,
                 sequence=1,
+                chunk_index=0,
                 offset_frames=0,
                 frame_count=1,
                 pcm16=b"\x01\x00",
@@ -1422,7 +1707,8 @@ class _BridgeCancelAdapter:
         await self.cancelled.wait()
         return RealtimeTTSTerminal(
             request_id=request.request_id,
-            response_id="resp-cancel-bridge",
+            task_id="task-cancel",
+            plan_id="plan-cancel",
             status="cancelled",
             total_frames=0,
             total_bytes=0,
@@ -1499,16 +1785,16 @@ def _voice_render_request(**overrides):
 def test_voice_render_control_provider_projection_is_minimal():
     request = VoiceRenderControlRequest.model_validate(_voice_render_request())
     assert request.provider_tts_fields() == {
-        "text": "雾中的脚步声停在了门外。",
+        "task": "render",
         "voice": "narrator_mystic",
+        "voice_revision": "vr_" + "a" * 40,
         "speed": 1.0,
-        "expected_voice_revision": "vr_" + "a" * 40,
+        "expected_model_revision": "b" * 40,
     }
+    assert request.provider_tts_text() == "雾中的脚步声停在了门外。"
     projected = request.provider_tts_fields()
-    assert "turn_id" not in projected
-    assert "story_revision" not in projected
-    assert "media_stream_id" not in projected
-    assert "expected_model_revision" not in projected
+    for application_only in ("turn_id", "story_revision", "media_stream_id", "text"):
+        assert application_only not in projected
 
 
 @pytest.mark.parametrize(
@@ -1516,7 +1802,7 @@ def test_voice_render_control_provider_projection_is_minimal():
     [
         {"__unknown": True},
         {"story_revision": -1},
-        {"expected_model_revision": "bad"},
+        {"expected_model_revision": "bad revision"},
         {"spoken_text": "   "},
         {"speed": 4.1},
     ],
@@ -1539,14 +1825,14 @@ def test_pending_voice_render_registry_is_one_time_and_generation_bound():
     assert pending.request.spoken_text == "雾中的脚步声停在了门外。"
     assert pending.request.expected_voice_revision == "vr_" + "a" * 40
     assert pending.request.provider_tts_fields() == {
-        "text": "雾中的脚步声停在了门外。",
+        "task": "render",
         "voice": "narrator_mystic",
+        "voice_revision": "vr_" + "a" * 40,
         "speed": 1.0,
-        "expected_voice_revision": "vr_" + "a" * 40,
+        "expected_model_revision": "b" * 40,
     }
-    assert "turn_id" not in pending.request.provider_tts_fields()
-    assert "story_revision" not in pending.request.provider_tts_fields()
-    assert "media_stream_id" not in pending.request.provider_tts_fields()
+    for application_only in ("turn_id", "story_revision", "media_stream_id", "text"):
+        assert application_only not in pending.request.provider_tts_fields()
     assert len(registry) == 0
 
     with pytest.raises(VoiceRenderControlError, match="voice_render_not_found"):
@@ -1579,51 +1865,11 @@ def test_pending_voice_render_registry_expires_and_is_bounded():
 
 
 @pytest.mark.asyncio
-async def test_realtime_tts_rejects_terminal_voice_revision_before_media_completion():
-    async def wrong_voice_revision(transport, message):
-        await _script_completed_tts(transport, message)
-        events = []
-        while not transport.inbound.empty():
-            events.append(await transport.inbound.get())
-        events[-1]["speechrail"]["voice_revision"] = "vr_wrong"
-        for event in events:
-            await transport.inbound.put(event)
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = wrong_voice_revision
-    adapter = SpeechRailRealtimeTTSAdapter(
-        AudioProviderConfig(default_voice="serena"), transport
-    )
-    await adapter.connect()
-
-    with pytest.raises(SpeechRailRealtimeTTSError, match="voice_revision_mismatch"):
-        await adapter.render(
-            RealtimeTTSRequest(
-                text="测试",
-                voice="serena",
-                request_id="req-wrong-voice-revision",
-                expected_voice_revision="vr_test",
-            ),
-            AsyncMock(),
-        )
-
-
-@pytest.mark.asyncio
 async def test_realtime_tts_rejects_receipt_voice_pin_mismatch():
-    async def wrong_receipt_voice(transport, message):
-        await _script_completed_tts(transport, message)
-        events = []
-        while not transport.inbound.empty():
-            events.append(await transport.inbound.get())
-        events[-1]["speechrail"]["render_receipt"]["voice"]["revision"] = "vr_wrong"
-        for event in events:
-            await transport.inbound.put(event)
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = wrong_receipt_voice
-    adapter = SpeechRailRealtimeTTSAdapter(
-        AudioProviderConfig(default_voice="serena"), transport
+    transport = _FakeRealtimeTTSTransport(
+        receipt_overrides={"voice": {"id": "serena", "revision": "vr_wrong"}}
     )
+    adapter = _tts_adapter(transport)
     await adapter.connect()
 
     with pytest.raises(
@@ -1642,20 +1888,10 @@ async def test_realtime_tts_rejects_receipt_voice_pin_mismatch():
 
 @pytest.mark.asyncio
 async def test_realtime_tts_rejects_receipt_model_revision_mismatch():
-    async def wrong_model_revision(transport, message):
-        await _script_completed_tts(transport, message)
-        events = []
-        while not transport.inbound.empty():
-            events.append(await transport.inbound.get())
-        events[-1]["speechrail"]["render_receipt"]["model"]["catalog_revision"] = "c" * 40
-        for event in events:
-            await transport.inbound.put(event)
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = wrong_model_revision
-    adapter = SpeechRailRealtimeTTSAdapter(
-        AudioProviderConfig(default_voice="serena"), transport
+    transport = _FakeRealtimeTTSTransport(
+        receipt_overrides={"model": {"catalog_revision": "c" * 40}}
     )
+    adapter = _tts_adapter(transport)
     await adapter.connect(expected_model_revision="b" * 40)
 
     with pytest.raises(
@@ -1674,22 +1910,10 @@ async def test_realtime_tts_rejects_receipt_model_revision_mismatch():
 
 @pytest.mark.asyncio
 async def test_realtime_tts_rejects_receipt_model_id_mismatch():
-    async def wrong_model_id(transport, message):
-        await _script_completed_tts(transport, message)
-        events = []
-        while not transport.inbound.empty():
-            events.append(await transport.inbound.get())
-        events[-1]["speechrail"]["render_receipt"]["model"]["source_model"] = (
-            "speechrail/other-tts"
-        )
-        for event in events:
-            await transport.inbound.put(event)
-
-    transport = _FakeRealtimeTTSTransport()
-    transport.script_on_create = wrong_model_id
-    adapter = SpeechRailRealtimeTTSAdapter(
-        AudioProviderConfig(default_voice="serena"), transport
+    transport = _FakeRealtimeTTSTransport(
+        receipt_overrides={"model": {"source_model": "speechrail/other-tts"}}
     )
+    adapter = _tts_adapter(transport)
     await adapter.connect(
         expected_model_id="speechrail/qwen3-tts",
         expected_model_revision="b" * 40,
@@ -1707,3 +1931,46 @@ async def test_realtime_tts_rejects_receipt_model_id_mismatch():
             ),
             AsyncMock(),
         )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_a_receipt_claiming_the_old_integrity_boundary():
+    transport = _FakeRealtimeTTSTransport(
+        receipt_overrides={"audio": {"integrity_boundary": "pcm16_after_websocket_send"}}
+    )
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+
+    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_mismatch"):
+        await adapter.render(
+            RealtimeTTSRequest(
+                text="测试", voice="serena", request_id="req-old-boundary"
+            ),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_rejects_an_incomplete_receipt_status():
+    transport = _FakeRealtimeTTSTransport(receipt_overrides={"status": "pending"})
+    adapter = _tts_adapter(transport)
+    await adapter.connect()
+
+    with pytest.raises(SpeechRailRealtimeTTSError, match="render_receipt_incomplete"):
+        await adapter.render(
+            RealtimeTTSRequest(text="测试", voice="serena", request_id="req-pending"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_realtime_tts_can_waive_the_receipt_as_explicit_local_policy():
+    transport = _FakeRealtimeTTSTransport()
+    adapter = _tts_adapter(transport)
+    await adapter.connect(require_render_receipt=False)
+    terminal = await adapter.render(
+        RealtimeTTSRequest(text="测试", voice="serena", request_id="req-waived"),
+        AsyncMock(),
+    )
+    assert terminal.status == "completed"
+    assert terminal.receipt_id is None

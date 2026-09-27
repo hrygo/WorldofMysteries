@@ -29,11 +29,17 @@ struct MicrophoneCaptureTests {
     func captureConfigurationBounds() throws {
         _ = try MicrophoneCaptureSession(
             configuration: .init(
-                targetSampleRate: 16_000,
+                targetSampleRate: 24_000,
                 tapFrameCount: 960,
                 bufferedChunkLimit: 8
             )
         )
+        // 16 kHz was the pre-4.0 wire rate; SpeechRail 4.0 accepts 24 kHz only.
+        #expect(throws: MicrophoneCaptureFailure.invalidDeviceFormat) {
+            try MicrophoneCaptureSession(
+                configuration: .init(targetSampleRate: 16_000)
+            )
+        }
         #expect(throws: MicrophoneCaptureFailure.invalidDeviceFormat) {
             try MicrophoneCaptureSession(
                 configuration: .init(targetSampleRate: 48_000)
@@ -44,6 +50,14 @@ struct MicrophoneCaptureTests {
                 configuration: .init(bufferedChunkLimit: 1)
             )
         }
+    }
+
+    @Test("The default capture target is the shared 24 kHz wire rate")
+    func defaultTargetMatchesWireRate() throws {
+        #expect(MicrophoneCaptureConfiguration().targetSampleRate == 24_000)
+        #expect(SpeechRailRealtimeWire.sampleRate == 24_000)
+        #expect(SpeechRailRealtimeASRConfiguration().sampleRate == 24_000)
+        #expect(SpeechRailRealtimeASRConfiguration().effectiveSession == SpeechRailRealtimeSessionConfiguration(model: "whisper-1", language: "zh"))
     }
 
     @Test("App package keeps Sandbox while explicitly granting audio input")

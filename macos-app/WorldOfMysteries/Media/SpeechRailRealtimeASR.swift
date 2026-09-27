@@ -5,6 +5,15 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
     case notConnected
     case unsupportedMessage
     case sessionRejected(code: String)
+    case sessionConfigurationMismatch
+    /// The upgrade was refused before the WebSocket close handshake existed.
+    /// The HTTP status is diagnostic only and may be absent, because
+    /// `URLSessionWebSocketTask` does not always surface it.
+    case handshakeRejected(httpStatus: Int?)
+    /// A policy-violation close (1008) is the only close code that is evidence
+    /// of a rejected credential.
+    case authenticationFailed
+    case serviceBusy
     case audioFrameInvalid
     case captureFailure
     case transportFailure
@@ -12,12 +21,10 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
     case invalidEnvelope
     case sequenceGap(expected: Int64, actual: Int64)
     case duplicateEventConflict(eventID: String)
-    case duplicateCommittedItem(itemID: String)
-    case terminalBeforeCommit(itemID: String)
+    case conflictingFinal(itemID: String)
+    case itemNotTerminal(itemIDs: [String])
     case itemFailed(itemID: String, code: String?)
     case serverError(code: String)
-    case clearedBeforeAllItemsTerminal(missingItemIDs: [String])
-    case clearedWithoutCommittedItem
     case connectionClosed
     case invalidState
 
@@ -26,30 +33,60 @@ public nonisolated enum SpeechRailRealtimeASRFailure: Error, Sendable, Equatable
     }
 }
 
+/// A revocable partial recognition result.
+///
+/// A hypothesis is keyed by utterance and revision and may be replaced or
+/// withdrawn. It is a display-only draft: it is never spliced into the final
+/// transcript, which is built only from `completed` texts.
+public nonisolated struct SpeechRailASHypothesis: Sendable, Equatable {
+    public let taskID: String
+    public let epoch: Int
+    public let utteranceID: String
+    public let revision: Int
+    public let text: String
+    public let stablePrefixCodepoints: Int
+
+    public init(
+        taskID: String,
+        epoch: Int,
+        utteranceID: String,
+        revision: Int,
+        text: String,
+        stablePrefixCodepoints: Int
+    ) {
+        self.taskID = taskID
+        self.epoch = epoch
+        self.utteranceID = utteranceID
+        self.revision = revision
+        self.text = text
+        self.stablePrefixCodepoints = stablePrefixCodepoints
+    }
+}
+
 public nonisolated enum SpeechRailASRServerEvent: Sendable, Equatable {
-    case sessionCreated
-    case transcriptionSessionUpdated
-    case committed(itemID: String)
-    case itemCreated(itemID: String?)
+    case sessionCreated(SpeechRailRealtimeSessionConfiguration)
+    case sessionUpdated(SpeechRailRealtimeSessionConfiguration)
     case partial(itemID: String, delta: String)
     case completed(itemID: String, transcript: String)
     case failed(itemID: String, code: String?)
-    case cleared
+    case hypothesis(SpeechRailASHypothesis)
+    /// Alignment and diarization are disabled for this iteration. They are
+    /// recognised so they cannot slip past the envelope checks, and ignored so
+    /// they cannot influence the text terminal.
+    case auxiliary(type: String)
     case error(code: String, triggerEventID: String?)
     case other(type: String)
 
     fileprivate var typeName: String {
         switch self {
         case .sessionCreated: "session.created"
-        case .transcriptionSessionUpdated: "transcription_session.updated"
-        case .committed: "input_audio_buffer.committed"
-        case .itemCreated: "conversation.item.created"
+        case .sessionUpdated: "session.updated"
         case .partial: "conversation.item.input_audio_transcription.delta"
         case .completed: "conversation.item.input_audio_transcription.completed"
         case .failed: "conversation.item.input_audio_transcription.failed"
-        case .cleared: "input_audio_buffer.cleared"
+        case .hypothesis: "speechrail.transcription.hypothesis"
         case .error: "error"
-        case .other(let type): type
+        case .auxiliary(let type), .other(let type): type
         }
     }
 }
@@ -91,7 +128,7 @@ public nonisolated struct SpeechRailASRServerEnvelope: Sendable, Equatable {
         guard !base.type.isEmpty,
               !base.event_id.isEmpty,
               !base.session_id.isEmpty,
-              base.sequence > 0
+              base.sequence >= 0
         else {
             throw SpeechRailRealtimeASRFailure.invalidEnvelope
         }
@@ -115,35 +152,66 @@ public nonisolated struct SpeechRailASRServerEnvelope: Sendable, Equatable {
             return value
         }
 
+        // content_index is a schema constant, not a field we may ignore: a
+        // non-zero index means we are not reading the content we think we are.
+        func requirePrimaryContentIndex() throws {
+            guard let index = object["content_index"] as? NSNumber,
+                  index.intValue == 0
+            else {
+                throw SpeechRailRealtimeASRFailure.invalidEnvelope
+            }
+        }
+
         let event: SpeechRailASRServerEvent
         switch base.type {
         case "session.created":
-            event = .sessionCreated
-        case "transcription_session.updated":
-            event = .transcriptionSessionUpdated
-        case "input_audio_buffer.committed":
-            event = .committed(itemID: try requiredString("item_id"))
-        case "conversation.item.created":
-            let itemID = ((object["item"] as? [String: Any])?["id"] as? String)
-            event = .itemCreated(itemID: itemID)
+            event = .sessionCreated(
+                try SpeechRailRealtimeSessionConfiguration.parse(object["session"])
+            )
+        case "session.updated":
+            event = .sessionUpdated(
+                try SpeechRailRealtimeSessionConfiguration.parse(object["session"])
+            )
         case "conversation.item.input_audio_transcription.delta":
+            try requirePrimaryContentIndex()
             event = .partial(
                 itemID: try requiredString("item_id"),
                 delta: object["delta"] as? String ?? ""
             )
         case "conversation.item.input_audio_transcription.completed":
+            try requirePrimaryContentIndex()
             event = .completed(
                 itemID: try requiredString("item_id"),
                 transcript: object["transcript"] as? String ?? ""
             )
         case "conversation.item.input_audio_transcription.failed":
+            try requirePrimaryContentIndex()
             let nested = object["error"] as? [String: Any]
             event = .failed(
                 itemID: try requiredString("item_id"),
                 code: nested?["code"] as? String
             )
-        case "input_audio_buffer.cleared":
-            event = .cleared
+        case "speechrail.transcription.hypothesis":
+            let span = object["sample_span"] as? [String: Any]
+            guard let start = (span?["start"] as? NSNumber)?.intValue,
+                  let end = (span?["end"] as? NSNumber)?.intValue,
+                  start >= 0, end >= start,
+                  let epoch = (object["epoch"] as? NSNumber)?.intValue, epoch >= 0,
+                  let revision = (object["revision"] as? NSNumber)?.intValue, revision >= 0
+            else {
+                throw SpeechRailRealtimeASRFailure.invalidEnvelope
+            }
+            event = .hypothesis(
+                SpeechRailASHypothesis(
+                    taskID: try requiredString("task_id"),
+                    epoch: epoch,
+                    utteranceID: try requiredString("utterance_id"),
+                    revision: revision,
+                    text: object["text"] as? String ?? "",
+                    stablePrefixCodepoints:
+                        (object["stable_prefix_codepoints"] as? NSNumber)?.intValue ?? 0
+                )
+            )
         case "error":
             guard let nested = object["error"] as? [String: Any],
                   let code = nested["code"] as? String,
@@ -152,6 +220,12 @@ public nonisolated struct SpeechRailASRServerEnvelope: Sendable, Equatable {
                 throw SpeechRailRealtimeASRFailure.invalidEnvelope
             }
             event = .error(code: code, triggerEventID: nested["event_id"] as? String)
+        case "speechrail.alignment.done",
+             "speechrail.alignment.failed",
+             "speechrail.diarization.updated",
+             "speechrail.diarization.done",
+             "speechrail.diarization.failed":
+            event = .auxiliary(type: base.type)
         default:
             event = .other(type: base.type)
         }
@@ -216,28 +290,40 @@ public nonisolated struct InputTurnAssembler: Sendable {
         case failed(String?)
     }
 
+    private struct ItemState: Sendable {
+        var draft: String = ""
+        var terminal: ItemTerminal?
+
+        init(draft: String = "", terminal: ItemTerminal? = nil) {
+            self.draft = draft
+            self.terminal = terminal
+        }
+    }
+
     public let inputTurnID: UUID
     public let connectionEpoch: UUID
+    /// The configuration the barrier update must echo back unchanged.
+    public let expectedSession: SpeechRailRealtimeSessionConfiguration
 
     private var serviceSessionID: String?
     private var lastSequence: Int64
     private var seenEvents: [String: SeenEvent] = [:]
-    private var committedOrder: [String] = []
-    private var committedItems: Set<String> = []
-    private var terminals: [String: ItemTerminal] = [:]
-    private var partials: [String: String] = [:]
+    private var itemOrder: [String] = []
+    private var items: [String: ItemState] = [:]
+    private var hypothesis: SpeechRailASHypothesis?
     private var finalizationRequested = false
-    private var clearedSeen = false
     private var terminalResultStorage: InputTurnTerminalResult?
 
     public init(
         inputTurnID: UUID = UUID(),
         connectionEpoch: UUID,
-        startingSequence: Int64
+        startingSequence: Int64,
+        expectedSession: SpeechRailRealtimeSessionConfiguration
     ) {
         self.inputTurnID = inputTurnID
         self.connectionEpoch = connectionEpoch
         self.lastSequence = startingSequence
+        self.expectedSession = expectedSession
     }
 
     public var terminalResult: InputTurnTerminalResult? {
@@ -248,17 +334,27 @@ public nonisolated struct InputTurnAssembler: Sendable {
         terminalResultStorage != nil
     }
 
+    /// Ordered per-item draft text. A `completed` text replaces the draft of
+    /// its own item rather than being appended to it.
     public var latestDraftText: String {
-        committedOrder.map { itemID in
-            switch terminals[itemID] {
+        itemOrder.map { itemID in
+            switch items[itemID]?.terminal {
             case .completed(let transcript):
                 transcript
             case .failed:
                 ""
             case nil:
-                partials[itemID] ?? ""
+                items[itemID]?.draft ?? ""
             }
         }.joined()
+    }
+
+    /// A hypothesis is shown only while no item text is available yet. It is
+    /// never merged into the draft, because it may be revised or withdrawn.
+    public var transientHypothesisText: String? {
+        guard latestDraftText.isEmpty else { return nil }
+        guard let hypothesis, !hypothesis.text.isEmpty else { return nil }
+        return hypothesis.text
     }
 
     public mutating func beginFinalization() throws {
@@ -266,7 +362,6 @@ public nonisolated struct InputTurnAssembler: Sendable {
             throw SpeechRailRealtimeASRFailure.invalidState
         }
         finalizationRequested = true
-        evaluateIfPossible()
     }
 
     public mutating func cancel() {
@@ -322,84 +417,108 @@ public nonisolated struct InputTurnAssembler: Sendable {
         }
 
         switch envelope.event {
-        case .committed(let itemID):
-            guard committedItems.insert(itemID).inserted else {
-                fail(.duplicateCommittedItem(itemID: itemID))
-                return
-            }
-            committedOrder.append(itemID)
-
         case .partial(let itemID, let delta):
-            guard committedItems.contains(itemID) else {
-                fail(.terminalBeforeCommit(itemID: itemID))
-                return
+            // Deltas for an already final item are stale; the final text wins.
+            let key = register(itemID)
+            if items[key]?.terminal == nil {
+                var state = items[key] ?? ItemState()
+                state.draft.append(delta)
+                items[key] = state
             }
-            partials[itemID, default: ""].append(delta)
 
         case .completed(let itemID, let transcript):
-            guard committedItems.contains(itemID) else {
-                fail(.terminalBeforeCommit(itemID: itemID))
+            let key = register(itemID)
+            if case .completed(let existing) = items[key]?.terminal {
+                // A repeated identical final is idempotent; a different one is
+                // a contradiction we cannot resolve.
+                guard existing == transcript else {
+                    fail(.conflictingFinal(itemID: itemID))
+                    return
+                }
                 return
             }
-            terminals[itemID] = .completed(transcript)
+            guard items[key]?.terminal == nil else {
+                fail(.conflictingFinal(itemID: itemID))
+                return
+            }
+            items[key] = ItemState(terminal: .completed(transcript))
 
         case .failed(let itemID, let code):
-            guard committedItems.contains(itemID) else {
-                fail(.terminalBeforeCommit(itemID: itemID))
-                return
-            }
-            terminals[itemID] = .failed(code)
+            items[register(itemID)] = ItemState(terminal: .failed(code))
             fail(.itemFailed(itemID: itemID, code: code))
             return
 
-        case .cleared:
-            clearedSeen = true
+        case .hypothesis(let candidate):
+            // Revisions are monotonic per utterance; an older one is stale.
+            if let current = hypothesis,
+               current.utteranceID == candidate.utteranceID,
+               current.revision > candidate.revision {
+                break
+            }
+            hypothesis = candidate
 
         case .error(let code, _):
             fail(.serverError(code: code))
             return
 
+        case .sessionUpdated(let session):
+            // The only event that can complete a turn is the update the client
+            // itself sent as the barrier. A spontaneous update cannot end a
+            // turn that has not asked for one.
+            if finalizationRequested {
+                evaluateBarrier(session)
+            }
+
         case .sessionCreated,
-             .transcriptionSessionUpdated,
-             .itemCreated,
+             .auxiliary,
              .other:
             break
         }
-
-        evaluateIfPossible()
     }
 
-    private mutating func evaluateIfPossible() {
+    /// Register first-seen order for an item. SpeechRail 4.0 does not emit a
+    /// per-item creation event, so the first delta/completed/failed defines
+    /// both membership and transcript ordering.
+    private mutating func register(_ itemID: String) -> String {
+        if items[itemID] == nil {
+            items[itemID] = ItemState()
+            itemOrder.append(itemID)
+        }
+        return itemID
+    }
+
+    private mutating func evaluateBarrier(_ session: SpeechRailRealtimeSessionConfiguration) {
         guard terminalResultStorage == nil,
-              finalizationRequested,
-              clearedSeen
+              finalizationRequested
         else {
             return
         }
 
-        guard !committedOrder.isEmpty else {
-            fail(.clearedWithoutCommittedItem)
+        // The barrier is only proof if the service is still running the
+        // configuration this turn depends on.
+        guard session == expectedSession else {
+            fail(.sessionConfigurationMismatch)
             return
         }
 
-        let missing = committedOrder.filter { terminals[$0] == nil }
+        let missing = itemOrder.filter { items[$0]?.terminal == nil }
         guard missing.isEmpty else {
-            fail(.clearedBeforeAllItemsTerminal(missingItemIDs: missing))
+            fail(.itemNotTerminal(itemIDs: missing))
             return
         }
 
         var segments: [FinalTranscript.Segment] = []
-        for itemID in committedOrder {
-            guard case .completed(let transcript)? = terminals[itemID] else {
+        for itemID in itemOrder {
+            guard case .completed(let transcript)? = items[itemID]?.terminal else {
                 fail(.itemFailed(itemID: itemID, code: nil))
                 return
             }
-            if !transcript.isEmpty {
+            if !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 segments.append(.init(itemID: itemID, text: transcript))
             }
         }
 
-        guard !segments.allSatisfy({ $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+        guard !segments.isEmpty else {
             terminalResultStorage = .empty
             return
         }

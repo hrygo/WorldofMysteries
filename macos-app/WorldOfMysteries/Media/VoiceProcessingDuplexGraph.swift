@@ -39,7 +39,7 @@ public enum VoiceProcessingDuplexFactory {
         microphoneConfiguration: MicrophoneCaptureConfiguration = .init(),
         maxQueuedBytes: Int = 256 * 1024
     ) -> VoiceProcessingDuplexProvision {
-        guard microphoneConfiguration.targetSampleRate == 16_000,
+        guard microphoneConfiguration.targetSampleRate == SpeechRailRealtimeWire.sampleRate,
               (128...4096).contains(microphoneConfiguration.tapFrameCount),
               (2...32).contains(microphoneConfiguration.bufferedChunkLimit),
               maxQueuedBytes > 0
@@ -202,6 +202,13 @@ public final class VoiceProcessingAudioGraph {
             format: inputFormat
         ) { buffer, _ in
             guard buffer.frameLength > 0 else { return }
+            // Same device-change fence as the half-duplex capture: a converter
+            // built from the previous input format must not resample buffers
+            // that arrive at a new rate.
+            guard abs(buffer.format.sampleRate - inputFormat.sampleRate) < 0.5 else {
+                sink.finish(throwing: MicrophoneCaptureFailure.deviceChanged)
+                return
+            }
             let ratio = outputFormat.sampleRate / inputFormat.sampleRate
             let estimated = max(
                 1,

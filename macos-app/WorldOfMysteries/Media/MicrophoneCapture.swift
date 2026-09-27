@@ -5,6 +5,7 @@ public nonisolated enum MicrophoneCaptureFailure: Error, Sendable, Equatable, Lo
     case permissionDenied
     case deviceUnavailable
     case invalidDeviceFormat
+    case deviceChanged
     case converterUnavailable
     case converterFailed
     case bufferOverflow
@@ -45,11 +46,13 @@ public nonisolated struct MicrophonePCM16Chunk: Sendable, Equatable {
 
 public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     public let targetSampleRate: Int
+    /// Tap size in **input** frames, so the wall-clock chunk length does not
+    /// change when the wire rate moves to 24 kHz.
     public let tapFrameCount: AVAudioFrameCount
     public let bufferedChunkLimit: Int
 
     public init(
-        targetSampleRate: Int = 16_000,
+        targetSampleRate: Int = SpeechRailRealtimeWire.sampleRate,
         tapFrameCount: AVAudioFrameCount = 960,
         bufferedChunkLimit: Int = 8
     ) {
@@ -59,7 +62,7 @@ public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     }
 
     fileprivate func validate() throws {
-        guard targetSampleRate == 16_000,
+        guard targetSampleRate == SpeechRailRealtimeWire.sampleRate,
               (128...4096).contains(tapFrameCount),
               (2...32).contains(bufferedChunkLimit)
         else {
@@ -164,6 +167,14 @@ public final class MicrophoneCaptureSession {
             format: inputFormat
         ) { buffer, _ in
             guard buffer.frameLength > 0 else { return }
+            // A device switch (or a route change) invalidates the converter we
+            // built from the old input format. Resampling 44.1/48 kHz buffers
+            // against a stale ratio would silently relabel bytes, so fail the
+            // turn and let the caller reconnect with a fresh epoch.
+            guard abs(buffer.format.sampleRate - inputFormat.sampleRate) < 0.5 else {
+                sink.finish(throwing: MicrophoneCaptureFailure.deviceChanged)
+                return
+            }
             let ratio = outputFormat.sampleRate / inputFormat.sampleRate
             let estimated = max(
                 1,

@@ -333,11 +333,18 @@ async def render_realtime_tts_to_media(
         done, _ = await asyncio.wait(
             {render_task, peer_task}, return_when=asyncio.FIRST_COMPLETED
         )
-        if peer_task in done:
-            stop = await peer_task
-            if not render_task.done():
-                with contextlib.suppress(SpeechRailRealtimeTTSError):
-                    await adapter.cancel_active()
+        # A peer stop releases the credit waiter, so `adapter.render` can
+        # unwind and finish inside the very tick the stop arrives. Testing the
+        # stop *flag* rather than only which task completed closes that race;
+        # otherwise the provider keeps synthesising into a dead stream.
+        if peer_task in done or stream.peer_stopped:
+            if peer_task in done:
+                await peer_task
+            # Ask the provider to stop unconditionally. cancel_active raises
+            # tts_not_active once the phase is already terminal, which is
+            # exactly the case where no cancel is needed.
+            with contextlib.suppress(SpeechRailRealtimeTTSError):
+                await adapter.cancel_active()
             if not render_task.done():
                 try:
                     return await render_task

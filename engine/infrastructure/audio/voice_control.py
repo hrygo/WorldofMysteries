@@ -37,7 +37,11 @@ class VoiceRenderControlRequest(BaseModel):
     spoken_text: str = Field(min_length=1, max_length=4096)
     voice_id: str = Field(min_length=1, max_length=128)
     expected_voice_revision: str = Field(min_length=1, max_length=128)
-    expected_model_revision: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    # Provider artifact revision, carried as a wire revision rather than a git
+    # sha: a 40-character hex commit stays valid, a tagged artifact does too.
+    expected_model_revision: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    )
     media_stream_id: str = Field(min_length=1, max_length=128)
     generation: StrictInt = Field(ge=0)
     speed: StrictFloat = Field(ge=0.25, le=4.0)
@@ -62,12 +66,27 @@ class VoiceRenderControlRequest(BaseModel):
         return self
 
     def provider_tts_fields(self) -> dict[str, object]:
-        return {
-            "text": self.spoken_text,
+        """Project this application control request onto the SpeechRail wire.
+
+        This is the single conversion point between the Engine's application
+        field names and the provider's ``speechrail.tts.start`` fields.  The
+        provider renamed ``expected_voice_revision`` to ``voice_revision``; the
+        rename stops here instead of propagating into the IPC contract, the
+        sealed unit or the voice binding store.
+        """
+        fields: dict[str, object] = {
+            "task": "render",
             "voice": self.voice_id,
+            "voice_revision": self.expected_voice_revision,
             "speed": float(self.speed),
-            "expected_voice_revision": self.expected_voice_revision,
         }
+        if self.expected_model_revision is not None:
+            fields["expected_model_revision"] = self.expected_model_revision
+        return fields
+
+    def provider_tts_text(self) -> str:
+        """The sealed spoken text the caller owns; never rewritten here."""
+        return self.spoken_text
 
 
 class VoiceRenderAccepted(BaseModel):

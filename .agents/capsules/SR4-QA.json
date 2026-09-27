@@ -1,0 +1,173 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-SR4-QA",
+  "capsule_revision": 1,
+  "task_id": "SR4-QA",
+  "title": "固定 SpeechRail 4.0 契约快照与 wire/receipt/传输诊断回归",
+  "assigned_role": "AGT-QA",
+  "status": "CREATED",
+  "created_at": "2026-09-27T20:02:54.347073+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "target_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
+    "context_snapshot": "sha256:c7b7244cef17f25e198bb95e92558336755852a7a189ba44659c06ba4e13df18"
+  },
+  "scope": {
+    "read": [
+      "engine/",
+      "macos-app/",
+      "contracts/",
+      "fixtures/",
+      "docs/"
+    ],
+    "write": [
+      "engine/tests/",
+      "macos-app/WorldOfMysteriesTests/",
+      "fixtures/golden_001/",
+      "fixtures/speechrail_contract/"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/application/**",
+      "engine/ai/**",
+      "engine/infrastructure/**",
+      "macos-app/WorldOfMysteries/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_Result@engine/tests/test_speechrail_render_receipts.py:29",
+      "symbol:_config@engine/tests/test_speechrail_render_receipts.py:35",
+      "symbol:_reader@engine/tests/test_speechrail_render_receipts.py:43",
+      "symbol:_fetch@engine/tests/test_speechrail_render_receipts.py:49",
+      "symbol:test_receipt_url_encodes_the_request_id_segment@engine/tests/test_speechrail_render_receipts.py:62",
+      "symbol:test_receipt_url_rejects_ambiguous_configuration@engine/tests/test_speechrail_render_receipts.py:79",
+      "symbol:test_receipt_url_rejects_an_unusable_request_id@engine/tests/test_speechrail_render_receipts.py:85",
+      "symbol:test_reader_sends_bearer_only_when_a_key_is_configured@engine/tests/test_speechrail_render_receipts.py:91",
+      "symbol:test_reader_fails_immediately_on_a_semantic_status@engine/tests/test_speechrail_render_receipts.py:116",
+      "symbol:test_reader_retries_once_on_a_transient_5xx_then_succeeds@engine/tests/test_speechrail_render_receipts.py:125",
+      "symbol:test_reader_gives_up_after_the_bounded_retry_budget@engine/tests/test_speechrail_render_receipts.py:133",
+      "symbol:test_reader_retries_a_transport_failure_once@engine/tests/test_speechrail_render_receipts.py:142",
+      "symbol:test_reader_does_not_retry_a_non_transient_reader_error@engine/tests/test_speechrail_render_receipts.py:152",
+      "symbol:test_reader_rejects_a_non_object_payload@engine/tests/test_speechrail_render_receipts.py:161",
+      "symbol:test_sync_get_never_follows_a_redirect@engine/tests/test_speechrail_render_receipts.py:168",
+      "symbol:test_sync_get_rejects_an_oversized_body@engine/tests/test_speechrail_render_receipts.py:172",
+      "symbol:test_sync_get_rejects_undecodable_json@engine/tests/test_speechrail_render_receipts.py:194",
+      "symbol:test_sync_get_maps_an_http_error_to_a_status@engine/tests/test_speechrail_render_receipts.py:229",
+      "symbol:test_sync_get_rejects_a_not_modified_receipt@engine/tests/test_speechrail_render_receipts.py:245",
+      "symbol:test_sync_get_reports_a_transport_failure_as_retryable@engine/tests/test_speechrail_render_receipts.py:260",
+      "symbol:test_default_factory_returns_the_http_reader@engine/tests/test_speechrail_render_receipts.py:275",
+      "symbol:test_reader_rejects_nonsensical_limits@engine/tests/test_speechrail_render_receipts.py:280",
+      "symbol:__init__@engine/tests/test_speechrail_render_receipts.py:30",
+      "symbol:fetch@engine/tests/test_speechrail_render_receipts.py:52",
+      "symbol:_TooLarge@engine/tests/test_speechrail_render_receipts.py:173",
+      "symbol:_Body@engine/tests/test_speechrail_render_receipts.py:195",
+      "symbol:_raise@engine/tests/test_speechrail_render_receipts.py:232",
+      "symbol:_raise@engine/tests/test_speechrail_render_receipts.py:248",
+      "symbol:_raise@engine/tests/test_speechrail_render_receipts.py:263",
+      "symbol:read@engine/tests/test_speechrail_render_receipts.py:176"
+    ],
+    "related_contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 899,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_Result",
+      "_config",
+      "_reader",
+      "_fetch",
+      "test_receipt_url_encodes_the_request_id_segment",
+      "test_receipt_url_rejects_ambiguous_configuration",
+      "test_receipt_url_rejects_an_unusable_request_id",
+      "test_reader_sends_bearer_only_when_a_key_is_configured",
+      "test_reader_fails_immediately_on_a_semantic_status",
+      "test_reader_retries_once_on_a_transient_5xx_then_succeeds",
+      "test_reader_gives_up_after_the_bounded_retry_budget",
+      "test_reader_retries_a_transport_failure_once",
+      "test_reader_does_not_retry_a_non_transient_reader_error",
+      "test_reader_rejects_a_non_object_payload",
+      "test_sync_get_never_follows_a_redirect",
+      "test_sync_get_rejects_an_oversized_body",
+      "test_sync_get_rejects_undecodable_json",
+      "test_sync_get_maps_an_http_error_to_a_status",
+      "test_sync_get_rejects_a_not_modified_receipt",
+      "test_sync_get_reports_a_transport_failure_as_retryable",
+      "test_default_factory_returns_the_http_reader",
+      "test_reader_rejects_nonsensical_limits",
+      "__init__",
+      "fetch",
+      "_TooLarge",
+      "_Body",
+      "_raise",
+      "_raise",
+      "_raise",
+      "read"
+    ],
+    "contracts": [
+      "episode.schema.json",
+      "turn_transaction.schema.json",
+      "engine_ipc.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "作为裁决者与质检门禁。只读实现、只写断言；严禁为通过测试而放宽黄金断言。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

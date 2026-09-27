@@ -1,6 +1,11 @@
 # Voice-First Runtime v2.0 — 验收矩阵与证据口径
 
-日期：2026-09-19。状态：**拟执行验收规范，本文件不表示任何用例已运行**。关联[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)、[实施任务](Voice_First_Implementation_Plan_v2.0.md)。
+日期：2026-09-19；2026-09-28 按 SpeechRail 4.0（`3a1b02e0`）修订用例。状态：**验收规范**。
+关联[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)、[实施任务](Voice_First_Implementation_Plan_v2.0.md)。
+
+> **本轮只出具 A 层证据**。V-IN-11 ~ V-IN-20 及既有 A 层用例已有回归覆盖；
+> **B（固定真实 SpeechRail）与 C（macOS 真机玩法）本轮未执行**，不得据 A 层结论推断其通过。
+> 未跑即未通过，不得补写推断值。
 
 ## 1. 四层证据必须分别出具
 
@@ -20,15 +25,25 @@ SpeechRail 自动化/真实模型请求按其 AGENTS 授权执行；UI 自动化
 | ID | 操作/故障注入 | 必须断言 | 阶段 |
 |---|---|---|---|
 | V-IN-01 | partial 多次改写 | UI 更新，不发 PlayerAdvice | A |
-| V-IN-02 | 一次输入发生多个 rollover；异步处理导致final乱序 | 按committed次序收集，等commit/clear栅栏及全部成功终态；不是网络WS乱序承诺 | A/B |
+| V-IN-02 | 一次输入发生多个 rollover；异步处理导致final乱序 | 按**首见序**收集，等 `commit → 相同 session.update → session.updated` 栅栏及全部成功终态；不是网络WS乱序承诺 | A/B |
 | V-IN-03 | 重连重用 item 字符串、旧 connection 数据迟到 | epoch 隔离，不混入新轮次 | A |
 | V-IN-04 | final ACK 丢失后重试同 input_turn | 幂等返回/状态查询，世界不二次提交 | A/C |
 | V-IN-05 | “先不要…等等，改为…”及名字歧义 | 不提前行动，必要时显式确认 | B/C |
 | V-IN-06 | ASR无confidence/无valid audio | unknown/失败，不伪造1.0 | A/B |
 | V-IN-07 | 转录提示词含未公开真实身份 | 进入ASR前即拒绝/过滤 | A |
-| V-IN-08 | previous_item_id为空；最后commit产生空item | 已有片段保留；空尾段允许，不按文本去重 | A/B |
-| V-IN-09 | append/commit失败或item缺失后仍收到cleared | 整轮失败/不完整，不发布部分Final，不推进世界 | A/B |
+| V-IN-08 | previous_item_id为空；最后commit产生空item | 已有片段保留；空尾段允许，不按文本去重；同item内容冲突的第二个final整轮失败 | A/B |
+| V-IN-09 | append/commit失败或item缺失后仍收到barrier `session.updated` | 整轮失败/不完整，不发布部分Final，不推进世界；**不存在超时返回部分文字的成功路径** | A/B |
 | V-IN-10 | 关闭栅栏未返回前用户开始下一轮 | 新采样不混入旧连接；采用显式策略，不隐式双提交 | A/C |
+| V-IN-11 | 服务只下发 delta/completed/failed，无 committed/cleared/item.created | 仍能按首见序收口；不依赖已下线事件 | A |
+| V-IN-12 | 收到 `speechrail.transcription.hypothesis`（含旧revision） | 只作可撤销草稿；正文只取 completed | A |
+| V-IN-13 | barrier `session.updated` 的有效配置与请求漂移 | 整轮失败；不得采信该 barrier | A |
+| V-IN-14 | envelope `content_index` 非 0 | 拒绝该 envelope，不当作主内容 | A |
+| V-IN-15 | 首个 server sequence 为 0 或 1，其后连续 | 接受；非0/1首值或任意 gap 均拒绝 | A |
+| V-IN-16 | 未配置 api key | 不发送 `Authorization`，不发送空 Bearer | A |
+| V-IN-17 | 升级前被拒（HTTP 401/403，无 close code） | 结构化失败；不伪造 invalid-key 结论 | A |
+| V-IN-18 | 取消/错误/超时/成功四种终态 | 全部关闭连接；下一轮必须重连并取得新 epoch | A |
+| V-IN-19 | render receipt 缺失/401/404/摘要不符 | 整轮失败并清理临时音频，绝不升格为完整 take | A/B |
+| V-IN-20 | 麦克风/PTT/duplex/ASR wire 采样率 | 全部为 24 kHz；非 24 kHz 的 chunk 在 PTT 边界被拒 | A |
 | V-CTL-06 | 仅MediaStop/Pause，pending世界工作尚在进行 | 不调用Domain cancel_pending；显式取消是另一用例 | A/C |
 | V-CTL-01 | pending turn取消与Writer COMMIT同时发生 | 唯一线性化结果，commit胜出则仅停播放 | A/C |
 | V-CTL-02 | 网络cancel阻塞、服务忙 | 本机stop不等待网络或LLM | A/C |

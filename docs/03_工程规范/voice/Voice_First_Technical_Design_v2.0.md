@@ -1,7 +1,7 @@
 # Voice-First Runtime v2.0 — 技术设计
 
 日期：2026-09-19。状态：**架构设计基线；部分能力已实现，仍非完整上线能力**。W-V00 已合并，W-V01 正在 PR #71 收尾；后续状态见[接续指南](../../07_工程启动/Voice_First_Handoff_2026-09-19.md)。
-固定代码基线：WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。
+固定代码基线：WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；SpeechRail `3a1b02e07a573041d08920a09efc195af794332f`。
 
 入口：[语音工作包](README.md)；[当前接续指南](../../07_工程启动/Voice_First_Handoff_2026-09-19.md)；[实施计划](../../07_工程启动/Voice_First_Implementation_Plan_v2.0.md)；[跨仓契约](SpeechRail_Integration_Contract_v1.0.md)；[验收矩阵](../../07_工程启动/Voice_First_Acceptance_v2.0.md)。
 
@@ -39,7 +39,7 @@
 
 固定版本已提供 Realtime ASR/TTS、HTTP 音频流、VoiceDesign/Base 双 capability worker、目录、生成参考注册及质量探针。[SR1–SR6]
 
-已有的能力不能重复申请为“新增”：ResourceGovernor 已有 realtime reservation、batch FIFO/aging 与 capability lane；worker 已有参考**波形**缓存；Realtime 已有 `response.cancel` 与 `response.done`；目录已区分 voice 的 variant 与基本能力。
+已有的能力不能重复申请为“新增”：ResourceGovernor 已有 realtime reservation、batch FIFO/aging 与 capability lane；worker 已有参考**波形**缓存；Realtime 已有 `speechrail.tts.cancel` 与三段式 `speechrail.tts.start/append_text/finish_text` 及其终态；目录已区分 voice 的 variant 与基本能力。
 
 实际待补的是：一致快照与精确参数域、不可变 revision 与推理条件检查、HTTP 可验证完成/优先级、编码后参考条件缓存、独立身份/表演质量证据。Base clone 现阶段拒绝 instructions、非 1.0 speed 和调用方 seed；`/voices/designs` 注册成功不代表 Base 合成质量已通过。
 
@@ -113,15 +113,17 @@ Turn:  RECEIVED → ... → VALIDATING → COMMITTED → EXPRESSING → DELIVERE
 Media: PREPARING → BUFFERING → PLAYING ↔ PAUSED → COMPLETED/INTERRUPTED/FAILED
 ```
 
-ASR `input_audio_buffer.committed` 是转录缓冲边界，不是游戏 COMMIT。多个 ASR item 通过 `(asr_connection_epoch,item_id)` 去重并归入一个 `input_turn_id`；按 `committed` 事件的服务 sequence 建立提交次序，不按 final 到达时间拼接。当前 SpeechRail 的 `previous_item_id` 固定为空，不能依赖它构造前驱链；相同文本但不同 item 也不能按文本去重。
+**SpeechRail 4.0 起，上游不再下发 `input_audio_buffer.committed` / `input_audio_buffer.cleared` / `conversation.item.created`**，因此 item 成员与次序改由**首见顺序**决定：首个 `delta` / `completed` / `failed` 到达即登记，既不按 final 到达时间拼接，也不依赖 `previous_item_id`。多个 ASR item 仍通过 `(asr_connection_epoch,item_id)` 去重并归入一个 `input_turn_id`；相同文本但不同 item 不能按文本去重。ASR 的 item 边界是转录缓冲边界，**不是游戏 COMMIT**。
 
-UtteranceAssembler 维护本轮本机输入范围、已观测 committed item 集合、成功/失败终态与关闭栅栏。当前没有普通 ASR 的显式客户端 finish 水位回执，不能假设服务回传了本机采样范围。
+UtteranceAssembler 维护本轮本机输入范围、已观测 item 集合（首见序）、成功/失败终态与关闭栅栏。当前没有普通 ASR 的显式客户端 finish 水位回执，不能假设服务回传了本机采样范围。
 
-首版 manual、无 diarization 的独立连接采用已有收口路径：停止采集 → 排空本轮 append 写队列 → 串行发送唯一 commit → clear → 等待 cleared。当前服务普通事件 FIFO，commit 等待 reader，clear 清理后响应；这个顺序使 cleared 成为排空栅栏。收口完成前禁止下一轮 append 混入该连接。
+首版 manual、无 alignment/diarization 的独立连接采用 4.0 收口路径：停止采集 → 排空本轮 append 写队列 → 串行发送唯一 commit → **重发完全相同的 `session.update`** → 等待 `session.updated`。当前服务普通事件 FIFO（仅 `speechrail.tts.cancel` 走控制队列），commit 等待 ASR reader，因此这个 update 只可能在 commit handler 排空之后被处理，其 `session.updated` 即排空栅栏。收口完成前禁止下一轮 append 混入该连接。
 
-**cleared 不等于识别成功**：必须同时确认本轮全部已观测 committed item 成功终结、无相关 append/commit 错误、无未解决的连接/sequence 缺口。失败或缺项为 `TRANSCRIPT_INCOMPLETE`，不提交部分 Advice。空尾 item 可接受，全轮为空不制造建议。取消直接 clear 属于丢弃，不得走正常成功收口分支。该栅栏不证明文本正确或源样本逐个收到；只在已核验实现/契约的版本上启用，不因为 OpenAI-compatible 就推广到其他服务。
+**`session.updated` 不等于识别成功**：必须同时确认有效配置未漂移、本轮全部已观察 item 成功终结、无相关 append/commit 错误、无未解决的连接/sequence 缺口。失败或缺项为 `TRANSCRIPT_INCOMPLETE`，不提交部分 Advice。空尾 item 可接受，全轮为空不制造建议。取消属于丢弃，不得走正常成功收口分支。该栅栏不证明文本正确或源样本逐个收到；**它是锁定实现的消费者屏障，不是通用保证**——只在已核验实现/契约的版本上启用，不因为 OpenAI-compatible 就推广到其他服务；服务若改变队列或 commit reader 等待行为，消费者必须 fail closed。
 
-该方案沿用 SpeechRail 历史 #10 的 legacy EOF，不要求新 API，也不启用额外 diarization 模型。公共契约与组合回归由 [SR-V08 / SpeechRail #69](https://github.com/hrygo/SpeechRail/issues/69) 固化；详见[开工规格](../../07_工程启动/Voice_First_Kickoff_Spec_v1.0.md)。重连创建新 connection epoch；不重播未确认 PCM 来“猜测恢复”。
+`speechrail.transcription.hypothesis` 是**可修订草稿**：按 `(utterance_id, revision)` 更新，旧 revision 作废。它**不进入 FinalTranscript**，与最终 item 缺少可证明关联时只作临时全局草稿显示。终态一律以 `completed` 文本为准。
+
+4.0 契约见 [SR-V08 / SpeechRail #69](https://github.com/hrygo/SpeechRail/issues/69) 与固定基线 `3a1b02e0`；详见[开工规格](../../07_工程启动/Voice_First_Kickoff_Spec_v1.0.md)。重连创建新 connection epoch；不重播未确认 PCM 来“猜测恢复”。
 
 VAD 选择唯一主控：首版按键说话 + manual finish；再开放本地 endpointing，server_vad 仅为互斥配置。用户停顿、自我修正、否定句歧义不以 partial 执行。服务器产生的自动 rollover 仍纳入本轮聚合。
 
@@ -139,6 +141,7 @@ VAD 选择唯一主控：首版按键说话 + manual finish；再开放本地 en
 
 - 取消先赢：返回 `cancelled_before_commit`；释放 pending 工作，不生成世界结果。
 - Commit 先赢：返回 `already_committed` 及 committed revision；只停止表达，新建议创建新 turn。
+- render receipt 缺失/被拒/摘要不符：整轮失败并清理临时音频，**绝不**升格成完整 take；已完成的独立单元仍可合法回放。
 - ACK 丢失：查询原 turn 的幂等状态，不重新生成/重复提交。
 
 客户端显示的 PRE_COMMIT 标签不能当作数据库尚未 Commit 的证据。取消 provider 失败不影响本机已停止，不允许旧 PCM 因迟到 ACK 再次入队。
@@ -147,7 +150,9 @@ VAD 选择唯一主控：首版按键说话 + manual finish；再开放本地 en
 
 ### 6.1 SpeechRail 起步路线
 
-ASR 连接只用于输入和转写，`turn_detection=null/manual`；TTS 连接只发送一条已封定 SpeechUnit 的 `conversation.item.create`，之后 `response.create`。等待该 response 的成功 `response.done` 才认为后端生成完整。首版一个活跃 TTS response，后续单元顺序排队；后台批任务不得偷偷争抢同一路径。
+ASR 连接只用于输入和转写，`session.update` 中 `task=transcription`、TTS/alignment/diarization 全 false、`turn_detection=null`；TTS 连接只发送一条已封定 SpeechUnit 的 `speechrail.tts.start`，随后逐段 `append_text`（ACK 门控，单段在途）并以 `finish_text` 收束。等待该任务的 `speechrail.tts.completed` **并**取回 `by-request` render receipt 后才认为后端生成完整。首版一个活跃 render，后续单元顺序排队；后台批任务不得偷偷争抢同一路径。
+
+receipt 只证明音频**交给 transport**，完整性边界为 `pcm16_after_transport_send`；它**不等于用户听到**。DeliveryCursor 的 `scheduled` / `rendered` / `measured` 证据级别与 receipt 相互独立，不得升格描述。
 
 两条连接不意味着创建两套模型。它们仍服从 SpeechRail 现有 worker 准入，连接数与可执行推理数分开。`/v1/realtime` 不支持 `conversation.item.truncate`，客户端不发送它；用户已输出位置由游戏保存。
 
@@ -263,12 +268,12 @@ RenderKey 使用带私有 key 的 HMAC(canonical_json)，覆盖实际 provider i
 
 本地取得的是两仓固定 SHA 的 UTF-8 源码/文档范围快照及完整文件清单，不含二进制和完整 Git 历史；每个导出文件校验 Git blob SHA 与 SHA-256。没有运行 SpeechRail 服务、模型、benchmark 或 UI 自动化。代码事实与本文件提案分开。
 
-- SR1 [服务定位与现有入口](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/README.md)
-- SR2 [实际TTS参数、BATCH_TTS与PCM返回](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/audio.py#L1380-L1548)
-- SR3 [现有Realtime契约](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/contracts/realtime-openai.md)
-- SR4 [波形缓存与Base生成调用](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/backends/qwen3_tts_worker.py#L458-L594)
-- SR5 [voice目录/幂等/质量入口](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/system.py)
-- SR6 [双capability与生成参考注册边界](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/docs/architecture/quality-voice-capabilities.md)
+- SR1 [服务定位与现有入口](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/README.md)
+- SR2 [实际TTS参数、BATCH_TTS与PCM返回](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/http/routes/audio.py#L1380-L1548)
+- SR3 [现有Realtime契约](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/contracts/realtime-openai.md)
+- SR4 [波形缓存与Base生成调用](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/backends/qwen3_tts_worker.py#L458-L594)
+- SR5 [voice目录/幂等/质量入口](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/http/routes/system.py)
+- SR6 [双capability与生成参考注册边界](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/docs/architecture/quality-voice-capabilities.md)
 - E1 [Apple voice processing](https://developer.apple.com/videos/play/wwdc2023/10235/)：平台能力依据，不是本App设备验收。
 - E2 [Qwen官方VoiceDesign/Base与可复用clone prompt](https://github.com/QwenLM/Qwen3-TTS)：上游能力依据，不能推导锁定MLX vendor已有相同接口。
 - E3 [OpenAI TTS流式输出](https://developers.openai.com/api/docs/guides/text-to-speech)：云端可选适配依据，不是所有兼容服务的能力承诺。

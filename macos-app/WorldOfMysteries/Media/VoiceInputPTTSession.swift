@@ -79,7 +79,7 @@ public final class VoiceInputPTTSession {
             do {
                 for try await chunk in stream {
                     guard chunk.channels == 1,
-                          chunk.sampleRate == 16_000,
+                          chunk.sampleRate == SpeechRailRealtimeWire.sampleRate,
                           chunk.frameCount > 0,
                           chunk.data.count == chunk.frameCount * MemoryLayout<Int16>.size
                     else {

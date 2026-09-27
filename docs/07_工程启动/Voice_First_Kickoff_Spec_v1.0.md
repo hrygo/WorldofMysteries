@@ -2,7 +2,7 @@
 
 日期：2026-09-19。状态：**实施输入与测试规格，尚未编码或执行用例**。
 
-本文件细化[实施计划](Voice_First_Implementation_Plan_v2.0.md)的 W-V00/W-V02/W-V03；总设计以[Voice-First v2](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)为准，上游事项见[跨仓契约](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)。固定审查基线为 WoM `591b490`、SpeechRail `28755de8`。正式编码必须重新固定当时基线、pack 并取得所需范围。
+本文件细化[实施计划](Voice_First_Implementation_Plan_v2.0.md)的 W-V00/W-V02/W-V03；总设计以[Voice-First v2](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)为准，上游事项见[跨仓契约](../03_工程规范/voice/SpeechRail_Integration_Contract_v1.0.md)。固定审查基线为 WoM `591b490`、SpeechRail `3a1b02e0`。正式编码必须重新固定当时基线、pack 并取得所需范围。
 
 ## 1. 首批实现范围与入口
 
@@ -53,39 +53,48 @@
 
 ### 3.1 为什么使用已有栅栏
 
-当前SpeechRail为普通事件维护FIFO handler，`_commit_audio`会等待reader，而clear在清理后返回cleared；历史#10的legacy EOF已采用commit→clear。`previous_item_id`则固定为空。因此起步应固化该已有顺序，而非假设服务器支持自造finish_id，或为取得分人EOF而启用额外模型。
+**2026-09-28 修订（SpeechRail 4.0 / `3a1b02e0`）**：4.0 不再下发 `input_audio_buffer.cleared`，也不再有 `input_audio_buffer.committed` 与 `conversation.item.created`。收口栅栏因此改为
+`commit → 重发完全相同的 session.update → session.updated`：普通事件仍由 FIFO handler 串行执行（仅 `speechrail.tts.cancel` 走控制队列），`commit` 等待 ASR reader 后退出，所以紧随其后的 update 只可能在排空完成后被处理。
 
-使用条件：独立ASR连接、manual/null、无diarization、一个客户端写队列、一次仅一个未收口input_turn。服务版本需要契约/fixture验证；泛OpenAI兼容服务不自动继承这一保证。
+使用条件：独立ASR连接、`task=transcription`、manual/null、TTS/alignment/diarization 全 false、一个客户端写队列、一次仅一个未收口input_turn。`previous_item_id`固定为空，不依赖它构造前驱链。
+
+> **这是锁定实现的消费者屏障，不是通用保证。** 服务若改变队列或 commit reader 等待行为，消费者必须 fail closed。泛OpenAI兼容服务不自动继承这一保证。
 
 ### 3.2 客户端状态与数据
 
-每轮持有：connection_epoch、input_turn_id、本机输入帧范围、client事件账本、committed item顺序、terminal集合、相关errors、finish_requested、barrier_seen、取消标识及绝对本机期限。
+每轮持有：connection_epoch、input_turn_id、本机输入帧范围、client事件账本、**首见序** item 列表、terminal集合、相关errors、finish_requested、barrier_seen、取消标识及绝对本机期限。
 
-- 服务完整sequence先用于连接连续性检查，再把事件分发给assembler；若SDK丢弃未知事件，不能只凭筛选后的序号跳跃判断丢包。
-- item按首次committed的服务sequence排序；final异步处理可能乱序，但不得按final回调时间重新排序。
-- `(epoch,item_id)`决定正文所属片段。相同event ID/内容可去重；重复ID而内容冲突须失败。同文不同item是两段实际话语，不能按文本去重。
+- 服务完整sequence先用于连接连续性检查，再把事件分发给assembler。上游实现的首个sequence为1而schema允许0，故**只放宽首值为0或1**，之后严格要求连续，不容忍任意gap或回退。
+- **item按首见顺序排序**：首个 `delta` / `completed` / `failed` 到达即登记成员与次序。final异步处理可能乱序，但不得按final回调时间重新排序。completed可先于delta到达，并覆盖该item的草稿。
+- `(epoch,item_id)`决定正文所属片段。相同event ID/内容可去重；重复ID而内容冲突须失败。**同一item出现内容不同的两个final属于矛盾，整轮失败。** 同文不同item是两段实际话语，不能按文本去重。
 - partial是UI草稿；最终只使用各item的completed全文，不把全部delta再加一次。
+- `speechrail.transcription.hypothesis` 是**可修订草稿**，按 `(utterance_id, revision)` 更新、旧revision作废。它**不进入FinalTranscript**；与最终item缺少可证明关联时只作临时全局草稿显示。
+- alignment/diarization 事件本迭代已禁用；即便到达也只被识别与忽略，**不得改变文本终态**，更不得绕过envelope序号校验。
 
-正常结束时停止采集，完成重采样尾部处理，将全部append交给同一写队列后，发送commit和clear。网络send完成只表示本机交付给传输层，不代表逐样本服务接收；这里利用FIFO与最终栅栏，不制造采样ACK。
+正常结束时停止采集，完成重采样尾部处理（重采样状态跨块保留，设备切换重建epoch），将全部append交给同一写队列后，发送commit与那份**完全相同**的 `session.update`。网络send完成只表示本机交付给传输层，不代表逐样本服务接收；这里利用FIFO与最终栅栏，不制造采样ACK。
 
 ```text
 CAPTURING
   → stop capture + drain local append queue
   → enqueue commit
-  → enqueue clear
+  → enqueue the identical session.update   （barrier）
   → FINALIZING（禁止混入下一轮append）
-  → cleared AND all observed committed items completed
+  → session.updated AND effective config unchanged
+                AND all observed items completed
                 AND no relevant error/gap/cancel
-  → FINAL_READY，按committed次序合并一次
+  → FINAL_READY，按首见序合并一次
 ```
 
-全轮空正文返回EMPTY，不创建Advice。只要有failed/missing、append被拒绝、commit失败、连接关闭或无法消除的顺序缺口，返回INCOMPLETE/FAILED；即使稍后cleared到达也不变成成功。超时不以“先用已经识别的部分”推进世界。
+barrier 的 `session.updated` 只证明普通handler已排空，**不表示后台alignment已完成**（本迭代已禁用）。仅收到某个final、或先到的rollover final，都**不得**提前完成本轮。
 
-取消分支只丢弃输入并clear或关闭连接，不发布Final。重连使用新epoch，不回放未确认的旧PCM。收口期间再次按PTT：第一版明确显示“正在结束上一段”并要求重试；不能悄悄录入后丢弃，也不能自动把两个建议并成一个。更复杂的有界双缓冲只作为后续独立优化。
+全轮空正文返回EMPTY，不创建Advice。只要有failed/missing、append被拒绝、commit失败、配置漂移、连接关闭或无法消除的顺序缺口，返回INCOMPLETE/FAILED；即使稍后barrier到达也不变成成功。**超时不以“先用已经识别的部分”推进世界，也不存在“超时返回部分文字”的成功路径。**
+
+取消分支只丢弃输入并关闭连接，不发布Final。**成功、失败、超时与取消都会关闭连接**，下一轮必须重连并获得新的 connection epoch。重连使用新epoch，不回放未确认的旧PCM。收口期间再次按PTT：第一版明确显示“正在结束上一段”并要求重试；不能悄悄录入后丢弃，也不能自动把两个建议并成一个。更复杂的有界双缓冲只作为后续独立优化。
 
 ### 3.3 可直接翻译为测试的事件轨迹
 
-下列是测试记法，不是新增API；C=committed，F=completed，X=failed/error，B=cleared。
+下列是测试记法，不是新增API；C=首见item，F=completed，X=failed/error，B=barrier `session.updated`。
+（4.0 已无 committed/cleared 事件；C 表示「首个 delta/completed/failed 登记该 item」。）
 
 | 轨迹 | 预期判定 |
 |---|---|
@@ -99,6 +108,13 @@ CAPTURING
 | C(a), F(a,“完整”), connection closed before B | 未证明收口；显式重试，不自动重放PCM |
 | cancel requested, B | CANCELLED，无Advice |
 | old epoch F(a) after new connection | 丢弃旧事件，不污染新轮次 |
+| C(a), H(u1,r0,"先观"), H(u1,r1,"先观察"), F(a,"先观察。"), B | H 仅作草稿且被r1覆盖；正文只取F |
+| C(a), H(u1,r1,"先观察"), H(u1,r0,"旧草稿"), F(a,"先观察。"), B | 旧revision作废；不得复活旧草稿 |
+| C(a), F(a,"先观察"), B with drifted config | 配置漂移，整轮失败；不得采信该barrier |
+| C(a), F(a,"先观察"), B with non-zero content_index earlier | 非主内容被拒；整轮失败 |
+| first sequence = 0, then 1, 2 … | 接受（schema允许0、实现从1起） |
+| first sequence = 7 | 拒绝；不放宽为任意gap |
+| C(a), F(a,"前段"), C(b) with no final, B | 缺终态，整轮失败；b的partial不得升格 |
 
 第二条是客户端异步分发防御用例，不宣称当前服务器在同一WS故意逆序。该算法证明协议层的闭合条件，不替代ASR识别质量和源采样级回执。
 
@@ -150,10 +166,10 @@ WebSocket的全量服务sequence与媒体CHUNK局部seq分离。源帧坐标、�
 
 SpeechRail链接固定于审查SHA：
 
-- [普通事件FIFO与错误关联](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/realtime_openai.py)
-- [commit等待reader及clear实现](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/application/realtime_openai.py)
-- [previous_item_id构造](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/compatibility/openai_realtime.py)
-- [既有rollover/clear回归](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/tests/test_realtime_openai.py)
+- [普通事件FIFO与错误关联](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/http/routes/realtime_openai.py)
+- [commit等待reader及clear实现](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/application/realtime_openai.py)
+- [previous_item_id构造](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/compatibility/openai_realtime.py)
+- [既有rollover/clear回归](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/tests/test_realtime_openai.py)
 - [历史语音准入Issue #10及legacy EOF](https://github.com/hrygo/SpeechRail/issues/10)
 
 本文件的错误枚举、内部ProbeReport、客户端算法与测试轨迹属于设计建议，尚未发布为当前SDK接口。
