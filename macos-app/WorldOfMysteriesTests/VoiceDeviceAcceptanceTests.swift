@@ -87,16 +87,30 @@ struct VoiceDeviceAcceptanceTests {
         let stream = try session.start()
         var chunks = 0
         var totalFrames = 0
+        var nonzero = 0
         for try await chunk in stream {
             #expect(chunk.sampleRate == 24_000)
             #expect(chunk.channels == 1)
             #expect(chunk.frameCount > 0)
             #expect(chunk.data.count == chunk.frameCount * 2)
+            chunk.data.withUnsafeBytes { raw in
+                nonzero += raw.bindMemory(to: Int16.self).filter { $0 != 0 }.count
+            }
             chunks += 1
             totalFrames += chunk.frameCount
             if chunks >= 12 { break }
         }
         session.stop()
+        // A structurally silent capture is the failure this suite exists to
+        // catch: every chunk arrives at the right rate with the right byte
+        // count and contains nothing but zeroes, so a turn would record a
+        // mute microphone and report success. Shape-only assertions pass it.
+        #expect(
+            nonzero > 0,
+            """
+            capture produced \(totalFrames) frames of pure silence across \
+            \(chunks) chunks; the route is delivering no audio
+            """)
         #expect(chunks > 0)
         #expect(totalFrames > 0)
     }
@@ -238,8 +252,10 @@ struct VoiceDeviceAcceptanceTests {
         let wanted = Int(24_000 * seconds)
         var slice: [Int16] = []
         slice.reserveCapacity(wanted)
+        var chunks = 0
         for try await chunk in stream {
             #expect(chunk.sampleRate == 24_000)
+            chunks += 1
             chunk.data.withUnsafeBytes { raw in
                 let binding = raw.bindMemory(to: Int16.self)
                 slice.append(contentsOf: binding)
