@@ -1,11 +1,11 @@
 # Voice-First Runtime v2.0 — 验收矩阵与证据口径
 
-日期：2026-09-19；2026-09-28 按 SpeechRail 4.0（`3a1b02e0`）修订用例。状态：**验收规范**。
+日期：2026-09-19；2026-09-28 按 SpeechRail 4.0（`3a1b02e0`）修订用例，并补录 B 层实机证据。状态：**验收规范**。
 关联[技术方案](../03_工程规范/voice/Voice_First_Technical_Design_v2.0.md)、[实施任务](Voice_First_Implementation_Plan_v2.0.md)。
 
-> **本轮只出具 A 层证据**。V-IN-11 ~ V-IN-20 及既有 A 层用例已有回归覆盖；
-> **B（固定真实 SpeechRail）与 C（macOS 真机玩法）本轮未执行**，不得据 A 层结论推断其通过。
-> 未跑即未通过，不得补写推断值。
+> **本轮出具 A 层与 B 层证据**。V-IN-11 ~ V-IN-20 及既有 A 层用例已有回归覆盖；
+> **B 层（固定真实 SpeechRail）已于 2026-09-28 实机执行**，证据见 §1.1；
+> **C（macOS 真机玩法）本轮未执行**，不得据 A/B 层结论推断其通过。未跑即未通过，不得补写推断值。
 
 ## 1. 四层证据必须分别出具
 
@@ -19,6 +19,55 @@
 每个报告包含 code SHA、artifact/tree、协议版本、模型/variant/制品 revision、声音版本、平台/设备/路由、冷暖状态、负载、测试样本数、工具版本、原始指标摘要与已知不足。缺字段填 unknown，不补推断值。代码 CI 不等于声学批准。
 
 SpeechRail 自动化/真实模型请求按其 AGENTS 授权执行；UI 自动化会占用界面，必须另有明确授权。此方案只提交文档与 Issue，没有运行它们。
+
+### 1.1 B 层实机证据（2026-09-28）
+
+执行对象为**运行中的真实 SpeechRail 服务**，非 fixture、非 mock、非源码推断。
+
+| 字段 | 取值 |
+|---|---|
+| code SHA | `2cab49f4eda1`（发布制品 `speechrail-3.3.1-cp314-cp314-macosx_27_0_arm64-2cab49f4eda1-py3147`） |
+| 契约版本 | Realtime `4.0.0`；`effective_capabilities_v1` |
+| 服务版本 | `3.3.1`（包版本与契约版本为两套独立编号） |
+| 端点 | `http://127.0.0.1:8201/v1`，`ws://…/v1/realtime` |
+| 模型 | ASR `asr-1.7b-q8`；TTS `tts-1.7b-custom-q8`（`custom_voice` variant） |
+| profile | `quality/quality`；`asr_ready` / `tts_ready` / `diarization_ready` / `realtime_vad.ready` 均为 true |
+| 冷暖状态 | `tts_warm=false`，`tts_state=active`（首请求触发升温） |
+| 声音 | `aiden`（system voice，`voice_revision=null`） |
+| 测试样本数 | 1 次完整 render；2 次裸 session 协商（1 正 1 负） |
+| 平台 | macOS 26+ / arm64，本机 loopback |
+| 工具版本 | Python 3.14.7，pytest 9.1.1，asyncio mode=auto |
+
+实测结果：
+
+| 检查 | 断言 | 结果 |
+|---|---|---|
+| 能力协商 | `/v1/speechrail/capabilities` 返回 `schema_version=effective_capabilities_v1`，`websocket_path=/v1/realtime` | ✅ |
+| 握手 | `session.created → session.update → session.updated`，phase 达到 `ready` | ✅ |
+| 正向 session | `audio/input/format.rate=24000` 被接受，回包同为 24000 | ✅ |
+| **负向 session** | `rate=16000`（4.0 前的合法值）被真实服务拒绝，返回 `error` | ✅ |
+| 渲染终态 | `status=completed`，`task_id` / `plan_id` 均单值 | ✅ |
+| 音频完整性 | 22 chunk × 1920 帧 = 42240 帧 = 84480 字节（`pcm16`，2 字节/帧） | ✅ |
+| 连续性 | `sample_offset` 从 0 起严格递增无空洞；`sum(frame_count) == total_frames` | ✅ |
+| 采样率 | 渲染时长 1.760 s @ 24 kHz，receipt `pcm_sample_rate=24000`、`channels=1` | ✅ |
+| **render receipt** | REST 回读 receipt：`receipt_id` 一致、`status=completed`、`sample_count` 与 `pcm_sha256` 与本地流式摘要逐字节相符 | ✅ |
+| 证据边界 | `integrity_boundary=pcm16_after_transport_send` | ✅ |
+
+**B 层能证明的**：真实服务确实说 `effective_capabilities_v1` / Realtime 4.0；24 kHz 单声道 `pcm16` 采样格式真实生效；16 kHz 真实被拒；三段式 `start → append_text → finish_text` 状态机与真实服务互通；`sample_offset` 无空洞；render receipt 的摘要与流式接收一致。
+
+**B 层不能证明的**：扬声器已发声（receipt 边界止于 transport 之后）；端到端游戏提交；AEC 与真机时延。这些属 C 层，**本轮未执行**。
+
+复跑方式（opt-in，默认 skip，不进任何门禁档案）：
+
+```bash
+cd engine
+WOM_LIVE_BASE_URL=http://127.0.0.1:8201/v1 \
+WOM_LIVE_API_KEY=<本机 SpeechRail 凭据> \
+  uv run --extra dev pytest tests/test_speechrail_live_contract.py -v
+```
+
+未知项：`voice_revision` 为 `null`（system voice 未经用户发布路径），故带
+`expected_voice_revision` 的分支与 pinned voice 的 upgrade/rollback 行为本轮**未覆盖**。
 
 ## 2. 自动化回归矩阵（测试名称建议，待实现）
 
