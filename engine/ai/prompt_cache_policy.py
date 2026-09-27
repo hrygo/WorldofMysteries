@@ -6,7 +6,7 @@ from enum import Enum
 import hashlib
 from typing import Any
 
-from engine.application.context_plan import ContextError, canonical_json, identifier, parse_json
+from application.context_plan import ContextError, canonical_json, identifier, parse_json
 from .prompt_renderer import RenderedPrompt
 
 

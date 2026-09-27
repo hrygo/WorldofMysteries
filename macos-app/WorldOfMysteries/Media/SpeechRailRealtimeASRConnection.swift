@@ -115,7 +115,7 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
     public init(
         baseURL: URL = URL(string: "http://127.0.0.1:8201/v1")!,
         apiKey: String? = nil,
-        model: String = "whisper-1",
+        model: String = SpeechRailRealtimeSessionConfiguration.registeredASRModel,
         sampleRate: Int = SpeechRailRealtimeWire.sampleRate,
         language: String? = "zh",
         prompt: String? = nil,
@@ -230,6 +230,28 @@ public nonisolated struct SpeechRailRealtimeASRConfiguration: Sendable, Equatabl
 /// `speechrail` pins the task and disables the auxiliary capabilities. Manual
 /// turn detection stays off because the app owns the turn boundary.
 public nonisolated struct SpeechRailRealtimeSessionConfiguration: Sendable, Equatable {
+    /// The one ASR profile SpeechRail 4.0 registers.
+    ///
+    /// OpenAI aliases such as `whisper-1` are accepted on the wire, but the
+    /// service echoes the canonical id back. The handshake compares the
+    /// `session.updated` echo against the request with `==`, so the client has
+    /// to ask for the canonical id rather than an alias that resolves to it.
+    public static let registeredASRModel = "speechrail/qwen3-asr-1.7b"
+
+    /// The task this client requests.
+    ///
+    /// `session.created` reports the *service* defaults, which carry whatever
+    /// task the service starts with (`conversation`), not the task sent in the
+    /// `session.update` that follows. Only `session.updated` proves the applied
+    /// configuration, so only that event is checked against this value.
+    public static let requestedTask = "transcription"
+
+    /// Every task the wire schema accepts, used to tell "a different session"
+    /// apart from "not a SpeechRail session at all".
+    public static let supportedTasks: Set<String> = [
+        "conversation", "caption", "transcription", "render", "voice_design",
+    ]
+
     public let model: String
     public let language: String?
     public let prompt: String?
@@ -279,7 +301,7 @@ public nonisolated struct SpeechRailRealtimeSessionConfiguration: Sendable, Equa
     /// are accepted and ignored, never allowed to change the text terminal.
     private var speechrailObject: [String: Any] {
         [
-            "task": "transcription",
+            "task": Self.requestedTask,
             "tts": ["enabled": false],
             "alignment": ["enabled": false],
             "diarization": ["enabled": false],
@@ -287,9 +309,16 @@ public nonisolated struct SpeechRailRealtimeSessionConfiguration: Sendable, Equa
     }
 
     /// Parse the `session` object of a `session.created` / `session.updated`
-    /// event. Anything the client asked for but the service did not echo is a
-    /// mismatch, not a silently accepted default.
-    public static func parse(_ object: Any) throws -> Self {
+    /// event.
+    ///
+    /// Pass `requiringTask` only for `session.updated`, the single event that
+    /// proves the service applied what this client asked for. `session.created`
+    /// precedes the request and legitimately reports service defaults, so it
+    /// passes `nil` and is checked for shape only.
+    public static func parse(
+        _ object: Any,
+        requiringTask: String? = nil
+    ) throws -> Self {
         guard let session = object as? [String: Any],
               (session["type"] as? String) == "transcription",
               let audio = session["audio"] as? [String: Any],
@@ -306,11 +335,14 @@ public nonisolated struct SpeechRailRealtimeSessionConfiguration: Sendable, Equa
         }
 
         // The service may echo the speechrail block nested or hoisted; both
-        // describe the same session, so accept either placement.
+        // describe the same session, so accept either placement. Nested wins,
+        // matching how the service merges the two on update.
         let speechrail = (input["speechrail"] as? [String: Any])
             ?? (session["speechrail"] as? [String: Any])
         guard let speechrail,
-              (speechrail["task"] as? String) == "transcription",
+              let echoedTask = speechrail["task"] as? String,
+              supportedTasks.contains(echoedTask),
+              requiringTask.map({ $0 == echoedTask }) ?? true,
               (speechrail["tts"] as? [String: Any])?["enabled"] as? Bool == false,
               (speechrail["alignment"] as? [String: Any])?["enabled"] as? Bool == false,
               (speechrail["diarization"] as? [String: Any])?["enabled"] as? Bool == false

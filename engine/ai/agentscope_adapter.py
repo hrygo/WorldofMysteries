@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Awaitable, Callable, Protocol
 
-from engine.application.context_plan import ContextError
+from application.context_plan import ContextError
 from .gateway import ModelReply
 from .prompt_cache_policy import ProviderProfile, WireRequest
 

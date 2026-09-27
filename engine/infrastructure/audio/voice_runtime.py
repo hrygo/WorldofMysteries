@@ -106,6 +106,10 @@ class SealedSpeechUnitRegistry:
         for unit_id in expired:
             self._entries.pop(unit_id, None)
 
+    def clear(self) -> None:
+        """Drop every sealed unit at engine shutdown; none of it is durable."""
+        self._entries.clear()
+
     def __len__(self) -> int:
         self._discard_expired(self._clock())
         return len(self._entries)
@@ -147,6 +151,18 @@ class VoiceRenderRuntime:
         if unit.provider_instance != self.provider_instance:
             raise VoiceRenderRuntimeError("voice_render_provider_instance_mismatch")
         self.sealed_units.publish(unit)
+
+    async def aclose(self) -> None:
+        """Drop every pending grant and sealed unit at engine shutdown.
+
+        Registries are in-memory presentation state; nothing durable is lost and
+        no provider connection is held open between renders.
+        """
+        async with self._control_lock:
+            self._unit_reservations.clear()
+            self._stream_units.clear()
+        self._pending.clear()
+        self.sealed_units.clear()
 
     async def handle_control(
         self,

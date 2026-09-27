@@ -54,7 +54,7 @@ private actor FakeSpeechRailRealtimeTransport: SpeechRailRealtimeASRTransport {
 struct SpeechRailRealtimeASRConnectionTests {
     /// A service-side `session` echo.
     private func sessionJSON(
-        model: String = "whisper-1",
+        model: String = SpeechRailRealtimeSessionConfiguration.registeredASRModel,
         language: String? = "zh",
         prompt: String? = nil,
         keywords: [String] = [],
@@ -95,7 +95,7 @@ struct SpeechRailRealtimeASRConnectionTests {
 
     private func primeHandshake(
         _ transport: FakeSpeechRailRealtimeTransport,
-        model: String = "whisper-1",
+        model: String = SpeechRailRealtimeSessionConfiguration.registeredASRModel,
         language: String? = "zh"
     ) async {
         await transport.push(
@@ -111,14 +111,25 @@ struct SpeechRailRealtimeASRConnectionTests {
     @Test("The handshake proves the exact effective configuration before the turn starts")
     func handshakeProvesEffectiveConfiguration() async throws {
         let transport = FakeSpeechRailRealtimeTransport()
-        await transport.push(
-            server("session.created", sequence: 1, eventID: "s1",
-                   extra: "\"session\":\(sessionJSON())")
+        let echoed = sessionJSON(
+            model: "whisper-1",
+            prompt: "只转写玩家说话",
+            keywords: ["克莱恩"]
         )
-        await transport.push(
-            server("session.updated", sequence: 2, eventID: "s2",
-                   extra: "\"session\":\(sessionJSON(prompt: "只转写玩家说话", keywords: ["克莱恩"]))")
+        let created = server(
+            "session.created",
+            sequence: 1,
+            eventID: "s1",
+            extra: "\"session\":\(echoed)"
         )
+        let updated = server(
+            "session.updated",
+            sequence: 2,
+            eventID: "s2",
+            extra: "\"session\":\(echoed)"
+        )
+        await transport.push(created)
+        await transport.push(updated)
         let configuration = SpeechRailRealtimeASRConfiguration(
             apiKey: "local-secret",
             model: "whisper-1",
@@ -233,6 +244,58 @@ struct SpeechRailRealtimeASRConnectionTests {
         do {
             _ = try await connection.connect()
             Issue.record("A TTS-enabled echo was accepted")
+        } catch let failure as SpeechRailRealtimeASRFailure {
+            #expect(failure == .invalidEnvelope)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("Service defaults on session.created do not fail the handshake")
+    func serviceDefaultsOnCreatedAccepted() async throws {
+        // The real service opens the socket with its own defaults — task
+        // `conversation` and the canonical model id — before this client has
+        // sent anything. Only the `session.updated` that follows proves the
+        // applied configuration, so `created` must be read for shape only.
+        let transport = FakeSpeechRailRealtimeTransport()
+        let registered = SpeechRailRealtimeSessionConfiguration.registeredASRModel
+        let created = server(
+            "session.created",
+            sequence: 1,
+            eventID: "s1",
+            extra: "\"session\":\(sessionJSON(model: registered, language: nil, task: "conversation"))"
+        )
+        let updated = server(
+            "session.updated",
+            sequence: 2,
+            eventID: "s2",
+            extra: "\"session\":\(sessionJSON(model: registered))"
+        )
+        await transport.push(
+            created
+        )
+        await transport.push(updated)
+        let connection = SpeechRailRealtimeASRConnection(transport: transport)
+        let info = try await connection.connect()
+        #expect(info.serviceSessionID == "sess-1")
+        #expect(info.session.model == registered)
+    }
+
+    @Test("An updated echo that resolves to another task fails the handshake")
+    func updatedTaskMismatchRejected() async {
+        let transport = FakeSpeechRailRealtimeTransport()
+        await transport.push(
+            server("session.created", sequence: 1, eventID: "s1",
+                   extra: "\"session\":\(sessionJSON())")
+        )
+        await transport.push(
+            server("session.updated", sequence: 2, eventID: "s2",
+                   extra: "\"session\":\(sessionJSON(task: "caption"))")
+        )
+        let connection = SpeechRailRealtimeASRConnection(transport: transport)
+        do {
+            _ = try await connection.connect()
+            Issue.record("An echo that resolved to another task was accepted")
         } catch let failure as SpeechRailRealtimeASRFailure {
             #expect(failure == .invalidEnvelope)
         } catch {

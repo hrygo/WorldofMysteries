@@ -80,6 +80,75 @@ class SQLiteVoiceBindingRepository:
             raise StorageError("VoiceBinding not found")
         return _from_row(rows[0])
 
+    async def reserve(self, binding: VoiceBinding) -> VoiceBinding:
+        """Persist one new binding reservation; an identical retry replays."""
+        if not isinstance(binding, VoiceBinding):
+            raise StorageError("VoiceBinding reservation requires a typed binding")
+        scope = binding.scope
+
+        def apply(tx: PresentationTransaction):
+            rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "
+                "AND presentation_identity=? AND phase=? AND locale=?",
+                (
+                    scope.owner_id,
+                    scope.world_id,
+                    scope.worldline_id,
+                    scope.presentation_identity,
+                    scope.phase,
+                    scope.locale,
+                ),
+            )
+            if rows:
+                if len(rows) != 1:
+                    raise StorageError("VoiceBinding scope uniqueness is corrupted")
+                existing = _from_row(rows[0])
+                if existing == binding:
+                    return existing
+                raise VoiceBindingConflict("voice binding scope is already reserved")
+            tx.execute(
+                "INSERT INTO voice_bindings("
+                "binding_id,owner_id,world_id,worldline_id,presentation_identity,phase,locale,"
+                "logical_voice_id,persona_revision,provider_instance,provider_voice_id,assurance,"
+                "voice_revision,model_catalog_revision,provider_revoked,binding_revision,status,"
+                "reserved_at_world_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                _values(binding),
+            )
+            return binding
+
+        return await self.database.presentation_write(apply)
+
+    async def activate(
+        self, binding_id: str, *, expected_binding_revision: int
+    ) -> VoiceBinding:
+        """Move one reservation to ACTIVE under presentation-domain CAS."""
+        if not isinstance(binding_id, str) or not binding_id.strip():
+            raise StorageError("binding_id is required")
+
+        def apply(tx: PresentationTransaction):
+            rows = tx.execute(
+                "SELECT * FROM voice_bindings WHERE binding_id=?", (binding_id,)
+            )
+            if len(rows) != 1:
+                raise StorageError("VoiceBinding not found")
+            current = _from_row(rows[0])
+            activated = current.activate(
+                expected_binding_revision=expected_binding_revision
+            )
+            if activated == current:
+                return current
+            tx.execute(
+                "UPDATE voice_bindings SET binding_revision=?,status=? WHERE binding_id=?",
+                (
+                    activated.binding_revision,
+                    activated.status.value,
+                    binding_id,
+                ),
+            )
+            return activated
+
+        return await self.database.presentation_write(apply)
+
     async def load_scope(self, scope: VoiceBindingScope) -> VoiceBinding | None:
         rows = await self.database.read_world(
             "SELECT * FROM voice_bindings WHERE owner_id=? AND world_id=? AND worldline_id=? "

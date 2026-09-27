@@ -9,11 +9,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from application.advice_action import AdviceActionError
+from application.advice_interpretation import AdviceInterpretationError
 from application.story_session_facade import (
     StoryFacadeError,
     StorySessionFacade,
     SubmitAdviceCommand,
 )
+from contracts import InputMode
 
 from .story_bootstrap_repository import StoryBootstrapError
 from .story_session_query import StoryQueryError
@@ -29,9 +32,16 @@ STORY_METHODS = (
     "story.session.open",
     "story.session.get",
     "story.advice.submit",
+    "story.turn.submit",
     "story.advice.get",
 )
-STORY_MUTATIONS = frozenset({"story.session.open", "story.advice.submit"})
+STORY_MUTATIONS = frozenset(
+    {"story.session.open", "story.advice.submit", "story.turn.submit"}
+)
+# ``story.turn.submit`` is the live, voice-capable sibling of the frozen
+# ``story.advice.submit``.  It carries the same durability guarantees and adds an
+# explicit input mode so a SpeechRail transcript can never be replayed as text.
+_INPUT_MODES = {"text": InputMode.TEXT, "voice": InputMode.VOICE}
 
 StoryRequestHandler = Callable[
     [Mapping[str, object], Mapping[str, object]],
@@ -52,6 +62,8 @@ _PUBLIC_CODES = frozenset(
         "story_session_not_active",
         "service_unavailable",
         "storage_failure",
+        "model_unavailable",
+        "voice_unavailable",
     }
 )
 _CODE_ALIASES = {
@@ -66,7 +78,11 @@ _CODE_ALIASES = {
     "story_session_corrupt": "recovery_required",
     "committed_turn_missing_story_revision": "recovery_required",
 }
-_RETRYABLE_CODES = frozenset({"service_unavailable", "storage_failure"})
+# A model outage is retryable: nothing was committed, so the caller may safely
+# retry the same idempotent input turn.
+_RETRYABLE_CODES = frozenset(
+    {"service_unavailable", "storage_failure", "model_unavailable"}
+)
 
 
 class _Rejected(RuntimeError):
@@ -85,6 +101,7 @@ def story_control_handlers(
         "story.session.open": _wire(_open, facade, "story.session.open"),
         "story.session.get": _wire(_get, facade, "story.session.get"),
         "story.advice.submit": _wire(_submit, facade, "story.advice.submit"),
+        "story.turn.submit": _wire(_submit_turn, facade, "story.turn.submit"),
         "story.advice.get": _wire(_get_advice, facade, "story.advice.get"),
     }
 
@@ -102,6 +119,11 @@ def _wire(
             return view.model_dump(mode="json", exclude_none=True), None, False
         except _Rejected as exc:
             return None, exc.code, False
+        except (AdviceInterpretationError, AdviceActionError) as exc:
+            # A model worker that cannot produce a schema-valid candidate is a
+            # capability outage, not a malformed request. The pre-COMMIT input
+            # receipt stays durable and a retry replays the same turn id.
+            return None, _code("model_unavailable"), True
         except (StoryFacadeError, StoryQueryError, StoryBootstrapError) as exc:
             code = _code(exc.code)
             return None, code, _retryable(code, method)
@@ -223,6 +245,43 @@ async def _submit(facade, context, payload):
             session_id=session_id,
             input_turn_id=input_turn_id,
             raw_input=_raw_input(payload["raw_input"]),
+            expected_story_revision=_revision(
+                payload["expected_story_revision"], expected=True
+            ),
+            expected_store_revision=_revision(
+                payload["expected_store_revision"], expected=True
+            ),
+            request_id=_context_text(context, "request_id"),
+            trace_id=_context_text(context, "trace_id"),
+        )
+    )
+
+
+async def _submit_turn(facade, context, payload):
+    _schema(
+        payload,
+        (
+            "schema_version",
+            "session_id",
+            "input_turn_id",
+            "raw_input",
+            "input_mode",
+            "expected_story_revision",
+            "expected_store_revision",
+        ),
+    )
+    raw_mode = payload["input_mode"]
+    if not isinstance(raw_mode, str) or raw_mode not in _INPUT_MODES:
+        raise _Rejected("schema_invalid")
+    session_id = _identifier(payload["session_id"])
+    input_turn_id = _identifier(payload["input_turn_id"])
+    _idempotency(context, input_turn_id)
+    return await facade.submit_live(
+        SubmitAdviceCommand(
+            session_id=session_id,
+            input_turn_id=input_turn_id,
+            raw_input=_raw_input(payload["raw_input"]),
+            input_mode=_INPUT_MODES[raw_mode],
             expected_story_revision=_revision(
                 payload["expected_story_revision"], expected=True
             ),

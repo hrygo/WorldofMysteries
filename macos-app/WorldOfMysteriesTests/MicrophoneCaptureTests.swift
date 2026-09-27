@@ -57,7 +57,16 @@ struct MicrophoneCaptureTests {
         #expect(MicrophoneCaptureConfiguration().targetSampleRate == 24_000)
         #expect(SpeechRailRealtimeWire.sampleRate == 24_000)
         #expect(SpeechRailRealtimeASRConfiguration().sampleRate == 24_000)
-        #expect(SpeechRailRealtimeASRConfiguration().effectiveSession == SpeechRailRealtimeSessionConfiguration(model: "whisper-1", language: "zh"))
+        // The default must be the canonical registered id, not an OpenAI alias:
+        // the service echoes back what it resolved to, and the handshake
+        // compares that echo against the request.
+        #expect(
+            SpeechRailRealtimeASRConfiguration().effectiveSession
+                == SpeechRailRealtimeSessionConfiguration(
+                    model: SpeechRailRealtimeSessionConfiguration.registeredASRModel,
+                    language: "zh"
+                )
+        )
     }
 
     @Test("App package keeps Sandbox while explicitly granting audio input")

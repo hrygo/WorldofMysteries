@@ -162,6 +162,10 @@ class PendingVoiceRenderRegistry:
             raise VoiceRenderControlError("voice_render_generation_mismatch")
         return pending
 
+    def clear(self) -> None:
+        """Drop every pending association at engine shutdown."""
+        self._entries.clear()
+
     def discard(self, media_stream_id: str) -> None:
         self._entries.pop(media_stream_id, None)
 

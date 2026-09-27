@@ -17,17 +17,32 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     /// Explicit persistent storage root for story facts. Never inferred from cwd
     /// and never accepted over IPC.
     public let dataRoot: URL?
+    /// SpeechRail voice to bind for sealed rendering. Omit to run without an
+    /// audio plane; the Engine then reports `voice_ready: false` instead of
+    /// pretending it can speak.
+    public let voiceId: String?
+    /// Narrow overlay merged into the child environment.
+    ///
+    /// Only the keys the caller names are added, and nothing is removed: the
+    /// child still inherits the sanitized parent environment. Credentials belong
+    /// here rather than in the repository, and the Engine treats every one of
+    /// them as optional.
+    public let environment: [String: String]
 
     public init(
         executableURL: URL,
         moduleDirectory: URL,
         runtimeRoot: URL? = nil,
-        dataRoot: URL? = nil
+        dataRoot: URL? = nil,
+        voiceId: String? = nil,
+        environment: [String: String] = [:]
     ) {
         self.executableURL = executableURL
         self.moduleDirectory = moduleDirectory
         self.runtimeRoot = runtimeRoot
         self.dataRoot = dataRoot
+        self.voiceId = voiceId
+        self.environment = environment
     }
 
     public static func bundled(in bundle: Bundle = .main) throws -> Self {
@@ -238,9 +253,14 @@ public actor EngineProcessManager {
             child.arguments = ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
                                "--token-fd", "0", "--parent-pid", String(ProcessInfo.processInfo.processIdentifier)]
                 + (config.dataRoot.map { ["--data-root", $0.path] } ?? [])
-            child.environment = ProcessInfo.processInfo.environment.filter {
+                + (config.voiceId.map { ["--voice-id", $0] } ?? [])
+            var childEnvironment = ProcessInfo.processInfo.environment.filter {
                 !$0.key.hasPrefix("PYTHON") && !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("LD_") && $0.key != "VIRTUAL_ENV"
             }
+            for (key, value) in config.environment where !childEnvironment.keys.contains(key) {
+                childEnvironment[key] = value
+            }
+            child.environment = childEnvironment
             child.standardInput = input
             child.standardOutput = FileHandle.nullDevice
             child.standardError = FileHandle.nullDevice

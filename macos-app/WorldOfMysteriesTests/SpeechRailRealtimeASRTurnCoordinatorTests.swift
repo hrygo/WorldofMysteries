@@ -130,7 +130,10 @@ private actor ScriptedASRTurnTransport: SpeechRailRealtimeASRTransport {
                     "audio": [
                         "input": [
                             "format": ["type": "audio/pcm", "rate": 24_000],
-                            "transcription": ["model": "whisper-1", "language": "zh"],
+                            "transcription": [
+                                "model": SpeechRailRealtimeSessionConfiguration.registeredASRModel,
+                                "language": "zh",
+                            ],
                             "turn_detection": NSNull(),
                             "speechrail": speechrail,
                         ],

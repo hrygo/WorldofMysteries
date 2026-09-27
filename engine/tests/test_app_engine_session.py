@@ -53,7 +53,14 @@ def app_driver(tmp_path_factory):
     binary = tmp_path_factory.mktemp('swift-engine') / 'driver'
     sources = ['IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
                'EngineSocketTransport', 'EngineIPCClient', 'EngineProcessManager', 'EngineConnectionState',
-               'StorySessionControl', 'StoryRequestJournal', 'StorySessionModel', 'AppState']
+               'StorySessionControl', 'StoryRequestJournal', 'StorySessionModel', 'AppState',
+               # AppState owns the voice turn controller, so the media stack it
+               # composes is part of compiling the real App, not an extra.
+               'Media/VoiceTurnController', 'Media/EngineMediaPlaybackSession',
+               'Media/NativePlayback', 'Media/PlaybackInterruption',
+               'Media/UnixMediaFrameTransport', 'Media/MicrophoneCapture',
+               'Media/SpeechRailRealtimeASR', 'Media/SpeechRailRealtimeASRConnection',
+               'Media/SpeechRailRealtimeASRTurnCoordinator', 'Media/VoiceInputPTTSession']
     # The production ArtifactContext declaration is Foundation-only but shares a
     # file with SwiftUI-dependent artwork. Extract that declaration byte-for-byte;
     # AppState and every connection/process implementation are compiled in full.

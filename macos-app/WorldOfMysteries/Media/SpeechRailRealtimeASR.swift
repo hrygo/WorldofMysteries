@@ -165,12 +165,20 @@ public nonisolated struct SpeechRailASRServerEnvelope: Sendable, Equatable {
         let event: SpeechRailASRServerEvent
         switch base.type {
         case "session.created":
+            // The service reports its own defaults here, before this client
+            // has sent anything, so the task is not the one we will request.
             event = .sessionCreated(
-                try SpeechRailRealtimeSessionConfiguration.parse(object["session"])
+                try SpeechRailRealtimeSessionConfiguration.parse(
+                    object["session"],
+                    requiringTask: nil
+                )
             )
         case "session.updated":
             event = .sessionUpdated(
-                try SpeechRailRealtimeSessionConfiguration.parse(object["session"])
+                try SpeechRailRealtimeSessionConfiguration.parse(
+                    object["session"],
+                    requiringTask: SpeechRailRealtimeSessionConfiguration.requestedTask
+                )
             )
         case "conversation.item.input_audio_transcription.delta":
             try requirePrimaryContentIndex()

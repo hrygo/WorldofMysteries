@@ -70,6 +70,22 @@ public actor EngineIPCClient {
     }
 
 
+    /// True only when the Engine advertised the whole sealed-render path.
+    ///
+    /// Checking all three together matters: `media.open` without `voice.render`
+    /// would hand out a grant nothing can serve, and `voice.render` without
+    /// `media.open` has nowhere to stream. Reporting "unavailable" is honest
+    /// about a voice-less Engine instead of failing mid-turn.
+    public var voiceRenderAvailable: Bool {
+        guard let capabilities = handshake?.capabilities else { return false }
+        return capabilities.isSuperset(of: ["media.open", "voice.render"])
+    }
+
+    /// True when the Engine can commit an arbitrary player turn, typed or spoken.
+    public var liveTurnAvailable: Bool {
+        handshake?.capabilities.contains("story.turn.submit") ?? false
+    }
+
     public func openMedia(
         direction: MediaDirection,
         generation: Int64,
@@ -266,6 +282,20 @@ public actor EngineIPCClient {
     ) async throws -> StoryAdviceSubmitViewDTO {
         try await storyRequest(
             method: "story.advice.submit",
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
+    /// Commit one live player turn. `inputMode` must describe how the text was
+    /// produced: a SpeechRail transcript is `.voice`, never `.text`.
+    public func storyTurnSubmit(
+        _ request: StoryTurnSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyRequest(
+            method: "story.turn.submit",
             payload: request,
             traceId: traceId,
             idempotencyKey: request.inputTurnId

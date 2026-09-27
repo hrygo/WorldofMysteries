@@ -1,26 +1,55 @@
-"""Composition root for the trusted Golden 001 product runtime.
+"""Composition root for the trusted product runtime.
 
 The runtime binds the frozen content artifact (read-only canon role), the
-engineering world database under an explicit persistent data root, the existing
-application services and the public story control handlers. It never creates an
+engineering world database under an explicit persistent data root, the
+application services and the public story control handlers.  It never creates an
 empty canon database and never learns storage paths from IPC payloads.
+
+Two capabilities are optional and are reported honestly in ``system.health``:
+
+``model``
+    Configured only when ``WOM_MODEL_BASE_URL`` and ``WOM_MODEL_NAME`` name an
+    endpoint.  Without them the runtime keeps the frozen Golden 001 fixture and
+    reports ``model_ready: false``.
+
+``voice``
+    Configured only when a SpeechRail endpoint is reachable *and* the named
+    voice is content-addressed.  Capability discovery is a startup probe, not an
+    assumption, so ``voice_ready`` tracks what was actually proven.
 """
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
+from ai.live_turn_workers import LiveFirstTurnFactory
+from ai.openai_compatible import ModelEndpointConfig, ModelTransportError
+from application.audio_disclosure import AudioDisclosureAuthorizer
+from application.post_commit_expression import PostCommitExpressionService
+from application.speech_unit import SpeechUnitSealingService
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     StoryInitializationService,
     TrustedScenarioBundle,
 )
-from application.story_session_facade import StorySessionFacade
-from application.post_commit_expression import PostCommitExpressionService
 from application.story_session_open import StorySessionOpenService
+from application.story_session_facade import (
+    PublicStorySessionView,
+    StorySessionFacade,
+    SubmitAdviceCommand,
+    TurnDeliveryView,
+)
+from application.story_turn_commit import StoryTurnCommitResult
 
+from .audio.config import AudioProviderConfig
+from .audio.voice_delivery import (
+    TurnDeliveryError,
+    TurnDeliveryOutcome,
+    TurnDeliveryPipeline,
+)
+from .audio.voice_runtime import VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
@@ -38,10 +67,16 @@ from .story_session_open_repository import SQLiteStorySessionOpenPort
 from .story_session_query import SQLiteStorySessionQuery
 from .story_session_repository import SQLiteStorySessionCommitPort
 from .turn_intake_repository import SQLiteTurnInputCommandPort
+from .voice_binding_repository import SQLiteVoiceBindingRepository
+from .voice_binding_resolver import (
+    VoiceBindingResolutionError,
+    resolve_voice_runtime,
+)
 
 ENGINEERING_WORLD_ID = "engineering-golden001"
 CONTENT_ARTIFACT_NAME = "canon.db"
 FIVE_TURN_DIRNAME = "five_turn"
+DICTIONARY_REVISION = "wom-zh-cn-v1"
 
 
 def default_content_path() -> Path:
@@ -71,6 +106,7 @@ class StoryRuntimeConfig:
     data_root: Path
     content_path: Path
     world_id: str = ENGINEERING_WORLD_ID
+    voice_id: str | None = None
 
     @classmethod
     def for_data_root(
@@ -79,11 +115,13 @@ class StoryRuntimeConfig:
         *,
         content_path: Path | None = None,
         world_id: str = ENGINEERING_WORLD_ID,
+        voice_id: str | None = None,
     ) -> StoryRuntimeConfig:
         return cls(
             data_root=Path(data_root),
             content_path=Path(content_path) if content_path else default_content_path(),
             world_id=world_id,
+            voice_id=voice_id,
         )
 
     def paths(self) -> DatabasePaths:
@@ -107,6 +145,8 @@ class StoryRuntime:
         database: DatabaseManager,
         facade: StorySessionFacade,
         content: TrustedScenarioBundle,
+        model_ready: bool,
+        voice: VoiceRenderRuntime | None,
     ) -> None:
         self._database = database
         self._facade = facade
@@ -118,6 +158,8 @@ class StoryRuntime:
         self._beat_plans = SQLiteBeatPlanRepository(database)
         self._episodes = SQLiteEpisodeFinalizationRepository(database)
         self._projector = OutboxProjector(database)
+        self._model_ready = model_ready
+        self._voice = voice
         self._handlers = story_control_handlers(facade)
 
     @classmethod
@@ -127,6 +169,9 @@ class StoryRuntime:
         *,
         expected_sqlite_version: str | None = None,
         fault_hook: Callable[[str], None] | None = None,
+        model_endpoint: ModelEndpointConfig | None = None,
+        audio_config: AudioProviderConfig | None = None,
+        fetch_json=None,
     ) -> StoryRuntime:
         content_repository = SQLiteStoryContentRepository(config.content_path)
         content = await content_repository.load(GOLDEN_SCENARIO_ID)
@@ -137,27 +182,61 @@ class StoryRuntime:
             fault_hook=fault_hook,
         )
         try:
-            facade = cls._build_facade(
-                database, content_repository, content, catalog, config.content_path
+            voice = cls._open_voice(audio_config)
+            facade = await cls._build_facade(
+                database,
+                content_repository,
+                content,
+                catalog,
+                config.content_path,
+                config=config,
+                model_endpoint=model_endpoint,
+                voice=voice,
+                audio_config=audio_config,
+                fetch_json=fetch_json,
             )
         except BaseException:
+            if voice is not None:
+                await voice.aclose()
             await database.close()
             raise
-        return cls(database=database, facade=facade, content=content)
+        return cls(
+            database=database,
+            facade=facade,
+            content=content,
+            model_ready=model_endpoint is not None,
+            voice=voice,
+        )
 
     @staticmethod
-    def _build_facade(
+    def _open_voice(audio_config: AudioProviderConfig | None) -> VoiceRenderRuntime | None:
+        """Build the render runtime only for a named SpeechRail provider."""
+        if audio_config is None:
+            return None
+        if audio_config.provider_name.casefold() != "speechrail":
+            return None
+        return VoiceRenderRuntime(provider_instance=audio_config.provider_name)
+
+    @classmethod
+    async def _build_facade(
+        cls,
         database: DatabaseManager,
         content_repository: SQLiteStoryContentRepository,
         content: TrustedScenarioBundle,
         catalog: GoldenFiveTurnCatalog,
         content_path: Path,
+        *,
+        config: StoryRuntimeConfig,
+        model_endpoint: ModelEndpointConfig | None,
+        voice: VoiceRenderRuntime | None,
+        audio_config: AudioProviderConfig | None,
+        fetch_json,
     ) -> StorySessionFacade:
-        factory = GoldenFiveTurnFactory(catalog)
+        golden = GoldenFiveTurnFactory(catalog)
         settlement = FiveTurnSettlement(
             database=database,
             expression=PostCommitExpressionService(
-                templates=factory.expression_templates,
+                templates=golden.expression_templates,
                 beats=_SettlementBeatPlanPort(
                     SQLiteBeatPlanRepository(database), database
                 ),
@@ -165,24 +244,57 @@ class StoryRuntime:
             ),
             content_path=content_path,
         )
+        query = SQLiteStorySessionQuery(
+            database,
+            supported_advice=(content.advice_template.raw_input,),
+        )
+        # The live factory keeps the frozen turn policy, authored inputs and
+        # validated resolution rules; only interpretation and proposal are
+        # swapped for a real model. Without a model the frozen golden path runs
+        # unchanged, so the scenario is never silently faked.
+        first_turn = (
+            LiveFirstTurnFactory.from_config(model_endpoint, golden)
+            if model_endpoint is not None
+            else golden
+        )
+        narrative_port = SQLiteNarrativeBlockRepository(database)
+        bindings = SQLiteVoiceBindingRepository(database)
+        delivery = _DeliveryCoordinator(
+            query=query,
+            narratives=narrative_port,
+            bindings=bindings,
+            voice=voice,
+            audio_config=audio_config,
+            voice_id=config.voice_id,
+            first_turn=first_turn,
+            fetch_json=fetch_json,
+        )
         return StorySessionFacade(
             initialization=StoryInitializationService(content_repository),
             open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
-            query=SQLiteStorySessionQuery(
-                database,
-                supported_advice=(content.advice_template.raw_input,),
-            ),
+            query=query,
             intake=SQLiteTurnInputCommandPort(database),
             advice=SQLitePlayerAdviceRepository(database),
             story=SettlingCommitPort(
                 SQLiteStorySessionCommitPort(database), settlement
             ),
-            first_turn=factory,
+            first_turn=first_turn,
+            after_commit=delivery.after_commit,
         )
 
     @property
     def request_handlers(self) -> dict[str, StoryRequestHandler]:
         return dict(self._handlers)
+
+    @property
+    def control_handlers(self) -> dict[str, Callable[[Mapping[str, object]], Awaitable[tuple[dict[str, object] | None, str | None]]]]:
+        if self._voice is None:
+            return {}
+        return {"voice.render": self._voice.handle_control}
+
+    @property
+    def media_session_handler(self):
+        return None if self._voice is None else self._voice.media_handler
 
     @property
     def capabilities(self) -> tuple[str, ...]:
@@ -205,13 +317,150 @@ class StoryRuntime:
         return self._content.scenario_id
 
     def health(self) -> dict[str, bool]:
-        # The fixed first-turn proposer is not a live model or voice service.
+        # Readiness is what was actually proven at startup, never an aspiration.
+        # The frozen Golden 001 proposer is not a live model, and a render
+        # runtime that was never built cannot serve audio.
         return {
             "transport_ready": True,
             "world_ready": True,
-            "model_ready": False,
-            "voice_ready": False,
+            "model_ready": self._model_ready,
+            "voice_ready": self._voice is not None,
         }
 
     async def close(self) -> None:
+        if self._voice is not None:
+            await self._voice.aclose()
         await self._database.close()
+
+
+class _DeliveryCoordinator:
+    """Resolve the session's voice binding, then narrate, seal and hand off."""
+
+    def __init__(
+        self,
+        *,
+        query: SQLiteStorySessionQuery,
+        narratives: SQLiteNarrativeBlockRepository,
+        bindings: SQLiteVoiceBindingRepository,
+        voice: VoiceRenderRuntime | None,
+        audio_config: AudioProviderConfig | None,
+        voice_id: str | None,
+        first_turn: object,
+        fetch_json,
+    ) -> None:
+        self._query = query
+        self._narratives = narratives
+        self._bindings = bindings
+        self._voice = voice
+        self._audio = audio_config
+        self._voice_id = voice_id
+        self._first_turn = first_turn
+        self._fetch_json = fetch_json
+
+    async def after_commit(
+        self,
+        command: SubmitAdviceCommand,
+        result: StoryTurnCommitResult,
+        view: PublicStorySessionView,
+    ) -> TurnDeliveryView:
+        """Post-COMMIT expression.  A failure here never touches Domain state."""
+        if self._voice is None or self._audio is None or not self._voice_id:
+            return TurnDeliveryView(state="unavailable", reason="voice_not_configured")
+        try:
+            snapshot = await self._query.session(command.session_id)
+        except Exception:
+            return TurnDeliveryView(state="unavailable", reason="session_unavailable")
+
+        compiler = self._first_turn.narrative_compiler(  # type: ignore[attr-defined]
+            snapshot.bootstrap
+        )
+        try:
+            resolved = await resolve_voice_runtime(
+                repository=self._bindings,
+                session=snapshot.session,
+                config=self._audio,
+                voice_id=self._voice_id,
+                fetch_json=self._fetch_json,
+            )
+        except VoiceBindingResolutionError as exc:
+            return TurnDeliveryView(state="unavailable", reason=exc.code)
+
+        pipeline = TurnDeliveryPipeline(
+            narratives=self._narratives,
+            sealing=SpeechUnitSealingService(
+                disclosure=AudioDisclosureAuthorizer(self._narratives),
+                bindings=self._bindings,
+            ),
+            voice=self._voice,
+            binding_scope=resolved.scope,
+            expected_binding_revision=resolved.binding.binding_revision,
+            execution_model_id=resolved.execution_model_id,
+            dictionary_revision=DICTIONARY_REVISION,
+            seal_arguments={
+                "semantic_anchors": (),
+                "pronunciation_rules": (),
+                "desired_performance": resolved.performance,
+                "performance_capabilities": resolved.capabilities,
+            },
+            narrate=_narrator(compiler, command, result, snapshot.bootstrap),
+        )
+        try:
+            receipt = await pipeline.deliver(
+                TurnDeliveryOutcome(
+                    turn_id=result.turn.id,
+                    session_id=command.session_id,
+                    story_revision=result.turn.committed_story_revision or 0,
+                    state_delta_id=result.delta.id,
+                    scene_id=result.delta.story_delta.scene_id,
+                    protagonist_id=result.session.protagonist_id,
+                    player_action=command.raw_input,
+                    character_reply="",
+                    outcome_summary=_outcome_summary(result, snapshot.bootstrap),
+                )
+            )
+        except TurnDeliveryError as exc:
+            return TurnDeliveryView(state="unavailable", reason=exc.code)
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id=receipt.narrative_block_id,
+            speech_unit_id=receipt.speech_unit_id,
+            spoken_text=receipt.spoken_text,
+            render_recipe=receipt.render_recipe,
+        )
+
+
+def _narrator(compiler, command: SubmitAdviceCommand, result: StoryTurnCommitResult, bootstrap):
+    async def narrate(committed: str) -> str:
+        return await compiler.compile(committed=f"{committed}\n玩家原话：{command.raw_input}")
+
+    return narrate
+
+
+def _outcome_summary(result: StoryTurnCommitResult, bootstrap) -> str:
+    """Describe only committed, already-disclosed facts.
+
+    Clue identifiers are rendered through the scenario's display-name table, so
+    the narrator never receives a canonical or hidden identifier.
+    """
+    names = bootstrap.presentation.clue_display_names
+    delta = result.delta
+    added = [names.get(cid, cid) for cid in (delta.story_delta.clue_ids_add or ())]
+    parts = [f"结果判定：{delta.outcome}"]
+    if added:
+        parts.append("玩家发现了：" + "、".join(added))
+    story = delta.story_delta
+    if story.scene_id:
+        parts.append(f"场景转为：{story.scene_id}")
+    if story.world_time_delta_minutes:
+        parts.append(f"世界时间推进：{story.world_time_delta_minutes} 分钟")
+    return "\n".join(parts)
+
+
+__all__ = [
+    "DICTIONARY_REVISION",
+    "ENGINEERING_WORLD_ID",
+    "ModelTransportError",
+    "StoryRuntime",
+    "StoryRuntimeConfig",
+    "default_content_path",
+]

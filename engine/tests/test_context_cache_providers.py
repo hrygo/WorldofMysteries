@@ -1,10 +1,10 @@
 from dataclasses import replace
 import pytest
 
-from engine.application.context_plan import ContextError
-from engine.ai.cache_metrics import CacheUsage, aggregate_hit_rate, normalize_usage
-from engine.ai.prompt_cache_policy import CacheMode, Protocol, ProviderProfile, render_wire
-from engine.ai.prompt_renderer import PromptRenderer
+from application.context_plan import ContextError
+from ai.cache_metrics import CacheUsage, aggregate_hit_rate, normalize_usage
+from ai.prompt_cache_policy import CacheMode, Protocol, ProviderProfile, render_wire
+from ai.prompt_renderer import PromptRenderer
 from engine.tests.test_context_compiler import rendered
 from engine.tests.test_context_epoch import plan_with_history
 

@@ -154,8 +154,14 @@ public actor EngineMediaPlaybackSession {
                         Int64(header.offsetFrames + Int64(header.frameCount))
                     )
 
-                    // Credit is replenished only after the backend has consumed/
-                    // released the chunk passed to NativePlaybackActor.
+                    // Credit is replenished once the chunk has been handed to
+                    // NativePlaybackActor, which is where it becomes the
+                    // backend's problem. It deliberately does NOT wait for the
+                    // device to finish playing: the Engine is streaming an
+                    // incrementally rendered utterance whose producer tolerates
+                    // only a 48 KB pending buffer and 2 s of slow consumption, so
+                    // pacing the Engine by real-time playback would abort the
+                    // render upstream long before the audio finished.
                     let credit = MediaCreditHeader(
                         streamId: grant.streamId,
                         generation: grant.generation,

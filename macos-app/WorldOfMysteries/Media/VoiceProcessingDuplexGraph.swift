@@ -37,7 +37,7 @@ public struct VoiceProcessingDuplexStack {
 public enum VoiceProcessingDuplexFactory {
     public static func make(
         microphoneConfiguration: MicrophoneCaptureConfiguration = .init(),
-        maxQueuedBytes: Int = 256 * 1024
+        maxQueuedBytes: Int = NativePlaybackCapacity.sealedUtteranceBytes
     ) -> VoiceProcessingDuplexProvision {
         guard microphoneConfiguration.targetSampleRate == SpeechRailRealtimeWire.sampleRate,
               (128...4096).contains(microphoneConfiguration.tapFrameCount),

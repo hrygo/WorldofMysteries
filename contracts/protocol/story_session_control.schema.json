@@ -228,6 +228,90 @@
       },
       "additionalProperties": false
     },
+    "input_mode": {
+      "description": "How the player delivered this turn. voice marks a SpeechRail transcript and is recorded on the durable receipt so a replay can never be reinterpreted as typed text.",
+      "enum": ["text", "voice"]
+    },
+    "turn_submit_request": {
+      "description": "story.turn.submit accepts whatever the player actually said, typed or spoken. It shares every durability and revision guard with story.advice.submit and adds an explicit input mode.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "input_turn_id",
+        "raw_input",
+        "input_mode",
+        "expected_story_revision",
+        "expected_store_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "input_turn_id": {"$ref": "#/$defs/identifier"},
+        "raw_input": {"$ref": "#/$defs/raw_input"},
+        "input_mode": {"$ref": "#/$defs/input_mode"},
+        "expected_story_revision": {"$ref": "#/$defs/expected_revision"},
+        "expected_store_revision": {"$ref": "#/$defs/expected_revision"}
+      },
+      "additionalProperties": false
+    },
+    "voice_render_recipe": {
+      "description": "The exact sealed render recipe. The App replays it verbatim into voice.render and only supplies media_stream_id and generation itself, so a client can never choose the voice, its revision or the speed for a committed turn.",
+      "type": "object",
+      "required": [
+        "speech_unit_id",
+        "turn_id",
+        "story_revision",
+        "narrative_block_id",
+        "segment_index",
+        "performance_plan_id",
+        "spoken_text",
+        "voice_id",
+        "expected_voice_revision",
+        "expected_model_revision",
+        "speed",
+        "language"
+      ],
+      "properties": {
+        "speech_unit_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "story_revision": {"$ref": "#/$defs/revision"},
+        "narrative_block_id": {"$ref": "#/$defs/identifier"},
+        "segment_index": {"type": "integer", "minimum": 0, "maximum": 131071},
+        "performance_plan_id": {"$ref": "#/$defs/identifier"},
+        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "voice_id": {"$ref": "#/$defs/identifier"},
+        "expected_voice_revision": {"$ref": "#/$defs/identifier"},
+        "expected_model_revision": {"type": ["string", "null"], "maxLength": 256},
+        "speed": {"type": "number", "exclusiveMinimum": 0, "maximum": 4},
+        "language": {"type": ["string", "null"], "maxLength": 64}
+      },
+      "additionalProperties": false
+    },
+    "turn_delivery": {
+      "description": "Post-COMMIT expression state. unavailable never means the turn was lost: the Domain commit already succeeded and stays durable, and only the audible rendering is missing.",
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {"enum": ["ready", "unavailable"]},
+        "narrative_block_id": {"$ref": "#/$defs/identifier"},
+        "speech_unit_id": {"$ref": "#/$defs/identifier"},
+        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 128},
+        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "ready"}}, "required": ["state"]},
+          "then": {"required": ["narrative_block_id", "speech_unit_id", "spoken_text", "render_recipe"]}
+        },
+        {
+          "if": {"properties": {"state": {"const": "unavailable"}}, "required": ["state"]},
+          "then": {"required": ["reason"]}
+        }
+      ],
+      "additionalProperties": false
+    },
     "advice_get_request": {
       "type": "object",
       "required": ["schema_version", "session_id", "input_turn_id"],
@@ -295,7 +379,20 @@
         "schema_version": {"const": "1.0"},
         "receipt": {"$ref": "#/$defs/committed_receipt"},
         "session": {"$ref": "#/$defs/public_story_session_view"},
-        "replayed": {"type": "boolean"}
+        "replayed": {"type": "boolean"},
+        "delivery": {"$ref": "#/$defs/turn_delivery"}
+      },
+      "additionalProperties": false
+    },
+    "turn_submit_response": {
+      "type": "object",
+      "required": ["schema_version", "receipt", "session", "replayed"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "receipt": {"$ref": "#/$defs/committed_receipt"},
+        "session": {"$ref": "#/$defs/public_story_session_view"},
+        "replayed": {"type": "boolean"},
+        "delivery": {"$ref": "#/$defs/turn_delivery"}
       },
       "additionalProperties": false
     },

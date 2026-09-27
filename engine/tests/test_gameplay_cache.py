@@ -1,11 +1,11 @@
 from dataclasses import replace
 import pytest
 
-from engine.application.context_plan import ContextError
-from engine.application.gameplay_context import GameplayMode
-from engine.ai.gameplay_cache import GameplayAIGateway, GameplayCachePlanner
-from engine.ai.gateway import ExecutionBudget, ProposalResult
-from engine.ai.prompt_cache_policy import CacheMode, Protocol, ProviderProfile, render_wire
+from application.context_plan import ContextError
+from application.gameplay_context import GameplayMode
+from ai.gameplay_cache import GameplayAIGateway, GameplayCachePlanner
+from ai.gateway import ExecutionBudget, ProposalResult
+from ai.prompt_cache_policy import CacheMode, Protocol, ProviderProfile, render_wire
 from engine.tests.test_context_compiler import rendered
 from engine.tests.test_gameplay_context import call
 
@@ -20,7 +20,7 @@ def test_gameplay_cache_avoids_paid_explicit_writes_for_one_shot_stages():
     planner = GameplayCachePlanner()
     for mode in (GameplayMode.STORY_GENESIS, GameplayMode.MEMORY_DISTILLATION,
                  GameplayMode.WORLD_PULSE, GameplayMode.TIME_SKIP):
-        from engine.application.gameplay_context import gameplay_recipe
+        from application.gameplay_context import gameplay_recipe
         decision = planner.decide(call(mode), gameplay_recipe(mode), explicit_target())
         assert decision.effective_target.mode == CacheMode.AUTO
         assert not decision.explicit_write_enabled
@@ -29,7 +29,7 @@ def test_gameplay_cache_avoids_paid_explicit_writes_for_one_shot_stages():
 
 def test_gameplay_cache_keeps_explicit_for_hot_story_loop_and_high_order_play():
     planner = GameplayCachePlanner()
-    from engine.application.gameplay_context import gameplay_recipe
+    from application.gameplay_context import gameplay_recipe
     for mode in (GameplayMode.CHARACTER_REASONING, GameplayMode.STORY_DIRECTION,
                  GameplayMode.NARRATIVE_COMPILATION, GameplayMode.HIGH_ORDER_INTERVENTION):
         decision = planner.decide(call(mode), gameplay_recipe(mode), explicit_target())
@@ -39,7 +39,7 @@ def test_gameplay_cache_keeps_explicit_for_hot_story_loop_and_high_order_play():
 
 
 def test_gameplay_hot_only_uses_runtime_reuse_hint():
-    planner = GameplayCachePlanner(); from engine.application.gameplay_context import gameplay_recipe
+    planner = GameplayCachePlanner(); from application.gameplay_context import gameplay_recipe
     recipe = gameplay_recipe(GameplayMode.CHARACTER_GENESIS)
     cold = planner.decide(call(GameplayMode.CHARACTER_GENESIS, reuse=1), recipe, explicit_target())
     hot = planner.decide(call(GameplayMode.CHARACTER_GENESIS, reuse=3), recipe, explicit_target())
@@ -48,7 +48,7 @@ def test_gameplay_hot_only_uses_runtime_reuse_hint():
 
 
 def test_gameplay_provider_auto_is_never_upgraded_by_guessing():
-    planner = GameplayCachePlanner(); from engine.application.gameplay_context import gameplay_recipe
+    planner = GameplayCachePlanner(); from application.gameplay_context import gameplay_recipe
     target = ProviderProfile("compatible", "unknown", Protocol.CHAT)
     d = planner.decide(call(), gameplay_recipe(GameplayMode.CHARACTER_REASONING), target)
     assert d.effective_target.mode == CacheMode.AUTO

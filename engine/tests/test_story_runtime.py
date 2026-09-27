@@ -64,6 +64,7 @@ STORY_CAPABILITIES = (
     "story.entry.get",
     "story.session.get",
     "story.session.open",
+    "story.turn.submit",
 )
 _PRODUCT_LAUNCHER = (
     "import asyncio, sys\n"

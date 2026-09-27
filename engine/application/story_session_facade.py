@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,6 +32,7 @@ from .story_session_open import (
     OpenStorySessionCommand,
     StorySessionOpenService,
 )
+from .story_turn_commit import StoryTurnCommitResult
 from .turn_input import (
     DurableTurnIntakePort,
     FinalizedStoryInput,
@@ -85,6 +87,27 @@ class AdviceReceiptView(BaseModel):
     committed_story_revision: int | None = Field(default=None, ge=0)
 
 
+class TurnDeliveryView(BaseModel):
+    """Post-COMMIT expression state for one committed turn.
+
+    ``unavailable`` never means the turn was lost.  The Domain commit already
+    succeeded and stays durable; only the audible rendering is missing, which is
+    exactly the separation invariant 9 requires.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: Literal["ready", "unavailable"]
+    narrative_block_id: str | None = None
+    speech_unit_id: str | None = None
+    spoken_text: str | None = None
+    reason: str | None = Field(default=None, min_length=1, max_length=128)
+    # The exact sealed render recipe. The App replays it verbatim into
+    # ``voice.render``; the Engine rejects any drift, so a client can never
+    # choose the voice, the revision or the speed for a committed turn.
+    render_recipe: dict[str, object] | None = None
+
+
 class AdviceSubmitView(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -92,6 +115,7 @@ class AdviceSubmitView(BaseModel):
     receipt: AdviceReceiptView
     session: PublicStorySessionView
     replayed: bool
+    delivery: TurnDeliveryView | None = None
 
 
 class AdviceGetView(BaseModel):
@@ -113,6 +137,10 @@ class SubmitAdviceCommand:
     expected_store_revision: int
     request_id: str
     trace_id: str
+    # ``text`` is the historical default.  ``voice`` marks a SpeechRail
+    # transcript; the durable receipt records the mode so a replayed turn can
+    # never be reinterpreted as typed text.
+    input_mode: InputMode = InputMode.TEXT
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +173,12 @@ class StorySessionQueryPort(Protocol):
     async def input(
         self, session_id: str, input_turn_id: str
     ) -> StoredInputRecord | None: ...
+
+
+AfterCommitHook = Callable[
+    [SubmitAdviceCommand, StoryTurnCommitResult, PublicStorySessionView],
+    Awaitable[TurnDeliveryView],
+]
 
 
 class StoryFirstTurnPort(Protocol):
@@ -192,6 +226,7 @@ class StorySessionFacade:
         story: object,
         first_turn: StoryFirstTurnPort,
         projector: StoryPublicViewProjector | None = None,
+        after_commit: AfterCommitHook | None = None,
     ) -> None:
         self._initialization = initialization
         self._open_sessions = open_sessions
@@ -201,6 +236,7 @@ class StorySessionFacade:
         self._story = story
         self._first_turn = first_turn
         self._projector = projector or StoryPublicViewProjector()
+        self._after_commit = after_commit
         self._session_read = _SessionReadAdapter(query)
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -285,6 +321,22 @@ class StorySessionFacade:
         )
 
     async def submit(self, command: SubmitAdviceCommand) -> AdviceSubmitView:
+        """Frozen Golden 001 submission: only the authored advice is accepted."""
+        return await self._submit_turn(command, deterministic=True)
+
+    async def submit_live(self, command: SubmitAdviceCommand) -> AdviceSubmitView:
+        """Submit whatever the player actually said, typed or spoken.
+
+        This is additive to :meth:`submit`, not a relaxation of it.  The frozen
+        fixture keeps its exact-template guard; a live turn instead routes
+        through the configured model workers, so a SpeechRail transcript becomes
+        durable ``PlayerAdvice`` on the same pre-COMMIT path.
+        """
+        return await self._submit_turn(command, deterministic=False)
+
+    async def _submit_turn(
+        self, command: SubmitAdviceCommand, *, deterministic: bool
+    ) -> AdviceSubmitView:
         _submit(command)
         async with self._lock(command.session_id):
             existing = await self._query.input(
@@ -313,7 +365,9 @@ class StorySessionFacade:
             else:
                 snapshot = await self._query.session(command.session_id)
                 turn_number = snapshot.session.story_state.turn + 1
-                self._validate_new(command, snapshot, turn_number)
+                self._validate_new(
+                    command, snapshot, turn_number, deterministic=deterministic
+                )
                 receipt = await StoryTurnInputService(
                     sessions=self._session_read,
                     intake=self._intake,
@@ -321,7 +375,7 @@ class StorySessionFacade:
                     FinalizedStoryInput(
                         input_turn_id=command.input_turn_id,
                         session_id=command.session_id,
-                        input_mode=InputMode.TEXT,
+                        input_mode=command.input_mode,
                         raw_input=command.raw_input,
                         public_expected_store_revision=command.expected_store_revision,
                     )
@@ -365,7 +419,7 @@ class StorySessionFacade:
             if result.turn.committed_story_revision is None:
                 raise StoryFacadeError("committed_turn_missing_story_revision")
             snapshot = await self._query.session(command.session_id)
-            return AdviceSubmitView(
+            view = AdviceSubmitView(
                 receipt=AdviceReceiptView(
                     input_turn_id=command.input_turn_id,
                     session_id=command.session_id,
@@ -377,6 +431,13 @@ class StorySessionFacade:
                 session=self._project_record(snapshot, pending=False),
                 replayed=result.replayed,
             )
+            if self._after_commit is not None and not result.replayed:
+                view = view.model_copy(
+                    update={
+                        "delivery": await self._after_commit(command, result, view.session)
+                    }
+                )
+            return view
 
     async def get_advice(
         self, session_id: str, input_turn_id: str
@@ -426,7 +487,7 @@ class StorySessionFacade:
         if (
             receipt.input_sha256
             != hashlib.sha256(command.raw_input.encode("utf-8")).hexdigest()
-            or receipt.input_mode.value != "text"
+            or receipt.input_mode is not command.input_mode
             or receipt.public_expected_store_revision
             != command.expected_store_revision
             or receipt.base_revisions.story != command.expected_story_revision
@@ -438,6 +499,8 @@ class StorySessionFacade:
         command: SubmitAdviceCommand,
         snapshot: StorySessionSnapshotRecord,
         turn_number: int,
+        *,
+        deterministic: bool,
     ) -> None:
         session = snapshot.session
         if session.id != command.session_id:
@@ -457,6 +520,11 @@ class StorySessionFacade:
             or command.expected_store_revision != snapshot.observed_store_revision
         ):
             raise StoryFacadeError("revision_conflict")
+        if not deterministic:
+            # A live turn is bounded by the durable revision guards above, not
+            # by an authored string. The resolver and validators still own
+            # every committed effect; the model only supplies semantics.
+            return
         supported = self._first_turn.expected_input(
             snapshot.bootstrap, turn_number
         )
