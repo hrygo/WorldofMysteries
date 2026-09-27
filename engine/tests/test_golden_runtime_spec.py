@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 import re
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures" / "golden_001"
 RUNTIME = ROOT / "docs" / "07_工程启动" / "golden_001_runtime"
@@ -25,31 +27,87 @@ EXPECTED_FAILURE_CHECKPOINTS = (
     "after finalization commit before projection",
 )
 RUNTIME_ASSERTION_TEST_TARGETS = {
-    "G001": "test_runtime_secret_04_stays_hidden_through_all_turns",
-    "G002": "test_committed_outcomes_never_label_morris_as_culprit",
-    "G003": "test_reasoner_context_never_exceeds_sequence_9_abilities",
-    "G004": "test_player_hypothesis_never_becomes_world_truth_without_evidence",
-    "G005": "test_turn4_advice_is_reinterpreted_by_character_reasoner",
-    "G006": "test_closure_does_not_add_major_conflict",
-    "G007": "test_episode_retains_unresolved_mystery_threads",
-    "G008": "test_private_world_writeback_never_enters_public_projection",
-    "G009": "test_narrative_regeneration_does_not_change_committed_story_state",
-    "G010": "test_audio_regeneration_does_not_change_narrative_or_story_state",
-    "G011": "test_retrieval_rejects_unauthorized_hidden_knowledge",
-    "G012": "test_episode_finalization_is_atomic_on_storage_failure",
+    "G001": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_five_turns_commit_real_durable_state_and_match_expected"
+    ),
+    "G002": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_character_never_identifies_morris_as_the_culprit"
+    ),
+    "G003": (
+        "tests/test_golden_runtime_spec.py"
+        "::test_turn_four_reinterpretation_and_sequence_nine_fixture_are_pinned"
+    ),
+    "G004": (
+        "tests/test_outcome_resolver.py"
+        "::test_user_hypothesis_in_action_parameters_cannot_become_fact"
+    ),
+    "G005": (
+        "tests/test_golden_runtime_spec.py"
+        "::test_turn_four_reinterpretation_and_sequence_nine_fixture_are_pinned"
+    ),
+    "G006": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_closure_turn_adds_no_major_conflict"
+    ),
+    "G007": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_finalization_requires_five_committed_turns_and_replays_idempotently"
+    ),
+    "G008": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_hidden_truth_never_enters_public_world_writeback"
+    ),
+    "G009": (
+        "tests/test_golden_five_turn_application.py"
+        "::test_post_commit_expression_failure_never_rewrites_committed_facts"
+    ),
+    "G010": (
+        "tests/test_audio_track_repository.py"
+        "::test_audio_regeneration_never_changes_narrative_or_story_state"
+    ),
+    "G011": (
+        "tests/test_episode_memory_recall.py"
+        "::test_hidden_fact_is_never_granted_and_cannot_be_smuggled"
+    ),
+    "G012": (
+        "tests/test_database_domain_settlement.py"
+        "::test_episode_finalization_failure_rolls_back_episode_artifacts_and_session"
+    ),
 }
 RUNTIME_FAILURE_TEST_TARGETS = dict(
     zip(
         EXPECTED_FAILURE_CHECKPOINTS,
         (
-            "test_restart_after_advice_reuses_durable_advice",
-            "test_restart_after_action_intent_reuses_durable_proposal",
-            "test_restart_after_resolver_before_commit_commits_once",
-            "test_restart_immediately_after_commit_returns_existing_result",
-            "test_restart_after_beat_plan_resumes_expression",
-            "test_restart_after_narrative_reuses_persisted_block",
-            "test_finalization_transaction_rolls_back_all_domain_writes",
-            "test_restart_after_finalization_commit_rebuilds_projection_once",
+            # CP2 and CP3 share one durable boundary: the interpretation is
+            # committed in its own transaction before the domain COMMIT, and
+            # the Resolver is a pure in-memory function, so on disk both mean
+            # "intent recorded, turn not committed".
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once"
+            "[cp1_after_advice]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once"
+            "[cp2_cp3_after_intent_before_commit]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_before_domain_commit_is_resumed_exactly_once"
+            "[cp2_cp3_after_intent_before_commit]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_after_commit_never_recommits"
+            "[cp4_immediately_after_commit]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_after_commit_never_recommits"
+            "[cp5_after_beat_plan]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_after_commit_never_recommits"
+            "[cp6_after_narrative]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_settlement_is_atomic_and_never_refinalizes"
+            "[cp7_during_finalization]",
+            "tests/test_app_engine_session.py"
+            "::test_acceptance_checkpoint_settlement_is_atomic_and_never_refinalizes"
+            "[cp8_after_finalization_commit]",
         ),
     )
 )
@@ -106,15 +164,55 @@ def test_golden_assertion_registry_covers_g001_through_g012_once():
 
 def test_runtime_trace_matrix_targets_every_assertion_and_failure_checkpoint():
     assert set(RUNTIME_ASSERTION_TEST_TARGETS) == set(EXPECTED_ASSERTION_IDS)
-    assert len(set(RUNTIME_ASSERTION_TEST_TARGETS.values())) == len(
-        EXPECTED_ASSERTION_IDS
-    )
     assert tuple(RUNTIME_FAILURE_TEST_TARGETS.keys()) == EXPECTED_FAILURE_CHECKPOINTS
-    assert len(set(RUNTIME_FAILURE_TEST_TARGETS.values())) == len(
-        EXPECTED_FAILURE_CHECKPOINTS
+
+
+def _resolve_target(node_id: str) -> tuple[Path, str, str | None]:
+    """Split `tests/x.py::test_name[param]` into a file, a function and a param id."""
+    file_part, _, selector = node_id.partition("::")
+    name, _, param = selector.partition("[")
+    return ROOT / "engine" / file_part, name, param.rstrip("]") or None
+
+
+@pytest.mark.parametrize(
+    "assertion_id",
+    EXPECTED_ASSERTION_IDS,
+)
+def test_every_assertion_maps_to_a_test_that_exists(assertion_id: str):
+    """A matrix entry is only traceability if the test it names really exists.
+
+    Without this, the matrix degrades into a wish list: renaming or deleting
+    the covering test would leave the matrix green while silently dropping the
+    assertion's coverage. G001–G012 must fail loudly, never skip, when their
+    evidence goes missing.
+    """
+    node_id = RUNTIME_ASSERTION_TEST_TARGETS[assertion_id]
+    path, name, param = _resolve_target(node_id)
+    assert path.is_file(), f"{assertion_id} points at a missing file: {path}"
+    source = path.read_text(encoding="utf-8")
+    assert f"def {name}(" in source, f"{assertion_id} points at a missing test: {name}"
+    if param is not None:
+        assert f"'{param}'" in source or f'"{param}"' in source, (
+            f"{assertion_id} points at a missing parametrization id: {param}"
+        )
+
+
+@pytest.mark.parametrize(
+    "checkpoint",
+    EXPECTED_FAILURE_CHECKPOINTS,
+)
+def test_every_failure_checkpoint_maps_to_a_test_that_exists(checkpoint: str):
+    node_id = RUNTIME_FAILURE_TEST_TARGETS[checkpoint]
+    path, name, param = _resolve_target(node_id)
+    assert path.is_file(), f"{checkpoint!r} points at a missing file: {path}"
+    source = path.read_text(encoding="utf-8")
+    assert f"def {name}(" in source, (
+        f"{checkpoint!r} points at a missing test: {name}"
     )
-    assert all(name.startswith("test_") for name in RUNTIME_ASSERTION_TEST_TARGETS.values())
-    assert all(name.startswith("test_") for name in RUNTIME_FAILURE_TEST_TARGETS.values())
+    assert param is not None, f"{checkpoint!r} must pin one parametrized case"
+    assert f"'{param}'" in source or f'"{param}"' in source, (
+        f"{checkpoint!r} points at a missing parametrization id: {param}"
+    )
 
 
 def test_golden_runtime_contains_five_linked_turn_inputs_and_mock_outputs():

@@ -322,6 +322,86 @@ async def test_five_turns_commit_real_durable_state_and_match_expected(tmp_path)
 
 
 @pytest.mark.asyncio
+async def test_character_never_identifies_morris_as_the_culprit(tmp_path):
+    """G002: suspicion is not promoted to a culprit verdict by the run.
+
+    The bundle seeds `fact.family_suspects_morris`, which is a *suspicion*
+    about the doctor. Nothing the five committed turns write may turn that
+    suspicion into a committed claim that Morris is the culprit.
+    """
+    database, _paths, facade, _factory, opened = await _open_five_turn_facade(tmp_path)
+    try:
+        await _submit_five_turns(database, facade, opened)
+
+        knowledge = await database.read_world(
+            "SELECT character_id, proposition_id, payload_json "
+            "FROM turn_knowledge_changes"
+        )
+        world_events = await database.read_world(
+            "SELECT id, event_type, payload_json FROM turn_world_events"
+        )
+
+        # The doctor may legitimately be a *target* of evidence gathering, but
+        # no committed knowledge or world event may assert culpability.
+        for row in knowledge:
+            payload = json.loads(row["payload_json"])
+            blob = f"{row['proposition_id']} {payload}".lower()
+            assert "morris" not in blob
+            assert "culprit" not in blob
+
+        for row in world_events:
+            payload = json.loads(row["payload_json"])
+            blob = f"{row['event_type']} {payload}".lower()
+            assert "culprit" not in blob
+            # Every write-back must be evidence, never an accusation.
+            assert row["event_type"] in {"evidence_observed", "evidence_recovered"}
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_closure_turn_adds_no_major_conflict(tmp_path):
+    """G006: the fifth turn closes the run without inventing a major conflict."""
+    database, _paths, facade, _factory, opened = await _open_five_turn_facade(tmp_path)
+    try:
+        seed = _read(FIXTURES / "seed.json")
+        baseline = [seed["surface_problem"]]
+
+        _submitted, sessions = await _submit_five_turns(database, facade, opened)
+
+        # The closing turn must leave the conflict set exactly as it started:
+        # closure resolves the run, it does not escalate it.
+        assert sessions[-1].story_state.active_conflicts == baseline
+        for session in sessions:
+            assert session.story_state.active_conflicts == baseline
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_hidden_truth_never_enters_public_world_writeback(tmp_path):
+    """G008: world write-back stays private to the subjects who observed it."""
+    database, _paths, facade, _factory, opened = await _open_five_turn_facade(tmp_path)
+    try:
+        _submitted, sessions = await _submit_five_turns(database, facade, opened)
+
+        world_events = await database.read_world(
+            "SELECT id, payload_json FROM turn_world_events"
+        )
+        assert world_events, "the run is expected to write world evidence back"
+        for row in world_events:
+            visibility = json.loads(row["payload_json"])["visibility"]
+            assert visibility["public"] is False
+            assert visibility["known_by"], "a private event must still name its observers"
+
+        # Secret 04 is the hidden truth the whole scenario protects.
+        secrets = sessions[-1].story_state.secret_states
+        assert secrets["secret_04"].value == "hidden"
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
 async def test_replaying_each_key_does_not_recommit_or_re_call_models(tmp_path):
     database, _paths, facade, factory, opened = await _open_five_turn_facade(tmp_path)
     try:
@@ -639,6 +719,17 @@ async def test_finalization_requires_five_committed_turns_and_replays_idempotent
             "SELECT status FROM story_sessions WHERE id=?",
             (opened.session.session_id,),
         ) == [{"status": "finalized"}]
+
+        # G007: settlement closes the run without resolving the mystery. The
+        # durable Episode must still carry its unresolved threads.
+        rows = await database.read_world(
+            "SELECT payload_json FROM episodes WHERE session_id=?",
+            (opened.session.session_id,),
+        )
+        assert len(rows) == 1
+        assert json.loads(rows[0]["payload_json"])["unresolved_threads"], (
+            "a closed five-turn run must not resolve every thread"
+        )
     finally:
         await database.close()
 
