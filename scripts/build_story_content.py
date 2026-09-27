@@ -25,6 +25,7 @@ from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import sqlite3
 import sys
 
@@ -37,6 +38,7 @@ from jsonschema import Draft202012Validator  # noqa: E402
 
 from application.story_initialization import (  # noqa: E402
     GOLDEN_CONTENT_VERSION,
+    GOLDEN_CLUE_DISPLAY_NAMES,
     GOLDEN_POLICY_VERSION,
     GOLDEN_SCENARIO_ID,
     SCENARIO_TITLE,
@@ -48,7 +50,7 @@ from application.story_initialization import (  # noqa: E402
 )
 
 CONTENT_ARTIFACT_RELATIVE = Path("infrastructure/story_content/canon.db")
-CLUE_DISPLAY_NAMES = {"clue_doctor_pause": "医生的停顿"}
+FIVE_TURN_DIRNAME = "five_turn"
 BUILD_OPEN_REQUEST_ID = "build-verification"
 
 FIXTURE_DIR = ROOT / "fixtures" / "golden_001"
@@ -132,7 +134,7 @@ def build_payload() -> dict:
         "presentation": ScenarioPresentation(
             scenario_title=SCENARIO_TITLE,
             scene_display_name=SCENE_DISPLAY_NAME,
-            clue_display_names=CLUE_DISPLAY_NAMES,
+            clue_display_names=dict(GOLDEN_CLUE_DISPLAY_NAMES),
         ).model_dump(mode="json", exclude_none=False, exclude_unset=True),
         "advice_template": advice,
         "action_intent_template": action_intent,
@@ -216,6 +218,77 @@ def _verify_artifact(path: Path, payload: dict) -> None:
         raise StoryContentBuildError("artifact_payload_mismatch")
 
 
+def _validate_five_turn_sources(seed: dict) -> dict:
+    """Validate every frozen five-turn input and return the packaged files.
+
+    The five-turn catalog is an input surface (frozen player advice and frozen
+    model outputs), never an expected outcome: `turns/*_expected.json`,
+    `expected/` and `expected_episode.json` stay outside this allowlist.
+    """
+    from ai.golden_five_turn import GOLDEN_TURN_COUNT
+
+    files: dict[Path, dict] = {}
+    for number in range(1, GOLDEN_TURN_COUNT + 1):
+        prefix = f"{number:02d}"
+        advice = read_json(FIXTURE_DIR / "turns" / f"{prefix}_advice.json")
+        # The product input is fixed text; the fixture keeps the original voice
+        # sample and must not leak a second input mode into the packaged runtime.
+        advice = dict(advice)
+        advice["input_mode"] = "text"
+        validate_schema("player_advice.schema.json", advice)
+        files[Path("turns") / f"{prefix}_advice.json"] = advice
+        for kind, schema in (
+            ("action_intent", "action_intent.schema.json"),
+            ("beat_plan", "beat_plan.schema.json"),
+            ("narrative_block", "narrative_block.schema.json"),
+        ):
+            payload = read_json(RUNTIME_FIXTURE_DIR / "mock" / f"{prefix}_{kind}.json")
+            validate_schema(schema, payload)
+            files[Path("mock") / f"{prefix}_{kind}.json"] = payload
+    validate_schema("story_seed.schema.json", seed)
+    return files
+
+
+def write_five_turn_directory(base: Path, seed: dict) -> dict:
+    """Emit the frozen five-turn catalog next to the content artifact.
+
+    The directory is module-relative in the packaged runtime; the engine never
+    reads the repository at run time. A round-trip load through the real
+    `GoldenFiveTurnCatalog` proves all five turns are present and valid.
+    """
+    from ai.golden_five_turn import GoldenFiveTurnCatalog
+
+    files = _validate_five_turn_sources(seed)
+    target = Path(base) / FIVE_TURN_DIRNAME
+    if target.exists():
+        shutil.rmtree(target)
+    for relative, payload in files.items():
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    # Round-trip: the real catalog must load all five turns from the emitted
+    # directory alone, with no repository fallback.
+    catalog = GoldenFiveTurnCatalog.from_directory(
+        target / "turns", target / "mock", seed=seed
+    )
+    if len(catalog.expression_templates) != 5:
+        raise StoryContentBuildError("five_turn_catalog_incomplete")
+    digest = canonical_digest(
+        {str(path): payload for path, payload in sorted(
+            (str(path), payload) for path, payload in files.items()
+        )}
+    )
+    return {
+        "relative_path": f"{FIVE_TURN_DIRNAME}",
+        "turn_count": 5,
+        "file_count": len(files),
+        "digest": digest,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -232,12 +305,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     payload = build_payload()
     artifact = write_artifact(args.out, payload)
+    five_turn = write_five_turn_directory(Path(args.out).parent, payload["seed"])
     summary = {
         "scenario_id": payload["scenario_id"],
         "content_version": payload["content_version"],
         "policy_version": payload["policy_version"],
         "content_digest": payload["content_digest"],
         "artifact_bytes": artifact.stat().st_size,
+        "five_turn": five_turn,
     }
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     return 0

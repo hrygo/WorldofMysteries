@@ -5,11 +5,9 @@ prerequisite is missing. Linux can also run this as supplementary compatibility.
 """
 from __future__ import annotations
 
-from contextlib import closing
 import hashlib
 import json
 import os
-from pathlib import Path
 import selectors
 import shutil
 import socket
@@ -20,6 +18,8 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import closing
+from pathlib import Path
 
 import pytest
 
@@ -31,7 +31,7 @@ WORLD_DIRECTORY = 'engineering-golden001'
 UNSUPPORTED_TEXT = '先问问医生今天还有没有别的预约。'
 
 sys.path.insert(0, str(ROOT / 'scripts'))
-import build_story_content as content_builder  # noqa: E402
+import build_story_content as content_builder
 
 
 @pytest.fixture(scope='module')
@@ -274,8 +274,11 @@ def story_engine(tmp_path_factory):
     entry.write_text(LAUNCHER_WRAPPER, encoding='utf-8')
     (staged / '_wom_sqlite3.py').write_text(HOST_SQLITE_SHIM, encoding='utf-8')
     # The artifact is produced by the same build script the packaging step uses.
+    payload = content_builder.build_payload()
     content_builder.write_artifact(
-        staged / 'infrastructure/story_content/canon.db', content_builder.build_payload())
+        staged / 'infrastructure/story_content/canon.db', payload)
+    content_builder.write_five_turn_directory(
+        staged / 'infrastructure/story_content', payload['seed'])
     # Only the entrypoint file was replaced; the production copy is byte-identical.
     assert (staged / 'infrastructure/_ipc_server_production.py').read_bytes() == production_bytes
     assert production_bytes == (ENGINE_DIR / 'infrastructure/ipc_server.py').read_bytes()
