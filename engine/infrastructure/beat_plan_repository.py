@@ -155,6 +155,9 @@ class SQLiteBeatPlanRepository:
         authoritative_beat = await self.load_beat_plan(frozen_beat.id)
         if authoritative_turn != result["turn"] or authoritative_beat != result["beat_plan"]:
             raise StorageError("Post-COMMIT BeatPlan result differs from durable state")
+        # Acceptance checkpoint "after beat plan": the turn is COMMITTED and its
+        # frozen BeatPlan is durable, but the NarrativeBlock is not yet written.
+        self.database.checkpoint("after_beat_plan")
         return BeatPlanPublishResult(
             turn=authoritative_turn,
             beat_plan=authoritative_beat,

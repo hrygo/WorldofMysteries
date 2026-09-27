@@ -640,6 +640,21 @@ class DatabaseManager:
         if self._fault_hook is not None:
             self._fault_hook(stage)
 
+    def checkpoint(self, stage: str) -> None:
+        """Announce a named durability boundary to the fault hook.
+
+        The generic `_commit` stages (`before_commit`, `after_commit`, …) fire
+        for *every* durable commit, so a golden run cannot tell a turn commit
+        from an Episode finalization commit, and the post-COMMIT expression
+        writes have no stage at all. Acceptance checkpoints (the eight Engine
+        termination points) therefore announce themselves here by semantic
+        name, so a fault plan can target one exact boundary and the recovery
+        assertions can distinguish "turn committed" from "settlement
+        committed". This adds no fault switch: it routes through the same
+        already-injected `fault_hook` and is inert in production.
+        """
+        self._hit(stage)
+
     def _check_world_identity(self):
         check_file(self.paths.world, required=True)
         info = self.paths.world.stat()

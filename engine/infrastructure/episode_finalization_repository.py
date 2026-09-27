@@ -536,6 +536,10 @@ class SQLiteEpisodeFinalizationRepository:
                     tx.revision,
                 ),
             )
+            # Acceptance checkpoint "during finalization transaction": every
+            # settlement row is written but the transaction is NOT yet
+            # committed. A fault here must leave zero partial settlement.
+            self._database.checkpoint("during_finalization")
             return {
                 "episode_id": episode.id,
                 "store_revision": tx.revision,
@@ -556,6 +560,10 @@ class SQLiteEpisodeFinalizationRepository:
         }
         if committed.value != expected_result:
             raise StorageError("Episode finalization replay does not match its request")
+        # Acceptance checkpoint "after finalization commit before projection":
+        # the Episode is durably committed while the rebuildable retrieval
+        # projection has not caught up. Recovery must project, never re-finalize.
+        self._database.checkpoint("after_finalization_commit")
         persisted = await self.load(episode.id)
         if persisted.episode != episode or persisted.artifacts != artifacts:
             raise StorageError("Persisted Episode finalization does not match its request")

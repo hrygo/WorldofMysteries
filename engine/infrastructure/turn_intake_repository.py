@@ -212,6 +212,9 @@ class SQLiteTurnIntakeRepository:
             return {"record": _from_row(rows[0]), "replayed": False}
 
         result = await self.database.turn_command_write(apply)
+        # Acceptance checkpoint "after advice": the PlayerAdvice is durable but
+        # no interpretation or domain commit has happened yet.
+        self.database.checkpoint("after_advice_intake")
         return TurnIntakeReceiveResult(
             record=result["record"],
             replayed=bool(result["replayed"]),

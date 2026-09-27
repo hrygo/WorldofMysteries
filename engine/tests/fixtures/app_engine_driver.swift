@@ -231,6 +231,30 @@ struct AppEngineDriver {
                     fatalError("Turn \(expected) did not commit; saw \(String(describing: model.view?.turn))")
                 }
             }
+        case "story-five-turn-final-lost":
+            // Golden-acceptance driver: the injected fault terminates the Engine
+            // at one of the eight acceptance checkpoints, possibly mid
+            // settlement of the fifth turn. The App must survive losing the
+            // final acknowledgement: drive the fixed run, but tolerate that the
+            // last submit never returns a committed view because the Engine
+            // died after (or during) the durable commit. A brand-new process
+            // then re-opens the run and proves the durable facts.
+            guard model.state == .ready, model.view?.turn == 0 else {
+                fatalError("Expected a ready turn=0 session, saw \(stateName(model.state))")
+            }
+            for expected in 1...5 {
+                guard model.state == .ready else { break }
+                model.fillSupportedAdvice()
+                guard !model.draft.isEmpty else {
+                    fatalError("Engine advertised no advice for turn \(expected)")
+                }
+                await model.submit()
+                if expected < 5 {
+                    guard model.view?.turn == expected else {
+                        fatalError("Turn \(expected) did not commit; saw \(String(describing: model.view?.turn))")
+                    }
+                }
+            }
         default:
             break  // story-reopen / story-recover-open are pure read modes.
         }
@@ -289,6 +313,13 @@ struct AppEngineDriver {
         case "story-five-turn":
             return model.state == .completed && model.view?.turn == 5
                 && model.view?.storyRevision == 5 && model.supportedAdvice.isEmpty
+        case "story-five-turn-final-lost":
+            // The run either closed normally, or the Engine was terminated at
+            // an acceptance checkpoint. Either way the App must have left the
+            // busy state and must not have invented an outcome: recovery is
+            // proven by a fresh process re-reading the durable run.
+            return !model.state.isBusy && model.state != .unavailable
+                && (model.view.map { $0.turn <= 5 } ?? true)
         case "story-submit-unsupported":
             return model.state == .failed(code: "deterministic_input_unsupported")
                 && !model.draft.isEmpty && model.view?.turn == 0
