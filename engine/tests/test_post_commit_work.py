@@ -273,3 +273,37 @@ def test_required_jobs_reject_turns_outside_the_episode_range() -> None:
 def test_retry_policy_rejects_negative_retry_count() -> None:
     with pytest.raises(ValueError):
         decide_automatic_retry(-1, PostCommitErrorKind.TIMEOUT)
+
+
+def test_module_does_not_export_an_unimplemented_store_protocol() -> None:
+    """AO-03: the application layer must not advertise a store port nobody implements.
+
+    ``PostCommitJobStore`` was an orphan design sketch. Nothing implemented it,
+    nothing consumed it, and its method names (``register_in_commit`` /
+    ``claim_next`` / ``acknowledge_success`` / ``acknowledge_failure``) never
+    matched the one real boundary, ``SQLitePostCommitJobRepository``
+    (``register`` / ``claim`` / ``complete`` / ``fail``). Exporting both
+    spellings made the architecture look like it had a swappable persistence
+    port when it had exactly one implementation, which is precisely the
+    "contract and behaviour must agree" failure the capsule set out to remove.
+
+    The retirement is safe only because the concrete boundary is what the
+    worker and the control surface actually use, so that half is asserted too.
+    """
+    import application.post_commit_work as work
+
+    retired = {
+        "PostCommitJobStore",
+        "PostCommitStoreResult",
+        "PostCommitStoreCode",
+        "PostCommitRetryReceipt",
+        "PostCommitJobSnapshot",
+    }
+    assert retired.isdisjoint(work.__all__)
+    for name in sorted(retired):
+        assert not hasattr(work, name), name
+
+    # The boundary that is actually implemented stays exported, because
+    # infrastructure/post_commit_worker.py annotates against it.
+    assert "PostCommitExecutionClaim" in work.__all__
+    assert hasattr(work, "PostCommitExecutionClaim")
