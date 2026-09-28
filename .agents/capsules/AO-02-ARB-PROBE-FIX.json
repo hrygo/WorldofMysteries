@@ -1,0 +1,175 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-02-ARB-PROBE-FIX",
+  "capsule_revision": 1,
+  "task_id": "AO-02-ARB-PROBE-FIX",
+  "title": "补齐打包探针 Swift 源闭包",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-28T08:19:54.165522+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "c77d3704876c5529526cdf40e9158b74f09cfc2b",
+    "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+    "context_snapshot": "sha256:910ed11d7efc6b9b27ad5a7f45059ebda962170a7bcb348abbd557acc7db4a54"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py",
+      "engine/tests/test_bundle_engine.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:fixture_bundle@docs/05_UI/artwork/delivery/tests/test_intake.py:132",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:350",
+      "symbol:probe_layout@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:303",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:327",
+      "symbol:test_probe_regions_land_on_the_text_block@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:260",
+      "symbol:test_probe_layout_fits_the_probe_window@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:143",
+      "symbol:test_probe_regions_sit_inside_the_probe_band@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:174",
+      "symbol:test_voice_render_control_protocol_fixture@contracts/tests/test_ipc_contract.py:71",
+      "symbol:test_media_header_and_framing_fixture@contracts/tests/test_media_contract.py:48",
+      "symbol:test_media_open_control_payload_fixtures@contracts/tests/test_media_contract.py:81",
+      "symbol:test_poisoned_fixture_fails_closed@contracts/tests/test_story_content_build.py:81",
+      "symbol:test_story_expression_control_fixture@contracts/tests/test_story_expression_control.py:37",
+      "symbol:test_story_session_control_fixture@contracts/tests/test_story_session_control.py:35",
+      "symbol:_probe@scripts/build_data_sqlite.py:236",
+      "symbol:release_app_probe@scripts/build_macos_package.py:204",
+      "symbol:packaged_probe@scripts/build_macos_package.py:259",
+      "symbol:_sha256@scripts/sync_speechrail_contract_fixture.py:219",
+      "symbol:_upstream_commit@scripts/sync_speechrail_contract_fixture.py:223",
+      "symbol:main@scripts/sync_speechrail_contract_fixture.py:236",
+      "symbol:test_upstream_lock_is_fixed_and_gil_enabled@engine/tests/test_bundle_engine.py:37",
+      "symbol:test_runtime_stager_requires_private_data_sqlite_probe@engine/tests/test_bundle_engine.py:284",
+      "symbol:test_packaged_probe_source_closure_tracks_media_protocol_dependency@engine/tests/test_bundle_engine.py:301",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 833,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "fixture_bundle",
+      "probe_text_regions",
+      "probe_layout",
+      "probe_text_regions",
+      "test_probe_regions_land_on_the_text_block",
+      "test_probe_layout_fits_the_probe_window",
+      "test_probe_regions_sit_inside_the_probe_band",
+      "test_voice_render_control_protocol_fixture",
+      "test_media_header_and_framing_fixture",
+      "test_media_open_control_payload_fixtures",
+      "test_poisoned_fixture_fails_closed",
+      "test_story_expression_control_fixture",
+      "test_story_session_control_fixture",
+      "_probe",
+      "release_app_probe",
+      "packaged_probe",
+      "_sha256",
+      "_upstream_commit",
+      "main",
+      "test_upstream_lock_is_fixed_and_gil_enabled",
+      "test_runtime_stager_requires_private_data_sqlite_probe",
+      "test_packaged_probe_source_closure_tracks_media_protocol_dependency",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
