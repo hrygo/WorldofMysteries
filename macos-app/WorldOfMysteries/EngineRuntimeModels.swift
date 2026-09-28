@@ -112,7 +112,15 @@ public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
             "segment_index", "performance_plan_id", "spoken_text", "voice_id",
             "expected_voice_revision", "expected_model_revision", "speed", "language",
         ]
-        try checkWireKeys(decoder, allowed: keys, required: keys)
+        // The canonical schema types these two as ["string","null"] and lists
+        // them as required, so the key must be present but its value may be
+        // null. Every other key in this DTO rejects null.
+        try checkWireKeys(
+            decoder,
+            allowed: keys,
+            required: keys,
+            allowNull: ["expected_model_revision", "language"]
+        )
         let container = try decoder.container(keyedBy: CodingKeys.self)
         speechUnitId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .speechUnitId))
         turnId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .turnId))
