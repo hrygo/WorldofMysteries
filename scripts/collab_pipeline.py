@@ -110,7 +110,9 @@ def _assert_af_unix_paths_fit(lease: Dict[str, str]) -> None:
             )
 
 
-def _lease_for(branch: str, worktree: Path) -> Dict[str, str]:
+def _lease_for(
+    branch: str, worktree: Path, task_id: Optional[str] = None
+) -> Dict[str, str]:
     """按分支名确定性分配资源命名空间，避免多工作区抢占同一端口段/临时目录。"""
     digest = hashlib.sha256(branch.encode("utf-8")).hexdigest()
     port_base = 51000 + (int(digest[:4], 16) % 400) * 10
@@ -130,6 +132,8 @@ def _lease_for(branch: str, worktree: Path) -> Dict[str, str]:
         "created_at": policy.now_iso(),
         "note": "Git Worktree 提供源码隔离；本租约提供运行时资源隔离，两者缺一不可。",
     }
+    if task_id is not None:
+        lease["task_id"] = task_id
     _assert_af_unix_paths_fit(lease)
     return lease
 
@@ -145,8 +149,13 @@ def _cleanup_short_runtime(branch: str) -> None:
         print(f"🧹 已回收 AF_UNIX 短路径命名空间：{root}")
 
 
-def _provision_workspace(branch: str, worktree: Path, skip_venv: bool) -> None:
-    lease = _lease_for(branch, worktree)
+def _provision_workspace(
+    branch: str,
+    worktree: Path,
+    skip_venv: bool,
+    task_id: Optional[str] = None,
+) -> None:
+    lease = _lease_for(branch, worktree, task_id)
     # /tmp 是共享可写目录：短命名空间目录收紧到 0700，仅本用户可读写。
     short_root = short_runtime_root(branch)
     short_root.mkdir(parents=True, exist_ok=True)
@@ -215,7 +224,7 @@ def start_pipeline(
     else:
         run_cmd(f"git worktree add -b \"{branch}\" \"{target_dir}\" main")
 
-    _provision_workspace(branch, target_dir, skip_venv)
+    _provision_workspace(branch, target_dir, skip_venv, task_id)
 
     if role and task_id:
         title_str = title or f"Implement {task_id}"
@@ -231,9 +240,12 @@ def start_pipeline(
 
 
 def _resolve_task_id(worktree: Path, explicit: Optional[str]) -> Optional[str]:
-    """凭单归属推断：优先匹配分支名的胶囊；多个候选时拒绝静默猜测。"""
+    """按显式参数、工作区租约、旧式胶囊/分支启发式的顺序解析凭单归属。"""
     if explicit:
         return explicit
+    lease_task_id = policy.load_workspace_lease(worktree).get("task_id")
+    if isinstance(lease_task_id, str) and lease_task_id:
+        return lease_task_id
     capsules = sorted((worktree / ".agents" / "capsules").glob("*.json"))
     if not capsules:
         return None
