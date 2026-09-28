@@ -1,0 +1,43 @@
+{
+  "receipt_id": "RCP-WORK-AO-03-MAC-DTO-3b7d27d512e3",
+  "receipt_type": "work",
+  "task_id": "AO-03-MAC-DTO",
+  "capsule_id": "CAP-AO-03-MAC-DTO",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3a9c16fb5f76b07769de4f8c53ac0db58710d1e92d9e647aa9b85ca1a2a5bbd9",
+  "diff_digest": "sha256:fded89e5c8ec0b38bf4e9f0b93d5ed13eb21928825fc2dcc2759d178d52f81bf",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "c0ba75b3b5c38e370d81b4eed5209aec287689d6",
+  "head_commit": "3b7d27d512e3afe3037eb3e672bfa1273d7326a2",
+  "target_ref": "origin/main",
+  "target_sha": "cd9126acbd183e2212a8fbf0988583b9bffa802c",
+  "stale_context": true,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "not_run",
+  "gate_stages": [],
+  "coverage_gaps": [
+    "验证在陈旧上下文上被拒绝执行"
+  ],
+  "scope_audit": [],
+  "toolchain": {},
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-mac-dto"
+  },
+  "started_at": "2026-09-28T10:27:24.441368+00:00",
+  "finished_at": "2026-09-28T10:27:24.479617+00:00",
+  "verdict": "failed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [
+    "验证在陈旧上下文上被拒绝执行"
+  ],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

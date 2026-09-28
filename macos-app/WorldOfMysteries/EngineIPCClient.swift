@@ -343,6 +343,62 @@ public actor EngineIPCClient {
         return response
     }
 
+    /// Read the independent public projections for a committed turn's post-COMMIT work.
+    /// Older Engines are checked before the request is encoded or sent.
+    public func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryTurnWorkGetResponseDTO {
+        let method = StoryPostCommitMethodCapability.turnWorkGet.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        let request = try StoryTurnWorkGetRequestDTO(sessionId: sessionId, turnId: turnId)
+        let response: StoryTurnWorkGetResponseDTO = try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId
+        )
+        guard response.sessionId == sessionId, response.turnId == turnId else {
+            throw EngineConnectionError.correlationMismatch
+        }
+        return response
+    }
+
+    /// Explicitly retry one eligible post-COMMIT work item using its idempotency identity.
+    public func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryTurnWorkRetryResponseDTO {
+        let method = StoryPostCommitMethodCapability.turnWorkRetry.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        let request = try StoryTurnWorkRetryRequestDTO(
+            sessionId: sessionId,
+            turnId: turnId,
+            kind: kind,
+            retryRequestId: retryRequestId
+        )
+        let response: StoryTurnWorkRetryResponseDTO = try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.retryRequestId
+        )
+        guard response.sessionId == sessionId,
+              response.turnId == turnId,
+              response.kind == kind,
+              response.retryRequestId == retryRequestId else {
+            throw EngineConnectionError.correlationMismatch
+        }
+        return response
+    }
+
     private func storyRequest<Payload: Encodable, View: Decodable>(
         method: String,
         payload: Payload,
