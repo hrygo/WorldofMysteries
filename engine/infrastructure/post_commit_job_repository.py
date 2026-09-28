@@ -96,6 +96,7 @@ class PostCommitJobRegistration:
     spec: PostCommitJobSpec
     initial_state: str = "pending"
     initial_reason_code: str | None = None
+    initial_result_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,21 +197,24 @@ def _spec_values(spec: PostCommitJobSpec) -> tuple:
 
 def _registration_values(
     value: PostCommitJobSpec | PostCommitJobRegistration,
-) -> tuple[PostCommitJobSpec, tuple, str, str | None]:
+) -> tuple[PostCommitJobSpec, tuple, str, str | None, str | None]:
     if isinstance(value, PostCommitJobRegistration):
         spec = value.spec
         initial_state = value.initial_state
         initial_reason_code = value.initial_reason_code
+        initial_result_ref = value.initial_result_ref
     elif isinstance(value, PostCommitJobSpec):
         spec = value
         initial_state = "pending"
         initial_reason_code = None
+        initial_result_ref = None
     else:
         raise StorageError("Job registration requires typed job specifications")
 
     if not isinstance(initial_state, str) or initial_state not in {
         "pending",
         "blocked",
+        "succeeded",
     }:
         raise StorageError("Invalid initial post-COMMIT job state")
     if initial_reason_code is not None and (
@@ -222,8 +226,24 @@ def _registration_values(
         raise StorageError("Pending post-COMMIT job cannot have an initial reason")
     if initial_state == "blocked" and initial_reason_code is None:
         raise StorageError("Blocked post-COMMIT job requires an initial reason")
+    if initial_state == "succeeded":
+        if initial_reason_code is not None:
+            raise StorageError("Succeeded post-COMMIT job cannot have an initial reason")
+        if initial_result_ref is None:
+            raise StorageError("Succeeded post-COMMIT job requires a result ref")
+        _identifier(initial_result_ref, "result ref")
+    elif initial_result_ref is not None:
+        raise StorageError(
+            "Pending or blocked post-COMMIT job cannot have an initial result ref"
+        )
 
-    return spec, _spec_values(spec), initial_state, initial_reason_code
+    return (
+        spec,
+        _spec_values(spec),
+        initial_state,
+        initial_reason_code,
+        initial_result_ref,
+    )
 
 
 def _record(row: dict) -> PostCommitJobRecord:
@@ -304,7 +324,13 @@ class SQLitePostCommitJobRepository:
         registrations = tuple(_registration_values(job) for job in frozen_jobs)
 
         registered: list[PostCommitJobRecord] = []
-        for spec, values, initial_state, initial_reason_code in registrations:
+        for (
+            spec,
+            values,
+            initial_state,
+            initial_reason_code,
+            initial_result_ref,
+        ) in registrations:
             self._require_source_match(transaction, spec)
             rows = transaction.execute(
                 "SELECT * FROM post_commit_jobs "
@@ -347,8 +373,13 @@ class SQLitePostCommitJobRepository:
                 "source_story_revision,source_world_revision,input_digest,"
                 "state,attempt,lease_owner,lease_generation,next_attempt_at,"
                 "last_error_code,result_ref"
-                ") VALUES (?,?,?,?,?,?,?,?,?,0,NULL,0,NULL,?,NULL)",
-                (*values, initial_state, initial_reason_code),
+                ") VALUES (?,?,?,?,?,?,?,?,?,0,NULL,0,NULL,?,?)",
+                (
+                    *values,
+                    initial_state,
+                    initial_reason_code,
+                    initial_result_ref,
+                ),
             )
             inserted = transaction.execute(
                 "SELECT * FROM post_commit_jobs WHERE job_id=?", (spec.job_id,)
