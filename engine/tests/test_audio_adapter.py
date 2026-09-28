@@ -6,15 +6,27 @@ import hashlib
 import json
 import os
 import struct
+from dataclasses import fields, replace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from application.audio_disclosure import SpokenSpanMapping
+from application.performance_compiler import (
+    DesiredPerformance,
+    EffectiveBackendPerformance,
+    EffectivePlaybackPerformance,
+    EmphasisCue,
+)
+from application.speech_unit import SealedSpeechUnit
 from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTSProviderProtocol
 from infrastructure.audio import (
-    AudioProviderConfig,
     MEDIA_MAX_HEADER_BYTES,
+    REALTIME_TTS_SAMPLE_RATE,
+    RECEIPT_INTEGRITY_BOUNDARY,
+    AudioProviderConfig,
+    EngineRealtimeTTSMediaStream,
     MediaCancelHeader,
     MediaChunkHeader,
     MediaCreditHeader,
@@ -27,28 +39,25 @@ from infrastructure.audio import (
     MediaReceiveState,
     MockAudioAdapter,
     OpenAIAudioAdapter,
-    encode_media_frame,
-    parse_media_header,
-    read_media_frame,
     PendingVoiceRenderRegistry,
-    VoiceRenderControlError,
-    VoiceRenderControlRequest,
     ProbeHttpResponse,
-    EngineRealtimeTTSMediaStream,
-    REALTIME_TTS_SAMPLE_RATE,
-    RECEIPT_INTEGRITY_BOUNDARY,
-    split_text_segments,
     RealtimeTTSChunk,
     RealtimeTTSMediaBridgeError,
     RealtimeTTSRequest,
     RealtimeTTSTerminal,
-    render_realtime_tts_to_media,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
     StdlibJSONWebSocketTransport,
-    create_realtime_tts_adapter,
+    VoiceRenderControlError,
+    VoiceRenderControlRequest,
     create_audio_adapter,
+    create_realtime_tts_adapter,
+    encode_media_frame,
+    parse_media_header,
     probe_audio_capabilities,
+    read_media_frame,
+    render_realtime_tts_to_media,
+    split_text_segments,
 )
 
 
@@ -1974,3 +1983,291 @@ async def test_realtime_tts_can_waive_the_receipt_as_explicit_local_policy():
     )
     assert terminal.status == "completed"
     assert terminal.receipt_id is None
+
+
+def _sealed_unit_codec_fixture() -> SealedSpeechUnit:
+    emphasis = EmphasisCue(text="雾中", strength="strong")
+    return SealedSpeechUnit(
+        unit_id="speech_" + "a" * 32,
+        turn_id="turn-codec-1",
+        story_session_id="session-codec-1",
+        story_revision=19,
+        narrative_block_id="narrative-codec-1",
+        segment_index=2,
+        presentation_identity="klein-visible",
+        binding_id="binding-codec-1",
+        binding_revision=7,
+        logical_voice_id="voice-klein",
+        persona_revision="persona-r3",
+        provider_instance="speechrail-local",
+        voice_id="klein-approved",
+        voice_revision="voice-" + "b" * 40,
+        model_id="speechrail/qwen3-tts",
+        model_revision="model-" + "c" * 32,
+        language="zh-CN",
+        performance_plan_id="perf_" + "d" * 24,
+        display_text="克莱恩走进雾中。",
+        spoken_text="克莱恩步入雾中。",
+        pronunciation_revision="dictionary-r4",
+        pronunciation_mappings=(
+            SpokenSpanMapping(
+                anchor_id="anchor-klein",
+                category="proper_name",
+                semantic_key="proper_name:klein",
+                display_start=0,
+                display_end=3,
+                spoken_start=0,
+                spoken_end=3,
+                source_text="克莱恩",
+                spoken_text="克莱恩",
+                rule_id="rule-klein",
+                dictionary_revision="dictionary-r4",
+            ),
+        ),
+        desired=DesiredPerformance(
+            emotion="cautious",
+            intensity=0.6,
+            pace_modifier=-0.2,
+            energy_modifier=0.3,
+            volume="high",
+            pause_before_ms=350,
+            emphasis=(emphasis,),
+            native_speed=1.25,
+            native_instructions="沉稳、克制",
+            native_seed=731,
+        ),
+        backend=EffectiveBackendPerformance(
+            speed=1.25,
+            instructions="沉稳、克制",
+            seed=731,
+            emotion="cautious",
+            intensity=0.6,
+            energy_modifier=0.3,
+            emphasis=(emphasis,),
+        ),
+        playback=EffectivePlaybackPerformance(
+            volume="high",
+            pause_before_ms=350,
+        ),
+        unsupported=("pace_modifier",),
+        degradation=("pace_modifier_not_lowered_to_native_speed",),
+    )
+
+
+def _repack_sealed_unit_payload(
+    payload_json: str,
+    *,
+    top_level_updates: dict[str, object] | None = None,
+    unit_updates: dict[str, object] | None = None,
+) -> tuple[str, str]:
+    payload = json.loads(payload_json)
+    payload.update(top_level_updates or {})
+    payload["unit"].update(unit_updates or {})
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return encoded, hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def test_sealed_unit_codec_round_trips_every_typed_field():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    unit = _sealed_unit_codec_fixture()
+    codec = SealedSpeechUnitCodec()
+    payload_json, digest = codec.encode(unit)
+    decoded = codec.decode(
+        payload_json,
+        digest,
+        expected_turn_id=unit.turn_id,
+        expected_narrative_block_id=unit.narrative_block_id,
+        expected_unit_id=unit.unit_id,
+        expected_binding_id=unit.binding_id,
+    )
+
+    payload = json.loads(payload_json)
+    assert set(payload) == {"format_version", "unit"}
+    assert payload["format_version"] == 1
+    assert set(payload["unit"]) == {field.name for field in fields(SealedSpeechUnit)}
+    assert "sealed" not in payload["unit"]
+    assert decoded == unit
+    assert decoded.pronunciation_mappings == unit.pronunciation_mappings
+    assert decoded.desired == unit.desired
+    assert decoded.backend == unit.backend
+    assert decoded.playback == unit.playback
+    assert type(decoded.unsupported) is tuple
+    assert type(decoded.degradation) is tuple
+
+
+def test_sealed_unit_codec_round_trips_nullable_model_revision():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    unit = replace(_sealed_unit_codec_fixture(), model_revision=None)
+    codec = SealedSpeechUnitCodec()
+    payload_json, digest = codec.encode(unit)
+
+    decoded = codec.decode(payload_json, digest)
+
+    assert decoded == unit
+    assert decoded.model_revision is None
+
+
+@pytest.mark.parametrize(
+    ("expected_argument", "wrong_value"),
+    [
+        ("expected_turn_id", "turn-other"),
+        ("expected_narrative_block_id", "narrative-other"),
+        ("expected_unit_id", "speech-other"),
+        ("expected_binding_id", "binding-other"),
+    ],
+)
+def test_sealed_unit_codec_rejects_digest_and_source_identity_mismatch(
+    expected_argument,
+    wrong_value,
+):
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    unit = _sealed_unit_codec_fixture()
+    codec = SealedSpeechUnitCodec()
+    payload_json, digest = codec.encode(unit)
+
+    with pytest.raises(ValueError, match="digest"):
+        codec.decode(payload_json, "0" * 64)
+
+    with pytest.raises(ValueError, match="identity"):
+        codec.decode(payload_json, digest, **{expected_argument: wrong_value})
+
+
+def test_sealed_unit_codec_rejects_unknown_format_version():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    codec = SealedSpeechUnitCodec()
+    payload_json, _digest = codec.encode(_sealed_unit_codec_fixture())
+    unknown_payload, unknown_digest = _repack_sealed_unit_payload(
+        payload_json,
+        top_level_updates={"format_version": 999},
+    )
+
+    with pytest.raises(ValueError, match="format_version"):
+        codec.decode(unknown_payload, unknown_digest)
+
+
+def test_sealed_unit_codec_rejects_pickle_bytes_reduce_and_unknown_keys():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    codec = SealedSpeechUnitCodec()
+    payload_json, digest = codec.encode(_sealed_unit_codec_fixture())
+
+    with pytest.raises(ValueError):
+        codec.decode(b"\x80\x04N.", digest)
+
+    reduce_payload, reduce_digest = _repack_sealed_unit_payload(
+        payload_json,
+        top_level_updates={"__reduce__": ["builtins", "eval"]},
+    )
+    with pytest.raises(ValueError):
+        codec.decode(reduce_payload, reduce_digest)
+
+    unknown_payload, unknown_digest = _repack_sealed_unit_payload(
+        payload_json,
+        top_level_updates={"serialized_object": "80044e2e"},
+    )
+    with pytest.raises(ValueError):
+        codec.decode(unknown_payload, unknown_digest)
+
+    forged_sealed_payload, forged_sealed_digest = _repack_sealed_unit_payload(
+        payload_json,
+        unit_updates={"sealed": True},
+    )
+    with pytest.raises(ValueError):
+        codec.decode(forged_sealed_payload, forged_sealed_digest)
+
+
+def test_sealed_unit_codec_rejects_credentials_and_oversized_content():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    codec = SealedSpeechUnitCodec()
+    unit = _sealed_unit_codec_fixture()
+    payload_json, _ = codec.encode(unit)
+
+    with pytest.raises(ValueError, match="credential"):
+        codec.encode(
+            replace(
+                unit,
+                spoken_text="Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+            )
+        )
+    unsafe_payload, unsafe_digest = _repack_sealed_unit_payload(
+        payload_json,
+        unit_updates={
+            "spoken_text": "Authorization: Bearer abcdefghijklmnopqrstuvwxyz"
+        },
+    )
+    with pytest.raises(ValueError, match="credential"):
+        codec.decode(unsafe_payload, unsafe_digest)
+    with pytest.raises(ValueError, match="length"):
+        codec.encode(replace(unit, display_text="字" * 4097))
+    long_mapping = replace(
+        unit.pronunciation_mappings[0],
+        semantic_key="proper_name:" + "x" * 257,
+    )
+    with pytest.raises(ValueError, match="length"):
+        codec.encode(replace(unit, pronunciation_mappings=(long_mapping,)))
+    with pytest.raises(ValueError, match="pronunciation_mappings"):
+        codec.encode(
+            replace(
+                unit,
+                pronunciation_mappings=unit.pronunciation_mappings * 129,
+            )
+        )
+
+    class UnexpectedComparison:
+        def __eq__(self, _other):
+            raise AssertionError("untrusted object comparison must not run")
+
+    untrusted_mapping = replace(
+        unit.pronunciation_mappings[0],
+        dictionary_revision=UnexpectedComparison(),
+    )
+    with pytest.raises(ValueError, match="dictionary_revision"):
+        codec.encode(replace(unit, pronunciation_mappings=(untrusted_mapping,)))
+
+
+def test_sealed_unit_codec_republishes_the_same_unit_after_registry_expiry():
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+    from infrastructure.audio.voice_runtime import (
+        SealedSpeechUnitRegistry,
+        VoiceRenderRuntimeError,
+    )
+
+    now = [100.0]
+    unit = _sealed_unit_codec_fixture()
+    codec = SealedSpeechUnitCodec()
+    payload_json, digest = codec.encode(unit)
+    first_registry = SealedSpeechUnitRegistry(
+        ttl_seconds=1.0,
+        clock=lambda: now[0],
+    )
+    first_registry.publish(unit)
+    assert first_registry.peek(unit.unit_id) == unit
+
+    now[0] += 2.0
+    with pytest.raises(VoiceRenderRuntimeError, match="voice_render_unit_not_found"):
+        first_registry.peek(unit.unit_id)
+
+    restored = codec.decode(
+        payload_json,
+        digest,
+        expected_turn_id=unit.turn_id,
+        expected_narrative_block_id=unit.narrative_block_id,
+        expected_unit_id=unit.unit_id,
+        expected_binding_id=unit.binding_id,
+    )
+    restarted_registry = SealedSpeechUnitRegistry(clock=lambda: now[0])
+    restarted_registry.publish(restored)
+    assert restarted_registry.peek(unit.unit_id) == unit
+    assert restarted_registry.peek(unit.unit_id).unit_id == unit.unit_id
+    assert restarted_registry.consume(unit.unit_id) == unit

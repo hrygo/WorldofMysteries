@@ -33,6 +33,191 @@ import hacf_policy  # noqa: E402
 import project_status  # noqa: E402
 
 
+def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_tests():
+    """App source additions and their real-source driver manifest share one writer."""
+    role = agent_capsule.ROLE_DEFAULTS["AGT-MAC"]
+    capsule = {
+        "assigned_role": "AGT-MAC",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_app_engine_session.py"
+    )["verdict"] == "authorized"
+    assert "engine/tests/" in role["read"]
+
+    for path in (
+        "engine/domain/world_engine.py",
+        "engine/infrastructure/database/store.py",
+        "engine/ai/model_router.py",
+        "engine/application/session_orchestrator.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "forbidden"
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_contracts_schema.py"
+    )["verdict"] == "out_of_scope"
+
+
+def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
+    """AI may update the narrow composition roots and the AO-04 scenario adapters.
+
+    ``ROLE_DEFAULTS`` 把 ``engine/infrastructure/scenarios/`` 作为**目录**授予
+    AGT-AI（见 AO-04-AI-GOV2），因此本断言不再维护一份会与授权漂移的三文件
+    白名单，而是直接断言两条不变量：
+
+    1. infrastructure 下的**源码**文件要么落在 AGT-AI 的授权面内，要么被判为
+       ``forbidden`` / ``out_of_scope``——绝不出现 ``escalation_required`` 这类
+       等待仲裁的中间态；
+    2. 授权面内不允许出现持久化与迁移资产（database* / outbox* / migrations/），
+       目录级授权不得成为绕过 forbidden 的暗道。
+
+    遍历只覆盖 ``*.py`` 源码：``__pycache__/*.pyc`` 是被 gitignore 的编译产物，
+    Stage 2 在本机与 CI 上都会生成，把编译输出纳入所有权断言只会制造与代码无关的
+    门禁脆弱点。
+    """
+    role = agent_capsule.ROLE_DEFAULTS["AGT-AI"]
+    capsule = {
+        "assigned_role": "AGT-AI",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    for path in (
+        "engine/infrastructure/story_runtime.py",
+        "engine/infrastructure/episode_settlement.py",
+        "engine/infrastructure/scenarios/golden_policy.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized"
+
+    for path in (
+        "engine/infrastructure/database_manager.py",
+        "engine/infrastructure/database_migrations.py",
+        "engine/infrastructure/migrations/0001_add_story_state.sql",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "forbidden"
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/infrastructure/story_runtime_helpers.py"
+    )["verdict"] == "out_of_scope"
+    for path in (
+        "engine/infrastructure/voice_delivery.py",
+        "engine/infrastructure/audio/voice_delivery.py",
+        "engine/infrastructure/story_control.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "out_of_scope"
+
+    composition_roots = {
+        "engine/infrastructure/story_runtime.py",
+        "engine/infrastructure/episode_settlement.py",
+        "engine/infrastructure/scenarios/golden_policy.py",
+    }
+    for path in composition_roots:
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized"
+
+    persistence_patterns = [
+        pattern
+        for pattern in role["forbidden"]
+        if pattern.startswith("engine/infrastructure/")
+    ]
+    assert persistence_patterns, "AGT-AI 必须显式声明 infrastructure 的持久化禁区"
+
+    authorized: list[str] = []
+    for candidate in (REPO_ROOT / "engine/infrastructure").rglob("*"):
+        if not candidate.is_file() or candidate.suffix != ".py":
+            continue
+        path = candidate.relative_to(REPO_ROOT).as_posix()
+        verdict = hacf_policy.path_verdict(capsule, path)["verdict"]
+        assert verdict in {"authorized", "forbidden", "out_of_scope"}, path
+        if verdict == "authorized":
+            authorized.append(path)
+
+    # 反向对照：目录级授权不得成为影子路径的暗道。`scenarios/` 被授予 write，
+    # 但 `scenarios/database_manager.py` 仍必须落在 forbidden 里——否则
+    # AGT-AI 可以把持久化代码藏进已授权目录，forbidden 的顶层锚定形同虚设。
+    for shadowed in (
+        "engine/infrastructure/scenarios/database_manager.py",
+        "engine/infrastructure/scenarios/outbox_worker.py",
+        "engine/infrastructure/scenarios/migrations/0002_seed.sql",
+    ):
+        assert hacf_policy.path_verdict(capsule, shadowed)["verdict"] == "forbidden", (
+            f"目录授权被影子路径绕过：{shadowed}"
+        )
+
+    # 目录级授权必须仍然是「窄」的：授权面只能落在两个组合根或 scenarios/ 适配器
+    # 目录内，infrastructure 下不得出现第三个授权入口。
+    unexpected = [
+        path
+        for path in authorized
+        if path not in composition_roots
+        and not path.startswith("engine/infrastructure/scenarios/")
+    ]
+    assert not unexpected, f"infrastructure 出现未预期的授权面：{unexpected}"
+
+
+EXCLUSIVE_WRITE_OWNERS = {
+    "engine/domain/character_engine.py": "AGT-DOM",
+    "engine/ai/gateway.py": "AGT-AI",
+    "engine/application/scenario_policy.py": "AGT-AI",
+    "engine/infrastructure/database_manager.py": "AGT-DATA",
+    "engine/infrastructure/story_session_repository.py": "AGT-DATA",
+    "engine/infrastructure/story_runtime.py": "AGT-AI",
+    "engine/infrastructure/episode_settlement.py": "AGT-AI",
+    "engine/infrastructure/scenarios/golden_policy.py": "AGT-AI",
+    "engine/infrastructure/audio/voice_delivery.py": "AGT-VOICE",
+    "macos-app/WorldOfMysteries/StorySessionModel.swift": "AGT-MAC",
+    "scripts/agent_capsule.py": "AGT-ARB",
+    "contracts/protocol/engine_ipc.schema.json": "AGT-ARB",
+}
+
+
+def test_every_delivery_surface_has_exactly_one_authorized_writer():
+    """每条投递链路上有且只有一个角色被授权写入该文件。
+
+    ``AGT-DATA`` 对 ``engine/infrastructure/`` 是整目录授权，``AGT-AI`` 持有
+    AO-04 的组合根与场景适配器，``AGT-VOICE`` 持有 ``audio/``——三者叠加后，
+    同一文件会同时对多个角色 ``authorized``，范围审计会全部放行，"每个文件
+    只设一个写入者" 就只剩人工纪律而没有机器约束。本断言把独占性钉死。
+    """
+    authorized_by: dict[str, list[str]] = {}
+    for path in EXCLUSIVE_WRITE_OWNERS:
+        owners = []
+        for role, defaults in agent_capsule.ROLE_DEFAULTS.items():
+            capsule = {
+                "assigned_role": role,
+                "scope": {
+                    "write": defaults["write"],
+                    "forbidden": defaults["forbidden"],
+                    "privileged_grants": [],
+                },
+            }
+            if hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized":
+                owners.append(role)
+        authorized_by[path] = owners
+
+    overlapping = {path: owners for path, owners in authorized_by.items() if len(owners) != 1}
+    assert not overlapping, f"存在多角色写权重叠或零授权：{overlapping}"
+
+    wrong_owner = {
+        path: authorized_by[path][0]
+        for path, expected in EXCLUSIVE_WRITE_OWNERS.items()
+        if authorized_by[path][0] != expected
+    }
+    assert not wrong_owner, f"授权归属与治理矩阵不符：{wrong_owner}"
+
+    missing = [
+        path for path in EXCLUSIVE_WRITE_OWNERS if not (REPO_ROOT / path).is_file()
+    ]
+    assert not missing, f"治理矩阵引用了不存在的文件：{missing}"
+
+
 def test_project_status_renders_completed_milestones_clearly(capsys):
     """Completed milestones must not share the in-progress badge in the status report."""
     state = {

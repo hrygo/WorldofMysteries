@@ -1,13 +1,13 @@
-"""Production post-COMMIT settlement for the fixed five-turn run.
+"""Production post-COMMIT settlement for scenario-selected terminal turns.
 
 Once a Story turn is durably committed, the runtime publishes its frozen
-expression (BeatPlan + NarrativeBlock) and, on the fifth turn, finalizes the
-Episode from the real committed evidence. The authored Episode narrative is
-loaded from the packaged content; every identity list, the world time, the
-secret states and the discovered clues are bound from the committed turns, so
-production never reuses the acceptance oracle. Settlement runs strictly after
-COMMIT: a failure here never rewrites a committed fact and is replayed
-idempotently on the next attempt.
+expression (BeatPlan + NarrativeBlock) and finalizes an Episode only when the
+trusted scenario policy reports a terminal decision with a finalization recipe.
+The authored Episode narrative is loaded from the packaged content; every
+identity list, the world time, the secret states and the discovered clues are
+bound from the committed turns, so production never reuses the acceptance
+oracle. Settlement runs strictly after COMMIT: a failure here never rewrites a
+committed fact and is replayed idempotently on the next attempt.
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from application.post_commit_expression import (
     CommittedExpressionInput,
     PostCommitExpressionService,
 )
+from application.scenario_policy import ScenarioPolicyPort
 from application.story_turn_commit import StoryTurnCommitResult
 from contracts import BeatPlan, Episode, TurnStatus
 
@@ -27,18 +28,15 @@ from .episode_finalization_repository import (
     EpisodeFinalizationRequest,
     SQLiteEpisodeFinalizationRepository,
 )
-
-FINAL_TURN = 5
-EPISODE_FILENAME = "episode.json"
-EPISODE_MEMORY_FILENAME = "episode_memory.json"
+from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-class FiveTurnSettlement:
-    """Publish frozen expression and finalize the Episode after COMMIT."""
+class ScenarioSettlement:
+    """Publish frozen expression and finalize terminal scenario sessions."""
 
     def __init__(
         self,
@@ -46,11 +44,14 @@ class FiveTurnSettlement:
         database: DatabaseManager,
         expression: PostCommitExpressionService,
         content_path: Path,
+        scenario: ScenarioPolicyPort,
         frozen_expression: bool = True,
     ) -> None:
         self._database = database
         self._expression = expression
         self._content_path = Path(content_path)
+        self._scenario = scenario
+        self._bootstraps = SQLiteStoryBootstrapRepository(database)
         # A live turn narrates through the delivery pipeline, which publishes a
         # character segment the speech contract can authorize. The frozen
         # templates emit speakerless narration, so publishing both for one turn
@@ -71,9 +72,8 @@ class FiveTurnSettlement:
         try:
             if self._frozen_expression:
                 await self._publish_expression(result)
-            if result.turn.committed_story_revision == FINAL_TURN:
-                await self._finalize_episode(result)
-        except Exception:
+            await self._finalize_terminal_scenario(result)
+        except Exception:  # noqa: BLE001 - settlement runs after the durable commit
             # "Facts saved" and "expression pending" are distinct states: a
             # settlement failure must never roll back a committed turn, and the
             # repositories replay idempotently on the next attempt.
@@ -94,12 +94,22 @@ class FiveTurnSettlement:
             ),
         )
 
-    async def _finalize_episode(self, result: StoryTurnCommitResult) -> None:
+    async def _finalize_terminal_scenario(
+        self, result: StoryTurnCommitResult
+    ) -> None:
         session = result.session
         state = session.story_state
-        authored = _read_json(self._content_path.parent / EPISODE_FILENAME)
+        committed_evidence = frozenset(state.discovered_clue_ids or ())
+        decision = self._scenario.decision(session, committed_evidence)
+        if not decision.terminal:
+            return
+        bootstrap = await self._bootstraps.require(session.id)
+        recipe = self._scenario.finalization_recipe(bootstrap, session)
+        if recipe is None:
+            return
+        authored = _read_json(self._content_path.parent / recipe.episode_filename)
         memory_template = _read_json(
-            self._content_path.parent / EPISODE_MEMORY_FILENAME
+            self._content_path.parent / recipe.memory_filename
         )
         artifacts = await self._build_artifacts(session, memory_template)
         episode = self._build_episode(session, authored, artifacts)
@@ -279,7 +289,7 @@ class SettlingCommitPort:
     after it, so a post-COMMIT failure can never undo an authoritative fact.
     """
 
-    def __init__(self, port, settlement: FiveTurnSettlement) -> None:
+    def __init__(self, port, settlement: ScenarioSettlement) -> None:
         self._port = port
         self._settlement = settlement
 

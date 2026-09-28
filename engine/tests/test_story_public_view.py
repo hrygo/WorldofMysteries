@@ -17,6 +17,7 @@ from application.story_public_view import (
     StoryPublicViewError,
     StoryPublicViewProjector,
 )
+from application.scenario_policy import TurnPolicyDecision
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures" / "golden_001"
@@ -94,6 +95,11 @@ async def test_projector_returns_only_public_allowlisted_fields():
         bootstrap=initialized.bootstrap,
         observed_store_revision=2,
         last_committed_turn_id="turn_001",
+        policy_decision=TurnPolicyDecision(
+            allowed_to_submit=False,
+            terminal=True,
+            reason="exit_clue_committed",
+        ),
     )
 
     assert view.model_dump(exclude_none=True) == {
@@ -126,6 +132,30 @@ async def test_projector_returns_only_public_allowlisted_fields():
 
 
 @pytest.mark.asyncio
+async def test_projector_uses_server_scenario_decision_instead_of_turn_count():
+    initialized = await _initialized()
+    session = initialized.initial_session.model_copy(
+        update={
+            "story_state": initialized.initial_session.story_state.model_copy(
+                update={"turn": 1, "revision": 1}
+            )
+        }
+    )
+
+    view = StoryPublicViewProjector().project(
+        session=session,
+        bootstrap=initialized.bootstrap,
+        observed_store_revision=2,
+        policy_decision=TurnPolicyDecision(
+            allowed_to_submit=True,
+            terminal=False,
+        ),
+    )
+
+    assert view.can_submit is True
+
+
+@pytest.mark.asyncio
 async def test_unknown_discovered_clue_fails_closed_without_leaking_identity():
     initialized = await _initialized()
     session = initialized.initial_session
@@ -136,4 +166,8 @@ async def test_unknown_discovered_clue_fails_closed_without_leaking_identity():
             session=session,
             bootstrap=initialized.bootstrap,
             observed_store_revision=1,
+            policy_decision=TurnPolicyDecision(
+                allowed_to_submit=True,
+                terminal=False,
+            ),
         )

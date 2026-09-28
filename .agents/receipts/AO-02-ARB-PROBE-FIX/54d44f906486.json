@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-AO-02-ARB-PROBE-FIX-54d44f906486",
+  "receipt_type": "work",
+  "task_id": "AO-02-ARB-PROBE-FIX",
+  "capsule_id": "CAP-AO-02-ARB-PROBE-FIX",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:37345e267c3da7896ffbad5d4d975126be0b8b1fa515f875149dab27db80ffa6",
+  "diff_digest": "sha256:b12acb2f585a45f7723aee0f0105607d86bcb918a4468096fc4896aae742de28",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "c77d3704876c5529526cdf40e9158b74f09cfc2b",
+  "head_commit": "54d44f90648667b2d854fd426680c74b406e933c",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:24:30.017793+00:00",
+      "finished_at": "2026-09-28T08:24:30.050444+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:24:30.050526+00:00",
+      "finished_at": "2026-09-28T08:25:53.505625+00:00",
+      "raw_log_digest": "sha256:8506a7ce59463d9f2f45b1c1a461c5419c36614a66b74e7b120638a19d239cb0",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:25:53.505728+00:00",
+      "finished_at": "2026-09-28T08:26:17.693956+00:00",
+      "raw_log_digest": "sha256:fd4328822ba585704327777a777dc8c48ba45c9b03d229e2ffcd1137e5cb0017",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:26:17.694052+00:00",
+      "finished_at": "2026-09-28T08:26:19.063135+00:00",
+      "raw_log_digest": "sha256:60abd0644e37912a59c2a17f68bf6631db1fd683746fe431a4a2cdfd98df1745",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_bundle_engine.py",
+      "scripts/build_macos_package.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/build_macos_package.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-probe-fix"
+  },
+  "started_at": "2026-09-28T08:24:29.983581+00:00",
+  "finished_at": "2026-09-28T08:26:19.184050+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

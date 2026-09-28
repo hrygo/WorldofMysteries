@@ -20,6 +20,11 @@ from application.post_commit_expression import (
     ExpressionError,
     PostCommitExpressionService,
 )
+from application.scenario_policy import (
+    ActionSignature,
+    ScenarioIdentity,
+    TurnPolicyDecision,
+)
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     SUPPORTED_ADVICE,
@@ -34,8 +39,9 @@ from application.story_session_facade import (
     SubmitAdviceCommand,
 )
 from application.story_session_open import StorySessionOpenService
+from application.story_turn_commit import DomainValidationContext
 from application.turn_input import TurnInputStatus
-from contracts import TurnStatus
+from contracts import StorySession, StorySessionStatus, TurnStatus
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.episode_finalization_repository import (
     EpisodeFinalizationArtifacts as InfrastructureArtifacts,
@@ -225,8 +231,79 @@ def _facade(
         intake=SQLiteTurnInputCommandPort(database),
         advice=SQLitePlayerAdviceRepository(database),
         story=story or SQLiteStorySessionCommitPort(database),
-        first_turn=factory,
+        scenario=_GoldenFiveTurnScenario(factory),
+        workers=_GoldenFiveTurnWorkers(factory),
     )
+
+
+class _GoldenFiveTurnScenario:
+    """Test-only adapter around the frozen fixture's existing rule source."""
+
+    def __init__(self, factory: GoldenFiveTurnFactory) -> None:
+        self._factory = factory
+
+    def identity(self, bootstrap) -> ScenarioIdentity:
+        return ScenarioIdentity(
+            scenario_id=bootstrap.scenario_id,
+            content_digest=bootstrap.content_digest,
+            rules_revision=bootstrap.policy_version,
+        )
+
+    def decision(
+        self, session: StorySession, committed_evidence: frozenset[str]
+    ) -> TurnPolicyDecision:
+        del committed_evidence
+        terminal = session.story_state.turn >= self._factory.max_turn
+        return TurnPolicyDecision(
+            allowed_to_submit=(
+                session.status is StorySessionStatus.ACTIVE and not terminal
+            ),
+            terminal=terminal,
+            reason="iteration_limit_reached" if terminal else None,
+        )
+
+    def expected_input(self, bootstrap, session) -> str | None:
+        turn_number = session.story_state.turn + 1
+        if turn_number > self._factory.max_turn:
+            return None
+        return self._factory.expected_input(bootstrap, turn_number)
+
+    def resolution_policy(self, bootstrap, session):
+        return self._factory.policy_for_turn(
+            bootstrap, session.story_state.turn + 1
+        )
+
+    def validation_context(
+        self, bootstrap, session
+    ) -> DomainValidationContext:
+        return self._factory.domain_validation_for(
+            bootstrap, session.story_state.turn + 1
+        )
+
+    def finalization_recipe(self, bootstrap, committed_session):
+        del bootstrap, committed_session
+        return None
+
+
+class _GoldenFiveTurnWorkers:
+    """Test-only worker projection; scenario rules stay in the scenario port."""
+
+    supports_live_input = False
+
+    def __init__(self, factory: GoldenFiveTurnFactory) -> None:
+        self._factory = factory
+        self.allowed_signatures: tuple[ActionSignature, ...] = ()
+
+    def interpreter_for(self, bootstrap, turn_number):
+        return self._factory.interpreter_for(bootstrap, turn_number)
+
+    def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+        self.allowed_signatures = allowed_signatures
+        return self._factory.proposer_for(bootstrap, turn_number)
+
+    def narrative_compiler(self, bootstrap):
+        del bootstrap
+        raise AssertionError("Golden test workers do not compile live narration")
 
 
 async def _open_five_turn_facade(tmp_path: Path):

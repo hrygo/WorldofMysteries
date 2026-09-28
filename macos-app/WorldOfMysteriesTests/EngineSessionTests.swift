@@ -76,6 +76,21 @@ struct EngineSessionTests {
         }
     }
 
+    @Test("Story expression query is rejected before sending when capability is absent")
+    func storyExpressionRequiresNegotiatedCapability() async {
+        let client = EngineIPCClient(requestTimeout: 0.1)
+        #expect(await !client.supportsStoryExpression())
+        do {
+            _ = try await client.storyExpressionGet(
+                sessionId: "session_1",
+                turnId: "turn_1"
+            )
+            Issue.record("Story expression query was accepted without an advertised capability")
+        } catch {
+            #expect(error as? EngineConnectionError == .methodUnavailable)
+        }
+    }
+
     @Test("Production connection cannot succeed without a socket")
     func noEcho() async {
         let client = EngineIPCClient(requestTimeout: 0.1)

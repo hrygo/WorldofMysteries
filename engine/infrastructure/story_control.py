@@ -34,6 +34,7 @@ STORY_METHODS = (
     "story.advice.submit",
     "story.turn.submit",
     "story.advice.get",
+    "story.expression.get",
 )
 STORY_MUTATIONS = frozenset(
     {"story.session.open", "story.advice.submit", "story.turn.submit"}
@@ -119,7 +120,7 @@ def _wire(
             return view.model_dump(mode="json", exclude_none=True), None, False
         except _Rejected as exc:
             return None, exc.code, False
-        except (AdviceInterpretationError, AdviceActionError) as exc:
+        except (AdviceInterpretationError, AdviceActionError):
             # A model worker that cannot produce a schema-valid candidate is a
             # capability outage, not a malformed request. The pre-COMMIT input
             # receipt stays durable and a retry replays the same turn id.

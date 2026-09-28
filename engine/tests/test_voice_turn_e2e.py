@@ -71,7 +71,9 @@ DRIVER_SOURCES = [
     "EngineProcessManager",
     "EngineConnectionState",
     "StorySessionControl",
+    "StoryExpressionControl",
     "StoryRequestJournal",
+    "StorySubmissionCoordinator",
     "StorySessionModel",
     "AppState",
 ]

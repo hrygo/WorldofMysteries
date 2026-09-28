@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import selectors
 import shutil
 import socket
@@ -40,6 +41,24 @@ TURN_ADVICE = (
 FIVE_CLUE_DISPLAY_NAMES = (
     '医生的停顿', '异常的预约记录', '被撕去的预约页', '门框黑粉', 'Jonathan 的纸片',
 )
+DRIVER_SOURCES = [
+    'IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
+    'EngineSocketTransport', 'StoryPostCommitControl', 'EngineIPCClient',
+    'EngineProcessManager', 'EngineConnectionState',
+    'StorySessionControl', 'StoryRequestJournal', 'StorySubmissionCoordinator',
+    'StorySessionModel', 'AppState',
+    # story.expression.get DTOs. EngineIPCClient and StorySessionModel
+    # decode against these types, so omitting the file breaks the real
+    # App build below with "cannot find type ... in scope".
+    'StoryExpressionControl',
+    # AppState owns the voice turn controller, so the media stack it
+    # composes is part of compiling the real App, not an extra.
+    'Media/VoiceTurnController', 'Media/EngineMediaPlaybackSession',
+    'Media/NativePlayback', 'Media/PlaybackInterruption',
+    'Media/UnixMediaFrameTransport', 'Media/MicrophoneCapture',
+    'Media/SpeechRailRealtimeASR', 'Media/SpeechRailRealtimeASRConnection',
+    'Media/SpeechRailRealtimeASRTurnCoordinator', 'Media/VoiceInputPTTSession',
+]
 
 sys.path.insert(0, str(ROOT / 'scripts'))
 import build_story_content as content_builder
@@ -61,21 +80,38 @@ def child_environment() -> dict[str, str]:
     }
 
 
+def test_driver_sources_cover_engine_ipc_top_level_type_dependencies():
+    """Keep this separately compiled driver in step with EngineIPCClient DTOs."""
+    declaration = re.compile(
+        r'^(?:(?:public|package|internal|private|fileprivate|open|nonisolated|final|indirect)\s+)*'
+        r'(?:actor|class|enum|protocol|struct|typealias)\s+([A-Za-z_]\w*)',
+        re.MULTILINE,
+    )
+    engine_client = (SWIFT / 'EngineIPCClient.swift').read_text(encoding='utf-8')
+    referenced_sources = set()
+    for source in SWIFT.glob('*.swift'):
+        if source.name == 'EngineIPCClient.swift':
+            continue
+        declarations = declaration.findall(source.read_text(encoding='utf-8'))
+        if any(re.search(rf'\b{re.escape(name)}\b', engine_client) for name in declarations):
+            referenced_sources.add(source.stem)
+
+    missing = referenced_sources - set(DRIVER_SOURCES)
+    assert not missing, (
+        'The App driver omits Swift source files declaring top-level types used by '
+        f'EngineIPCClient: {sorted(missing)}'
+    )
+
+    missing_files = [name for name in DRIVER_SOURCES if not (SWIFT / f'{name}.swift').is_file()]
+    assert not missing_files, f'The App driver references missing Swift files: {missing_files}'
+    assert DRIVER_SOURCES.index('StoryPostCommitControl') < DRIVER_SOURCES.index('EngineIPCClient')
+
+
 @pytest.fixture(scope='module')
 def app_driver(tmp_path_factory):
     compiler = shutil.which('swiftc')
     assert compiler, 'Production App–Engine integration requires the target Swift toolchain'
     binary = tmp_path_factory.mktemp('swift-engine') / 'driver'
-    sources = ['IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
-               'EngineSocketTransport', 'EngineIPCClient', 'EngineProcessManager', 'EngineConnectionState',
-               'StorySessionControl', 'StoryRequestJournal', 'StorySessionModel', 'AppState',
-               # AppState owns the voice turn controller, so the media stack it
-               # composes is part of compiling the real App, not an extra.
-               'Media/VoiceTurnController', 'Media/EngineMediaPlaybackSession',
-               'Media/NativePlayback', 'Media/PlaybackInterruption',
-               'Media/UnixMediaFrameTransport', 'Media/MicrophoneCapture',
-               'Media/SpeechRailRealtimeASR', 'Media/SpeechRailRealtimeASRConnection',
-               'Media/SpeechRailRealtimeASRTurnCoordinator', 'Media/VoiceInputPTTSession']
     # The production ArtifactContext declaration is Foundation-only but shares a
     # file with SwiftUI-dependent artwork. Extract that declaration byte-for-byte;
     # AppState and every connection/process implementation are compiled in full.
@@ -88,7 +124,7 @@ def app_driver(tmp_path_factory):
     # Target macOS CI uses the normal dynamic toolchain without this option.
     platform_flags = ['-static-stdlib'] if sys.platform == 'linux' else []
     result = subprocess.run([compiler, '-swift-version', '6', '-strict-concurrency=complete', *platform_flags,
-        *[str(SWIFT / f'{name}.swift') for name in sources],
+        *[str(SWIFT / f'{name}.swift') for name in DRIVER_SOURCES],
         str(context_file), str(Path(__file__).parent / 'fixtures/app_engine_driver.swift'), '-o', str(binary)],
         capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stdout + result.stderr

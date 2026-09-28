@@ -13,10 +13,12 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from jsonschema import Draft202012Validator
 
+from application.scenario_policy import ScenarioPolicyError
 from application.story_initialization import (
     GOLDEN_CLUE_DISPLAY_NAMES,
     GOLDEN_SCENARIO_ID,
@@ -50,6 +52,14 @@ CONTROL_SCHEMA = json.loads(
         encoding="utf-8"
     )
 )
+EXPRESSION_SCHEMA = json.loads(
+    (
+        ROOT
+        / "contracts"
+        / "protocol"
+        / "story_expression_control.schema.json"
+    ).read_text(encoding="utf-8")
+)
 TOKEN = "b" * 64
 SYSTEM_ONLY_HEALTH = {
     "transport_ready": True,
@@ -62,6 +72,7 @@ STORY_CAPABILITIES = (
     "story.advice.get",
     "story.advice.submit",
     "story.entry.get",
+    "story.expression.get",
     "story.session.get",
     "story.session.open",
     "story.turn.submit",
@@ -178,6 +189,320 @@ async def _open_runtime(root: Path, content: Path) -> StoryRuntime:
     )
 
 
+@pytest.mark.asyncio
+async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
+    tmp_path: Path,
+):
+    content_artifact = _write_content_artifact(tmp_path / "canon.db")
+    payload = _bundle_payload()
+    payload["presentation"]["scenario_title"] = "未经注册的新内容"
+    payload["content_digest"] = _canonical_digest(payload)
+    with stdlib_sqlite3.connect(content_artifact) as connection:
+        connection.execute(
+            "UPDATE scenario_bundles SET content_digest=?, payload_json=? "
+            "WHERE scenario_id=?",
+            (
+                payload["content_digest"],
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                GOLDEN_SCENARIO_ID,
+            ),
+        )
+        connection.commit()
+
+    config = StoryRuntimeConfig.for_data_root(
+        tmp_path / "app-support",
+        content_path=content_artifact,
+    )
+    with pytest.raises(ScenarioPolicyError, match="unknown_scenario_identity"):
+        await StoryRuntime.open(
+            config,
+            expected_sqlite_version=sqlite3.sqlite_version,
+        )
+
+
+def _committed_delivery_case(*, narrative=None):
+    from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
+
+    delta = StateDelta.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": "delta-1",
+            "turn_id": "turn-1",
+            "outcome": "clean_success",
+            "story_delta": {
+                "scene_id": "consultation_room",
+                "secret_state_updates": {"secret_hidden_0": "revealed"},
+            },
+            "character_deltas": [],
+            "world_event_candidates": [],
+            "evidence_ids": [],
+        }
+    )
+    turn = TurnTransaction(
+        schema_version="1.0",
+        id="turn-1",
+        session_id="session-1",
+        idempotency_key="input-1",
+        status=TurnStatus.COMMITTED,
+        base_revisions=BaseRevisions(world=1, character=1, story=0),
+        state_delta_id=delta.id,
+        committed_story_revision=1,
+    )
+
+    class NarrativeRepository:
+        def __init__(self):
+            self.turn = turn
+            self.narrative = narrative
+            self.load_turn_calls = 0
+            self.publish_calls = 0
+
+        async def load_turn(self, turn_id):
+            assert turn_id == self.turn.id
+            self.load_turn_calls += 1
+            return self.turn
+
+        async def load_narrative_block(self, narrative_block_id):
+            assert self.narrative is not None
+            assert narrative_block_id == self.narrative.id
+            return self.narrative
+
+        async def publish(self, *, turn_id, narrative):
+            assert turn_id == self.turn.id
+            assert self.narrative is None
+            self.publish_calls += 1
+            self.narrative = narrative
+            self.turn = self.turn.model_copy(
+                update={
+                    "status": TurnStatus.NARRATIVE_READY,
+                    "narrative_block_id": narrative.id,
+                }
+            )
+
+    class FirstTurnWithNarrativeCompiler:
+        def __init__(self):
+            from application.narrative_publication import NarrativeCandidate
+
+            self.candidate = NarrativeCandidate(
+                narration="诊室里的雨声渐渐停了。",
+                speech="我先看看预约簿。",
+            )
+            self.compile_calls = []
+
+        def narrative_compiler(self, _bootstrap):
+            return self
+
+        async def compile(self, *, committed):
+            self.compile_calls.append(committed)
+            return self.candidate
+
+    snapshot = SimpleNamespace(
+        session=SimpleNamespace(protagonist_id="protagonist-1"),
+        bootstrap=SimpleNamespace(
+            presentation=SimpleNamespace(clue_display_names={})
+        ),
+    )
+    result = SimpleNamespace(
+        turn=turn,
+        delta=delta,
+        session=SimpleNamespace(protagonist_id="protagonist-1"),
+    )
+    command = SimpleNamespace(
+        session_id="session-1",
+        raw_input="我想看看预约簿。",
+    )
+    return NarrativeRepository(), FirstTurnWithNarrativeCompiler(), snapshot, result, command
+
+
+@pytest.mark.asyncio
+async def test_live_turn_without_voice_still_publishes_readable_narrative():
+    from application.audio_disclosure import AudioDisclosureAuthorizer
+    from application.story_expression import StoryExpressionQueryService
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=None,
+        audio_config=None,
+        voice_id=None,
+        workers=first_turn,
+        fetch_json=None,
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "voice_not_configured"
+    assert repository.narrative is not None
+    assert [
+        (segment.type, segment.text)
+        for segment in repository.narrative.segments
+    ] == [
+        ("narration", "诊室里的雨声渐渐停了。"),
+        ("character", "我先看看预约簿。"),
+    ]
+    assert repository.publish_calls == 1
+    assert len(first_turn.compile_calls) == 1
+    assert "secret_hidden_0" not in first_turn.compile_calls[0]
+
+    class IdentityReader:
+        async def display_name(self, *, session_id, speaker_id):
+            if (session_id, speaker_id) == ("session-1", "protagonist-1"):
+                return "克莱恩"
+            return None
+
+    expression = await StoryExpressionQueryService(
+        reads=repository,
+        disclosure=AudioDisclosureAuthorizer(repository),
+        identities=IdentityReader(),
+    ).get(session_id="session-1", turn_id="turn-1")
+    assert expression.narrative_state == "ready"
+    assert [
+        (segment.type, segment.text) for segment in expression.segments
+    ] == [
+        ("narration", "诊室里的雨声渐渐停了。"),
+        ("character", "我先看看预约簿。"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_voice_binding_failure_keeps_already_published_narrative(monkeypatch):
+    from infrastructure import story_runtime
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure.story_runtime import _DeliveryCoordinator
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    async def fail_binding(**_kwargs):
+        assert repository.narrative is not None
+        assert repository.turn.narrative_block_id == repository.narrative.id
+        raise VoiceBindingResolutionError("voice_binding_conflicts_with_provider")
+
+    monkeypatch.setattr(story_runtime, "resolve_voice_runtime", fail_binding)
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=object(),
+        audio_config=AudioProviderConfig(),
+        voice_id="klein-approved",
+        workers=first_turn,
+        fetch_json=None,
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "voice_binding_conflicts_with_provider"
+    assert repository.publish_calls == 1
+    assert len(first_turn.compile_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_narrative_publish_failure_returns_unavailable_after_domain_commit():
+    from contracts import TurnStatus
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    committed_turn = result.turn
+
+    async def fail_publish(**_kwargs):
+        raise RuntimeError("storage unavailable")
+
+    repository.publish = fail_publish
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=None,
+        audio_config=None,
+        voice_id=None,
+        workers=first_turn,
+        fetch_json=None,
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "narrative_unavailable"
+    assert result.turn is committed_turn
+    assert repository.turn.status is TurnStatus.COMMITTED
+    assert repository.turn.narrative_block_id is None
+
+
+@pytest.mark.asyncio
+async def test_fixed_turn_reuses_existing_narrative_without_second_publication():
+    from contracts import NarrativeBlock, TurnStatus
+    from contracts.models import NarrativeSegment
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-fixed",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[
+            NarrativeSegment(type="narration", text="固定模式的既有旁白。")
+        ],
+        source_state_delta_id="delta-1",
+    )
+    repository, _live_first_turn, snapshot, result, command = (
+        _committed_delivery_case(narrative=block)
+    )
+    repository.turn = repository.turn.model_copy(
+        update={
+            "status": TurnStatus.NARRATIVE_READY,
+            "narrative_block_id": block.id,
+        }
+    )
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=None,
+        audio_config=None,
+        voice_id=None,
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        fetch_json=None,
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "voice_not_configured"
+    assert repository.narrative is block
+    assert repository.load_turn_calls == 1
+    assert repository.publish_calls == 0
+
+
 def _count_world_commits(root: Path) -> int:
     with stdlib_sqlite3.connect(
         f"file:{_world_path(root)}?mode=ro", uri=True
@@ -242,6 +567,16 @@ def _validate(name: str, value: dict) -> None:
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$defs": CONTROL_SCHEMA["$defs"],
             "$ref": f"#/$defs/{name}",
+        }
+    ).validate(value)
+
+
+def _validate_expression(value: dict) -> None:
+    Draft202012Validator(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": EXPRESSION_SCHEMA["$defs"],
+            "$ref": "#/$defs/expression_get_response",
         }
     ).validate(value)
 
@@ -392,9 +727,44 @@ async def test_story_runtime_serves_public_first_turn_over_real_ipc(
         assert receipt["committed_story_revision"] == 1
         assert submitted["payload"]["session"]["turn"] == 1
         assert submitted["payload"]["session"]["can_submit"] is True
+        assert submitted["payload"]["delivery"]["state"] == "unavailable"
+        assert submitted["payload"]["delivery"]["reason"] == "voice_not_configured"
         assert submitted["payload"]["session"]["discovered_clues"] == [
             {"id": "clue_doctor_pause", "display_name": "医生的停顿"}
         ]
+        expression = await _call(
+            reader,
+            writer,
+            "story.expression.get",
+            {
+                "schema_version": "1.0",
+                "session_id": session_id,
+                "turn_id": receipt["turn_id"],
+            },
+            "req-expression",
+        )
+        assert expression["status"] == "ok"
+        _validate_expression(expression["payload"])
+        assert expression["payload"]["narrative_state"] == "ready"
+        assert expression["payload"]["segments"]
+        assert "speaker_id" not in json.dumps(
+            expression["payload"], ensure_ascii=False
+        )
+
+        expression_extra = await _call(
+            reader,
+            writer,
+            "story.expression.get",
+            {
+                "schema_version": "1.0",
+                "session_id": session_id,
+                "turn_id": receipt["turn_id"],
+                "extra": "rejected",
+            },
+            "req-expression-extra",
+        )
+        assert expression_extra["status"] == "error"
+        assert expression_extra["error"]["code"] == "schema_invalid"
 
         stored = await _call(
             reader, writer, "story.advice.get",

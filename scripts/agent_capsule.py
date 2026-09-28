@@ -41,17 +41,59 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "AGT-DATA": {
         "write": ["engine/infrastructure/", "engine/tests/"],
         "read": ["engine/infrastructure/", "engine/tests/", "contracts/", "docs/03_工程规范/"],
-        "forbidden": ["macos-app/**", "engine/domain/**", "engine/ai/**", ".hacf/**", ".github/**"],
+        "forbidden": [
+            "macos-app/**",
+            "engine/domain/**",
+            "engine/ai/**",
+            # 本角色对 engine/infrastructure/ 是整目录授权，因此下面这批由其他
+            # 角色专属管辖的路径必须显式禁区，否则同一文件会同时 authorized
+            # 给两个角色，范围审计形同虚设、单写入者纪律失去机器约束：
+            #   story_runtime.py / episode_settlement.py / scenarios/  → AGT-AI（AO-04）
+            #   audio/                                                  → AGT-VOICE
+            "engine/infrastructure/story_runtime.py",
+            "engine/infrastructure/episode_settlement.py",
+            "engine/infrastructure/scenarios/",
+            "engine/infrastructure/audio/",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "DATA_KERNEL_P0",
         "risk_class": "high",
         "invariants": [3, 10, 11],
         "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
         "contracts": ["world_snapshot.schema.json", "state_delta.schema.json", "domain_event.schema.json"],
     },
+    # AO-04 narrow allowlist: facade/live factory signatures and composition-root
+    # wiring must compile in the same slice; splitting them makes FULL_P0 fail.
+    # AO-04 §4 places the production scene adapter in scenarios/; it composes
+    # with story_runtime.py under the same writer, or the adapter has no home.
+    # Only the two composition files and that adapter directory are writable.
     "AGT-AI": {
-        "write": ["engine/ai/", "engine/application/", "engine/tests/"],
+        "write": [
+            "engine/ai/",
+            "engine/application/",
+            "engine/tests/",
+            "engine/infrastructure/story_runtime.py",
+            "engine/infrastructure/episode_settlement.py",
+            "engine/infrastructure/scenarios/",
+        ],
         "read": ["engine/ai/", "engine/application/", "engine/tests/", "contracts/"],
-        "forbidden": ["macos-app/**", "engine/domain/**", "engine/infrastructure/**", ".hacf/**", ".github/**"],
+        "forbidden": [
+            "macos-app/**",
+            "engine/domain/**",
+            "engine/infrastructure/database*",
+            "engine/infrastructure/outbox*",
+            "engine/infrastructure/migrations/",
+            # `engine/infrastructure/scenarios/` 是目录级授权，而上面三条禁区
+            # 都是顶层锚定的：`scenarios/database_manager.py` 这类影子路径会
+            # 同时躲开 write 与 forbidden。补齐任意层锚定，forbidden 优先于
+            # write，目录授权不得成为绕过持久化禁区的暗道。
+            "engine/infrastructure/**/database*",
+            "engine/infrastructure/**/outbox*",
+            "engine/infrastructure/**/migrations/",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "AI_GATEWAY_P0",
         "risk_class": "high",
         "invariants": [5, 6, 7, 8],
@@ -69,9 +111,22 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "contracts": ["audio_asset_ref.schema.json", "performance_plan.schema.json"],
     },
     "AGT-MAC": {
-        "write": ["macos-app/WorldOfMysteries/", "macos-app/WorldOfMysteriesTests/"],
-        "read": ["macos-app/", "contracts/", "docs/03_工程规范/"],
-        "forbidden": ["engine/**", ".hacf/**", ".github/**"],
+        # The cross-process driver registers the App Swift sources it compiles; keep
+        # that manifest with the App source owner so App changes can pass FULL_P0.
+        "write": [
+            "macos-app/WorldOfMysteries/",
+            "macos-app/WorldOfMysteriesTests/",
+            "engine/tests/test_app_engine_session.py",
+        ],
+        "read": ["macos-app/", "contracts/", "docs/03_工程规范/", "engine/tests/"],
+        "forbidden": [
+            "engine/domain/**",
+            "engine/infrastructure/**",
+            "engine/ai/**",
+            "engine/application/**",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "MACOS_APP_P0",
         "risk_class": "medium",
         "invariants": [12],
@@ -119,6 +174,10 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
             ".gitignore",
             "engine/tests/test_hacf_governance.py",
             "engine/tests/test_contracts_schema.py",
+            # 打包探针的源闭包断言与 scripts/build_macos_package.py 的
+            # PACKAGE_PROBE_SWIFT_SOURCES 必须同一切片内原子更新：拆成两个
+            # 切片会让其中一边在 FULL_P0 Stage 2 上必然变红。
+            "engine/tests/test_bundle_engine.py",
         ],
         "read": ["."],
         "forbidden": [

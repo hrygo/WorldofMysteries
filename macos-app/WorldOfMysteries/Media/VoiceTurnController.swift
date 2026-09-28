@@ -57,6 +57,9 @@ public final class VoiceTurnController {
     public private(set) var lastSpokenText: String?
 
     @ObservationIgnored private let client: EngineIPCClient
+    @ObservationIgnored private let submissionCoordinator: StorySubmissionCoordinator
+    @ObservationIgnored private let renderDelivery:
+        (@Sendable (VoiceRenderRecipeDTO) async throws -> Void)?
     @ObservationIgnored private let makeASRConnection: @Sendable () -> SpeechRailRealtimeASRConnection
     @ObservationIgnored private let makePlayback: @Sendable () -> NativePlaybackActor
     @ObservationIgnored private var captureSession: VoiceInputPTTSession?
@@ -66,6 +69,8 @@ public final class VoiceTurnController {
 
     public init(
         client: EngineIPCClient,
+        submissionCoordinator: StorySubmissionCoordinator? = nil,
+        renderDelivery: (@Sendable (VoiceRenderRecipeDTO) async throws -> Void)? = nil,
         makeASRConnection: @escaping @Sendable () -> SpeechRailRealtimeASRConnection = {
             SpeechRailRealtimeASRConnection()
         },
@@ -74,6 +79,9 @@ public final class VoiceTurnController {
         }
     ) {
         self.client = client
+        self.submissionCoordinator = submissionCoordinator
+            ?? StorySubmissionCoordinator(client: client)
+        self.renderDelivery = renderDelivery
         self.makeASRConnection = makeASRConnection
         self.makePlayback = makePlayback
     }
@@ -136,40 +144,72 @@ public final class VoiceTurnController {
             return nil
         }
         lastTranscript = transcript
+        return await submitFinalTranscript(transcript, context: context)
+    }
 
-        phase = .committing
-        let committed: StoryAdviceSubmitViewDTO
-        do {
-            committed = try await client.storyTurnSubmit(
-                try StoryTurnSubmitRequestDTO(
-                    sessionId: context.sessionId,
-                    inputTurnId: UUID().uuidString,
-                    rawInput: transcript,
-                    inputMode: .voice,
-                    expectedStoryRevision: context.storyRevision,
-                    expectedStoreRevision: context.storeRevision
-                )
-            )
-        } catch {
+    /// Submit an already-final transcript through the shared frozen-request
+    /// owner. Kept internal so tests can exercise the post-ASR boundary without
+    /// opening a real microphone or SpeechRail connection.
+    @discardableResult
+    func submitFinalTranscript(_ transcript: String, context: TurnContext) async -> String? {
+        guard transcript.unicodeScalars.contains(where: { !$0.properties.isWhitespace }),
+              !transcript.unicodeScalars.contains("\u{0}"),
+              transcript.utf8.count <= StoryControl.maxRawInput else {
             busy = false
-            phase = .unavailable(reason: "commit_failed")
+            phase = .idle
+            return nil
+        }
+        lastTranscript = transcript
+        phase = .committing
+        let frozen = await submissionCoordinator.submit(
+            rawInput: transcript,
+            inputMode: .voice,
+            sessionId: context.sessionId,
+            expectedStoryRevision: context.storyRevision,
+            expectedStoreRevision: context.storeRevision
+        )
+        guard let frozen,
+              submissionCoordinator.state == .committed,
+              submissionCoordinator.latestReceipt?.inputTurnId == frozen.inputTurnId else {
+            busy = false
+            switch submissionCoordinator.state {
+            case .outcomeUnknown, .querying:
+                phase = .unavailable(reason: "outcome_unknown")
+            case .blocked(let code):
+                phase = .unavailable(reason: code)
+            case .received, .notFound:
+                phase = .unavailable(reason: "submission_pending")
+            case .idle, .submitting, .committed:
+                phase = .unavailable(reason: "submission_not_committed")
+            }
             return nil
         }
 
-        guard let delivery = committed.delivery, delivery.state == .ready,
+        let committed = submissionCoordinator.latestResult
+        guard let committed,
+              let delivery = committed.delivery,
+              delivery.state == .ready,
               let recipe = delivery.renderRecipe else {
             // The turn committed. Only the audible rendering is missing, and the
             // Engine said so explicitly rather than pretending it succeeded.
             busy = false
-            phase = .idle
+            if let delivery = committed?.delivery, delivery.state == .unavailable {
+                phase = .unavailable(reason: delivery.reason ?? "voice_unavailable")
+            } else {
+                phase = .idle
+            }
             return transcript
         }
 
         phase = .rendering
         do {
-            try await renderAndPlay(recipe: recipe)
+            if let renderDelivery {
+                try await renderDelivery(recipe)
+            } else {
+                try await renderAndPlay(recipe: recipe)
+            }
             lastSpokenText = recipe.spokenText
-            phase = .speaking
+            phase = .idle
         } catch {
             phase = .unavailable(reason: "render_failed")
         }

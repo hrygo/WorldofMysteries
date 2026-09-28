@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/story_post_commit_control.schema.json",
+  "title": "World of Mysteries Story post-COMMIT work control v1.0",
+  "description": "Typed payload contracts for querying and explicitly retrying work after a committed Story turn. work.get is a pure read: it never changes state or calls a provider. work.retry is an idempotent work acceptance and never re-submits or rewrites the Domain turn. Settlement, narrative, and audio are independent public projections; audio failure never rewrites the committed receipt or narrative state. JSON Schema validates wire shape. Turn ownership, persisted-result integrity, current Engine handoff-registry membership, and the rule that audio_state=ready is returned only when both the sealed result and its current handoff unit are valid require service/DTO semantic validation.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "reason": {
+      "description": "A stable public code, never a free-form internal error string.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "settlement_state": {
+      "description": "Public settlement projection for this turn. It is independent of narrative and audio work.",
+      "enum": ["not_required", "pending", "running", "blocked", "succeeded"]
+    },
+    "narrative_state": {
+      "description": "Public narrative projection for this turn. ready means a non-empty disclosed narrative artifact is available.",
+      "enum": ["pending", "running", "blocked", "ready"]
+    },
+    "audio_state": {
+      "description": "Public audio handoff projection. ready is valid only when the persisted sealed result is valid and the current Engine registry contains a handoff unit. An expired, consumed, or restart-lost registry entry is unavailable with reason handoff_expired and no delivery.",
+      "enum": ["pending", "running", "unavailable", "ready"]
+    },
+    "work_kind": {
+      "enum": ["episode_finalize", "narrative_publish", "audio_prepare"]
+    },
+    "work_get_request": {
+      "description": "A pure read of already committed post-COMMIT work. It performs no writes, generates no narrative, seals no audio, and calls no provider.",
+      "type": "object",
+      "required": ["schema_version", "session_id", "turn_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "work_retry_request": {
+      "description": "Idempotently accepts retry of an eligible post-COMMIT work item by retry_request_id. It does not submit player input again, re-run the resolver, or rewrite the already committed Domain turn.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id",
+        "kind",
+        "retry_request_id"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"$ref": "#/$defs/work_kind"},
+        "retry_request_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "narrative_segment": {
+      "$ref": "story_expression_control.schema.json#/$defs/expression_segment"
+    },
+    "turn_delivery_view": {
+      "$ref": "story_session_control.schema.json#/$defs/turn_delivery"
+    },
+    "work_get_response": {
+      "description": "Independent public projections for settlement, narrative, and audio. A failed or expired audio handoff does not downgrade a succeeded settlement or ready narrative.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id",
+        "settlement_state",
+        "narrative_state",
+        "narrative_segments",
+        "audio_state"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "settlement_state": {"$ref": "#/$defs/settlement_state"},
+        "settlement_reason": {"$ref": "#/$defs/reason"},
+        "narrative_state": {"$ref": "#/$defs/narrative_state"},
+        "narrative_segments": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {"$ref": "#/$defs/narrative_segment"}
+        },
+        "narrative_reason": {"$ref": "#/$defs/reason"},
+        "audio_state": {"$ref": "#/$defs/audio_state"},
+        "audio_reason": {"$ref": "#/$defs/reason"},
+        "delivery": {"$ref": "#/$defs/turn_delivery_view"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"settlement_state": {"const": "not_required"}},
+            "required": ["settlement_state"]
+          },
+          "then": {"not": {"required": ["settlement_reason"]}}
+        },
+        {
+          "if": {
+            "properties": {"settlement_state": {"const": "pending"}},
+            "required": ["settlement_state"]
+          },
+          "then": {"not": {"required": ["settlement_reason"]}}
+        },
+        {
+          "if": {
+            "properties": {"settlement_state": {"const": "running"}},
+            "required": ["settlement_state"]
+          },
+          "then": {"not": {"required": ["settlement_reason"]}}
+        },
+        {
+          "if": {
+            "properties": {"settlement_state": {"const": "blocked"}},
+            "required": ["settlement_state"]
+          },
+          "then": {"required": ["settlement_reason"]}
+        },
+        {
+          "if": {
+            "properties": {"settlement_state": {"const": "succeeded"}},
+            "required": ["settlement_state"]
+          },
+          "then": {"not": {"required": ["settlement_reason"]}}
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "pending"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"narrative_segments": {"maxItems": 0}},
+            "not": {"required": ["narrative_reason"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "running"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"narrative_segments": {"maxItems": 0}},
+            "not": {"required": ["narrative_reason"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "blocked"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"narrative_segments": {"maxItems": 0}},
+            "required": ["narrative_reason"]
+          }
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "ready"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"narrative_segments": {"minItems": 1}},
+            "not": {"required": ["narrative_reason"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"audio_state": {"const": "pending"}},
+            "required": ["audio_state"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["audio_reason"]},
+                {"required": ["delivery"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"audio_state": {"const": "running"}},
+            "required": ["audio_state"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["audio_reason"]},
+                {"required": ["delivery"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"audio_state": {"const": "unavailable"}},
+            "required": ["audio_state"]
+          },
+          "then": {
+            "required": ["audio_reason"],
+            "not": {"required": ["delivery"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"audio_state": {"const": "ready"}},
+            "required": ["audio_state"]
+          },
+          "then": {
+            "required": ["delivery"],
+            "properties": {
+              "delivery": {
+                "properties": {"state": {"const": "ready"}},
+                "required": ["state"]
+              }
+            },
+            "not": {"required": ["audio_reason"]}
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "work_retry_response": {
+      "description": "Acknowledges an idempotently accepted retry request. Replayed means the retry_request_id was already accepted; neither outcome is a new Domain commit.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id",
+        "kind",
+        "retry_request_id",
+        "accepted",
+        "replayed"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"$ref": "#/$defs/work_kind"},
+        "retry_request_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "advice_submit_v2_request": {
+      "$ref": "story_session_control.schema.json#/$defs/advice_submit_request"
+    },
+    "turn_submit_v2_request": {
+      "$ref": "story_session_control.schema.json#/$defs/turn_submit_request"
+    },
+    "v2_submit_response": {
+      "description": "Fast v2 submit receipt shape: the committed Domain receipt, public session view, and replay flag. It makes no synchronous delivery commitment; delivery is queried independently through story.turn.work.get.",
+      "type": "object",
+      "required": ["schema_version", "receipt", "session", "replayed"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "receipt": {
+          "$ref": "story_session_control.schema.json#/$defs/committed_receipt"
+        },
+        "session": {
+          "$ref": "story_session_control.schema.json#/$defs/public_story_session_view"
+        },
+        "replayed": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "advice_submit_v2_response": {
+      "$ref": "#/$defs/v2_submit_response"
+    },
+    "turn_submit_v2_response": {
+      "$ref": "#/$defs/v2_submit_response"
+    }
+  }
+}

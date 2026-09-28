@@ -1,0 +1,175 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-02-ARB-PROBE-GOV",
+  "capsule_revision": 1,
+  "task_id": "AO-02-ARB-PROBE-GOV",
+  "title": "授予 AGT-ARB 打包探针断言文件写权",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-28T08:09:05.417278+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "3a41048e4bccdc576174f9413d051d9c2d48963c",
+    "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+    "context_snapshot": "sha256:d0ec5a1249f32f3e410c9bc9267e17af23a9164ea13f32004f487fb6187ab329"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py",
+      "engine/tests/test_bundle_engine.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:350",
+      "symbol:probe_layout@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:303",
+      "symbol:probe_text_regions@docs/05_UI/artwork/tools/capture_scene_runtime_evidence.py:327",
+      "symbol:test_probe_regions_land_on_the_text_block@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:260",
+      "symbol:test_probe_layout_fits_the_probe_window@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:143",
+      "symbol:test_probe_regions_sit_inside_the_probe_band@docs/05_UI/artwork/tools/tests/test_capture_scene_runtime_evidence.py:174",
+      "symbol:_probe@scripts/build_data_sqlite.py:236",
+      "symbol:release_app_probe@scripts/build_macos_package.py:204",
+      "symbol:packaged_probe@scripts/build_macos_package.py:259",
+      "symbol:test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_tests@engine/tests/test_hacf_governance.py:36",
+      "symbol:test_project_status_renders_completed_milestones_clearly@engine/tests/test_hacf_governance.py:66",
+      "symbol:test_gate_registry_digests_match_protected_profiles@engine/tests/test_hacf_governance.py:107",
+      "symbol:test_gate_profile_tampering_is_rejected@engine/tests/test_hacf_governance.py:117",
+      "symbol:test_capsule_carries_no_executable_gate_commands@engine/tests/test_hacf_governance.py:136",
+      "symbol:test_privileged_surface_requires_explicit_grant@engine/tests/test_hacf_governance.py:155",
+      "symbol:test_packaging_entitlement_requires_explicit_mac_grant@engine/tests/test_hacf_governance.py:179",
+      "symbol:test_forbidden_scope_is_enforced@engine/tests/test_hacf_governance.py:202",
+      "symbol:test_path_pattern_semantics@engine/tests/test_hacf_governance.py:222",
+      "symbol:test_gate_runner_has_no_embedded_commands@engine/tests/test_hacf_governance.py:227",
+      "symbol:test_pack_produces_decoupled_capsule@engine/tests/test_hacf_governance.py:235",
+      "symbol:_clean_git_env@engine/tests/test_hacf_governance.py:289",
+      "symbol:_git@engine/tests/test_hacf_governance.py:296",
+      "symbol:test_policy_git_calls_scrub_hook_injected_environment@engine/tests/test_hacf_governance.py:307",
+      "symbol:_init_repo_with_branches@engine/tests/test_hacf_governance.py:324",
+      "symbol:test_shallow_clone_detection_fails_loudly@engine/tests/test_hacf_governance.py:378",
+      "symbol:test_injected_git_failure_is_reported@engine/tests/test_hacf_governance.py:399",
+      "symbol:test_full_history_detection_resolves_capsule_and_receipt@engine/tests/test_hacf_governance.py:422",
+      "symbol:test_receipts_are_reported_without_capsule@engine/tests/test_hacf_governance.py:436",
+      "symbol:_gate_evolution_capsule@engine/tests/test_hacf_governance.py:465",
+      "symbol:_write_evolution_registry@engine/tests/test_hacf_governance.py:488"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 888,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "probe_text_regions",
+      "probe_layout",
+      "probe_text_regions",
+      "test_probe_regions_land_on_the_text_block",
+      "test_probe_layout_fits_the_probe_window",
+      "test_probe_regions_sit_inside_the_probe_band",
+      "_probe",
+      "release_app_probe",
+      "packaged_probe",
+      "test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_tests",
+      "test_project_status_renders_completed_milestones_clearly",
+      "test_gate_registry_digests_match_protected_profiles",
+      "test_gate_profile_tampering_is_rejected",
+      "test_capsule_carries_no_executable_gate_commands",
+      "test_privileged_surface_requires_explicit_grant",
+      "test_packaging_entitlement_requires_explicit_mac_grant",
+      "test_forbidden_scope_is_enforced",
+      "test_path_pattern_semantics",
+      "test_gate_runner_has_no_embedded_commands",
+      "test_pack_produces_decoupled_capsule",
+      "_clean_git_env",
+      "_git",
+      "test_policy_git_calls_scrub_hook_injected_environment",
+      "_init_repo_with_branches",
+      "test_shallow_clone_detection_fails_loudly",
+      "test_injected_git_failure_is_reported",
+      "test_full_history_detection_resolves_capsule_and_receipt",
+      "test_receipts_are_reported_without_capsule",
+      "_gate_evolution_capsule",
+      "_write_evolution_registry"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

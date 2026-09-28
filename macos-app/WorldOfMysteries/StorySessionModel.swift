@@ -4,12 +4,26 @@ import Observation
 /// Typed story surface of the Local Engine. Losing a response never authorizes a
 /// mutation retry: the model only re-reads durable state unless the user re-sends
 /// the frozen request identity.
-public protocol StoryEngineClient: Sendable {
+public protocol StoryEngineClient: StorySubmissionClient {
     func storyEntry(scenarioId: String) async throws -> StoryEntryViewDTO
     func storyOpen(openRequestId: String, expectedStoreRevision: Int) async throws -> StoryOpenViewDTO
     func storySession(sessionId: String) async throws -> StorySessionGetViewDTO
-    func storySubmit(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
-    func storyAdvice(sessionId: String, inputTurnId: String) async throws -> StoryAdviceGetViewDTO
+    func supportsStoryExpression() async -> Bool
+    func storyExpressionGet(sessionId: String, turnId: String) async throws -> StoryExpressionGetResponseDTO
+}
+
+public extension StoryEngineClient {
+    /// Older clients and test doubles default to the pre-expression capability set.
+    func supportsStoryExpression() async -> Bool { false }
+
+    func storyExpressionGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryExpressionGetResponseDTO {
+        _ = sessionId
+        _ = turnId
+        throw EngineConnectionError.methodUnavailable
+    }
 }
 
 /// Business failure reported by the Engine. The code is a stable public interface.
@@ -49,24 +63,36 @@ public final class StorySessionModel {
     public private(set) var state: State = .unavailable
     public private(set) var supportedAdvice: [String] = []
     public private(set) var view: StoryPublicViewDTO?
+    public private(set) var expression: StoryExpressionGetResponseDTO?
+    public private(set) var expressionReadFailed = false
+    public private(set) var audioUnavailableReason: String?
     public private(set) var pendingInputTurnId: String?
     public private(set) var generation: UInt64 = 0
     public private(set) var canRetrySameRequest = false
     public private(set) var lastServiceCode: String?
     public var draft: String = ""
+    public let submissionCoordinator: StorySubmissionCoordinator
 
     @ObservationIgnored private let client: any StoryEngineClient
     @ObservationIgnored private let journal: any StoryJournalWriting
     @ObservationIgnored private let idFactory: @Sendable () -> String
+    @ObservationIgnored private var expressionRequestGeneration: UInt64 = 0
+    @ObservationIgnored private var currentCommittedTurnId: String?
 
     public init(
         client: any StoryEngineClient,
         journal: any StoryJournalWriting = StoryRequestJournal(),
-        idFactory: @escaping @Sendable () -> String = { UUID().uuidString }
+        idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
+        submissionCoordinator: StorySubmissionCoordinator? = nil
     ) {
         self.client = client
         self.journal = journal
         self.idFactory = idFactory
+        self.submissionCoordinator = submissionCoordinator ?? StorySubmissionCoordinator(
+            client: client,
+            journal: journal,
+            idFactory: idFactory
+        )
     }
 
     // MARK: - Public UI inputs
@@ -81,22 +107,22 @@ public final class StorySessionModel {
     }
 
     public var canSubmitStory: Bool {
-        guard state == .ready, let view, view.canSubmit else { return false }
+        guard state == .ready, let view, view.canSubmit,
+              submissionCoordinator.canAcceptNewInput else { return false }
         return !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Explicit continuation is only offered when the frozen text is still local.
     public var canContinuePending: Bool {
         guard state == .pending else { return false }
-        return (try? journal.load())?.frozenSubmission != nil
+        return submissionCoordinator.state == .received
+            && submissionCoordinator.frozenSubmission != nil
     }
 
     public var canRecover: Bool {
-        switch state {
-        case .recovering, .pending: return false
-        case .failed: return canRetrySameRequest
-        default: return false
-        }
+        guard state != .unavailable, state != .pending else { return false }
+        return submissionCoordinator.state == .outcomeUnknown
+            || submissionCoordinator.state == .notFound
     }
 
     /// At least one fixed turn is durably committed. Further turns may follow.
@@ -124,6 +150,10 @@ public final class StorySessionModel {
         }
     }
 
+    public var submissionStatusText: String? {
+        submissionCoordinator.statusText
+    }
+
     static func failureText(_ code: String) -> String {
         switch code {
         case "deterministic_input_unsupported": return "仅支持本轮指定的建议，可修改后重试"
@@ -142,7 +172,13 @@ public final class StorySessionModel {
     /// Connection generation changes discard stale completions and never resubmit.
     public func detachForConnectionChange() {
         generation &+= 1
+        expressionRequestGeneration &+= 1
+        submissionCoordinator.detachForConnectionChange()
         state = .unavailable
+        expression = nil
+        expressionReadFailed = false
+        audioUnavailableReason = nil
+        currentCommittedTurnId = nil
         pendingInputTurnId = nil
         canRetrySameRequest = false
         lastServiceCode = nil
@@ -179,29 +215,69 @@ public final class StorySessionModel {
     private func apply(entry: StoryEntryViewDTO, attempt: UInt64) async {
         guard let session = entry.session else {
             pendingInputTurnId = entry.pendingInputTurnId
-            view = nil
+            updateCurrentSession(nil)
+            let record: StoryRequestRecord?
+            do {
+                record = try journal.load()
+            } catch {
+                submissionCoordinator.block(code: "journal_unreadable")
+                canRetrySameRequest = false
+                state = entry.pendingInputTurnId == nil
+                    ? .failed(code: "journal_unreadable")
+                    : .pending
+                return
+            }
             if entry.pendingInputTurnId != nil {
+                submissionCoordinator.block(code: "journal_missing")
                 state = .pending
+                return
+            }
+            if let record, record.frozenSubmission != nil {
+                submissionCoordinator.block(code: "session_missing")
+                canRetrySameRequest = false
+                state = .failed(code: "session_missing")
                 return
             }
             state = .notStarted
             await recoverPendingOpen(entry: entry, attempt: attempt)
             return
         }
-        view = session
+        updateCurrentSession(session)
         pendingInputTurnId = nil
-        let record = try? journal.load()
-        if let record, let frozen = record.frozenSubmission, frozen.sessionId == session.sessionId {
-            if session.turn > 0 {
-                clearCommittedJournal()
-                state = Self.settledState(session)
+        let record: StoryRequestRecord?
+        do {
+            record = try journal.load()
+        } catch {
+            submissionCoordinator.block(code: "journal_unreadable")
+            canRetrySameRequest = false
+            state = .failed(code: "journal_unreadable")
+            return
+        }
+        if let record, let frozen = record.frozenSubmission {
+            guard frozen.sessionId == session.sessionId else {
+                submissionCoordinator.block(code: "session_mismatch")
                 canRetrySameRequest = false
-            } else {
-                await recover()
+                state = .failed(code: "session_mismatch")
+                return
             }
+            await submissionCoordinator.recover(expectedSessionId: session.sessionId)
+            await applySubmissionOutcome(attempt: attempt)
+            return
+        }
+        if entry.pendingInputTurnId != nil {
+            submissionCoordinator.block(code: "journal_missing")
+            state = .pending
+            canRetrySameRequest = false
             return
         }
         state = Self.settledState(session)
+        if let turnId = currentCommittedTurnId {
+            await refreshExpression(
+                sessionId: session.sessionId,
+                turnId: turnId,
+                attempt: attempt
+            )
+        }
     }
 
     /// A committed turn is only "completed" when the Engine stops advertising
@@ -221,7 +297,7 @@ public final class StorySessionModel {
             let opened = try await client.storyOpen(
                 openRequestId: openRequestId, expectedStoreRevision: frozenRevision)
             guard attempt == generation else { return }
-            view = opened.session
+            updateCurrentSession(opened.session)
             try? journal.save(
                 StoryRequestRecord(phase: .opened, openRequestId: openRequestId,
                                    openStoreRevision: frozenRevision,
@@ -247,7 +323,7 @@ public final class StorySessionModel {
             let opened = try await client.storyOpen(
                 openRequestId: openRequestId, expectedStoreRevision: expectedStoreRevision)
             guard attempt == generation else { return }
-            view = opened.session
+            updateCurrentSession(opened.session)
             guard writeJournal(
                 StoryRequestRecord(phase: .opened, openRequestId: openRequestId,
                                    openStoreRevision: expectedStoreRevision,
@@ -283,62 +359,26 @@ public final class StorySessionModel {
     private func submit(rawInput: String, view: StoryPublicViewDTO) async {
         let trimmed = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let frozen = StoryFrozenSubmission(
-            sessionId: view.sessionId,
-            inputTurnId: idFactory(),
+        let attempt = generation
+        let frozen = await submissionCoordinator.submit(
             rawInput: trimmed,
+            inputMode: .text,
+            sessionId: view.sessionId,
             expectedStoryRevision: view.storyRevision,
-            expectedStoreRevision: view.observedStoreRevision)
-        await submit(frozen)
+            expectedStoreRevision: view.observedStoreRevision
+        )
+        if frozen != nil {
+            canRetrySameRequest = false
+        }
+        await applySubmissionOutcome(attempt: attempt)
     }
 
     public func retryFrozenSubmission() async {
-        guard canRetrySameRequest, let record = try? journal.load(),
-              let frozen = record.frozenSubmission else { return }
-        await submit(frozen)
-    }
-
-    private func submit(_ frozen: StoryFrozenSubmission) async {
+        guard canRetrySameRequest,
+              submissionCoordinator.state == .notFound else { return }
         let attempt = generation
-        let record = StoryRequestRecord(
-            phase: .submitting,
-            openRequestId: nil,
-            openStoreRevision: nil,
-            sessionId: frozen.sessionId,
-            inputTurnId: frozen.inputTurnId,
-            rawInput: frozen.rawInput,
-            storyRevision: frozen.expectedStoryRevision,
-            storeRevision: frozen.expectedStoreRevision)
-        guard writeJournal(record) else { return }
-        canRetrySameRequest = false
-        state = .submitting
-        do {
-            let request = try StoryAdviceSubmitRequestDTO(
-                sessionId: frozen.sessionId,
-                inputTurnId: frozen.inputTurnId,
-                rawInput: frozen.rawInput,
-                expectedStoryRevision: frozen.expectedStoryRevision,
-                expectedStoreRevision: frozen.expectedStoreRevision)
-            let result = try await client.storySubmit(request)
-            guard attempt == generation else { return }
-            view = result.session
-            draft = ""
-            try? journal.save(record.withPhase(.committed))
-            lastServiceCode = nil
-            state = Self.settledState(result.session)
-            if result.session.canSubmit {
-                // The commit is durable; only the next turn's advice is still
-                // unknown, and a failed read must never rewrite committed facts.
-                await refreshAdviceAfterCommit(attempt: attempt)
-            } else {
-                // `can_submit == false` is the Engine's closed-run signal, so the
-                // last turn's advice must not stay advertised.
-                supportedAdvice = []
-            }
-        } catch {
-            guard attempt == generation else { return }
-            await handleSubmitFailure(error, frozen: frozen)
-        }
+        await submissionCoordinator.continuePendingRequest()
+        await applySubmissionOutcome(attempt: attempt)
     }
 
     /// Read-only refresh of the next turn's advice after a durable commit.
@@ -354,7 +394,7 @@ public final class StorySessionModel {
             supportedAdvice = entry.supportedAdvice
             pendingInputTurnId = entry.pendingInputTurnId
             guard let session = entry.session else { return }
-            view = session
+            updateCurrentSession(session)
             if entry.pendingInputTurnId != nil {
                 state = .pending
             } else {
@@ -365,39 +405,56 @@ public final class StorySessionModel {
         }
     }
 
-    private func handleSubmitFailure(_ error: any Error, frozen: StoryFrozenSubmission) async {
-        guard let service = error as? StoryControlServiceError else {
-            // Unknown outcome: keep the frozen text and identity, then only read.
-            state = .recovering
-            canRetrySameRequest = false
+    /// Reads the durable, player-disclosed text projection after commit or restore.
+    /// It never resubmits input and treats a query failure as a read failure only.
+    private func refreshExpression(
+        sessionId: String,
+        turnId: String,
+        attempt: UInt64
+    ) async {
+        guard attempt == generation,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
             return
         }
-        lastServiceCode = service.code
-        switch service.code {
-        case "deterministic_input_unsupported":
-            try? journal.clear()
-            canRetrySameRequest = false
-            state = .failed(code: service.code)
-        case "iteration_limit_reached":
-            await refreshEntry()
-        case "pending_turn_exists":
-            await recover()
-        case "revision_conflict", "recovery_required":
-            canRetrySameRequest = false
-            state = .failed(code: service.code)
-        case "authorization_denied":
-            canRetrySameRequest = false
-            state = .failed(code: service.code)
-        default:
-            canRetrySameRequest = true
-            if service.retryable {
-                state = .recovering
-                await recover()
-            } else {
-                state = .failed(code: service.code)
-            }
+        expressionRequestGeneration &+= 1
+        let queryAttempt = expressionRequestGeneration
+        expression = nil
+        expressionReadFailed = false
+
+        guard await client.supportsStoryExpression(),
+              attempt == generation,
+              queryAttempt == expressionRequestGeneration,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
+            return
         }
-        _ = frozen
+
+        do {
+            let response = try await client.storyExpressionGet(
+                sessionId: sessionId,
+                turnId: turnId
+            )
+            guard attempt == generation,
+                  queryAttempt == expressionRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return
+            }
+            guard response.sessionId == sessionId, response.turnId == turnId else {
+                expressionReadFailed = true
+                return
+            }
+            expression = response
+        } catch {
+            guard attempt == generation,
+                  queryAttempt == expressionRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return
+            }
+            expressionReadFailed = true
+        }
     }
 
     // MARK: - Recovery
@@ -409,9 +466,40 @@ public final class StorySessionModel {
         guard state != .unavailable, let sessionId = view?.sessionId else { return }
         let attempt = generation
         do {
-            let fetched = try await client.storySession(sessionId: sessionId)
+            let entry = try await client.storyEntry(scenarioId: StoryControl.scenarioId)
             guard attempt == generation else { return }
-            view = fetched.session
+            supportedAdvice = entry.supportedAdvice
+            pendingInputTurnId = entry.pendingInputTurnId
+            let fetched: StoryPublicViewDTO
+            if let session = entry.session {
+                fetched = session
+            } else {
+                fetched = try await client.storySession(sessionId: sessionId).session
+            }
+            guard attempt == generation else { return }
+            updateCurrentSession(
+                fetched,
+                committedTurnId: submissionCoordinator.latestReceipt?.turnId
+            )
+            if let delivery = submissionCoordinator.latestResult?.delivery,
+               delivery.state == .unavailable {
+                audioUnavailableReason = delivery.reason
+            }
+            if submissionCoordinator.state == .committed {
+                state = Self.settledState(fetched)
+            } else if submissionCoordinator.state != .idle {
+                await applySubmissionOutcome(attempt: attempt)
+            } else if entry.pendingInputTurnId != nil {
+                submissionCoordinator.block(code: "journal_missing")
+                state = .pending
+            }
+            if let turnId = currentCommittedTurnId {
+                await refreshExpression(
+                    sessionId: fetched.sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                )
+            }
         } catch {
             // A failed refresh must not invent a failure the player did not have:
             // the committed world is unchanged and the next read will catch up.
@@ -421,50 +509,128 @@ public final class StorySessionModel {
     public func recover() async {
         // A detached panel never queries the previous connection's Engine.
         guard state != .unavailable else { return }
-        guard let record = try? journal.load(), let frozen = record.frozenSubmission else {
-            if pendingInputTurnId != nil { state = .pending }
-            return
-        }
         let attempt = generation
-        state = .recovering
-        do {
-            let found = try await client.storyAdvice(
-                sessionId: frozen.sessionId, inputTurnId: frozen.inputTurnId)
-            guard attempt == generation else { return }
-            guard found.found, let receipt = found.receipt else {
-                canRetrySameRequest = true
-                state = .failed(code: "input_not_found")
-                return
-            }
-            if let session = found.session { view = session }
-            switch receipt.status {
-            case "committed":
-                try? journal.save(record.withPhase(.committed))
-                canRetrySameRequest = false
-                let settled = found.session ?? view
-                state = settled.map(Self.settledState) ?? .completed
-            case "received":
-                canRetrySameRequest = true
-                state = .pending
-            default:
-                try? journal.clear()
-                canRetrySameRequest = false
-                state = .failed(code: "input_turn_cancelled")
-            }
-        } catch {
-            guard attempt == generation else { return }
-            fail(error)
-        }
+        await submissionCoordinator.recover(expectedSessionId: view?.sessionId)
+        await applySubmissionOutcome(attempt: attempt)
     }
 
     /// Explicit user continuation of an already-received request.
     public func continuePendingRequest() async {
-        guard state == .pending, let record = try? journal.load(),
-              let frozen = record.frozenSubmission else { return }
-        await submit(frozen)
+        guard canContinuePending else { return }
+        let attempt = generation
+        await submissionCoordinator.continuePendingRequest()
+        await applySubmissionOutcome(attempt: attempt)
+    }
+
+    private func applySubmissionOutcome(attempt: UInt64) async {
+        guard attempt == generation else { return }
+        switch submissionCoordinator.state {
+        case .idle:
+            return
+        case .submitting:
+            state = .submitting
+            canRetrySameRequest = false
+        case .outcomeUnknown, .querying:
+            state = .recovering
+            canRetrySameRequest = false
+        case .received:
+            state = .pending
+            canRetrySameRequest = false
+            pendingInputTurnId = submissionCoordinator.frozenSubmission?.inputTurnId
+        case .notFound:
+            state = .failed(code: "input_not_found")
+            canRetrySameRequest = true
+            pendingInputTurnId = submissionCoordinator.frozenSubmission?.inputTurnId
+        case .blocked(let code):
+            lastServiceCode = code
+            canRetrySameRequest = false
+            state = .failed(code: code)
+        case .committed:
+            canRetrySameRequest = false
+            lastServiceCode = nil
+            guard let frozen = submissionCoordinator.frozenSubmission else {
+                state = .failed(code: "journal_unreadable")
+                return
+            }
+            var committedSession = submissionCoordinator.latestSession
+            if committedSession == nil {
+                do {
+                    committedSession = try await client.storySession(
+                        sessionId: frozen.sessionId
+                    ).session
+                } catch {
+                    guard attempt == generation else { return }
+                }
+            }
+            guard attempt == generation, let committedSession else {
+                state = .recovering
+                return
+            }
+            updateCurrentSession(
+                committedSession,
+                committedTurnId: submissionCoordinator.latestReceipt?.turnId
+            )
+            if let delivery = submissionCoordinator.latestResult?.delivery {
+                audioUnavailableReason = delivery.state == .unavailable
+                    ? delivery.reason
+                    : nil
+            }
+            draft = ""
+            pendingInputTurnId = nil
+            state = Self.settledState(committedSession)
+            if committedSession.canSubmit {
+                await refreshAdviceAfterCommit(attempt: attempt)
+            } else {
+                supportedAdvice = []
+            }
+            if let turnId = currentCommittedTurnId {
+                await refreshExpression(
+                    sessionId: committedSession.sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                )
+            }
+        }
     }
 
     // MARK: - Helpers
+
+    private func updateCurrentSession(
+        _ session: StoryPublicViewDTO?,
+        committedTurnId: String? = nil
+    ) {
+        let oldSessionId = view?.sessionId
+        let oldTurn = view?.turn
+        let oldCommittedTurnId = currentCommittedTurnId
+        view = session
+
+        guard let session else {
+            currentCommittedTurnId = nil
+            expressionRequestGeneration &+= 1
+            expression = nil
+            expressionReadFailed = false
+            audioUnavailableReason = nil
+            return
+        }
+
+        let sameSessionAndTurn = oldSessionId == session.sessionId && oldTurn == session.turn
+        let nextCommittedTurnId =
+            committedTurnId
+            ?? session.lastCommittedTurnId
+            ?? (sameSessionAndTurn ? oldCommittedTurnId : nil)
+        let changedSessionOrTurn =
+            oldSessionId != session.sessionId
+            || oldTurn != session.turn
+            || oldCommittedTurnId != nextCommittedTurnId
+
+        if changedSessionOrTurn {
+            expressionRequestGeneration &+= 1
+            expression = nil
+            expressionReadFailed = false
+            audioUnavailableReason = nil
+        }
+        currentCommittedTurnId = nextCommittedTurnId
+    }
 
     private func writeJournal(_ record: StoryRequestRecord) -> Bool {
         do {

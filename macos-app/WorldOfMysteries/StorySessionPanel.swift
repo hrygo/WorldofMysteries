@@ -53,8 +53,16 @@ public struct StorySessionPanel: View {
                 .foregroundStyle(Color.Mystic.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let submissionStatus = model.submissionStatusText {
+                Text(submissionStatus)
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .accessibilityIdentifier("storySubmissionStatus")
+            }
+
             if let view = model.view {
                 sessionSummary(view)
+                expressionContent
             }
             actions
             Text("固定模式每轮只接受引擎指定建议；输入持久化、领域裁决与事务执行真实代码，不是生成叙事。")
@@ -72,6 +80,70 @@ public struct StorySessionPanel: View {
             Text("已提交轮次：\(view.turn) · 线索：\(clueText(view))")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var expressionContent: some View {
+        if let expression = model.expression {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                Text("本轮叙事")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+
+                switch expression.narrativeState {
+                case .pending:
+                    Text("尚无已保存的文字叙事。")
+                        .font(Font.Mystic.bodyMedium)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                case .ready:
+                    ForEach(Array(expression.segments.enumerated()), id: \.offset) { item in
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                            Text(segmentLabel(item.element))
+                                .font(Font.Mystic.caption)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                            Text(item.element.text)
+                                .font(Font.Mystic.bodyMedium)
+                                .foregroundStyle(Color.Mystic.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .accessibilityIdentifier("storyExpressionSegment.\(item.offset)")
+                    }
+                case .unavailable:
+                    Text("文字叙事不可用（\(expression.reason ?? "unknown")）。")
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("storyExpression")
+        }
+
+        if model.expressionReadFailed {
+            Text("文字叙事读取失败；已提交轮次仍保留，未重新提交。")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .accessibilityIdentifier("storyExpressionReadFailure")
+        }
+
+        if let reason = model.audioUnavailableReason ?? voiceUnavailableReason {
+            Text("语音不可用（\(reason)）。")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .accessibilityIdentifier("storyAudioUnavailable")
+        }
+    }
+
+    private var voiceUnavailableReason: String? {
+        guard let voice, case .unavailable(let reason) = voice.phase else { return nil }
+        return reason
+    }
+
+    private func segmentLabel(_ segment: StoryExpressionSegmentDTO) -> String {
+        switch segment.type {
+        case .narration:
+            return "旁白"
+        case .character:
+            return segment.speakerDisplayName ?? "对白"
         }
     }
 
@@ -163,7 +235,14 @@ public struct StorySessionPanel: View {
                     .buttonStyle(WOMButtonStyle(.secondary))
                 }
             }
-        case .unavailable, .loading, .opening, .recovering:
+        case .recovering:
+            if model.canRecover {
+                Button("查询是否已保存") {
+                    Task { await model.recover() }
+                }
+                .buttonStyle(WOMButtonStyle(.primary))
+            }
+        case .unavailable, .loading, .opening:
             EmptyView()
         }
     }

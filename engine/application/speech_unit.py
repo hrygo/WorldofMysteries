@@ -192,6 +192,18 @@ class SpeechUnitSealingService:
             segment_index=segment_index,
         )
 
+        if (
+            authorized.segment_type == "narration"
+            and authorized.speaker_id is None
+        ):
+            raise SpeechUnitSealingError(
+                "speakerless_segment_requires_narrator_policy"
+            )
+        if authorized.segment_type != "character":
+            raise SpeechUnitSealingError(
+                "non_character_segment_cannot_be_sealed"
+            )
+
         # Narration has no speaker identity in NarrativeBlock v1. Until an explicit
         # narrator presentation policy exists, never let a caller choose one here.
         if authorized.speaker_id is None:

@@ -1,0 +1,120 @@
+{
+  "receipt_id": "RCP-WORK-AO-02-MAC-488a06db8805",
+  "receipt_type": "work",
+  "task_id": "AO-02-MAC",
+  "capsule_id": "CAP-AO-02-MAC",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:dfed9e660d877f9c592911de28a3228323c3dec943d82fb443ea31ac226ae19e",
+  "diff_digest": "sha256:40f6524f0e78d5fd4aadac7eeeeddaa64788b486c13fe01185b67c79ed09838b",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "13a240e44b4551b3b6bf1c3e0a007909994b2bb9",
+  "head_commit": "488a06db88053a217c01c689c915f6a0dbc1a52a",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-mac",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:54:18.813991+00:00",
+      "finished_at": "2026-09-28T07:54:18.846967+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-mac/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-mac/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:54:18.847038+00:00",
+      "finished_at": "2026-09-28T07:54:42.284948+00:00",
+      "raw_log_digest": "sha256:b71a40f7a08a145b9656d6e61ac78768ab7f2db4c7433ce1687311c96cb167fd",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-mac/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:54:42.285151+00:00",
+      "finished_at": "2026-09-28T07:54:43.607883+00:00",
+      "raw_log_digest": "sha256:e4f7d4288dcc35786d320bd5dcd012171c0e26cd17462a1349dc3970ad6eb02b",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_app_engine_session.py",
+      "macos-app/WorldOfMysteries/AppState.swift",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/Media/VoiceTurnController.swift",
+      "macos-app/WorldOfMysteries/StoryRequestJournal.swift",
+      "macos-app/WorldOfMysteries/StorySessionModel.swift",
+      "macos-app/WorldOfMysteries/StorySessionPanel.swift",
+      "macos-app/WorldOfMysteries/StorySubmissionCoordinator.swift",
+      "macos-app/WorldOfMysteriesTests/StoryRequestJournalTests.swift",
+      "macos-app/WorldOfMysteriesTests/StorySessionModelTests.swift",
+      "macos-app/WorldOfMysteriesTests/StorySubmissionCoordinatorTests.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceTurnControllerTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-mac"
+  },
+  "started_at": "2026-09-28T07:54:18.781202+00:00",
+  "finished_at": "2026-09-28T07:54:43.777228+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
