@@ -5,7 +5,6 @@ evidence. It is not a Domain fact and never advances world_meta revision.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 
@@ -18,6 +17,11 @@ from contracts import BaseRevisions, InputMode, PlayerAdvice
 
 from .database_manager import DatabaseManager, TurnCommandTransaction
 from .database_schema import StorageError
+from .turn_context_repository import (
+    SQLiteTurnContextRepository,
+    TurnContextBinding,
+    TurnContextStorageConflict,
+)
 
 
 class PlayerAdviceStorageConflict(StorageError):
@@ -75,8 +79,14 @@ def _frozen(row: dict) -> FrozenTurnInput:
 
 
 class SQLitePlayerAdviceRepository:
-    def __init__(self, database: DatabaseManager) -> None:
+    def __init__(
+        self,
+        database: DatabaseManager,
+        *,
+        context_repository: SQLiteTurnContextRepository | None = None,
+    ) -> None:
         self._database = database
+        self._contexts = context_repository or SQLiteTurnContextRepository(database)
 
     async def load_input(self, input_turn_id: str) -> FrozenTurnInput | None:
         rows = await self._database.read_world(
@@ -106,9 +116,17 @@ class SQLitePlayerAdviceRepository:
         advice: PlayerAdvice,
         *,
         interpreter_revision: str,
+        context_binding: TurnContextBinding | None = None,
     ) -> StoredPlayerAdvice:
         if not isinstance(advice, PlayerAdvice):
             raise StorageError("PlayerAdvice publication requires a typed value")
+        if context_binding is not None and (
+            not isinstance(context_binding, TurnContextBinding)
+            or context_binding.stage != "interpretation"
+            or context_binding.input_turn_id != input_turn_id
+            or context_binding.turn_id != advice.turn_id
+        ):
+            raise TurnContextStorageConflict("turn_identity_conflict")
         if (
             not isinstance(interpreter_revision, str)
             or not interpreter_revision.strip()
@@ -127,6 +145,16 @@ class SQLitePlayerAdviceRepository:
             if existing:
                 if len(existing) != 1:
                     raise StorageError("PlayerAdvice identity is corrupted")
+                if context_binding is not None:
+                    persisted_binding = self._contexts.load_in_transaction(
+                        tx,
+                        turn_id=advice.turn_id,
+                        stage="interpretation",
+                    )
+                    if persisted_binding is None:
+                        raise TurnContextStorageConflict("legacy_context_unbound")
+                    if persisted_binding != context_binding:
+                        raise TurnContextStorageConflict("context_stale")
                 return _stored(existing[0], replayed=True)
 
             inputs = tx.execute(
@@ -177,6 +205,8 @@ class SQLitePlayerAdviceRepository:
                     canonical,
                 ),
             )
+            if context_binding is not None:
+                self._contexts.save_in_transaction(tx, context_binding)
             rows = tx.execute(
                 "SELECT * FROM turn_advice_interpretations WHERE input_turn_id=?",
                 (input_turn_id,),

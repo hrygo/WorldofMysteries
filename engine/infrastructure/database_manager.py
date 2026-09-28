@@ -159,7 +159,8 @@ class CommitResult:
 
 
 _PROTECTED = frozenset({'world_meta', 'domain_commits', 'domain_events', 'projection_outbox',
-                        'sqlite_master', 'sqlite_schema', 'sqlite_sequence'})
+                        'turn_context_bindings', 'sqlite_master', 'sqlite_schema',
+                        'sqlite_sequence'})
 
 
 class TurnCommandTransaction:
@@ -189,7 +190,11 @@ def _turn_command_authorizer(action, table, column, database, _trigger):
     if action == sqlite3.SQLITE_INSERT:
         return (
             sqlite3.SQLITE_OK
-            if table_name in {'turn_intake_commands', 'turn_advice_interpretations'}
+            if table_name in {
+                'turn_intake_commands',
+                'turn_advice_interpretations',
+                'turn_context_bindings',
+            }
             else sqlite3.SQLITE_DENY
         )
     if action == sqlite3.SQLITE_UPDATE:
