@@ -1,21 +1,21 @@
 {
  "project_name": "World of Mysteries",
  "version": "0.1.0",
- "last_updated": "2026-09-27",
+ "last_updated": "2026-09-28",
  "current_phase": {
   "phase_id": "Phase 1",
   "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
   "status": "IN_PROGRESS",
-  "progress_summary": "截至 2026-09-27，Golden 五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环，本地 main 工作区干净。B-FAULT-POINTS 为八个 Engine 终止检查点新增按语义命名的 DatabaseManager.checkpoint() 通道（复用既有 fault_hook，生产环境无故障开关），以 7 个跨进程故障测试同时断言进程恢复与磁盘事实：提交前窗口（CP1/CP2+CP3）零回合提交、续跑只提交一次；提交后窗口（CP4–CP6）零重复提交且表达精确停位；结算窗口（CP7/CP8）证明 Episode 要么整体存在要么完全不存在。CP2/CP3（action intent / resolver）为纯内存阶段，用「intake 已落盘、回合未提交」的可观测等价边界覆盖。T7（B-GOLDEN-ACCEPTANCE）完成 GUI 五轮观察记录（打包 App，会话「伊芙琳·格雷 · 哈维诊所 · 诊室」，终态「第 5 轮已保存 · 固定五轮验证已完成」，磁盘 turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5，committed_world_revision=7 与 world_meta 7 三方自洽）、G010 音频重生成不改事实（可控音频链）与 G009 表达重发幂等，并闭环 GUI 观察发现的真实生产缺陷 B-APP-SUBMIT-DEFECT（真实 GUI 永不提交建议，修复后提交落盘）。未推送、未创建 PR、未公证。真实模型与 TTS、Story Book 回放 UI 与正式发行验收属后继里程碑，不属于本轮。",
+  "progress_summary": "截至 2026-09-27，Golden 五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环，本地 main 工作区干净。B-FAULT-POINTS 为八个 Engine 终止检查点新增按语义命名的 DatabaseManager.checkpoint() 通道（复用既有 fault_hook，生产环境无故障开关），以 7 个跨进程故障测试同时断言进程恢复与磁盘事实：提交前窗口（CP1/CP2+CP3）零回合提交、续跑只提交一次；提交后窗口（CP4–CP6）零重复提交且表达精确停位；结算窗口（CP7/CP8）证明 Episode 要么整体存在要么完全不存在。CP2/CP3（action intent / resolver）为纯内存阶段，用「intake 已落盘、回合未提交」的可观测等价边界覆盖。T7（B-GOLDEN-ACCEPTANCE）完成 GUI 五轮观察记录（打包 App，会话「伊芙琳·格雷 · 哈维诊所 · 诊室」，终态「第 5 轮已保存 · 固定五轮验证已完成」，磁盘 turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5，committed_world_revision=7 与 world_meta 7 三方自洽）、G010 音频重生成不改事实（可控音频链）与 G009 表达重发幂等，并闭环 GUI 观察发现的真实生产缺陷 B-APP-SUBMIT-DEFECT（真实 GUI 永不提交建议，修复后提交落盘）。本轮经 PR #205 于 2026-09-27T19:56:11Z 合入 main（head e9849d3，merge commit c7b840f），Capsule Gate、All Quality Gates Passed、Stage 1–3 与 Relocatable sandboxed arm64 package 全部 SUCCESS；PR #207（merge commit 67c4eeb）与 PR #208（merge commit ca68d48）于 2026-09-28T02:18:45Z 前合入，必需检查同样全绿。未公证。真实模型与 TTS、Story Book 回放 UI 与正式发行验收属后继里程碑，不属于本轮。",
   "golden_001_runtime": "T7 (B-GOLDEN-ACCEPTANCE) 已完成并与同一最终 SHA 绑定（main f72f379）。检查点 C 全部成立：(1) 打包后解压的真实 App 上完成 GUI 五轮观察——会话「伊芙琳·格雷 · 哈维诊所 · 诊室」，逐轮线索累积至 5 条，终态「第 5 轮已保存 · 固定五轮验证已完成」且提交按钮 disabled（拒绝第 6 轮与任意文本）；磁盘核对 turn_intake_commands=5（GUI 提交真实落盘）、turn_transactions=5、narrative_blocks=5、beat_plans=5、domain_commits=7、episodes=1、episode_finalizations=1，story_sessions status=finalized / story_revision=5，committed_world_revision=7 与 world_meta 修订 7、domain_commits=7 三方自洽；(2) 八个 Engine 终止检查点已逐一可定位注入并有跨进程证据（每个同时断言进程恢复与磁盘事实）；(3) G010 音频重生成不改 NarrativeBlock 与 StoryState（可控音频链，不冒充真实 TTS）、G009 表达重发幂等；(4) GUI 观察记录与跨进程结果绑定同一最终 SHA，观察以 AX 逐轮读取 + 磁盘计数为准，不由源码检查或截图单独替代。本轮 GUI 观察发现并闭环真实生产缺陷 B-APP-SUBMIT-DEFECT（草稿同步清空导致真实 GUI 永不提交，修复后 turn_intake_commands 由 0 变 5）。仍未验收（明确超出本轮）：Story Book 回放 UI、真实 LLM 与 TTS 质量、正式发行/公证与目标设备验收。"
  },
  "gates_health": {
-  "ast_fitness": "PASSED: 2026-09-27 FULL_P0 Stage 1（B-FAULT-POINTS Integration Receipt .agents/receipts/B-FAULT-POINTS/7c155710743f-integration.json）",
-  "schemas_integrity": "PASSED: FULL_P0 Stage 2 在 2026-09-27 通过；包含产品契约校验与完整 Python 套件（B-FAULT-POINTS 本地集成凭单，main 8493b04）",
-  "python_tests": "PASSED: 完整 engine 套件 1208 项在 2026-09-27 B-FAULT-POINTS FULL_P0 预合入及合入后均通过（含 29 项真实 App-Engine 跨进程测试，其中 7 项为八检查点故障用例）",
-  "swift_tests": "PASSED: 2026-09-27 B-FAULT-POINTS FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；本地集成凭单见 .agents/receipts/B-FAULT-POINTS/",
-  "ci_cd_readiness": "PASSED: PR #204 的 Capsule Gate、All Quality Gates Passed、Stage 1–3 与 arm64 随包检查已通过。T4–T6b、结算接线与 B-FAULT-POINTS 仅完成本地 FULL_P0 预演，未推送、未创建 PR，未声称云端 CI 通过。",
-  "golden_001_runtime": "PASSED: 固定五轮迭代 T0–T7 于 2026-09-27 完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环（本地 FULL_P0 预演 + 打包 App 观察，未推送/未 PR/未公证）。含 GUI 五轮观察记录（终态「第 5 轮已保存 · 固定五轮验证已完成」，磁盘 turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5）、八个 Engine 终止检查点跨进程故障证据、G010 音频重生成不改事实、G009 表达重发幂等，并闭环 GUI 发现的 B-APP-SUBMIT-DEFECT。Story Book 回放 UI、真实 LLM/TTS、公证发行与目标设备验收明确超出本轮。"
+  "ast_fitness": "PASSED: 2026-09-27 B-FAULT-POINTS FULL_P0 Stage 1 本地预演（Integration Receipt .agents/receipts/B-FAULT-POINTS/7c155710743f-integration.json）；PR #205/#207/#208 云端 Stage 1: Architecture Fitness & Contracts 均 SUCCESS。",
+  "schemas_integrity": "PASSED: B-FAULT-POINTS FULL_P0 Stage 2 于 2026-09-27 本地通过；PR #205 与 PR #207 云端 Stage 2: Python Engine & Contracts SUCCESS。PR #208 的 Stage 2 由 Determine CI Scope 判定 SKIPPED（未变更 Python/engine 路径），不构成该 PR 的 Python 证据，也不得替代前两次通过。",
+  "python_tests": "PASSED: 完整 engine 套件 1208 项在 2026-09-27 B-FAULT-POINTS FULL_P0 预合入及合入后均通过（含 29 项真实 App-Engine 跨进程测试，其中 7 项为八检查点故障用例）；PR #205 与 PR #207 云端 Stage 2 SUCCESS。注：docs/06_实施基线/2026-09-27_Golden_001_验收追溯记录.md 另记 1232 passed，两者为不同基准时点，未互相替代，也不得用任一数字冒充当前 main HEAD 的结果。",
+  "swift_tests": "PASSED: 2026-09-27 B-FAULT-POINTS FULL_P0 的 swift test 与 Xcode arm64 App Target build 均通过；PR #205/#207/#208 云端 Stage 3: Swift 6 App & Protocol Roundtrip 均 SUCCESS。",
+  "ci_cd_readiness": "PASSED: PR #205（2026-09-27T19:56:11Z）、PR #207（2026-09-28T01:38:19Z）与 PR #208（2026-09-28T02:18:45Z）的 Capsule Gate、All Quality Gates Passed 与 Relocatable sandboxed arm64 package 全部 SUCCESS；PR #208 的 Stage 2 按 Determine CI Scope 判定 SKIPPED。截至 main HEAD ca68d48 无开放 PR。边界不变：本地 FULL_P0 预演与云端 CI 不互相替代，Developer ID 签名、公证与目标设备验收仍未执行。",
+  "golden_001_runtime": "PASSED: 固定五轮迭代 T0–T7 于 2026-09-27 完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环（本地 FULL_P0 预演 + 打包 App 观察；PR #205 已于 2026-09-27 合入 main，merge commit c7b840f，云端 Capsule Gate 与 All Quality Gates Passed 通过；未公证）。含 GUI 五轮观察记录（终态「第 5 轮已保存 · 固定五轮验证已完成」，磁盘 turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5）、八个 Engine 终止检查点跨进程故障证据、G010 音频重生成不改事实、G009 表达重发幂等，并闭环 GUI 发现的 B-APP-SUBMIT-DEFECT。Story Book 回放 UI、真实 LLM/TTS、公证发行与目标设备验收明确超出本轮。"
  },
  "completed_phases": [
   {
@@ -65,7 +65,7 @@
    "phase": "Phase 1",
    "status": "IN_PROGRESS",
    "lead_role": "AGT-ARB",
-   "description": "真实独立 Engine、UDS 通路与 App 生命周期。Session Open 与首轮持久闭环 (PR #202、#204) 已合入；现有证据证明首轮固定模式与双进程恢复，不代表完整多轮业务已交付。M1 仍未整体闭环：#44/#45 的剩余生命周期面、全领域结算、Golden 五轮，以及真实模型/TTS 与设备验收仍待交付。",
+   "description": "真实独立 Engine、UDS 通路与 App 生命周期。Session Open 与首轮持久闭环 (PR #202、#204) 已合入；Golden 五轮 T0–T7、全领域结算接线与八检查点故障证据经 PR #205 于 2026-09-27 合入 main；App 内语音真实回合经 PR #207、播放队列容量显式化经 PR #208 于 2026-09-28 合入，三者云端必需检查均为 SUCCESS。M1 仍未整体闭环：剩余为真实模型与 TTS 质量验收、Developer ID 签名与公证、目标设备安装与体验验收，以及 #44/#45 自身的目标 Mac 实测条目；完整多轮自由文本业务不属于本里程碑。",
    "tracking_issues": [
     44,
     45
@@ -75,9 +75,9 @@
    "id": "M2",
    "name": "SQLite 四库物理隔离架构与单写多读连接池",
    "phase": "Phase 1",
-   "status": "READY",
+   "status": "IN_PROGRESS",
    "lead_role": "AGT-DATA",
-   "description": "落地 canon.db 只读隔离、world.db 权威强事务、retrieval.db 可重建投影、runtime.db 非领域缓存、Outbox 与故障恢复。",
+   "description": "canon.db 只读隔离、world.db 权威强事务、retrieval.db 可重建投影、runtime.db 非领域缓存、Outbox 与故障恢复。已落地并合入 main：M2-DATA-KERNEL-FOUNDATION（83e2a40）与 M2-DATA-KERNEL（ed5d9aa）；四库物理隔离路径、PRAGMA foreign_keys=ON / journal_mode=WAL / synchronous=FULL、projection_outbox 与领域提交同事务均已实现并有测试覆盖；B-FAULT-POINTS 另交付八个终止检查点的真实磁盘故障证据与 retrieval 投影幂等重建测试。尚未闭环：两份 M2 凭单的 merge_authorizing 均为 false（M2-DATA-KERNEL 留有 coverage_gaps「范围裁决未通过」），#46 的单写者与版本检查、冲突请求不得覆盖其他结果、备份/恢复不改变权威历史等条目尚无签发证据，故不判定完成。",
    "tracking_issues": [
     46
    ]
@@ -149,7 +149,7 @@
  "critical_path": {
   "next_milestone_id": "M5",
   "next_milestone_name": "M5 Golden 001 端到端 5 轮状态全景回归（固定五轮迭代已交付，进入后继里程碑规划）",
-  "strategic_rationale": "固定五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上均有证据。A（五轮事实成立）：Story revision 依次 1–5，逐轮与独立 expected 对比。第 4 轮 reinterpret、第 5 轮 closure 不新增重大冲突；Secret 04 始终 hidden，地下室声响不自动推导为有人，玩家猜测不成为事实；同 key 重试不重复提交、同 key 改正文拒绝、不同 key 并发由 revision/CAS 裁决；领域 revision 与 SQLite store revision 分别校验。B（经历留下持久结果）：Episode ending=partial_truth 未解之谜保留；Episode、人物 episode memory、knowledge、关系证据与 world event 的 Finalization 全部成功或全部回滚；关闭重开读取原有记录、不重新调用 Resolver；删除 retrieval 投影后幂等重建；Context Compiler 能召回已授权 Episode Memory 且拒绝未知隐藏事实。C（App 与故障恢复成立）：打包 App 完成开始→五轮提交→结算，磁盘产出 turn_intake_commands=5、domain_commits=7、episodes=1，终态明确结束且拒绝第 6 轮；八个 Engine 终止检查点逐项覆盖（CP1 提交前窗口零回合提交、续跑只提交一次；CP4–CP6 零重复提交且表达精确停位；CP7/CP8 Episode 要么整体存在要么完全不存在），每个故障测试同时核对进程恢复与磁盘事实；G010 音频重生成不改事实、G009 表达重发幂等；GUI 观察与跨进程结果绑定同一 SHA。本轮并闭环真实生产缺陷 B-APP-SUBMIT-DEFECT：AdviceDraftSubmission.submit 同步清空草稿而 handler 只入队异步 Task，导致 model.submit() 的 !draft.isEmpty guard 恒失败、真实 GUI 永不提交；修复后以携带冻结文本的 submit(advice:) 重载接线，并有两层回归防护（模型层复现 panel 接线 + 源码契约）与变异验证。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型与 TTS、Story Book 回放 UI、公证发行与目标设备验收属后继里程碑，不属于本轮。",
+  "strategic_rationale": "固定五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上均有证据。A（五轮事实成立）：Story revision 依次 1–5，逐轮与独立 expected 对比。第 4 轮 reinterpret、第 5 轮 closure 不新增重大冲突；Secret 04 始终 hidden，地下室声响不自动推导为有人，玩家猜测不成为事实；同 key 重试不重复提交、同 key 改正文拒绝、不同 key 并发由 revision/CAS 裁决；领域 revision 与 SQLite store revision 分别校验。B（经历留下持久结果）：Episode ending=partial_truth 未解之谜保留；Episode、人物 episode memory、knowledge、关系证据与 world event 的 Finalization 全部成功或全部回滚；关闭重开读取原有记录、不重新调用 Resolver；删除 retrieval 投影后幂等重建；Context Compiler 能召回已授权 Episode Memory 且拒绝未知隐藏事实。C（App 与故障恢复成立）：打包 App 完成开始→五轮提交→结算，磁盘产出 turn_intake_commands=5、domain_commits=7、episodes=1，终态明确结束且拒绝第 6 轮；八个 Engine 终止检查点逐项覆盖（CP1 提交前窗口零回合提交、续跑只提交一次；CP4–CP6 零重复提交且表达精确停位；CP7/CP8 Episode 要么整体存在要么完全不存在），每个故障测试同时核对进程恢复与磁盘事实；G010 音频重生成不改事实、G009 表达重发幂等；GUI 观察与跨进程结果绑定同一 SHA。本轮并闭环真实生产缺陷 B-APP-SUBMIT-DEFECT：AdviceDraftSubmission.submit 同步清空草稿而 handler 只入队异步 Task，导致 model.submit() 的 !draft.isEmpty guard 恒失败、真实 GUI 永不提交；修复后以携带冻结文本的 submit(advice:) 重载接线，并有两层回归防护（模型层复现 panel 接线 + 源码契约）与变异验证。M1、M2、M3、M5 的整体退出条件尚未满足；真实模型与 TTS、Story Book 回放 UI、公证发行与目标设备验收属后继里程碑，不属于本轮。 合入证据：PR #205（merge commit c7b840f，2026-09-27T19:56:11Z）与 PR #207（67c4eeb）、PR #208（ca68d48，2026-09-28T02:18:45Z 前）的 Capsule Gate、All Quality Gates Passed 与 Relocatable sandboxed arm64 package 均为 SUCCESS，取代此前「仅本地 FULL_P0 预演、未推送未创建 PR」的旧表述；M1、M2、M3、M5 的整体退出条件仍未满足。",
   "target_deliverables": [
    "App 可完成开始、连续五轮提交、结算、退出与返回，并保留未知结果与 pending 的明确状态",
    "第 5 轮后明确结束固定验证；不默许第 6 轮或任意文本输入",
@@ -203,8 +203,8 @@
   "tracking_issue": 43,
   "current_stage": "B",
   "source_review_base_sha": "5b08c807bd7281cb37c637c58271f2fffc633d31",
-  "decision": "固定五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环，本地 main 工作区干净。GUI 五轮观察在打包 App 上完成并落盘核对（turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5，committed_world_revision=7 与 world_meta 7、domain_commits=7 三方自洽）；八个终止检查点、G010、G009 均有同 SHA 跨进程证据；GUI 观察记录见 docs/06_实施基线/2026-09-27_Golden_Five_Turn_GUI_Observation_Record.md。本轮 GUI 观察发现并闭环 B-APP-SUBMIT-DEFECT 真实生产缺陷（真实 GUI 永不提交建议）。以上均为本地 FULL_P0 预演与打包观察，未推送、未创建 PR、未公证；真实模型与 TTS、Story Book 回放 UI 与正式发行验收属后继里程碑。下一里程碑指向 M5（Golden 001 端到端 5 轮状态全景回归），其退出条件与后继范围需先规划。",
-  "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。",
+  "decision": "固定五轮迭代 T0–T7 全部完成，Checkpoint A/B/C 在同一最终 SHA f72f379 上闭环，本地 main 工作区干净。GUI 五轮观察在打包 App 上完成并落盘核对（turn_intake_commands=5、domain_commits=7、episodes=1、story_sessions finalized/story_revision=5，committed_world_revision=7 与 world_meta 7、domain_commits=7 三方自洽）；八个终止检查点、G010、G009 均有同 SHA 跨进程证据；GUI 观察记录见 docs/06_实施基线/2026-09-27_Golden_Five_Turn_GUI_Observation_Record.md。本轮 GUI 观察发现并闭环 B-APP-SUBMIT-DEFECT 真实生产缺陷（真实 GUI 永不提交建议）。以上为本地 FULL_P0 预演与打包观察；已由 PR #205 于 2026-09-27 合入 main（merge commit c7b840f，云端 Capsule Gate 与 All Quality Gates Passed 通过）；未公证；真实模型与 TTS、Story Book 回放 UI 与正式发行验收属后继里程碑。下一里程碑指向 M5（Golden 001 端到端 5 轮状态全景回归），其退出条件与后继范围需先规划。",
+  "evidence_boundary": "PR #204 于 2026-09-26 14:18:31 UTC 合入 main：PR head d3a5b2f61faa7fa4bed7689596524b7b5c67fa66，merge commit 5b08c807bd7281cb37c637c58271f2fffc633d31。GitHub Capsule Gate、All Quality Gates Passed、Stage 1–3 和 Relocatable sandboxed arm64 package 均为 pass。该证据只覆盖首轮固定模式、持久提交与双进程恢复，不证明 M1/M2/M3/M5、五轮结算、真实模型、TTS 或目标设备验收完成。 补充：PR #205 于 2026-09-27T19:56:11Z 合入 main（head e9849d3，merge commit c7b840f），PR #207（merge commit 67c4eeb）与 PR #208（merge commit ca68d48）于 2026-09-28 合入，三者 Capsule Gate、All Quality Gates Passed 与 Relocatable sandboxed arm64 package 均为 SUCCESS。该证据覆盖五轮结算与八检查点故障恢复，仍不证明 M2 证据链授权、M3、真实模型、TTS 或目标设备验收完成。",
   "parallel_ready": [],
   "iteration_evidence": {
    "base_sha": "dccdbd76ef488281cda86be01a6857754b91b7c0",
