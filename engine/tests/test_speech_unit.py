@@ -281,6 +281,33 @@ async def test_seal_rejects_speakerless_narration_until_narrator_policy_exists()
         await seal_once(svc=service(speaker_id=None))
 
 
+async def test_seal_rejects_narration_even_if_it_has_a_character_speaker_id():
+    block = narrative()
+    block = block.model_copy(
+        update={
+            "segments": [
+                NarrativeSegment(
+                    type="narration",
+                    speaker_id="klein-visible",
+                    text="克莱恩没有打开5kg重的门。",
+                )
+            ]
+        }
+    )
+    svc = SpeechUnitSealingService(
+        disclosure=AudioDisclosureAuthorizer(
+            MemoryDisclosurePort(turn(), block)
+        ),
+        bindings=MemoryBindingPort(binding()),
+    )
+
+    with pytest.raises(
+        SpeechUnitSealingError,
+        match="non_character_segment_cannot_be_sealed",
+    ):
+        await seal_once(svc=svc)
+
+
 async def test_seal_does_not_silently_drop_native_fields_missing_from_wv03_control():
     with pytest.raises(
         SpeechUnitSealingError,

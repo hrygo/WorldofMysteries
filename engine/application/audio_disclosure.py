@@ -238,6 +238,7 @@ class AuthorizedAudioSegment:
     story_revision: int
     state_delta_id: str
     segment_index: int
+    segment_type: Literal["narration", "character", "transition"]
     speaker_id: str | None
     display_text: str
     speech_intent: str | None
@@ -317,6 +318,7 @@ class AudioDisclosureAuthorizer:
             story_revision=expected_story_revision,
             state_delta_id=turn.state_delta_id,
             segment_index=segment_index,
+            segment_type=segment.type,
             speaker_id=segment.speaker_id,
             display_text=segment.text,
             speech_intent=segment.speech_intent,

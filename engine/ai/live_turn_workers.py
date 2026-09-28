@@ -39,6 +39,10 @@ from application.advice_interpretation import (
     AdviceInterpretationError,
     FrozenTurnInput,
 )
+from application.narrative_publication import (
+    NarrativeCandidate,
+    NarrativePublicationError,
+)
 from application.story_initialization import StorySessionBootstrap
 from contracts import AdherenceType, InputMode, PlayerAdvice
 from contracts.models import IntentAction
@@ -444,8 +448,8 @@ class LiveNarrativeCompiler(_StructuredWorker):
         super().__init__(transport, output_tokens=900, revision="wom-live-narrative-v1")
         self._brief = brief
 
-    async def compile(self, *, committed: str) -> str:
-        """Render one committed outcome as a single spoken paragraph."""
+    async def compile(self, *, committed: str) -> NarrativeCandidate:
+        """Render committed facts without assigning a speaker identity."""
         if not isinstance(committed, str) or not committed.strip():
             raise LiveWorkerError("invalid_narrative_source")
         payload = await self._ask(
@@ -456,17 +460,32 @@ class LiveNarrativeCompiler(_StructuredWorker):
             f"总长度不超过 {_MAX_NARRATIVE_CHARS} 个字。",
             f"{self._brief.prompt()}\n已提交的事实：{committed.strip()}",
         )
+        if "narration" not in payload or set(payload) - {"narration", "speech"}:
+            raise LiveWorkerError("narrative_model_invalid")
         try:
             narration = _bounded_text(
                 payload.get("narration"), _MAX_NARRATIVE_CHARS, field="narration"
             )
-            speech = _bounded_text(
-                payload.get("speech"), _MAX_NARRATIVE_CHARS, field="speech"
-            )
+            raw_speech = payload.get("speech")
+            if raw_speech is None:
+                speech = ""
+            elif (
+                not isinstance(raw_speech, str)
+                or "\x00" in raw_speech
+                or len(raw_speech) > _MAX_NARRATIVE_CHARS
+            ):
+                raise LiveWorkerError("invalid_speech")
+            else:
+                # Empty dialogue is a valid narration-only result. The durable
+                # block will contain no character segment, so no audio can be
+                # sealed from it.
+                speech = raw_speech.strip()
+            assert narration is not None
+            return NarrativeCandidate(narration=narration, speech=speech)
         except LiveWorkerError as exc:
             raise LiveWorkerError("narrative_model_invalid") from exc
-        assert narration is not None and speech is not None
-        return f"{narration}\n{speech}"
+        except NarrativePublicationError as exc:
+            raise LiveWorkerError("narrative_model_invalid") from exc
 
 
 class LiveFirstTurnFactory:
