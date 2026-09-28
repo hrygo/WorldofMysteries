@@ -12,6 +12,8 @@ public final class AppState {
     public private(set) var engineHandshake: EngineHandshake?
     public let ipcClient: EngineIPCClient
     public let processManager: EngineProcessManager
+    /// One mutation/recovery owner is shared by typed and spoken turns.
+    public let submissionCoordinator: StorySubmissionCoordinator
     /// Independent trusted first-turn state. It never rewrites the demo snapshot.
     public let storyModel: StorySessionModel
     /// Voice-first turn control. It commits through the same durable path as a
@@ -40,8 +42,18 @@ public final class AppState {
     public init(ipcClient: EngineIPCClient = EngineIPCClient(), processManager: EngineProcessManager = EngineProcessManager()) {
         self.ipcClient = ipcClient
         self.processManager = processManager
-        self.storyModel = StorySessionModel(client: ipcClient)
-        self.voiceTurn = VoiceTurnController(client: ipcClient)
+        let journal = StoryRequestJournal()
+        let coordinator = StorySubmissionCoordinator(client: ipcClient, journal: journal)
+        self.submissionCoordinator = coordinator
+        self.storyModel = StorySessionModel(
+            client: ipcClient,
+            journal: journal,
+            submissionCoordinator: coordinator
+        )
+        self.voiceTurn = VoiceTurnController(
+            client: ipcClient,
+            submissionCoordinator: coordinator
+        )
     }
 
     /// The revision tokens one voice turn must present. They are read from the

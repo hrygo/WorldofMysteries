@@ -53,6 +53,13 @@ public struct StorySessionPanel: View {
                 .foregroundStyle(Color.Mystic.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let submissionStatus = model.submissionStatusText {
+                Text(submissionStatus)
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .accessibilityIdentifier("storySubmissionStatus")
+            }
+
             if let view = model.view {
                 sessionSummary(view)
                 expressionContent
@@ -118,12 +125,17 @@ public struct StorySessionPanel: View {
                 .accessibilityIdentifier("storyExpressionReadFailure")
         }
 
-        if let reason = model.audioUnavailableReason {
+        if let reason = model.audioUnavailableReason ?? voiceUnavailableReason {
             Text("语音不可用（\(reason)）。")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .accessibilityIdentifier("storyAudioUnavailable")
         }
+    }
+
+    private var voiceUnavailableReason: String? {
+        guard let voice, case .unavailable(let reason) = voice.phase else { return nil }
+        return reason
     }
 
     private func segmentLabel(_ segment: StoryExpressionSegmentDTO) -> String {
@@ -223,7 +235,14 @@ public struct StorySessionPanel: View {
                     .buttonStyle(WOMButtonStyle(.secondary))
                 }
             }
-        case .unavailable, .loading, .opening, .recovering:
+        case .recovering:
+            if model.canRecover {
+                Button("查询是否已保存") {
+                    Task { await model.recover() }
+                }
+                .buttonStyle(WOMButtonStyle(.primary))
+            }
+        case .unavailable, .loading, .opening:
             EmptyView()
         }
     }

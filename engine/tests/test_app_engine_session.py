@@ -68,7 +68,8 @@ def app_driver(tmp_path_factory):
     binary = tmp_path_factory.mktemp('swift-engine') / 'driver'
     sources = ['IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
                'EngineSocketTransport', 'EngineIPCClient', 'EngineProcessManager', 'EngineConnectionState',
-               'StorySessionControl', 'StoryRequestJournal', 'StorySessionModel', 'AppState',
+               'StorySessionControl', 'StoryRequestJournal', 'StorySubmissionCoordinator',
+               'StorySessionModel', 'AppState',
                # story.expression.get DTOs. EngineIPCClient and StorySessionModel
                # decode against these types, so omitting the file breaks the real
                # App build below with "cannot find type ... in scope".

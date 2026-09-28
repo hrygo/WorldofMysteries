@@ -419,6 +419,12 @@ extension EngineIPCClient: StoryEngineClient {
         try await storySubmit(request, traceId: UUID().uuidString)
     }
 
+    public func storyTurnSubmit(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyTurnSubmit(request, traceId: UUID().uuidString)
+    }
+
     public func storyAdvice(
         sessionId: String,
         inputTurnId: String

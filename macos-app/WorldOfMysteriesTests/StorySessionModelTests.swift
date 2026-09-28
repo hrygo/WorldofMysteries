@@ -47,6 +47,7 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     private let journal: MemoryStoryJournal
     private var entryView: StoryEntryViewDTO
     private let openView: StoryOpenViewDTO
+    private var currentSession: StoryPublicViewDTO
 
     private var submitView: StoryAdviceSubmitViewDTO?
     private var submitQueue: [StoryAdviceSubmitViewDTO] = []
@@ -68,6 +69,7 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
         self.journal = journal
         self.entryView = entryView
         self.openView = openView
+        self.currentSession = openView.session
         self.submitView = submitView
         self.adviceView = adviceView
     }
@@ -148,24 +150,50 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     func storySession(sessionId: String) async throws -> StorySessionGetViewDTO {
         log.append("client.session")
-        return StorySessionGetViewDTO(session: openView.session)
+        return lock.withLock { StorySessionGetViewDTO(session: currentSession) }
     }
 
     func storySubmit(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO {
         log.append("client.submit")
-        let state = lock.withLock { () -> (AsyncStream<Void>?, (any Error)?, StoryAdviceSubmitViewDTO?) in
+        return try await performSubmit(inputTurnId: request.inputTurnId)
+    }
+
+    func storyTurnSubmit(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        log.append("client.turn_submit")
+        return try await performSubmit(inputTurnId: request.inputTurnId)
+    }
+
+    private func performSubmit(inputTurnId: String) async throws -> StoryAdviceSubmitViewDTO {
+        let state = lock.withLock {
+            () -> (AsyncStream<Void>?, (any Error)?, StoryAdviceSubmitViewDTO?, StoryAdviceGetViewDTO) in
             let next = submitQueue.isEmpty ? submitView : submitQueue.removeFirst()
-            return (gateStream, submitError, next)
+            return (gateStream, submitError, next, adviceView)
         }
         if let gate = state.0 { for await _ in gate { break } }
-        if let error = state.1 { throw error }
+        if let error = state.1 {
+            if !(error is StoryControlServiceError),
+               state.3.receipt?.status == "committed",
+               let result = state.2 {
+                lock.withLock { currentSession = result.session }
+            }
+            throw error
+        }
         guard let view = state.2 else { throw EngineConnectionError.invalidFrame }
-        return view
+        let response = try Self.submitResponse(view, inputTurnId: inputTurnId)
+        lock.withLock { currentSession = response.session }
+        return response
     }
 
     func storyAdvice(sessionId: String, inputTurnId: String) async throws -> StoryAdviceGetViewDTO {
         log.append("client.advice")
-        return lock.withLock { adviceView }
+        let state = lock.withLock { (adviceView, currentSession) }
+        return try Self.adviceResponse(
+            state.0,
+            inputTurnId: inputTurnId,
+            session: state.1
+        )
     }
 
     func storyExpressionGet(
@@ -182,6 +210,50 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
         if let error = state.1 { throw error }
         guard let response = state.2 else { throw EngineConnectionError.invalidFrame }
         return response
+    }
+
+    private static func submitResponse(
+        _ response: StoryAdviceSubmitViewDTO,
+        inputTurnId: String
+    ) throws -> StoryAdviceSubmitViewDTO {
+        guard var object = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(response)
+        ) as? [String: Any],
+        var receipt = object["receipt"] as? [String: Any] else {
+            throw EngineConnectionError.invalidFrame
+        }
+        receipt["input_turn_id"] = inputTurnId
+        object["receipt"] = receipt
+        return try JSONDecoder().decode(
+            StoryAdviceSubmitViewDTO.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+    }
+
+    private static func adviceResponse(
+        _ response: StoryAdviceGetViewDTO,
+        inputTurnId: String,
+        session: StoryPublicViewDTO
+    ) throws -> StoryAdviceGetViewDTO {
+        guard var object = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(response)
+        ) as? [String: Any] else {
+            throw EngineConnectionError.invalidFrame
+        }
+        if response.found, let receipt = object["receipt"] as? [String: Any] {
+            var updatedReceipt = receipt
+            updatedReceipt["input_turn_id"] = inputTurnId
+            object["receipt"] = updatedReceipt
+            if response.receipt?.status == "committed", object["session"] == nil {
+                object["session"] = try JSONSerialization.jsonObject(
+                    with: JSONEncoder().encode(session)
+                )
+            }
+        }
+        return try JSONDecoder().decode(
+            StoryAdviceGetViewDTO.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
     }
 }
 
@@ -580,18 +652,16 @@ struct StorySessionModelTests {
             submitView: try Self.submitResult(), adviceView: try Self.adviceFound())
         client.setExpressionAvailable(true)
         client.setExpressionResponse(try Self.expressionResult())
-        await model.refreshEntry()
-        client.setSubmitError(EngineConnectionError.timedOut)
-        model.draft = "先别问医生病人的事，我想看看他的反应。"
-        await model.submit()
-        #expect(model.state == .recovering)
-        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
-
-        // The read-only recovery adopts the committed view the Engine reports.
         client.setAdvice(try Self.adviceFound(
             committed: true,
             session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2)))
-        await model.recover()
+        await model.refreshEntry()
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+        client.setSubmitError(EngineConnectionError.timedOut)
+        model.draft = "先别问医生病人的事，我想看看他的反应。"
+        await model.submit()
         #expect(model.state == .ready)
         #expect(model.view?.turn == 1)
         #expect(log.values.filter { $0 == "client.submit" }.count == 1)
@@ -614,7 +684,6 @@ struct StorySessionModelTests {
         client.setSubmitError(EngineConnectionError.timedOut)
         model.draft = "先别问医生病人的事，我想看看他的反应。"
         await model.submit()
-        await model.recover()
         #expect(model.state == .pending)
         #expect(!model.canRecover)
         #expect(model.statusText == "请求已记录，尚未提交")
@@ -659,13 +728,23 @@ struct StorySessionModelTests {
         await model.refreshEntry()
         model.draft = "先别问医生病人的事，我想看看他的反应。"
         client.setSubmitError(EngineConnectionError.timedOut)
-        await model.submit()
-        #expect(model.state == .recovering)
+        client.holdSubmit()
+        let submission = Task { @MainActor in await model.submit() }
+        for _ in 0..<100 {
+            if log.values.contains("client.submit") { break }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        let frozen = try #require(try journal.load()?.frozenSubmission)
+        #expect(model.submissionCoordinator.state == .submitting)
         model.detachForConnectionChange()
         #expect(model.state == .unavailable)
+        client.releaseSubmit()
+        await submission.value
         client.setAdvice(try Self.adviceFound(committed: true))
         await model.recover()
         #expect(model.state == .unavailable)
+        #expect(try journal.load()?.frozenSubmission == frozen)
+        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
     }
 
     @Test("Audio unavailable after commit still displays the persisted text")
@@ -698,6 +777,65 @@ struct StorySessionModelTests {
         #expect(model.expression?.segments.map(\.text) == ["雨停了。", "我明白了。"])
         #expect(model.audioUnavailableReason == "voice_unavailable")
         #expect(log.values.filter { $0 == "client.submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.expression" }.count == 1)
+    }
+
+    @Test("Voice and text share one receipt path while voice failure keeps saved expression")
+    func voiceCommitUsesSharedCoordinatorAndKeepsExpression() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let unavailable = try StoryTurnDeliveryDTO(
+            state: .unavailable,
+            reason: "voice_unavailable"
+        )
+        let client = FakeStoryClient(
+            log: log,
+            journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(
+                session: Self.view(),
+                openedStoreRevision: 1,
+                replayed: false
+            ),
+            submitView: try Self.submitResult(turn: 1, delivery: unavailable),
+            adviceView: try Self.adviceFound()
+        )
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult())
+        let coordinator = StorySubmissionCoordinator(
+            client: client,
+            journal: journal,
+            idFactory: { "input_turn_1" }
+        )
+        let model = StorySessionModel(
+            client: client,
+            journal: journal,
+            submissionCoordinator: coordinator
+        )
+
+        await model.refreshEntry()
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2,
+            advice: [Self.advice(forTurn: 2)]
+        ))
+        let frozen = await coordinator.submit(
+            rawInput: "  ASR 原始转写  ",
+            inputMode: .voice,
+            sessionId: "session_1",
+            expectedStoryRevision: 0,
+            expectedStoreRevision: 1
+        )
+        await model.reloadSession()
+
+        #expect(frozen?.inputMode == .voice)
+        #expect(frozen?.rawInput == "  ASR 原始转写  ")
+        #expect(coordinator.state == .committed)
+        #expect(model.view?.turn == 1)
+        #expect(model.expression?.narrativeState == .ready)
+        #expect(model.audioUnavailableReason == "voice_unavailable")
+        #expect(log.values.filter { $0 == "client.turn_submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.submit" }.isEmpty)
         #expect(log.values.filter { $0 == "client.expression" }.count == 1)
     }
 
@@ -857,15 +995,14 @@ struct StorySessionModelTests {
                                            replayed: false),
             submitView: try Self.submitResult(), adviceView: try Self.adviceFound())
         await model.refreshEntry()
-        client.setSubmitError(EngineConnectionError.timedOut)
-        model.draft = "先别问医生病人的事，我想看看他的反应。"
-        await model.submit()
         let notFound = """
         {"schema_version": "1.0", "found": false, "replayed": false}
         """
         client.setAdvice(try JSONDecoder().decode(
             StoryAdviceGetViewDTO.self, from: Data(notFound.utf8)))
-        await model.recover()
+        client.setSubmitError(EngineConnectionError.timedOut)
+        model.draft = "先别问医生病人的事，我想看看他的反应。"
+        await model.submit()
         #expect(model.state == .failed(code: "input_not_found"))
         #expect(model.canRetrySameRequest)
         #expect(model.statusText == "未查到提交记录，可显式重试同一请求")
