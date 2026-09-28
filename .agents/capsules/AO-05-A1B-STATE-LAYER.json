@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-A1B-STATE-LAYER",
+  "capsule_revision": 1,
+  "task_id": "AO-05-A1B-STATE-LAYER",
+  "title": "Implement AO-05-A1B-STATE-LAYER",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-28T23:16:32.931384+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "1e950ce989444db78ba70f992b31615d2e854ed9",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:e940c5d90b7391090c702710e973d1bf666c4b44616426df016e6bea58c36850"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:MediaReceiveState@engine/infrastructure/audio/media_protocol.py:461",
+      "symbol:statements@engine/infrastructure/database_schema.py:60",
+      "symbol:_InvocationState@engine/infrastructure/gameplay_context_repository.py:88",
+      "symbol:PlayerAdviceStorageConflict@engine/infrastructure/player_advice_repository.py:27",
+      "symbol:_canonical_advice@engine/infrastructure/player_advice_repository.py:31",
+      "symbol:_stored@engine/infrastructure/player_advice_repository.py:44",
+      "symbol:_frozen@engine/infrastructure/player_advice_repository.py:61",
+      "symbol:SQLitePlayerAdviceRepository@engine/infrastructure/player_advice_repository.py:81",
+      "symbol:__init__@engine/infrastructure/player_advice_repository.py:82",
+      "symbol:load_input@engine/infrastructure/player_advice_repository.py:91",
+      "symbol:load_advice@engine/infrastructure/player_advice_repository.py:102",
+      "symbol:publish@engine/infrastructure/player_advice_repository.py:113",
+      "symbol:apply@engine/infrastructure/player_advice_repository.py:140",
+      "symbol:SettlementPublicState@engine/infrastructure/post_commit_job_repository.py:56",
+      "symbol:NarrativePublicState@engine/infrastructure/post_commit_job_repository.py:64",
+      "symbol:AudioPublicState@engine/infrastructure/post_commit_job_repository.py:71",
+      "symbol:_public_group_state@engine/infrastructure/post_commit_job_repository.py:811",
+      "symbol:_BoundSQLitePlayerAdviceRepository@engine/infrastructure/story_runtime.py:242",
+      "symbol:test_player_advice_binding_mismatch_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:205",
+      "symbol:test_ai_gateway_rejects_result_after_state_changed@engine/tests/test_ai_gateway.py:106",
+      "symbol:test_media_receive_state_validates_sequence_offsets_totals_and_digest@engine/tests/test_audio_adapter.py:646",
+      "symbol:test_media_receive_state_rejects_late_generation_and_gap@engine/tests/test_audio_adapter.py:697",
+      "symbol:test_audio_regeneration_never_changes_narrative_or_story_state@engine/tests/test_audio_track_repository.py:300",
+      "symbol:test_narrative_request_omits_untrusted_player_task_text@engine/tests/test_authorized_live_execution.py:481",
+      "symbol:revoke_current_state@engine/tests/test_authorized_live_execution.py:430",
+      "symbol:test_context_current_state_is_required@engine/tests/test_context_compiler.py:115",
+      "symbol:test_context_cannot_promote_layer_with_old_grant@engine/tests/test_context_compiler.py:168",
+      "symbol:test_player_consumers_require_public_or_owner_disclosure@engine/tests/test_context_visibility.py:99",
+      "symbol:_state_delta_sample@engine/tests/test_contracts_pydantic.py:39",
+      "symbol:test_suggestion_is_a_valid_player_advice_input_mode@engine/tests/test_contracts_pydantic.py:176"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 870,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "MediaReceiveState",
+      "statements",
+      "_InvocationState",
+      "PlayerAdviceStorageConflict",
+      "_canonical_advice",
+      "_stored",
+      "_frozen",
+      "SQLitePlayerAdviceRepository",
+      "__init__",
+      "load_input",
+      "load_advice",
+      "publish",
+      "apply",
+      "SettlementPublicState",
+      "NarrativePublicState",
+      "AudioPublicState",
+      "_public_group_state",
+      "_BoundSQLitePlayerAdviceRepository",
+      "test_player_advice_binding_mismatch_is_rejected_before_model_call",
+      "test_ai_gateway_rejects_result_after_state_changed",
+      "test_media_receive_state_validates_sequence_offsets_totals_and_digest",
+      "test_media_receive_state_rejects_late_generation_and_gap",
+      "test_audio_regeneration_never_changes_narrative_or_story_state",
+      "test_narrative_request_omits_untrusted_player_task_text",
+      "revoke_current_state",
+      "test_context_current_state_is_required",
+      "test_context_cannot_promote_layer_with_old_grant",
+      "test_player_consumers_require_public_or_owner_disclosure",
+      "_state_delta_sample",
+      "test_suggestion_is_a_valid_player_advice_input_mode"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
