@@ -308,6 +308,8 @@ def test_packaged_probe_source_closure_tracks_media_protocol_dependency():
         "MediaProtocol",
         "StorySessionControl",
         "StoryRequestJournal",
+        "StoryExpressionControl",
+        "StorySubmissionCoordinator",
         "StorySessionModel",
         "EngineIPCClient",
         "EngineProcessManager",
@@ -315,5 +317,9 @@ def test_packaged_probe_source_closure_tracks_media_protocol_dependency():
     assert set(names) == required
     assert names.index("MediaProtocol") < names.index("EngineIPCClient")
     assert names.index("StorySessionControl") < names.index("EngineIPCClient")
+    # StorySessionModel is the first consumer of both AO-01/AO-02 surfaces, so
+    # the probe must compile them ahead of it.
+    assert names.index("StoryExpressionControl") < names.index("StorySessionModel")
+    assert names.index("StorySubmissionCoordinator") < names.index("StorySessionModel")
     swift_root = ROOT / "macos-app" / "WorldOfMysteries"
     assert all((swift_root / f"{name}.swift").is_file() for name in names)

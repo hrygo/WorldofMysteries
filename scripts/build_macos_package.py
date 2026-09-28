@@ -40,6 +40,11 @@ PACKAGE_PROBE_SWIFT_SOURCES = (
     # packaged probe must compile its DTOs, retry journal and session model.
     'StorySessionControl',
     'StoryRequestJournal',
+    # AO-01 added story.expression.get and AO-02 added the shared submission
+    # coordinator; StorySessionModel references both, so the probe source
+    # closure has to carry them or `swiftc` cannot resolve those types.
+    'StoryExpressionControl',
+    'StorySubmissionCoordinator',
     'StorySessionModel',
     'EngineIPCClient',
     'EngineProcessManager',
