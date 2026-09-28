@@ -343,7 +343,7 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
                 )
             ),
         )
-        facts = self._materialize_facts(call, snapshot, rows)
+        facts = self._materialize_facts(call, snapshot, rows, session)
         return _MaterializedSnapshot(call, recipe, snapshot, facts)
 
     def _read_session(self, connection, call: GameplayCall) -> dict[str, object] | None:
@@ -502,6 +502,7 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
         call: GameplayCall,
         snapshot: ContextSnapshot,
         rows: _CommittedRows,
+        session: dict[str, object] | None,
     ) -> tuple[_ProjectedFact, ...]:
         knowledge: dict[tuple[str, str], tuple[int, int, int, dict[str, object]]] = {}
         for row in rows.turn_knowledge:
@@ -706,7 +707,82 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
                     facets=frozenset({ContextFacet.MEMORY}),
                 )
             )
+        if session is not None:
+            projected.append(self._project_story_state(call, snapshot, session))
         return tuple(projected)
+
+    def _project_story_state(
+        self,
+        call: GameplayCall,
+        snapshot: ContextSnapshot,
+        session: dict[str, object],
+    ) -> _ProjectedFact:
+        state = session.get("story_state")
+        protagonist_id = self._require_text(session.get("protagonist_id"))
+        story_revision = self._require_natural(session.get("story_revision"))
+        committed_world_revision = self._require_natural(
+            session.get("committed_world_revision")
+        )
+        if not isinstance(state, dict):
+            raise ContextError("invalid_context_snapshot")
+        state_session_id = state.get("story_session_id")
+        if (
+            (state_session_id is not None and state_session_id != call.session_id)
+            or self._require_natural(state.get("revision")) != story_revision
+        ):
+            raise ContextError("invalid_context_snapshot")
+
+        scene = state.get("scene")
+        if not isinstance(scene, dict):
+            raise ContextError("invalid_context_snapshot")
+        scene_id = self._require_text(scene.get("id"))
+        location_id = scene.get("location_id")
+        if location_id is not None:
+            location_id = self._require_text(location_id)
+
+        world_time = state.get("world_time")
+        if world_time is not None:
+            world_time = self._require_text(world_time)
+        discovered_clue_ids = state.get("discovered_clue_ids", [])
+        if (
+            not isinstance(discovered_clue_ids, list)
+            or any(
+                not isinstance(clue_id, str) or not clue_id.strip()
+                for clue_id in discovered_clue_ids
+            )
+            or len(set(discovered_clue_ids)) != len(discovered_clue_ids)
+        ):
+            raise ContextError("invalid_context_snapshot")
+
+        # A committed checkpoint is scoped to its persisted protagonist. Keep
+        # only observable scene/time data and explicitly discovered clues;
+        # private narrative state and the raw bootstrap never enter model content.
+        content = {
+            "character_id": protagonist_id,
+            "discovered_clue_ids": discovered_clue_ids,
+            "scene": {"id": scene_id, "location_id": location_id},
+            "story_revision": story_revision,
+            "world_time": world_time,
+        }
+        return self._projection(
+            call=call,
+            source_id=self._stable_source_id("story-state", call.session_id),
+            source_revision=story_revision,
+            kind="checkpoint",
+            layer=Layer.STATE,
+            sequence=None,
+            session_id=call.session_id,
+            subject_id=protagonist_id,
+            available_at_tick=snapshot.world_tick,
+            committed_world_revision=committed_world_revision,
+            content=content,
+            model_content=content,
+            known_by=(protagonist_id,),
+            public=False,
+            disclosed_to_owner=False,
+            hidden=self._hidden_flag(state),
+            facets=frozenset({ContextFacet.STORY}),
+        )
 
     def _projection(
         self,
