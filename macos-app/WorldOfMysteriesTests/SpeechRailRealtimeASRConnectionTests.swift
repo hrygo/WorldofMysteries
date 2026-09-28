@@ -506,7 +506,18 @@ struct SpeechRailRealtimeASRConnectionTests {
                    extra: #""item_id":"a","content_index":0,"delta":"好""#)
         )
         let received = try await [first, second]
-        #expect(received.map(\.sequence) == [3, 4])
+        // 原断言依赖 async let 的调度顺序，不代表产品契约；本次调整的是测试的确定性，不改变被测代码。
+        #expect(received.map(\.sequence).sorted() == [3, 4])
+        #expect(received.map(\.eventID).sorted() == ["d3", "d4"])
+        let receivedDeltaTexts = received.compactMap { envelope -> String? in
+            guard case let .partial(itemID, delta) = envelope.event,
+                  itemID == "a"
+            else {
+                return nil
+            }
+            return delta
+        }
+        #expect(receivedDeltaTexts.sorted() == ["你", "好"])
         #expect(await transport.openCount == 1)
     }
 }
