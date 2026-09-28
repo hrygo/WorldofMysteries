@@ -276,6 +276,16 @@
           }
         }
       }
+    },
+    "story_post_commit_method_capability": {
+      "description": "AO-03 Story post-COMMIT method names. Each method is also its optional Engine handshake capability; appending entries is additive and leaves older clients' envelope contract open to future capabilities.",
+      "type": "string",
+      "enum": [
+        "story.advice.submit.v2",
+        "story.turn.submit.v2",
+        "story.turn.work.get",
+        "story.turn.work.retry"
+      ]
     }
   },
   "description": "Strict request/response/event wire contract; framing is a 4-byte big-endian length followed by UTF-8 JSON."
