@@ -12,9 +12,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from contracts import InputMode, StorySession, StorySessionStatus
 from domain.resolver import DeterministicOutcomeResolver
 
-from .advice_action import AdviceActionIntentService
-from .advice_commit import AdviceCommitService
+from .advice_action import AdviceActionError, AdviceActionIntentService
+from .advice_commit import AdviceCommitError, AdviceCommitService
 from .advice_interpretation import (
+    AdviceInterpretationError,
     DurableAdvicePort,
     PlayerAdviceInterpretationService,
 )
@@ -40,6 +41,7 @@ from .story_session_open import (
     StorySessionOpenService,
 )
 from .story_turn_commit import StoryTurnCommitResult
+from .turn_context_binding import TurnContextBindingPort
 from .turn_input import (
     DurableTurnIntakePort,
     FinalizedStoryInput,
@@ -210,6 +212,7 @@ class StorySessionFacade:
         workers: TurnWorkerFactory,
         projector: StoryPublicViewProjector | None = None,
         after_commit: AfterCommitHook | None = None,
+        context_bindings: TurnContextBindingPort | None = None,
     ) -> None:
         self._initialization = initialization
         self._open_sessions = open_sessions
@@ -221,6 +224,7 @@ class StorySessionFacade:
         self._workers = workers
         self._projector = projector or StoryPublicViewProjector()
         self._after_commit = after_commit
+        self._context_bindings = context_bindings
         self._session_read = _SessionReadAdapter(query)
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -396,6 +400,7 @@ class StorySessionFacade:
                 proposer=self._workers.proposer_for(
                     snapshot.bootstrap, turn_number, allowed_signatures
                 ),
+                context_bindings=self._context_bindings,
             )
             commit = AdviceCommitService(
                 durable=self._advice,
@@ -403,15 +408,23 @@ class StorySessionFacade:
                 story=self._story,
                 resolver=DeterministicOutcomeResolver(),
                 domain_context=lambda _number: validation_context,
+                context_bindings=self._context_bindings,
             )
-            await interpretation.interpret(command.input_turn_id)
-            result = await commit.commit(
-                command.input_turn_id,
-                policy=policy,
-                store_expected_revision=command.expected_store_revision,
-                request_id=command.request_id,
-                trace_id=command.trace_id,
-            )
+            try:
+                await interpretation.interpret(command.input_turn_id)
+                result = await commit.commit(
+                    command.input_turn_id,
+                    policy=policy,
+                    store_expected_revision=command.expected_store_revision,
+                    request_id=command.request_id,
+                    trace_id=command.trace_id,
+                )
+            except (AdviceInterpretationError, AdviceActionError, AdviceCommitError) as exc:
+                if exc.code in {"context_stale", "revision_conflict"}:
+                    raise StoryFacadeError("revision_conflict") from exc
+                if exc.code == "legacy_context_unbound":
+                    raise StoryFacadeError("recovery_required") from exc
+                raise
             if result.turn.committed_story_revision is None:
                 raise StoryFacadeError("committed_turn_missing_story_revision")
             snapshot = await self._query.session(command.session_id)

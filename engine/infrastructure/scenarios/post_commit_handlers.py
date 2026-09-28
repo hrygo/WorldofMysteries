@@ -1,7 +1,6 @@
 """Artifact-first handlers for the Golden scenario's durable post-COMMIT jobs."""
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,10 +20,10 @@ from application.post_commit_work import (
     PostCommitResultState,
     PostCommitWorkSource,
 )
-from application.scenario_policy import ScenarioPolicyPort
 from application.speech_unit import SealedSpeechUnit, SpeechUnitSealingService
 from application.story_initialization import StorySessionBootstrap
 from application.story_turn_commit import StoryTurnCommitResult
+from application.turn_context_binding import TurnContextBindingPort
 from contracts import NarrativeBlock, TurnStatus
 
 from ..audio.config import AudioProviderConfig
@@ -37,14 +36,12 @@ from ..database_schema import StorageError
 from ..episode_settlement import ScenarioSettlement, ScenarioSettlementFailure
 from ..narrative_block_repository import SQLiteNarrativeBlockRepository
 from ..player_advice_repository import SQLitePlayerAdviceRepository
-from ..post_commit_job_repository import SQLitePostCommitJobRepository
 from ..story_bootstrap_repository import SQLiteStoryBootstrapRepository
-from ..story_session_query import SQLiteStorySessionQuery
 from ..story_session_repository import SQLiteStorySessionCommitPort
 from ..voice_binding_repository import SQLiteVoiceBindingRepository
 from ..voice_binding_resolver import (
-    VoiceBindingResolutionError,
     ResolvedVoiceRuntime,
+    VoiceBindingResolutionError,
     resolve_voice_runtime,
 )
 
@@ -131,11 +128,17 @@ def _disclosed_facts(
     *,
     delta: Any,
     bootstrap: StorySessionBootstrap,
-    raw_input: str,
 ) -> str:
     """Rebuild only the committed, player-disclosable facts for this turn."""
     names = bootstrap.presentation.clue_display_names
-    added = [names.get(clue_id, clue_id) for clue_id in delta.story_delta.clue_ids_add or ()]
+    # This is a post-COMMIT expression path. A clue without an explicit
+    # presentation label is omitted; expression failure must not unwind the
+    # committed turn, and a canonical identifier must never reach the narrator.
+    added = [
+        name
+        for clue_id in delta.story_delta.clue_ids_add or ()
+        if (name := names.get(clue_id)) is not None
+    ]
     parts = [f"结果判定：{delta.outcome}"]
     if added:
         parts.append("玩家发现了：" + "、".join(added))
@@ -144,7 +147,6 @@ def _disclosed_facts(
         parts.append(f"场景转为：{story_delta.scene_id}")
     if story_delta.world_time_delta_minutes:
         parts.append(f"世界时间推进：{story_delta.world_time_delta_minutes} 分钟")
-    parts.append(f"玩家原话：{raw_input}")
     return "\n".join(parts)
 
 
@@ -163,6 +165,7 @@ class ScenarioNarrativePublishHandler:
         expression: PostCommitExpressionService,
         workers,
         frozen_expression: bool,
+        context_bindings: TurnContextBindingPort | None = None,
     ) -> None:
         self._database = database
         self._story = story
@@ -173,6 +176,7 @@ class ScenarioNarrativePublishHandler:
         self._expression = expression
         self._workers = workers
         self._frozen_expression = frozen_expression
+        self._context_bindings = context_bindings
 
     async def execute(self, source: PostCommitWorkSource) -> PostCommitResult:
         if source.kind is not PostCommitKind.NARRATIVE_PUBLISH:
@@ -247,13 +251,15 @@ class ScenarioNarrativePublishHandler:
             disclosed_facts=_disclosed_facts(
                 delta=delta,
                 bootstrap=committed.bootstrap,
-                raw_input=frozen_input.raw_input,
             ),
+            input_turn_id=frozen_input.input_turn_id,
+            source_store_revision=source.source_world_revision,
         )
         publication = CommittedNarrativeService(
             reads=self._narratives,
             publisher=self._narratives,
             compiler=compiler,
+            context_bindings=self._context_bindings,
         )
         narrative = await publication.ensure(
             turn_id=source.turn_id,

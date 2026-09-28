@@ -40,7 +40,10 @@ def _delta() -> StateDelta:
             "story_delta": {
                 "scene_id": "scene-at-turn-one",
                 "world_time_delta_minutes": 5,
-                "clue_ids_add": ["clue_turn_one"],
+                "clue_ids_add": [
+                    "clue_turn_one",
+                    "clue_with_no_display_name",
+                ],
             },
             "character_deltas": [],
             "world_event_candidates": [],
@@ -70,6 +73,7 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
         initial_session=SimpleNamespace(protagonist_id="protagonist-1"),
     )
     frozen_input = SimpleNamespace(
+        input_turn_id="input-turn-one",
         session_id=source.session_id,
         turn_id=source.turn_id,
         raw_input="第一轮原话",
@@ -151,9 +155,10 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
         "结果判定：clean_success\n"
         "玩家发现了：第一轮发现\n"
         "场景转为：scene-at-turn-one\n"
-        "世界时间推进：5 分钟\n"
-        "玩家原话：第一轮原话"
+        "世界时间推进：5 分钟"
     )
+    assert "clue_with_no_display_name" not in committed_source.disclosed_facts
+    assert frozen_input.raw_input not in committed_source.disclosed_facts
     assert "scene-from-turn-two" not in committed_source.disclosed_facts
     assert "clue_turn_two" not in committed_source.disclosed_facts
     assert story.latest_session_reads == 0

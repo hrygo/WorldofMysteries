@@ -6,13 +6,17 @@ wins; lost ACK/restart replays it without another model call.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import hashlib
 import math
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from contracts import BaseRevisions, InputMode, PlayerAdvice
 
+from .turn_context_binding import (
+    AuthorizedTurnContextBinding,
+    TurnContextBindingError,
+)
 from .turn_input import TurnInputStatus
 
 
@@ -90,6 +94,7 @@ class AdviceInterpretationCandidate:
     proposed_actions: tuple[str, ...]
     risk_preference: str | None
     confidence: float
+    context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
         _text(self.interpreter_revision, "interpreter_revision")
@@ -119,6 +124,10 @@ class AdviceInterpretationCandidate:
             or not 0.0 <= float(self.confidence) <= 1.0
         ):
             raise AdviceInterpretationError("invalid_confidence")
+        if self.context_binding is not None and not isinstance(
+            self.context_binding, AuthorizedTurnContextBinding
+        ):
+            raise AdviceInterpretationError("invalid_context_binding")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +149,7 @@ class DurableAdvicePort(Protocol):
         advice: PlayerAdvice,
         *,
         interpreter_revision: str,
+        context_binding: AuthorizedTurnContextBinding | None = None,
     ) -> StoredPlayerAdvice: ...
 
 
@@ -152,7 +162,7 @@ class AdviceInterpreterPort(Protocol):
 
 def _advice_id(input_turn_id: str) -> str:
     digest = hashlib.sha256(
-        f"wom-player-advice/v1\0{input_turn_id}".encode("utf-8")
+        f"wom-player-advice/v1\0{input_turn_id}".encode()
     ).hexdigest()
     return f"advice_{digest[:32]}"
 
@@ -202,8 +212,23 @@ class PlayerAdviceInterpretationService:
             payload["risk_preference"] = candidate.risk_preference
 
         advice = PlayerAdvice.model_validate(payload)
-        return await self._durable.publish(
-            frozen.input_turn_id,
-            advice,
-            interpreter_revision=candidate.interpreter_revision,
-        )
+        binding = candidate.context_binding
+        if binding is not None and (
+            binding.stage != "interpretation"
+            or binding.input_turn_id != frozen.input_turn_id
+            or binding.turn_id != frozen.turn_id
+        ):
+            raise AdviceInterpretationError("turn_identity_conflict")
+        try:
+            publish_kwargs: dict[str, object] = {
+                "interpreter_revision": candidate.interpreter_revision
+            }
+            if binding is not None:
+                publish_kwargs["context_binding"] = binding
+            return await self._durable.publish(  # type: ignore[arg-type]
+                frozen.input_turn_id,
+                advice,
+                **publish_kwargs,
+            )
+        except TurnContextBindingError as exc:
+            raise AdviceInterpretationError(exc.code) from None

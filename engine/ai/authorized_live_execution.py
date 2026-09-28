@@ -9,10 +9,11 @@ The returned value is a proposal only and has no persistence capability.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field, replace
 import math
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from time import monotonic
-from typing import Any, Callable
+from typing import Any
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
@@ -30,9 +31,14 @@ from application.context_plan import (
 from application.gameplay_context import (
     GameplayCall,
     GameplayContextCoordinator,
+    GameplayMode,
     GameplayRecipe,
     ModelUse,
     gameplay_recipe,
+)
+from application.turn_context_binding import (
+    AuthorizedTurnContextBinding,
+    TurnContextBindingIdentity,
 )
 
 from .openai_compatible import (
@@ -89,6 +95,9 @@ class AuthorizedProposalResult:
     proposal_json: str = field(repr=False)
     attempts: int
     elapsed_seconds: float
+    context_binding: AuthorizedTurnContextBinding | None = field(
+        default=None, repr=False
+    )
 
     def proposal(self) -> dict[str, Any]:
         value = parse_json(self.proposal_json)
@@ -128,12 +137,21 @@ class AuthorizedLiveExecution:
         self,
         call: GameplayCall,
         budget: AuthorizedExecutionBudget,
+        *,
+        binding_identity: TurnContextBindingIdentity | None = None,
+        expected_binding: AuthorizedTurnContextBinding | None = None,
     ) -> AuthorizedProposalResult:
         """Return a proposal or reject it; this method never writes Domain state."""
         started = monotonic()
         try:
             async with asyncio.timeout(budget.timeout_seconds):
-                return await self._execute(call, budget, started)
+                return await self._execute(
+                    call,
+                    budget,
+                    started,
+                    binding_identity=binding_identity,
+                    expected_binding=expected_binding,
+                )
         except TimeoutError:
             raise ContextError("model_stage_timeout") from None
         except ContextError:
@@ -142,7 +160,7 @@ class AuthorizedLiveExecution:
             raise ContextError(exc.code) from None
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 - keep provider/private data out of errors
             # Provider and validation failures may contain private request material.
             raise ContextError("model_stage_failed") from None
 
@@ -151,6 +169,9 @@ class AuthorizedLiveExecution:
         call: GameplayCall,
         budget: AuthorizedExecutionBudget,
         started: float,
+        *,
+        binding_identity: TurnContextBindingIdentity | None,
+        expected_binding: AuthorizedTurnContextBinding | None,
     ) -> AuthorizedProposalResult:
         recipe = gameplay_recipe(call.mode)
         if recipe.model_use is not ModelUse.STRUCTURED:
@@ -158,6 +179,50 @@ class AuthorizedLiveExecution:
 
         prepared = await self.coordinator.prepare(call)
         request = prepared.request
+        if binding_identity is not None and not isinstance(
+            binding_identity, TurnContextBindingIdentity
+        ):
+            raise ContextError("turn_identity_conflict")
+        if expected_binding is not None and not isinstance(
+            expected_binding, AuthorizedTurnContextBinding
+        ):
+            raise ContextError("turn_identity_conflict")
+        if binding_identity is not None and (
+            binding_identity.stage
+            != {
+                GameplayMode.ADVICE_INTERPRETATION: "interpretation",
+                GameplayMode.CHARACTER_REASONING: "action",
+                GameplayMode.NARRATIVE_COMPILATION: "narrative",
+            }.get(call.mode)
+        ):
+            raise ContextError("turn_identity_conflict")
+        if expected_binding is not None and binding_identity is None:
+            raise ContextError("turn_identity_conflict")
+        if binding_identity is not None and (
+            (
+                binding_identity.source_store_revision is not None
+                and binding_identity.source_store_revision != request.world_revision
+            )
+            or (
+                binding_identity.source_story_revision is not None
+                and binding_identity.source_story_revision != request.story_revision
+            )
+        ):
+            raise ContextError("context_stale")
+        if (
+            expected_binding is not None
+            and binding_identity is not None
+            and (
+                expected_binding.turn_id != binding_identity.turn_id
+                or expected_binding.input_turn_id != binding_identity.input_turn_id
+                or expected_binding.content_digest != binding_identity.content_digest
+                or expected_binding.source_store_revision != request.world_revision
+                or expected_binding.source_story_revision != request.story_revision
+                or expected_binding.policy_revision != request.scope.policy_revision
+                or expected_binding.lineage_digest != request.scope.lineage_digest
+            )
+        ):
+            raise ContextError("context_stale")
         if prepared.profile.consumer == "narrative_compiler":
             # This is a player-facing expression stage. Player task text is
             # untrusted intent and is not a committed or disclosed result.
@@ -186,7 +251,9 @@ class AuthorizedLiveExecution:
             reply = await self.transport.send(wire)
             # A model await can outlive the authorization/revision that produced
             # the prompt. A stale response is rejected before parsing or repair.
-            await self._compile_fresh(request, prepared.profile, recipe)
+            fresh_plan = await self._compile_fresh(
+                request, prepared.profile, recipe
+            )
             if (
                 not isinstance(reply.text, str)
                 or len(reply.text.encode("utf-8")) > budget.max_reply_bytes
@@ -209,6 +276,17 @@ class AuthorizedLiveExecution:
                 canonical_json(proposal),
                 attempt + 1,
                 monotonic() - started,
+                context_binding=(
+                    AuthorizedTurnContextBinding.from_plan(
+                        fresh_plan,
+                        stage=binding_identity.stage,
+                        turn_id=binding_identity.turn_id,
+                        input_turn_id=binding_identity.input_turn_id,
+                        content_digest=binding_identity.content_digest,
+                    )
+                    if binding_identity is not None
+                    else None
+                ),
             )
 
         raise ContextError("proposal_schema_rejected")

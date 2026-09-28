@@ -12,7 +12,11 @@ from application.advice_action import (
 )
 from application.advice_commit import AdviceCommitError, AdviceCommitService
 from application.advice_interpretation import FrozenTurnInput, StoredPlayerAdvice
-from application.story_turn_commit import StoryTurnCommitResult
+from application.story_turn_commit import DomainValidationContext, StoryTurnCommitResult
+from application.turn_context_binding import (
+    AuthorizedContextSource,
+    AuthorizedTurnContextBinding,
+)
 from application.turn_input import TurnInputStatus
 from contracts import (
     AdherenceType,
@@ -103,13 +107,17 @@ def _session(*, story_revision: int = 0, status: str = "active") -> StorySession
     )
 
 
-def _candidate() -> ActionIntentCandidate:
+def _candidate(
+    *,
+    context_binding: AuthorizedTurnContextBinding | None = None,
+) -> ActionIntentCandidate:
     return ActionIntentCandidate(
         proposer_revision="character-reasoner.v1",
         intent="observe_subject",
         adherence=AdherenceType.FULL,
         actions=(IntentAction(type="continue_conversation"),),
         reason_summary="先观察对方反应。",
+        context_binding=context_binding,
     )
 
 
@@ -159,8 +167,16 @@ class _Proposer:
         self.candidate = candidate
         self.calls = 0
 
-    async def propose(self, *, frozen, advice, scope):
+    async def propose(
+        self,
+        *,
+        frozen,
+        advice,
+        scope,
+        expected_context_binding=None,
+    ):
         self.calls += 1
+        self.expected_context_binding = expected_context_binding
         return self.candidate
 
 
@@ -211,13 +227,17 @@ def _service(
     frozen: FrozenTurnInput | None = None,
     session: StorySession | None = None,
     story: _Story | None = None,
+    context_bindings=None,
+    action_binding: AuthorizedTurnContextBinding | None = None,
+    domain_context=None,
 ):
     durable = _Durable(frozen or _frozen())
-    proposer = _Proposer(_candidate())
+    proposer = _Proposer(_candidate(context_binding=action_binding))
     proposal = AdviceActionIntentService(
         durable=durable,
         sessions=_Sessions(session or _session()),
         proposer=proposer,
+        context_bindings=context_bindings,
     )
     story_port = story or _Story(session or _session())
     service = AdviceCommitService(
@@ -225,8 +245,52 @@ def _service(
         proposal=proposal,
         story=story_port,
         resolver=DeterministicOutcomeResolver(),
+        domain_context=domain_context,
+        context_bindings=context_bindings,
     )
     return service, story_port, proposal, proposer
+
+
+def _binding(
+    stage: str,
+    *,
+    store_revision: int = 0,
+    story_revision: int = 0,
+    source_id: str,
+) -> AuthorizedTurnContextBinding:
+    return AuthorizedTurnContextBinding(
+        turn_id="turn.001",
+        stage=stage,
+        input_turn_id="input.turn.001",
+        source_store_revision=store_revision,
+        source_story_revision=story_revision,
+        policy_revision="policy.v1",
+        content_digest="a" * 64,
+        lineage_digest="lineage.v1",
+        manifest=(
+            AuthorizedContextSource(
+                source_id=source_id,
+                source_revision=store_revision,
+                fingerprint="b" * 64,
+            ),
+        ),
+    )
+
+
+class _ContextBindings:
+    def __init__(self, interpretation, action=None):
+        self.values = {
+            "interpretation": interpretation,
+            "action": action,
+        }
+
+    async def load(self, *, turn_id, stage):
+        assert turn_id == "turn.001"
+        return self.values[stage]
+
+    async def save(self, binding):
+        self.values[binding.stage] = binding
+        return binding
 
 
 @pytest.mark.asyncio
@@ -252,6 +316,106 @@ async def test_advice_proposal_is_resolved_and_committed_once():
     assert result.turn.state_delta_id == result.delta.id
     assert result.delta.turn_id == "turn.001"
     assert result.delta.outcome == "partial_success"
+
+
+@pytest.mark.asyncio
+async def test_final_commit_uses_the_action_intents_exact_authorized_source_set():
+    interpretation = _binding(
+        "interpretation",
+        source_id="interpretation-source",
+    )
+    action = _binding("action", source_id="action-source")
+    contexts = _ContextBindings(interpretation)
+
+    class RecordingDomainContext:
+        known_character_ids = ()
+        authorized_evidence_ids = frozenset({"policy.golden001.opening"})
+        hidden_fact_literals = ()
+
+        def __init__(self):
+            self.identities = ()
+
+        def with_runtime_identities(self, *identities):
+            self.identities = identities
+            return DomainValidationContext(
+                known_character_ids=self.known_character_ids,
+                authorized_evidence_ids=self.authorized_evidence_ids
+                | frozenset(identities),
+                hidden_fact_literals=self.hidden_fact_literals,
+            )
+
+    domain_context = RecordingDomainContext()
+    service, story, _, proposer = _service(
+        context_bindings=contexts,
+        action_binding=action,
+        domain_context=lambda _revision: domain_context,
+    )
+
+    await service.commit(
+        "input.turn.001",
+        policy=_policy(),
+        store_expected_revision=0,
+        request_id="request.bound",
+        trace_id="trace.bound",
+    )
+
+    assert proposer.expected_context_binding == interpretation
+    assert contexts.values["action"] == action
+    assert "action-source" in domain_context.identities
+    assert "interpretation-source" not in domain_context.identities
+    assert story.commit_calls
+
+
+@pytest.mark.asyncio
+async def test_stale_action_binding_stops_before_commit_without_rebinding():
+    interpretation = _binding(
+        "interpretation",
+        source_id="interpretation-source",
+    )
+    stale_action = _binding(
+        "action",
+        store_revision=1,
+        source_id="new-action-source",
+    )
+    contexts = _ContextBindings(interpretation)
+    service, story, _, _ = _service(
+        context_bindings=contexts,
+        action_binding=stale_action,
+    )
+
+    with pytest.raises(AdviceCommitError, match="context_stale"):
+        await service.commit(
+            "input.turn.001",
+            policy=_policy(),
+            store_expected_revision=0,
+            request_id="request.stale",
+            trace_id="trace.stale",
+        )
+
+    assert story.commit_calls == []
+    assert contexts.values["interpretation"] == interpretation
+    assert contexts.values["action"] is None
+
+
+@pytest.mark.asyncio
+async def test_legacy_interpretation_without_binding_stays_pending():
+    contexts = _ContextBindings(None)
+    service, story, _, _ = _service(
+        context_bindings=contexts,
+        action_binding=_binding("action", source_id="action-source"),
+    )
+
+    with pytest.raises(AdviceCommitError, match="legacy_context_unbound"):
+        await service.commit(
+            "input.turn.001",
+            policy=_policy(),
+            store_expected_revision=0,
+            request_id="request.legacy",
+            trace_id="trace.legacy",
+        )
+
+    assert story.commit_calls == []
+    assert contexts.values["action"] is None
 
 
 @pytest.mark.asyncio

@@ -7,11 +7,14 @@ from types import SimpleNamespace
 
 import pytest
 
+from ai.authorized_live_execution import AuthorizedLiveExecution
 from ai.live_turn_workers import LiveFirstTurnFactory
 from ai.openai_compatible import (
     ModelEndpointConfig,
     OpenAICompatibleChatTransport,
 )
+from ai.prompt_renderer import PromptRenderer
+from application.gameplay_context import GameplayContextCoordinator
 from application.scenario_policy import (
     FinalizationRecipe,
     ScenarioIdentity,
@@ -222,7 +225,17 @@ async def test_live_worker_factory_uses_scenario_supplied_action_signatures() ->
             model="test-model",
         )
     )
-    factory = LiveFirstTurnFactory(transport)
+    execution = AuthorizedLiveExecution(
+        coordinator=GameplayContextCoordinator(
+            snapshot=object(),
+            authorization=object(),
+            profiles=object(),
+        ),
+        renderer=PromptRenderer(b"r" * 32),
+        transport=transport,
+        validate_proposal=lambda _proposal, _request: True,
+    )
+    factory = LiveFirstTurnFactory(execution)
     bootstrap = StorySessionBootstrap.model_construct(
         scenario_id="conditional_exit",
         character={

@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3 as stdlib_sqlite3
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ from application.story_session_facade import (
 )
 from application.story_session_open import StorySessionOpenService
 from application.story_turn_commit import DomainValidationContext
+from application.turn_context_binding import AuthorizedTurnContextBinding
 from application.turn_input import TurnInputStatus
 from domain.resolution_policy import ResolutionPolicy
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
@@ -37,8 +39,14 @@ from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
 from infrastructure.scenarios.golden_policy import GoldenScenarioPolicy
 from infrastructure.sqlite_runtime import sqlite3
 from infrastructure.story_bootstrap_repository import SQLiteStoryBootstrapRepository
+from infrastructure.story_control import story_control_handlers
+from infrastructure.story_runtime import (
+    _BoundSQLitePlayerAdviceRepository,
+    _SQLiteTurnContextBindingPort,
+)
 from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
+from infrastructure.turn_context_repository import SQLiteTurnContextRepository
 from infrastructure.turn_intake_repository import SQLiteTurnInputCommandPort
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -200,6 +208,63 @@ class LiveCapableTestWorkers(CountingWorkers):
         return _FreeTextInterpreter(self)
 
 
+class _ContextBoundFreeTextInterpreter:
+    def __init__(self, bootstrap) -> None:
+        self._bootstrap = bootstrap
+
+    async def interpret(self, value):
+        binding = AuthorizedTurnContextBinding(
+            turn_id=value.turn_id,
+            stage="interpretation",
+            input_turn_id=value.input_turn_id,
+            source_store_revision=value.public_expected_store_revision,
+            source_story_revision=value.base_revisions.story,
+            policy_revision=self._bootstrap.policy_version,
+            content_digest=self._bootstrap.content_digest,
+            lineage_digest="test-lineage",
+            manifest=(),
+        )
+        return AdviceInterpretationCandidate(
+            interpreter_revision="test-bound-interpreter-v1",
+            primary_intent="observe_subject",
+            secondary_intents=(),
+            proposed_actions=("continue_conversation",),
+            risk_preference=None,
+            confidence=0.9,
+            context_binding=binding,
+        )
+
+
+class _StaleActionBindingProposer:
+    def __init__(self, delegate) -> None:
+        self._delegate = delegate
+
+    async def propose(self, **kwargs):
+        expected = kwargs.pop("expected_context_binding")
+        assert isinstance(expected, AuthorizedTurnContextBinding)
+        candidate = await self._delegate.propose(**kwargs)
+        stale_action_binding = replace(
+            expected,
+            stage="action",
+            source_store_revision=expected.source_store_revision + 1,
+        )
+        return replace(candidate, context_binding=stale_action_binding)
+
+
+class StaleContextLiveWorkers(LiveCapableTestWorkers):
+    def interpreter_for(self, bootstrap, turn_number=1):
+        del turn_number
+        self.interpreter_calls += 1
+        return _ContextBoundFreeTextInterpreter(bootstrap)
+
+    def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+        self.proposer_calls += 1
+        self.allowed_signatures = allowed_signatures
+        return _StaleActionBindingProposer(
+            self._golden.proposer_for(bootstrap, turn_number)
+        )
+
+
 class Query:
     def __init__(self, database: DatabaseManager, source: Source) -> None:
         self._database = database
@@ -292,16 +357,24 @@ def _facade(
     source: Source,
     scenario: GoldenTestScenarioPolicy,
     workers: CountingWorkers,
+    *,
+    advice=None,
+    context_bindings=None,
 ):
     return StorySessionFacade(
         initialization=StoryInitializationService(source),
         open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
         query=Query(database, source),
         intake=SQLiteTurnInputCommandPort(database),
-        advice=SQLitePlayerAdviceRepository(database),
+        advice=(
+            SQLitePlayerAdviceRepository(database)
+            if advice is None
+            else advice
+        ),
         story=SQLiteStorySessionCommitPort(database),
         scenario=scenario,
         workers=workers,
+        context_bindings=context_bindings,
     )
 
 
@@ -536,6 +609,90 @@ async def test_live_method_accepts_free_text_with_live_worker_using_same_policy(
         assert workers.allowed_signatures == tuple(
             rule.signature for rule in policy.rules
         )
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_story_control_maps_stale_live_context_and_keeps_input_pending(
+    tmp_path,
+):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = StaleContextLiveWorkers()
+    context_bindings = _SQLiteTurnContextBindingPort(
+        SQLiteTurnContextRepository(database)
+    )
+    advice = _BoundSQLitePlayerAdviceRepository(
+        SQLitePlayerAdviceRepository(database),
+        context_bindings,
+    )
+    facade = _facade(
+        database,
+        source,
+        scenario,
+        workers,
+        advice=advice,
+        context_bindings=context_bindings,
+    )
+    handlers = story_control_handlers(facade)
+    try:
+        opened, error, retryable = await handlers["story.session.open"](
+            {
+                "request_id": "request_open_stale_context",
+                "trace_id": "trace_open_stale_context",
+                "idempotency_key": "open_stale_context",
+            },
+            {
+                "schema_version": "1.0",
+                "scenario_id": GOLDEN_SCENARIO_ID,
+                "open_request_id": "open_stale_context",
+                "expected_store_revision": 0,
+            },
+        )
+        assert error is None
+        assert not retryable
+        assert opened is not None
+        session_id = opened["session"]["session_id"]
+
+        result, error, retryable = await handlers["story.turn.submit"](
+            {
+                "request_id": "request_submit_stale_context",
+                "trace_id": "trace_submit_stale_context",
+                "idempotency_key": "input_stale_context",
+            },
+            {
+                "schema_version": "1.0",
+                "session_id": session_id,
+                "input_turn_id": "input_stale_context",
+                "raw_input": "请先观察医生的反应。",
+                "input_mode": "text",
+                "expected_story_revision": 0,
+                "expected_store_revision": 1,
+            },
+        )
+
+        assert result is None
+        assert error == "revision_conflict"
+        assert not retryable
+        assert await database.read_world(
+            "SELECT status FROM turn_intake_commands "
+            "WHERE input_turn_id=?",
+            ("input_stale_context",),
+        ) == [{"status": "received"}]
+        turn_rows = await database.read_world(
+            "SELECT turn_id FROM turn_intake_commands WHERE input_turn_id=?",
+            ("input_stale_context",),
+        )
+        assert len(turn_rows) == 1
+        assert await database.read_world(
+            "SELECT stage FROM turn_context_bindings WHERE turn_id=? "
+            "ORDER BY stage",
+            (turn_rows[0]["turn_id"],),
+        ) == [{"stage": "interpretation"}]
+        assert workers.interpreter_calls == 1
+        assert workers.proposer_calls == 1
     finally:
         await database.close()
 

@@ -12,8 +12,12 @@ from application.advice_interpretation import (
     PlayerAdviceInterpretationService,
     StoredPlayerAdvice,
 )
+from application.turn_context_binding import (
+    AuthorizedContextSource,
+    AuthorizedTurnContextBinding,
+)
 from application.turn_input import TurnInputStatus
-from contracts import BaseRevisions, InputMode, PlayerAdvice
+from contracts import BaseRevisions, InputMode
 
 
 def frozen(*, status=TurnInputStatus.RECEIVED):
@@ -44,6 +48,26 @@ def candidate(*, primary="investigate"):
     )
 
 
+def context_binding():
+    return AuthorizedTurnContextBinding(
+        turn_id="turn-1",
+        stage="interpretation",
+        input_turn_id="input-1",
+        source_store_revision=10,
+        source_story_revision=3,
+        policy_revision="policy-v1",
+        content_digest="a" * 64,
+        lineage_digest="lineage-v1",
+        manifest=(
+            AuthorizedContextSource(
+                source_id="observation-1",
+                source_revision=3,
+                fingerprint="b" * 64,
+            ),
+        ),
+    )
+
+
 class Store:
     def __init__(self):
         self.input = frozen()
@@ -58,8 +82,17 @@ class Store:
         assert input_turn_id == "input-1"
         return self.stored
 
-    async def publish(self, input_turn_id, advice, *, interpreter_revision):
-        self.published.append((input_turn_id, advice, interpreter_revision))
+    async def publish(
+        self,
+        input_turn_id,
+        advice,
+        *,
+        interpreter_revision,
+        context_binding=None,
+    ):
+        self.published.append(
+            (input_turn_id, advice, interpreter_revision, context_binding)
+        )
         if self.stored is not None:
             return replace(self.stored, replayed=True)
         self.stored = StoredPlayerAdvice(
@@ -100,6 +133,22 @@ async def test_interpretation_freezes_identity_from_durable_input():
     ]
     assert result.interpreter_revision == "advice-profile-v1"
     assert model.calls == 1
+
+
+async def test_live_interpretation_publishes_its_authorized_context_binding():
+    store = Store()
+    model = Interpreter()
+    binding = context_binding()
+    model.value = replace(candidate(), context_binding=binding)
+
+    await PlayerAdviceInterpretationService(
+        durable=store,
+        interpreter=model,
+    ).interpret("input-1")
+
+    assert len(store.published) == 1
+    assert store.published[0][3] == binding
+    assert store.published[0][3].manifest_digest == binding.manifest_digest
 
 
 async def test_existing_durable_advice_replays_without_model_call():

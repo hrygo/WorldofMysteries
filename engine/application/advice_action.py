@@ -26,6 +26,11 @@ from contracts import (
 from contracts.models import ExpectedCost, IntentAction, PerceivedRisk
 
 from .advice_interpretation import FrozenTurnInput, StoredPlayerAdvice
+from .turn_context_binding import (
+    AuthorizedTurnContextBinding,
+    TurnContextBindingError,
+    TurnContextBindingPort,
+)
 from .turn_input import StorySessionReadPort, TurnInputStatus
 
 
@@ -86,6 +91,7 @@ class ActionIntentCandidate:
     speech_intent: str | None = None
     expected_costs: tuple[ExpectedCost, ...] = ()
     perceived_risks: tuple[PerceivedRisk, ...] = ()
+    context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
         _text(self.proposer_revision, "proposer_revision")
@@ -126,6 +132,10 @@ class ActionIntentCandidate:
                 raise AdviceActionError("invalid_perceived_risk")
             _text(risk.risk, "risk", limit=256)
             _finite(risk.level, "risk_level", maximum=1.0)
+        if self.context_binding is not None and not isinstance(
+            self.context_binding, AuthorizedTurnContextBinding
+        ):
+            raise AdviceActionError("invalid_context_binding")
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +166,7 @@ class AdviceActionProposal:
     advice: PlayerAdvice
     action_intent: ActionIntent
     proposer_revision: str
+    context_binding: AuthorizedTurnContextBinding | None = None
 
 
 class DurableAdviceReadPort(Protocol):
@@ -171,6 +182,7 @@ class ActionIntentProposerPort(Protocol):
         frozen: FrozenTurnInput,
         advice: PlayerAdvice,
         scope: ActionIntentScope,
+        expected_context_binding: AuthorizedTurnContextBinding | None = None,
     ) -> ActionIntentCandidate: ...
 
 
@@ -190,10 +202,12 @@ class AdviceActionIntentService:
         durable: DurableAdviceReadPort,
         sessions: StorySessionReadPort,
         proposer: ActionIntentProposerPort,
+        context_bindings: TurnContextBindingPort | None = None,
     ) -> None:
         self._durable = durable
         self._sessions = sessions
         self._proposer = proposer
+        self._context_bindings = context_bindings
 
     async def propose(self, input_turn_id: str) -> AdviceActionProposal:
         _text(input_turn_id, "input_turn_id")
@@ -211,6 +225,20 @@ class AdviceActionIntentService:
             raise AdviceActionError("player_advice_not_found")
         advice = stored.advice
         self._validate_binding(frozen, advice)
+        interpretation_binding = None
+        if self._context_bindings is not None:
+            interpretation_binding = await self._context_bindings.load(
+                turn_id=frozen.turn_id,
+                stage="interpretation",
+            )
+            if interpretation_binding is None:
+                raise AdviceActionError("legacy_context_unbound")
+            if (
+                interpretation_binding.turn_id != frozen.turn_id
+                or interpretation_binding.input_turn_id != frozen.input_turn_id
+                or interpretation_binding.stage != "interpretation"
+            ):
+                raise AdviceActionError("turn_identity_conflict")
 
         session = await self._sessions.load_session(frozen.session_id)
         if not isinstance(session, StorySession) or session.id != frozen.session_id:
@@ -232,13 +260,36 @@ class AdviceActionIntentService:
             protagonist_id=session.protagonist_id,
             base_revisions=session.base_revisions,
         )
-        candidate = await self._proposer.propose(
-            frozen=frozen,
-            advice=advice,
-            scope=scope,
-        )
+        proposer_args = {
+            "frozen": frozen,
+            "advice": advice,
+            "scope": scope,
+        }
+        if interpretation_binding is not None:
+            proposer_args["expected_context_binding"] = interpretation_binding
+        candidate = await self._proposer.propose(**proposer_args)  # type: ignore[arg-type]
         if not isinstance(candidate, ActionIntentCandidate):
             raise AdviceActionError("invalid_action_intent_candidate")
+
+        action_binding = candidate.context_binding
+        if self._context_bindings is not None:
+            if action_binding is None:
+                raise AdviceActionError("context_binding_required")
+            if (
+                action_binding.stage != "action"
+                or action_binding.turn_id != frozen.turn_id
+                or action_binding.input_turn_id != frozen.input_turn_id
+            ):
+                raise AdviceActionError("turn_identity_conflict")
+            if (
+                interpretation_binding is None
+                or not action_binding.same_snapshot(interpretation_binding)
+            ):
+                raise AdviceActionError("context_stale")
+            try:
+                action_binding = await self._context_bindings.save(action_binding)
+            except TurnContextBindingError as exc:
+                raise AdviceActionError(exc.code) from None
 
         payload: dict[str, object] = {
             "schema_version": "1.0",
@@ -269,6 +320,7 @@ class AdviceActionIntentService:
             advice=advice,
             action_intent=action_intent,
             proposer_revision=candidate.proposer_revision,
+            context_binding=action_binding,
         )
 
     @staticmethod

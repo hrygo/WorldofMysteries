@@ -207,6 +207,90 @@ async def _open_runtime(
 
 
 @pytest.mark.asyncio
+async def test_live_runtime_composes_authorized_workers_over_sqlite_context_ports(
+    tmp_path: Path,
+    content_artifact: Path,
+):
+    from ai.authorized_live_execution import AuthorizedLiveExecution
+    from ai.live_turn_workers import LiveFirstTurnFactory, LiveTurnWorkerProfiles
+    from ai.openai_compatible import (
+        ModelEndpointConfig,
+        OpenAICompatibleChatTransport,
+    )
+    from ai.prompt_renderer import PromptRenderer
+    from application.gameplay_context import GameplayContextCoordinator, GameplayMode
+    from infrastructure.gameplay_context_repository import (
+        SQLiteGameplayContextRepository,
+    )
+    from infrastructure.story_runtime import (
+        _BoundSQLitePlayerAdviceRepository,
+        _SQLiteTurnContextBindingPort,
+    )
+    from infrastructure.turn_context_repository import SQLiteTurnContextRepository
+
+    endpoint = ModelEndpointConfig(
+        base_url="http://127.0.0.1:9/v1",
+        api_key="test-only-key",
+        model="test-live-model",
+    )
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support",
+            content_path=content_artifact,
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        model_endpoint=endpoint,
+    )
+    try:
+        workers = runtime._workers
+        assert isinstance(workers, LiveFirstTurnFactory)
+        execution = workers._execution
+        assert isinstance(execution, AuthorizedLiveExecution)
+
+        coordinator = execution.coordinator
+        assert isinstance(coordinator, GameplayContextCoordinator)
+        gameplay_repository = coordinator.snapshot
+        assert isinstance(gameplay_repository, SQLiteGameplayContextRepository)
+        assert coordinator.authorization is gameplay_repository
+        assert gameplay_repository._database is runtime._database
+        assert set(coordinator._ports.values()) == {
+            gameplay_repository.lore_port,
+            gameplay_repository.world_port,
+            gameplay_repository.character_port,
+            gameplay_repository.story_port,
+            gameplay_repository.memory_port,
+        }
+        assert all(port is not None for port in coordinator._ports.values())
+
+        profiles = coordinator.profiles
+        assert isinstance(profiles, LiveTurnWorkerProfiles)
+        assert profiles.profile(
+            GameplayMode.ADVICE_INTERPRETATION, "advice_interpreter"
+        ).prompt_revision == "wom-live-interpreter-v2"
+        assert profiles.profile(
+            GameplayMode.CHARACTER_REASONING, "character_reasoner"
+        ).prompt_revision == "wom-live-proposer-v2"
+        assert profiles.profile(
+            GameplayMode.NARRATIVE_COMPILATION, "narrative_compiler"
+        ).prompt_revision == "wom-live-narrative-v2"
+
+        assert isinstance(execution.renderer, PromptRenderer)
+        assert isinstance(execution.transport, OpenAICompatibleChatTransport)
+        assert execution.transport.config == endpoint
+
+        facade = runtime._facade
+        assert isinstance(facade._context_bindings, _SQLiteTurnContextBindingPort)
+        assert isinstance(
+            facade._context_bindings._repository,
+            SQLiteTurnContextRepository,
+        )
+        assert isinstance(facade._advice, _BoundSQLitePlayerAdviceRepository)
+        assert facade._advice._contexts is facade._context_bindings
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
 async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
     tmp_path: Path,
 ):
@@ -327,9 +411,11 @@ def _committed_delivery_case(*, narrative=None):
         turn=turn,
         delta=delta,
         session=SimpleNamespace(protagonist_id="protagonist-1"),
+        store_revision=2,
     )
     command = SimpleNamespace(
         session_id="session-1",
+        input_turn_id="input-1",
         raw_input="我想看看预约簿。",
     )
     return NarrativeRepository(), FirstTurnWithNarrativeCompiler(), snapshot, result, command
@@ -355,6 +441,7 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         audio_config=None,
         voice_id=None,
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -421,6 +508,7 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
         audio_config=AudioProviderConfig(),
         voice_id="klein-approved",
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -457,6 +545,7 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
         audio_config=None,
         voice_id=None,
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -508,6 +597,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
         audio_config=None,
         voice_id=None,
         workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -1895,12 +1985,12 @@ async def test_durable_episode_handler_is_the_only_revision_advancing_post_commi
     socket_path: Path,
     monkeypatch,
 ):
+    from application.post_commit_expression import PostCommitExpressionService
     from application.post_commit_work import (
         PostCommitKind,
         PostCommitResultState,
         PostCommitWorkSource,
     )
-    from application.post_commit_expression import PostCommitExpressionService
     from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
     from infrastructure.scenarios.post_commit_handlers import (
         ScenarioEpisodeFinalizeHandler,

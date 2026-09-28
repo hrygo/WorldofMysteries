@@ -3,6 +3,9 @@ import json
 
 import pytest
 
+from ai.authorized_live_execution import AuthorizedExecutionBudget, AuthorizedLiveExecution
+from ai.openai_compatible import ModelEndpointConfig, OpenAICompatibleChatTransport
+from ai.prompt_renderer import PromptRenderer
 from application.context_plan import AuthorizationView, ContextError, Evidence, Layer, WorkerProfile
 from application.gameplay_context import (
     ContextFacet,
@@ -11,12 +14,12 @@ from application.gameplay_context import (
     GameplayCall,
     GameplayContextCoordinator,
     GameplayMode,
-    gameplay_recipe,
 )
-from ai.authorized_live_execution import AuthorizedExecutionBudget, AuthorizedLiveExecution
-from ai.openai_compatible import ModelEndpointConfig, OpenAICompatibleChatTransport
-from ai.prompt_renderer import PromptRenderer
-
+from application.turn_context_binding import (
+    AuthorizedContextSource,
+    AuthorizedTurnContextBinding,
+    TurnContextBindingIdentity,
+)
 
 SCHEMA = (
     '{"type":"object","properties":{"action":{"type":"string"}},'
@@ -304,6 +307,84 @@ async def test_request_body_contains_only_domain_authorized_character_evidence()
 
 
 @pytest.mark.asyncio
+async def test_result_binding_records_only_finally_authorized_source_identities():
+    coordinator, _snapshot, _authorization, _ports = build_coordinator(
+        GameplayMode.CHARACTER_REASONING
+    )
+    async with LocalChatEndpoint(['{"action":"wait"}']) as endpoint:
+        executor, transport = make_executor(coordinator, endpoint)
+        try:
+            result = await executor.execute(
+                make_call(GameplayMode.CHARACTER_REASONING, '{"advice":"observe"}'),
+                AuthorizedExecutionBudget(output_tokens=32, timeout_seconds=5),
+                binding_identity=TurnContextBindingIdentity(
+                    turn_id="turn-1",
+                    stage="action",
+                    input_turn_id="input-1",
+                    content_digest="a" * 64,
+                    source_store_revision=10,
+                    source_story_revision=3,
+                ),
+            )
+        finally:
+            await transport.aclose()
+
+    binding = result.context_binding
+    assert binding is not None
+    assert binding.stage == "action"
+    assert binding.context_revision
+    assert binding.manifest_digest
+    assert binding.authorized_source_ids == {
+        "known-canon",
+        "current-state",
+        "character-core",
+        "checkpoint",
+        "known-memory",
+    }
+    assert all(isinstance(source, AuthorizedContextSource) for source in binding.manifest)
+
+
+@pytest.mark.asyncio
+async def test_expected_context_binding_rejects_a_stale_revision_before_send():
+    coordinator, _snapshot, _authorization, _ports = build_coordinator(
+        GameplayMode.CHARACTER_REASONING
+    )
+    expected = AuthorizedTurnContextBinding(
+        turn_id="turn-1",
+        stage="interpretation",
+        input_turn_id="input-1",
+        source_store_revision=9,
+        source_story_revision=3,
+        policy_revision="policy-v1",
+        content_digest="a" * 64,
+        lineage_digest="lineage-v1",
+        manifest=(),
+    )
+    async with LocalChatEndpoint(['{"action":"wait"}']) as endpoint:
+        executor, transport = make_executor(coordinator, endpoint)
+        try:
+            with pytest.raises(ContextError, match="context_stale"):
+                await executor.execute(
+                    make_call(
+                        GameplayMode.CHARACTER_REASONING,
+                        '{"advice":"observe"}',
+                    ),
+                    AuthorizedExecutionBudget(output_tokens=32, timeout_seconds=5),
+                    binding_identity=TurnContextBindingIdentity(
+                        turn_id="turn-1",
+                        stage="action",
+                        input_turn_id="input-1",
+                        content_digest="a" * 64,
+                    ),
+                    expected_binding=expected,
+                )
+        finally:
+            await transport.aclose()
+
+    assert endpoint.bodies == []
+
+
+@pytest.mark.asyncio
 async def test_schema_repair_reuses_the_same_prepared_snapshot_and_prompt():
     coordinator, snapshot, _authorization, ports = build_coordinator(
         GameplayMode.CHARACTER_REASONING
@@ -407,7 +488,8 @@ async def test_narrative_request_omits_untrusted_player_task_text():
             await executor.execute(
                 make_call(
                     GameplayMode.NARRATIVE_COMPILATION,
-                    '{"raw_input":"UNTRUSTED_PLAYER_QUOTE"}',
+                    '{"raw_input":"UNTRUSTED_PLAYER_QUOTE",'
+                    '"disclosed_facts":"clue_with_no_display_name"}',
                 ),
                 AuthorizedExecutionBudget(output_tokens=32, timeout_seconds=5),
             )
@@ -418,6 +500,7 @@ async def test_narrative_request_omits_untrusted_player_task_text():
     body_text = request_text(endpoint.bodies[0])
     assert "The sealed door remained closed" in body_text
     assert "UNTRUSTED_PLAYER_QUOTE" not in body_text
+    assert "clue_with_no_display_name" not in body_text
 
 
 @pytest.mark.asyncio
