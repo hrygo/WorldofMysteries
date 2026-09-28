@@ -1,0 +1,140 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-03-MAC-DTO",
+  "capsule_revision": 1,
+  "task_id": "AO-03-MAC-DTO",
+  "title": "提交后工作查询的 Swift DTO 与 IPC 客户端",
+  "assigned_role": "AGT-MAC",
+  "status": "CREATED",
+  "created_at": "2026-09-28T10:33:55.311686+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "afc4afc54e5852e9f054bc7d9ba179a6eee518e0",
+    "target_sha": "cd9126acbd183e2212a8fbf0988583b9bffa802c",
+    "context_snapshot": "sha256:413bbc1f4c63e9fdce957e26a886bfc0d31ce6748745080a56ec28614491fe33"
+  },
+  "scope": {
+    "read": [
+      "macos-app/",
+      "contracts/",
+      "docs/03_工程规范/",
+      "engine/tests/"
+    ],
+    "write": [
+      "macos-app/WorldOfMysteries/",
+      "macos-app/WorldOfMysteriesTests/",
+      "engine/tests/test_app_engine_session.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "engine/application/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:CaptureSpec@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:67",
+      "symbol:capture_plan@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:79",
+      "symbol:run@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:92",
+      "symbol:write_preferences@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:96",
+      "symbol:clear_preferences@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:107",
+      "symbol:windows_for_pid@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:112",
+      "symbol:primary_window@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:122",
+      "symbol:parse_args@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:147",
+      "symbol:main@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:156",
+      "symbol:filename@macos-app/WorldOfMysteries/Tools/capture_component_gallery_runtime.py:73",
+      "symbol:child_environment@engine/tests/test_app_engine_session.py:68",
+      "symbol:test_driver_sources_cover_engine_ipc_top_level_type_dependencies@engine/tests/test_app_engine_session.py:83",
+      "symbol:app_driver@engine/tests/test_app_engine_session.py:111",
+      "symbol:test_real_swift_app_engine_lifecycle@engine/tests/test_app_engine_session.py:147",
+      "symbol:test_engine_stops_when_swift_parent_is_force_quit@engine/tests/test_app_engine_session.py:156",
+      "symbol:_receive@engine/tests/test_app_engine_session.py:190",
+      "symbol:_frame@engine/tests/test_app_engine_session.py:202",
+      "symbol:test_production_client_rejects_bad_peers@engine/tests/test_app_engine_session.py:209",
+      "symbol:story_engine@engine/tests/test_app_engine_session.py:346",
+      "symbol:_run_story@engine/tests/test_app_engine_session.py:387",
+      "symbol:_facts@engine/tests/test_app_engine_session.py:406",
+      "symbol:_world_counts@engine/tests/test_app_engine_session.py:415",
+      "symbol:story_session@engine/tests/test_app_engine_session.py:431",
+      "symbol:test_real_story_first_turn_reopens_across_processes@engine/tests/test_app_engine_session.py:446",
+      "symbol:test_real_story_five_turns_commit_settle_and_close@engine/tests/test_app_engine_session.py:486",
+      "symbol:test_real_story_lost_ack_recovers_without_recommitting@engine/tests/test_app_engine_session.py:537",
+      "symbol:test_real_story_pending_request_waits_for_explicit_continuation@engine/tests/test_app_engine_session.py:557",
+      "symbol:test_real_story_open_lost_ack_recovers_unique_session@engine/tests/test_app_engine_session.py:581",
+      "symbol:test_real_story_unsupported_input_keeps_draft_and_writes_nothing@engine/tests/test_app_engine_session.py:598",
+      "symbol:_durable_counts@engine/tests/test_app_engine_session.py:627"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 874,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "CaptureSpec",
+      "capture_plan",
+      "run",
+      "write_preferences",
+      "clear_preferences",
+      "windows_for_pid",
+      "primary_window",
+      "parse_args",
+      "main",
+      "filename",
+      "child_environment",
+      "test_driver_sources_cover_engine_ipc_top_level_type_dependencies",
+      "app_driver",
+      "test_real_swift_app_engine_lifecycle",
+      "test_engine_stops_when_swift_parent_is_force_quit",
+      "_receive",
+      "_frame",
+      "test_production_client_rejects_bad_peers",
+      "story_engine",
+      "_run_story",
+      "_facts",
+      "_world_counts",
+      "story_session",
+      "test_real_story_first_turn_reopens_across_processes",
+      "test_real_story_five_turns_commit_settle_and_close",
+      "test_real_story_lost_ack_recovers_without_recommitting",
+      "test_real_story_pending_request_waits_for_explicit_continuation",
+      "test_real_story_open_lost_ack_recovers_unique_session",
+      "test_real_story_unsupported_input_keeps_draft_and_writes_nothing",
+      "_durable_counts"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "narrative_block.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "MACOS_APP_P0",
+    "profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+    "profile_file": ".hacf/gates/macos_app_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      12
+    ],
+    "instructions": "遵循 Swift 6 严格并发与 SwiftUI @Observable 规范，严格通过 UDS IPC 驱动，零直接数据库访问。",
+    "assertions": [
+      "INV-12"
+    ]
+  }
+}
