@@ -1,0 +1,115 @@
+{
+  "receipt_id": "RCP-WORK-AO-01-MAC-8ffc3c6ae05b",
+  "receipt_type": "work",
+  "task_id": "AO-01-MAC",
+  "capsule_id": "CAP-AO-01-MAC",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:acd173743b1bc0cfae7caa4913f5e042fc8f3bdeb65377a4a53de0393f59c505",
+  "diff_digest": "sha256:a2f901538000ab6661a5360c5f401ab640580352cb93321c038afe9d6516c72b",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "94db636bfc54274c5fac703c1da73060717ef4ff",
+  "head_commit": "8ffc3c6ae05be816e58ecb8e8547d5f8a980a50d",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-01-mac-final",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T06:10:26.292691+00:00",
+      "finished_at": "2026-09-28T06:10:26.334186+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-01-mac-final/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-01-mac-final/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T06:10:26.334324+00:00",
+      "finished_at": "2026-09-28T06:10:50.549466+00:00",
+      "raw_log_digest": "sha256:41563678576cc09ee1ad3fbe73bff1e938e89dc2e8677ef0dc022d3d6337cb24",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-01-mac-final/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T06:10:50.549635+00:00",
+      "finished_at": "2026-09-28T06:10:51.909181+00:00",
+      "raw_log_digest": "sha256:ee20af12d55488346141b07c149054df7fc0094628bcc07ceddd4059dd6c2eab",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_app_engine_session.py",
+      "macos-app/WorldOfMysteries/EngineIPCClient.swift",
+      "macos-app/WorldOfMysteries/StorySessionModel.swift",
+      "macos-app/WorldOfMysteries/StorySessionPanel.swift",
+      "macos-app/WorldOfMysteriesTests/EngineSessionTests.swift",
+      "macos-app/WorldOfMysteriesTests/StoryExpressionControlTests.swift",
+      "macos-app/WorldOfMysteriesTests/StorySessionModelTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-01-mac-final"
+  },
+  "started_at": "2026-09-28T06:10:26.249678+00:00",
+  "finished_at": "2026-09-28T06:10:52.058964+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
