@@ -65,7 +65,7 @@ public struct StorySessionPanel: View {
                 expressionContent
             }
             actions
-            Text("固定模式每轮只接受引擎指定建议；输入持久化、领域裁决与事务执行真实代码，不是生成叙事。")
+            Text("领域事实在提交时保存；叙事与语音由提交后工作独立推进。")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -85,7 +85,9 @@ public struct StorySessionPanel: View {
 
     @ViewBuilder
     private var expressionContent: some View {
-        if let expression = model.expression {
+        if let work = model.postCommitWork {
+            postCommitWorkContent(work)
+        } else if let expression = model.expression {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 Text("本轮叙事")
                     .font(Font.Mystic.caption)
@@ -118,6 +120,20 @@ public struct StorySessionPanel: View {
             .accessibilityIdentifier("storyExpression")
         }
 
+        if model.postCommitWorkLoading {
+            Text("正在读取提交后工作状态…")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .accessibilityIdentifier("storyPostCommitWorkLoading")
+        }
+
+        if model.postCommitWorkReadFailed {
+            Text("提交后工作状态读取失败；已提交事实仍保留，查询没有重新提交或生成内容。")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .accessibilityIdentifier("storyPostCommitWorkReadFailure")
+        }
+
         if model.expressionReadFailed {
             Text("文字叙事读取失败；已提交轮次仍保留，未重新提交。")
                 .font(Font.Mystic.caption)
@@ -125,12 +141,78 @@ public struct StorySessionPanel: View {
                 .accessibilityIdentifier("storyExpressionReadFailure")
         }
 
-        if let reason = model.audioUnavailableReason ?? voiceUnavailableReason {
+        if model.postCommitWork == nil,
+           let reason = model.audioUnavailableReason ?? voiceUnavailableReason {
             Text("语音不可用（\(reason)）。")
                 .font(Font.Mystic.caption)
                 .foregroundStyle(Color.Mystic.textSecondary)
                 .accessibilityIdentifier("storyAudioUnavailable")
         }
+    }
+
+    @ViewBuilder
+    private func postCommitWorkContent(
+        _ work: StoryTurnWorkGetResponseDTO
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            Text("本轮叙事")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+
+            switch work.narrativeState {
+            case .pending:
+                Text("叙事等待处理。")
+                    .font(Font.Mystic.bodyMedium)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            case .running:
+                Text("叙事处理中。")
+                    .font(Font.Mystic.bodyMedium)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            case .blocked:
+                Text("叙事处理受阻（\(work.narrativeReason ?? "unknown")）。")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            case .ready:
+                ForEach(Array(work.narrativeSegments.enumerated()), id: \.offset) { item in
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text(segmentLabel(item.element))
+                            .font(Font.Mystic.caption)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                        Text(item.element.text)
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityIdentifier("storyPostCommitNarrativeSegment.\(item.offset)")
+                }
+            }
+
+            Text("语音")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+
+            switch work.audioState {
+            case .pending:
+                Text("语音等待处理。")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            case .running:
+                Text("语音准备中。")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+            case .unavailable:
+                Text("语音不可用（\(work.audioReason ?? "unknown")）。")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .accessibilityIdentifier("storyAudioUnavailable")
+            case .ready:
+                Text("语音配方已就绪，等待后续回放。")
+                    .font(Font.Mystic.caption)
+                    .foregroundStyle(Color.Mystic.textSecondary)
+                    .accessibilityIdentifier("storyAudioReady")
+            }
+        }
+        .accessibilityIdentifier("storyPostCommitWork")
     }
 
     private var voiceUnavailableReason: String? {

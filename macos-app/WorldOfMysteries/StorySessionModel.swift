@@ -10,6 +10,16 @@ public protocol StoryEngineClient: StorySubmissionClient {
     func storySession(sessionId: String) async throws -> StorySessionGetViewDTO
     func supportsStoryExpression() async -> Bool
     func storyExpressionGet(sessionId: String, turnId: String) async throws -> StoryExpressionGetResponseDTO
+    func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryTurnWorkGetResponseDTO
+    func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String
+    ) async throws -> StoryTurnWorkRetryResponseDTO
 }
 
 public extension StoryEngineClient {
@@ -22,6 +32,28 @@ public extension StoryEngineClient {
     ) async throws -> StoryExpressionGetResponseDTO {
         _ = sessionId
         _ = turnId
+        throw EngineConnectionError.methodUnavailable
+    }
+
+    func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryTurnWorkGetResponseDTO {
+        _ = sessionId
+        _ = turnId
+        throw EngineConnectionError.methodUnavailable
+    }
+
+    func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String
+    ) async throws -> StoryTurnWorkRetryResponseDTO {
+        _ = sessionId
+        _ = turnId
+        _ = kind
+        _ = retryRequestId
         throw EngineConnectionError.methodUnavailable
     }
 }
@@ -65,6 +97,9 @@ public final class StorySessionModel {
     public private(set) var view: StoryPublicViewDTO?
     public private(set) var expression: StoryExpressionGetResponseDTO?
     public private(set) var expressionReadFailed = false
+    public private(set) var postCommitWork: StoryTurnWorkGetResponseDTO?
+    public private(set) var postCommitWorkReadFailed = false
+    public private(set) var postCommitWorkLoading = false
     public private(set) var audioUnavailableReason: String?
     public private(set) var pendingInputTurnId: String?
     public private(set) var generation: UInt64 = 0
@@ -77,6 +112,7 @@ public final class StorySessionModel {
     @ObservationIgnored private let journal: any StoryJournalWriting
     @ObservationIgnored private let idFactory: @Sendable () -> String
     @ObservationIgnored private var expressionRequestGeneration: UInt64 = 0
+    @ObservationIgnored private var postCommitWorkRequestGeneration: UInt64 = 0
     @ObservationIgnored private var currentCommittedTurnId: String?
 
     public init(
@@ -173,10 +209,14 @@ public final class StorySessionModel {
     public func detachForConnectionChange() {
         generation &+= 1
         expressionRequestGeneration &+= 1
+        postCommitWorkRequestGeneration &+= 1
         submissionCoordinator.detachForConnectionChange()
         state = .unavailable
         expression = nil
         expressionReadFailed = false
+        postCommitWork = nil
+        postCommitWorkReadFailed = false
+        postCommitWorkLoading = false
         audioUnavailableReason = nil
         currentCommittedTurnId = nil
         pendingInputTurnId = nil
@@ -272,11 +312,18 @@ public final class StorySessionModel {
         }
         state = Self.settledState(session)
         if let turnId = currentCommittedTurnId {
-            await refreshExpression(
+            let usesPostCommitWork = await refreshPostCommitWork(
                 sessionId: session.sessionId,
                 turnId: turnId,
                 attempt: attempt
             )
+            if !usesPostCommitWork {
+                await refreshExpression(
+                    sessionId: session.sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                )
+            }
         }
     }
 
@@ -405,8 +452,68 @@ public final class StorySessionModel {
         }
     }
 
-    /// Reads the durable, player-disclosed text projection after commit or restore.
-    /// It never resubmits input and treats a query failure as a read failure only.
+    /// Reads the independent post-COMMIT projection after commit or restore.
+    /// This is a pure read: it neither retries work nor invokes a provider.
+    /// Returns true once `turnWorkGet` is advertised, including read failures,
+    /// so a v2 session never falls through to a different projection.
+    private func refreshPostCommitWork(
+        sessionId: String,
+        turnId: String,
+        attempt: UInt64
+    ) async -> Bool {
+        guard attempt == generation,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
+            return false
+        }
+        postCommitWorkRequestGeneration &+= 1
+        let queryAttempt = postCommitWorkRequestGeneration
+        postCommitWork = nil
+        postCommitWorkReadFailed = false
+        postCommitWorkLoading = true
+        defer {
+            if queryAttempt == postCommitWorkRequestGeneration {
+                postCommitWorkLoading = false
+            }
+        }
+
+        guard await client.supportsStoryPostCommitMethod(.turnWorkGet),
+              attempt == generation,
+              queryAttempt == postCommitWorkRequestGeneration,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
+            return false
+        }
+
+        do {
+            let response = try await client.storyTurnWorkGet(
+                sessionId: sessionId,
+                turnId: turnId
+            )
+            guard attempt == generation,
+                  queryAttempt == postCommitWorkRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return true
+            }
+            guard response.sessionId == sessionId, response.turnId == turnId else {
+                postCommitWorkReadFailed = true
+                return true
+            }
+            postCommitWork = response
+        } catch {
+            guard attempt == generation,
+                  queryAttempt == postCommitWorkRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return true
+            }
+            postCommitWorkReadFailed = true
+        }
+        return true
+    }
+
+    /// Reads the legacy disclosed-text projection without resubmitting a turn.
     private func refreshExpression(
         sessionId: String,
         turnId: String,
@@ -494,11 +601,18 @@ public final class StorySessionModel {
                 state = .pending
             }
             if let turnId = currentCommittedTurnId {
-                await refreshExpression(
+                let usesPostCommitWork = await refreshPostCommitWork(
                     sessionId: fetched.sessionId,
                     turnId: turnId,
                     attempt: attempt
                 )
+                if !usesPostCommitWork {
+                    await refreshExpression(
+                        sessionId: fetched.sessionId,
+                        turnId: turnId,
+                        attempt: attempt
+                    )
+                }
             }
         } catch {
             // A failed refresh must not invent a failure the player did not have:
@@ -527,6 +641,9 @@ public final class StorySessionModel {
         switch submissionCoordinator.state {
         case .idle:
             return
+        case .selectingMethod:
+            state = .submitting
+            canRetrySameRequest = false
         case .submitting:
             state = .submitting
             canRetrySameRequest = false
@@ -584,11 +701,18 @@ public final class StorySessionModel {
                 supportedAdvice = []
             }
             if let turnId = currentCommittedTurnId {
-                await refreshExpression(
+                let usesPostCommitWork = await refreshPostCommitWork(
                     sessionId: committedSession.sessionId,
                     turnId: turnId,
                     attempt: attempt
                 )
+                if !usesPostCommitWork {
+                    await refreshExpression(
+                        sessionId: committedSession.sessionId,
+                        turnId: turnId,
+                        attempt: attempt
+                    )
+                }
             }
         }
     }
@@ -607,8 +731,12 @@ public final class StorySessionModel {
         guard let session else {
             currentCommittedTurnId = nil
             expressionRequestGeneration &+= 1
+            postCommitWorkRequestGeneration &+= 1
             expression = nil
             expressionReadFailed = false
+            postCommitWork = nil
+            postCommitWorkReadFailed = false
+            postCommitWorkLoading = false
             audioUnavailableReason = nil
             return
         }
@@ -625,8 +753,12 @@ public final class StorySessionModel {
 
         if changedSessionOrTurn {
             expressionRequestGeneration &+= 1
+            postCommitWorkRequestGeneration &+= 1
             expression = nil
             expressionReadFailed = false
+            postCommitWork = nil
+            postCommitWorkReadFailed = false
+            postCommitWorkLoading = false
             audioUnavailableReason = nil
         }
         currentCommittedTurnId = nextCommittedTurnId

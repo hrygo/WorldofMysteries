@@ -179,7 +179,7 @@ public final class VoiceTurnController {
                 phase = .unavailable(reason: code)
             case .received, .notFound:
                 phase = .unavailable(reason: "submission_pending")
-            case .idle, .submitting, .committed:
+            case .idle, .selectingMethod, .submitting, .committed:
                 phase = .unavailable(reason: "submission_not_committed")
             }
             return nil

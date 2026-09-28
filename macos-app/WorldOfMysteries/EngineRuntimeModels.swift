@@ -26,6 +26,10 @@ public nonisolated struct EngineHandshake: Sendable, Equatable {
     public let engineVersion: String
     public let pythonVersion: String
     public let capabilities: Set<String>
+    public var liveTurnAvailable: Bool {
+        capabilities.contains("story.turn.submit")
+            || capabilities.contains(StoryPostCommitMethodCapability.turnSubmitV2.rawValue)
+    }
 
     init(payload: [String: AnyCodableValue]) throws {
         let names: Set<String> = ["engine_version", "engine_build", "python_version", "protocol_version", "capabilities"]

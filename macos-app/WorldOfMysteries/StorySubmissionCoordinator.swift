@@ -9,7 +9,12 @@ import Observation
 public protocol StorySubmissionClient: Sendable {
     func storySubmit(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
     func storyTurnSubmit(_ request: StoryTurnSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
+    func storyAdviceSubmitV2(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
+    func storyTurnSubmitV2(_ request: StoryTurnSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
     func storyAdvice(sessionId: String, inputTurnId: String) async throws -> StoryAdviceGetViewDTO
+    func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool
 }
 
 public extension StorySubmissionClient {
@@ -21,6 +26,27 @@ public extension StorySubmissionClient {
         _ = request
         throw EngineConnectionError.methodUnavailable
     }
+
+    func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        _ = request
+        throw EngineConnectionError.methodUnavailable
+    }
+
+    func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        _ = request
+        throw EngineConnectionError.methodUnavailable
+    }
+
+    func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool {
+        _ = capability
+        return false
+    }
 }
 
 @Observable
@@ -28,6 +54,7 @@ public extension StorySubmissionClient {
 public final class StorySubmissionCoordinator {
     public enum State: Equatable, Sendable {
         case idle
+        case selectingMethod
         case submitting
         case committed
         case outcomeUnknown
@@ -47,6 +74,8 @@ public final class StorySubmissionCoordinator {
     @ObservationIgnored private let journal: any StoryJournalWriting
     @ObservationIgnored private let idFactory: @Sendable () -> String
     @ObservationIgnored private var generation: UInt64 = 0
+    @ObservationIgnored private var methodSelectionGeneration: UInt64 = 0
+    @ObservationIgnored private var stateBeforeMethodSelection: State?
 
     public init(
         client: any StorySubmissionClient,
@@ -65,7 +94,7 @@ public final class StorySubmissionCoordinator {
             return true
         case .blocked(code: "deterministic_input_unsupported"):
             return true
-        case .submitting, .outcomeUnknown, .querying, .received, .notFound, .blocked:
+        case .selectingMethod, .submitting, .outcomeUnknown, .querying, .received, .notFound, .blocked:
             return false
         }
     }
@@ -74,6 +103,8 @@ public final class StorySubmissionCoordinator {
         switch state {
         case .idle:
             return nil
+        case .selectingMethod:
+            return "正在确认提交方式"
         case .submitting, .outcomeUnknown, .querying:
             return "结果待确认"
         case .received, .notFound:
@@ -115,9 +146,31 @@ public final class StorySubmissionCoordinator {
             return nil
         }
 
-        let method: StorySubmissionMethod = inputMode == .voice
-            ? .storyTurnSubmit
-            : .storyAdviceSubmit
+        let method: StorySubmissionMethod
+        let attempt = generation
+        methodSelectionGeneration &+= 1
+        let methodSelectionAttempt = methodSelectionGeneration
+        stateBeforeMethodSelection = state
+        state = .selectingMethod
+        switch inputMode {
+        case .text:
+            method = await client.supportsStoryPostCommitMethod(.adviceSubmitV2)
+                ? .storyAdviceSubmitV2
+                : .storyAdviceSubmit
+        case .voice:
+            method = await client.supportsStoryPostCommitMethod(.turnSubmitV2)
+                ? .storyTurnSubmitV2
+                : .storyTurnSubmit
+        }
+        guard attempt == generation,
+              methodSelectionAttempt == methodSelectionGeneration,
+              state == .selectingMethod else {
+            if methodSelectionAttempt == methodSelectionGeneration {
+                stateBeforeMethodSelection = nil
+            }
+            return nil
+        }
+        stateBeforeMethodSelection = nil
         let inputTurnId = idFactory()
         do {
             _ = try StoryControl.identifier(inputTurnId)
@@ -147,14 +200,15 @@ public final class StorySubmissionCoordinator {
         latestReceipt = nil
         latestSession = nil
         state = .submitting
-        let attempt = generation
         await send(frozen, attempt: attempt)
         return frozen
     }
 
     /// Reads the server receipt for the journaled identity. It never resends.
     public func recover(expectedSessionId: String? = nil) async {
-        guard state != .submitting, state != .querying else { return }
+        guard state != .selectingMethod,
+              state != .submitting,
+              state != .querying else { return }
         let record: StoryRequestRecord
         do {
             guard let loaded = try journal.load() else {
@@ -208,7 +262,11 @@ public final class StorySubmissionCoordinator {
     /// Invalidates callbacks from an old transport while retaining the journal.
     public func detachForConnectionChange() {
         generation &+= 1
+        methodSelectionGeneration &+= 1
         switch state {
+        case .selectingMethod:
+            state = stateBeforeMethodSelection ?? .idle
+            stateBeforeMethodSelection = nil
         case .submitting, .querying:
             state = .outcomeUnknown
         case .idle, .committed, .outcomeUnknown, .received, .notFound, .blocked:
@@ -219,6 +277,8 @@ public final class StorySubmissionCoordinator {
     /// Used by the session facade when server state proves a local journal is
     /// missing or incompatible. It never deletes the record.
     public func block(code: String) {
+        methodSelectionGeneration &+= 1
+        stateBeforeMethodSelection = nil
         state = .blocked(code: code)
     }
 
@@ -252,6 +312,27 @@ public final class StorySubmissionCoordinator {
                 )
             case .storyTurnSubmit:
                 response = try await client.storyTurnSubmit(
+                    StoryTurnSubmitRequestDTO(
+                        sessionId: frozen.sessionId,
+                        inputTurnId: frozen.inputTurnId,
+                        rawInput: frozen.rawInput,
+                        inputMode: frozen.inputMode,
+                        expectedStoryRevision: frozen.expectedStoryRevision,
+                        expectedStoreRevision: frozen.expectedStoreRevision
+                    )
+                )
+            case .storyAdviceSubmitV2:
+                response = try await client.storyAdviceSubmitV2(
+                    StoryAdviceSubmitRequestDTO(
+                        sessionId: frozen.sessionId,
+                        inputTurnId: frozen.inputTurnId,
+                        rawInput: frozen.rawInput,
+                        expectedStoryRevision: frozen.expectedStoryRevision,
+                        expectedStoreRevision: frozen.expectedStoreRevision
+                    )
+                )
+            case .storyTurnSubmitV2:
+                response = try await client.storyTurnSubmitV2(
                     StoryTurnSubmitRequestDTO(
                         sessionId: frozen.sessionId,
                         inputTurnId: frozen.inputTurnId,

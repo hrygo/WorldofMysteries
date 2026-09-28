@@ -83,7 +83,13 @@ public actor EngineIPCClient {
 
     /// True when the Engine can commit an arbitrary player turn, typed or spoken.
     public var liveTurnAvailable: Bool {
-        handshake?.capabilities.contains("story.turn.submit") ?? false
+        handshake?.liveTurnAvailable ?? false
+    }
+
+    public func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool {
+        handshake?.capabilities.contains(capability.rawValue) ?? false
     }
 
     /// Capabilities are negotiated by `system.handshake`; health only reports
@@ -308,6 +314,38 @@ public actor EngineIPCClient {
         )
     }
 
+    public func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let method = StoryPostCommitMethodCapability.adviceSubmitV2.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        return try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
+    public func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let method = StoryPostCommitMethodCapability.turnSubmitV2.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        return try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
     public func storyAdvice(
         sessionId: String,
         inputTurnId: String,
@@ -481,6 +519,18 @@ extension EngineIPCClient: StoryEngineClient {
         try await storyTurnSubmit(request, traceId: UUID().uuidString)
     }
 
+    public func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyAdviceSubmitV2(request, traceId: UUID().uuidString)
+    }
+
+    public func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyTurnSubmitV2(request, traceId: UUID().uuidString)
+    }
+
     public func storyAdvice(
         sessionId: String,
         inputTurnId: String
@@ -488,6 +538,32 @@ extension EngineIPCClient: StoryEngineClient {
         try await storyAdvice(
             sessionId: sessionId,
             inputTurnId: inputTurnId,
+            traceId: UUID().uuidString
+        )
+    }
+
+    public func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryTurnWorkGetResponseDTO {
+        try await storyTurnWorkGet(
+            sessionId: sessionId,
+            turnId: turnId,
+            traceId: UUID().uuidString
+        )
+    }
+
+    public func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String
+    ) async throws -> StoryTurnWorkRetryResponseDTO {
+        try await storyTurnWorkRetry(
+            sessionId: sessionId,
+            turnId: turnId,
+            kind: kind,
+            retryRequestId: retryRequestId,
             traceId: UUID().uuidString
         )
     }

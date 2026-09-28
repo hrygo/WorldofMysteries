@@ -3,6 +3,8 @@ import Foundation
 public nonisolated enum StorySubmissionMethod: String, Codable, Sendable, Equatable {
     case storyAdviceSubmit = "story.advice.submit"
     case storyTurnSubmit = "story.turn.submit"
+    case storyAdviceSubmitV2 = "story.advice.submit.v2"
+    case storyTurnSubmitV2 = "story.turn.submit.v2"
 }
 
 public nonisolated enum StoryRequestJournalError: Error, Equatable, Sendable {
@@ -143,9 +145,11 @@ public nonisolated struct StoryRequestRecord: Codable, Sendable, Equatable {
         method: StorySubmissionMethod
     ) -> Bool {
         switch (inputMode, method) {
-        case (.text, .storyAdviceSubmit), (.voice, .storyTurnSubmit):
+        case (.text, .storyAdviceSubmit), (.text, .storyAdviceSubmitV2),
+             (.voice, .storyTurnSubmit), (.voice, .storyTurnSubmitV2):
             return true
-        case (.text, .storyTurnSubmit), (.voice, .storyAdviceSubmit):
+        case (.text, .storyTurnSubmit), (.text, .storyTurnSubmitV2),
+             (.voice, .storyAdviceSubmit), (.voice, .storyAdviceSubmitV2):
             return false
         }
     }
