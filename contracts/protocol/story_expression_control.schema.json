@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/story_expression_control.schema.json",
+  "title": "World of Mysteries Story Expression read-only query v1.0",
+  "description": "Typed payload contracts for story.expression.get, the read-only projection of an already committed turn's narrative. A missing or failed voice service must never cost the player the text, so the narrative is queried on its own channel and stays readable with no audio at all. JSON Schema validates wire shape only: that segments are the player-disclosed projection of a persisted NarrativeBlock owned by the requested turn, that narrative_state is honest about what actually exists, and that no hidden identity or authorization inventory crossed the wire are service/DTO semantic validation duties.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "display_name": {
+      "description": "A player-visible name only. Internal speaker ids never cross this boundary; the service resolves them to a trusted session identity before responding.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "segment_text": {
+      "description": "Bounded by the same 4096-character disclosure boundary the audio sealing path already enforces, so the text channel can never carry more than the spoken channel may.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "reason": {
+      "description": "A stable public code, never a free-form internal error string.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "narrative_state": {
+      "description": "pending means no durable narrative exists for this turn yet and nothing has failed durably. unavailable is reserved for a capability state that demonstrably cannot produce one. Neither ever implies the Domain commit was lost.",
+      "enum": ["pending", "ready", "unavailable"]
+    },
+    "expression_get_request": {
+      "description": "A pure read. It generates nothing, seals nothing, and calls no external service, so it is safe to retry and safe to call without a voice backend.",
+      "type": "object",
+      "required": ["schema_version", "session_id", "turn_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "expression_segment": {
+      "description": "One disclosed narrative segment. narration and character stay distinguishable so the App never has to re-parse text to recover who is speaking.",
+      "type": "object",
+      "required": ["type", "text"],
+      "properties": {
+        "type": {"enum": ["narration", "character"]},
+        "speaker_display_name": {"$ref": "#/$defs/display_name"},
+        "text": {"$ref": "#/$defs/segment_text"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"type": {"const": "narration"}},
+            "required": ["type"]
+          },
+          "then": {
+            "not": {"required": ["speaker_display_name"]}
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "expression_get_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id",
+        "narrative_state",
+        "segments"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "narrative_state": {"$ref": "#/$defs/narrative_state"},
+        "segments": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {"$ref": "#/$defs/expression_segment"}
+        },
+        "reason": {"$ref": "#/$defs/reason"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "ready"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"segments": {"minItems": 1}},
+            "not": {"required": ["reason"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "pending"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"segments": {"maxItems": 0}},
+            "not": {"required": ["reason"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"narrative_state": {"const": "unavailable"}},
+            "required": ["narrative_state"]
+          },
+          "then": {
+            "properties": {"segments": {"maxItems": 0}},
+            "required": ["reason"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

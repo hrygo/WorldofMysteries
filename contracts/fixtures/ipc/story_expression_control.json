@@ -1,0 +1,169 @@
+{
+  "cases": [
+    {
+      "id": "expression_get_request_valid",
+      "shape": "expression_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef"
+      },
+      "valid": true
+    },
+    {
+      "id": "expression_get_request_missing_turn_id_invalid",
+      "shape": "expression_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef"
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_request_wrong_version_invalid",
+      "shape": "expression_get_request",
+      "value": {
+        "schema_version": "2.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef"
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_request_unknown_field_invalid",
+      "shape": "expression_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "include_hidden_knowledge": true
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_response_ready_valid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "ready",
+        "segments": [
+          {"type": "narration", "text": "蒸汽管在墙后低鸣。"},
+          {"type": "character", "speaker_display_name": "克莱恩", "text": "你来了。"}
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "expression_get_response_ready_character_without_speaker_valid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "ready",
+        "segments": [{"type": "character", "text": "……"}]
+      },
+      "valid": true
+    },
+    {
+      "id": "expression_get_response_ready_with_empty_segments_invalid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "ready",
+        "segments": []
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_response_ready_with_reason_invalid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "ready",
+        "reason": "narrative_unavailable",
+        "segments": [{"type": "narration", "text": "蒸汽管在墙后低鸣。"}]
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_response_pending_valid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "pending",
+        "segments": []
+      },
+      "valid": true
+    },
+    {
+      "id": "expression_get_response_pending_with_segments_invalid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "pending",
+        "segments": [{"type": "narration", "text": "蒸汽管在墙后低鸣。"}]
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_get_response_unavailable_valid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "unavailable",
+        "reason": "narrative_model_unavailable",
+        "segments": []
+      },
+      "valid": true
+    },
+    {
+      "id": "expression_get_response_unavailable_without_reason_invalid",
+      "shape": "expression_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session_0123456789abcdef0123456789abcdef",
+        "turn_id": "turn_0123456789abcdef0123456789abcdef",
+        "narrative_state": "unavailable",
+        "segments": []
+      },
+      "valid": false
+    },
+    {
+      "id": "expression_segment_narration_with_speaker_invalid",
+      "shape": "expression_segment",
+      "value": {"type": "narration", "speaker_display_name": "克莱恩", "text": "蒸汽管在墙后低鸣。"},
+      "valid": false
+    },
+    {
+      "id": "expression_segment_unknown_type_invalid",
+      "shape": "expression_segment",
+      "value": {"type": "transition", "text": "场景转换。"},
+      "valid": false
+    },
+    {
+      "id": "expression_segment_hidden_identity_field_invalid",
+      "shape": "expression_segment",
+      "value": {"type": "character", "speaker_id": "character_hidden_001", "text": "你来了。"},
+      "valid": false
+    },
+    {
+      "id": "expression_segment_blank_text_invalid",
+      "shape": "expression_segment",
+      "value": {"type": "narration", "text": "   "},
+      "valid": false
+    }
+  ]
+}
