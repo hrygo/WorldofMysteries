@@ -45,6 +45,7 @@ from application.story_turn_commit import (
     StoryTurnCommitResult,
 )
 from application.turn_input import TurnInputStatus
+from application.turn_orchestrator import TurnOrchestrator
 from contracts import StorySession, StorySessionStatus, TurnStatus
 from infrastructure.database_manager import (
     CommitRequest,
@@ -62,6 +63,7 @@ from infrastructure.episode_finalization_repository import (
 from infrastructure.episode_finalization_repository import (
     SQLiteEpisodeFinalizationRepository,
 )
+from infrastructure.episode_settlement import ScenarioSettlement
 from infrastructure.narrative_block_repository import SQLiteNarrativeBlockRepository
 from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
 from infrastructure.sqlite_runtime import sqlite3
@@ -69,7 +71,6 @@ from infrastructure.story_bootstrap_repository import SQLiteStoryBootstrapReposi
 from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
 from infrastructure.turn_intake_repository import SQLiteTurnInputCommandPort
-from infrastructure.episode_settlement import ScenarioSettlement
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "fixtures" / "golden_001"
@@ -235,15 +236,24 @@ def _facade(
     *,
     story=None,
 ):
+    query = Query(database, source)
+    scenario = _GoldenFiveTurnScenario(factory)
+    workers = _GoldenFiveTurnWorkers(factory)
+    advice = SQLitePlayerAdviceRepository(database)
+    story_port = story or SQLiteStorySessionCommitPort(database)
     return StorySessionFacade(
         initialization=StoryInitializationService(source),
         open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
-        query=Query(database, source),
-        intake=SQLiteTurnInputCommandPort(database),
-        advice=SQLitePlayerAdviceRepository(database),
-        story=story or SQLiteStorySessionCommitPort(database),
-        scenario=_GoldenFiveTurnScenario(factory),
-        workers=_GoldenFiveTurnWorkers(factory),
+        query=query,
+        scenario=scenario,
+        turns=TurnOrchestrator(
+            sessions=query,
+            intake=SQLiteTurnInputCommandPort(database),
+            advice=advice,
+            story=story_port,
+            scenario=scenario,
+            workers=workers,
+        ),
     )
 
 
@@ -293,7 +303,6 @@ class _GoldenFiveTurnScenario:
 
     def finalization_recipe(self, bootstrap, committed_session):
         del bootstrap, committed_session
-        return None
 
 
 class _GoldenFiveTurnWorkers:

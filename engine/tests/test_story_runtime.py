@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 from jsonschema import Draft202012Validator
 
+import infrastructure.story_runtime as story_runtime_module
 from application.scenario_policy import ScenarioPolicyError
 from application.story_initialization import (
     GOLDEN_CLUE_DISPLAY_NAMES,
@@ -26,7 +27,7 @@ from application.story_initialization import (
 )
 from application.story_session_facade import StoryFacadeError, SubmitAdviceCommand
 from contracts.envelope import EngineIPCEnvelope
-from infrastructure.database_manager import DatabasePaths
+from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.ipc_framing import encode_frame, read_frame, write_frame
 from infrastructure.ipc_server import LocalIPCServer
 from infrastructure.sqlite_runtime import sqlite3
@@ -207,6 +208,234 @@ async def _open_runtime(
 
 
 @pytest.mark.asyncio
+async def test_story_runtime_close_orders_resources_once():
+    events: list[str] = []
+
+    class Worker:
+        is_running = False
+
+        async def stop(self):
+            events.append("worker.stop")
+
+    class ModelWorkers:
+        async def aclose(self):
+            events.append("model.aclose")
+
+    class Voice:
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = Worker()
+    runtime._workers = ModelWorkers()
+    runtime._voice = Voice()
+    runtime._database = Database()
+    runtime._close_task = None
+
+    await runtime.close()
+    await runtime.close()
+
+    assert events == [
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_close_releases_later_resources_after_partial_failure():
+    events: list[str] = []
+
+    class Worker:
+        is_running = False
+
+        async def stop(self):
+            events.append("worker.stop")
+
+    class ModelWorkers:
+        async def aclose(self):
+            events.append("model.aclose")
+            raise RuntimeError("model shutdown failed")
+
+    class Voice:
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = Worker()
+    runtime._workers = ModelWorkers()
+    runtime._voice = Voice()
+    runtime._database = Database()
+    runtime._close_task = None
+
+    with pytest.raises(RuntimeError, match="model shutdown failed"):
+        await runtime.close()
+
+    assert events == [
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_open_releases_partial_resources_when_startup_fails(
+    tmp_path: Path,
+    content_artifact: Path,
+    monkeypatch,
+):
+    events: list[str] = []
+
+    class ModelWorkers:
+        supports_live_input = True
+
+        def interpreter_for(self, bootstrap, turn_number):
+            del bootstrap, turn_number
+            raise AssertionError("worker is not used during startup")
+
+        def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+            del bootstrap, turn_number, allowed_signatures
+            raise AssertionError("worker is not used during startup")
+
+        def narrative_compiler(self, bootstrap):
+            del bootstrap
+
+        async def aclose(self):
+            events.append("model.aclose")
+            raise RuntimeError("model shutdown failed")
+
+    class Voice:
+        sealed_units = object()
+        media_handler = None
+
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    model_workers = ModelWorkers()
+    voice = Voice()
+    async def make_workers(database, endpoint):
+        del database, endpoint
+        return model_workers
+
+    monkeypatch.setattr(
+        story_runtime_module,
+        "_live_worker_factory",
+        make_workers,
+    )
+    monkeypatch.setattr(
+        StoryRuntime,
+        "_open_voice",
+        staticmethod(lambda audio_config: voice),
+    )
+
+    async def reconcile(self):
+        del self
+        events.append("reconcile")
+
+    async def start(self):
+        del self
+        events.append("worker.start")
+        raise RuntimeError("worker startup failed")
+
+    async def stop(self):
+        del self
+        events.append("worker.stop")
+
+    original_database_close = DatabaseManager.close
+
+    async def tracked_database_close(database):
+        events.append("database.close")
+        await original_database_close(database)
+
+    monkeypatch.setattr(
+        story_runtime_module.PostCommitReconciler,
+        "reconcile",
+        reconcile,
+    )
+    monkeypatch.setattr(story_runtime_module.PostCommitWorker, "start", start)
+    monkeypatch.setattr(story_runtime_module.PostCommitWorker, "stop", stop)
+    monkeypatch.setattr(DatabaseManager, "close", tracked_database_close)
+
+    from ai.openai_compatible import ModelEndpointConfig
+
+    with pytest.raises(RuntimeError, match="worker startup failed"):
+        await StoryRuntime.open(
+            StoryRuntimeConfig.for_data_root(
+                tmp_path / "app-support",
+                content_path=content_artifact,
+            ),
+            expected_sqlite_version=sqlite3.sqlite_version,
+            model_endpoint=ModelEndpointConfig(
+                base_url="http://127.0.0.1:9/v1",
+                api_key="test-only-key",
+                model="test-live-model",
+            ),
+            durable_post_commit=True,
+        )
+
+    assert events == [
+        "reconcile",
+        "worker.start",
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_live_worker_factory_closes_transport_if_execution_assembly_fails(
+    monkeypatch,
+):
+    events: list[str] = []
+
+    class Transport:
+        def __init__(self, endpoint):
+            del endpoint
+
+        async def aclose(self):
+            events.append("transport.aclose")
+
+    def fail_execution(**kwargs):
+        del kwargs
+        raise RuntimeError("execution assembly failed")
+
+    monkeypatch.setattr(
+        story_runtime_module,
+        "OpenAICompatibleChatTransport",
+        Transport,
+    )
+    monkeypatch.setattr(
+        story_runtime_module,
+        "AuthorizedLiveExecution",
+        fail_execution,
+    )
+    from ai.openai_compatible import ModelEndpointConfig
+
+    with pytest.raises(RuntimeError, match="execution assembly failed"):
+        await story_runtime_module._live_worker_factory(
+            object(),
+            ModelEndpointConfig(
+                base_url="http://127.0.0.1:9/v1",
+                api_key="test-only-key",
+                model="test-live-model",
+            ),
+        )
+
+    assert events == ["transport.aclose"]
+
+
+@pytest.mark.asyncio
 async def test_live_runtime_composes_authorized_workers_over_sqlite_context_ports(
     tmp_path: Path,
     content_artifact: Path,
@@ -279,13 +508,14 @@ async def test_live_runtime_composes_authorized_workers_over_sqlite_context_port
         assert execution.transport.config == endpoint
 
         facade = runtime._facade
-        assert isinstance(facade._context_bindings, _SQLiteTurnContextBindingPort)
+        turns = facade._turns
+        assert isinstance(turns._context, _SQLiteTurnContextBindingPort)
         assert isinstance(
-            facade._context_bindings._repository,
+            turns._context._repository,
             SQLiteTurnContextRepository,
         )
-        assert isinstance(facade._advice, _BoundSQLitePlayerAdviceRepository)
-        assert facade._advice._contexts is facade._context_bindings
+        assert isinstance(turns._advice, _BoundSQLitePlayerAdviceRepository)
+        assert turns._advice._contexts is turns._context
     finally:
         await runtime.close()
 
@@ -1769,9 +1999,15 @@ async def test_durable_v2_returns_before_worker_publication_and_drains_before_db
     reader = writer = None
     runtime_closed = False
     try:
-        assert isinstance(runtime._facade._story, SQLiteStorySessionCommitPort)
-        assert not isinstance(runtime._facade._story, SettlingCommitPort)
-        assert runtime._facade._after_commit is None
+        assert isinstance(
+            runtime._facade._turns._story,
+            SQLiteStorySessionCommitPort,
+        )
+        assert not isinstance(
+            runtime._facade._turns._story,
+            SettlingCommitPort,
+        )
+        assert runtime._facade._turns._work is None
         assert runtime._post_commit_worker is not None
         assert runtime._post_commit_worker.is_running
 
