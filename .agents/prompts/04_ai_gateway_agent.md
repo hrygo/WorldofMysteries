@@ -6,7 +6,11 @@
 
 ## 2. 授权目录与文件
 - `engine/ai/`
-- `engine/tests/test_ai_*.py`
+- `engine/application/`
+- `engine/tests/`
+- `engine/infrastructure/story_runtime.py`
+- `engine/infrastructure/episode_settlement.py`
+- `engine/infrastructure/scenarios/`（AO-04 §4 的生产场景 adapter，与 composition root 同属一条装配链）
 
 ## 3. 严格禁止行为 (Invariants 5, 7, 8)
 - **绝对严禁** 为任何 Agent 或大模型挂载具备数据库写入能力的 Tool（不变量 5）。
