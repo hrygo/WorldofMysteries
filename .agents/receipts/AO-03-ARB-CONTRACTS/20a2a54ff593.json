@@ -1,0 +1,135 @@
+{
+  "receipt_id": "RCP-WORK-AO-03-ARB-CONTRACTS-20a2a54ff593",
+  "receipt_type": "work",
+  "task_id": "AO-03-ARB-CONTRACTS",
+  "capsule_id": "CAP-AO-03-ARB-CONTRACTS",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:9577b1c433dad65d93a51ccffd54b3521fce768545d1b39ed71969936b10c93b",
+  "diff_digest": "sha256:de176c3a49142cc96885689fa02f9e1658109cc7b22bff217a7253b46d8e78b5",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "dd1e3d0b698d1724094ccd3275bf2170b1ff3672",
+  "head_commit": "20a2a54ff593e698a520bce07e9c4a2baa3dc0fd",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T09:13:39.607046+00:00",
+      "finished_at": "2026-09-28T09:13:39.641305+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T09:13:39.641384+00:00",
+      "finished_at": "2026-09-28T09:14:59.066528+00:00",
+      "raw_log_digest": "sha256:82747a9d4613e194f9dc4654aaf9fa0eacc856258acc2c260edc90a8313706d5",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T09:14:59.066626+00:00",
+      "finished_at": "2026-09-28T09:15:23.092587+00:00",
+      "raw_log_digest": "sha256:209f1b15ffc521b803f2449bf34ddc2802ba5223bc69314e5537dfdf788c0ef3",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T09:15:23.092701+00:00",
+      "finished_at": "2026-09-28T09:15:24.412708+00:00",
+      "raw_log_digest": "sha256:feaf5574c427faf61904f68229bcb775050cd1c994c2e051238d6dfd83ea2a84",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "contracts/protocol/engine_ipc.schema.json",
+      "contracts/protocol/story_post_commit_control.schema.json",
+      "contracts/tests/test_story_post_commit_control.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "contracts/protocol/engine_ipc.schema.json",
+      "contracts/protocol/story_post_commit_control.schema.json",
+      "contracts/tests/test_story_post_commit_control.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-03-arb-contracts"
+  },
+  "started_at": "2026-09-28T09:13:39.575790+00:00",
+  "finished_at": "2026-09-28T09:15:24.537173+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
