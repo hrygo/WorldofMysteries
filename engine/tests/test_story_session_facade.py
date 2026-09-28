@@ -9,6 +9,11 @@ from pathlib import Path
 import pytest
 
 from ai.golden_first_turn import GoldenFirstTurnFactory
+from application.advice_interpretation import AdviceInterpretationCandidate
+from application.scenario_policy import (
+    ScenarioIdentity,
+    TurnPolicyDecision,
+)
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     SUPPORTED_ADVICE,
@@ -18,14 +23,18 @@ from application.story_initialization import (
 from application.story_session_facade import (
     StoredInputRecord,
     StoryEntrySnapshot,
+    StoryFacadeError,
     StorySessionFacade,
     StorySessionSnapshotRecord,
     SubmitAdviceCommand,
 )
 from application.story_session_open import StorySessionOpenService
+from application.story_turn_commit import DomainValidationContext
 from application.turn_input import TurnInputStatus
+from domain.resolution_policy import ResolutionPolicy
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
+from infrastructure.scenarios.golden_policy import GoldenScenarioPolicy
 from infrastructure.sqlite_runtime import sqlite3
 from infrastructure.story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
@@ -92,18 +101,103 @@ class Source:
         return self.bundle
 
 
-class CountingFirstTurn(GoldenFirstTurnFactory):
+class GoldenTestScenarioPolicy:
+    """Test-only policy wrapper for the frozen single-turn fixture."""
+
+    def __init__(self) -> None:
+        self._golden = GoldenFirstTurnFactory()
+
+    def identity(self, bootstrap):
+        return ScenarioIdentity(
+            scenario_id=bootstrap.scenario_id,
+            content_digest=bootstrap.content_digest,
+            rules_revision=bootstrap.policy_version,
+        )
+
+    def decision(self, session, committed_evidence):
+        del committed_evidence
+        terminal = session.story_state.turn >= self._golden.max_turn
+        return TurnPolicyDecision(
+            allowed_to_submit=(session.status.value == "active" and not terminal),
+            terminal=terminal,
+            reason="iteration_limit_reached" if terminal else None,
+        )
+
+    def expected_input(self, bootstrap, session):
+        next_turn = session.story_state.turn + 1
+        if next_turn > self._golden.max_turn:
+            return None
+        return self._golden.expected_input(bootstrap, next_turn)
+
+    def resolution_policy(self, bootstrap, session) -> ResolutionPolicy:
+        return self._golden.policy_for_turn(
+            bootstrap, session.story_state.turn + 1
+        )
+
+    def validation_context(
+        self, bootstrap, session
+    ) -> DomainValidationContext:
+        return self._golden.domain_validation_for(
+            bootstrap, session.story_state.turn + 1
+        )
+
+    def finalization_recipe(self, bootstrap, committed_session):
+        del bootstrap, committed_session
+
+
+class MissingFixedInputScenario(GoldenTestScenarioPolicy):
+    def expected_input(self, bootstrap, session):
+        del bootstrap, session
+
+
+class CountingWorkers:
     def __init__(self) -> None:
         self.interpreter_calls = 0
         self.proposer_calls = 0
+        self.supports_live_input = False
+        self._golden = GoldenFirstTurnFactory()
+        self.allowed_signatures = ()
 
     def interpreter_for(self, bootstrap, turn_number=1):
         self.interpreter_calls += 1
-        return super().interpreter_for(bootstrap)
+        return self._golden.interpreter_for(bootstrap, turn_number)
 
-    def proposer_for(self, bootstrap, turn_number=1):
+    def proposer_for(self, bootstrap, turn_number, allowed_signatures):
         self.proposer_calls += 1
-        return super().proposer_for(bootstrap)
+        self.allowed_signatures = allowed_signatures
+        return self._golden.proposer_for(bootstrap, turn_number)
+
+    def narrative_compiler(self, bootstrap):
+        del bootstrap
+        raise AssertionError("the Golden facade test does not compile narration")
+
+
+class _FreeTextInterpreter:
+    def __init__(self, workers) -> None:
+        self._workers = workers
+
+    async def interpret(self, value):
+        self._workers.interpreted_inputs.append(value.raw_input)
+        return AdviceInterpretationCandidate(
+            interpreter_revision="test-live-interpreter-v1",
+            primary_intent="observe_subject",
+            secondary_intents=(),
+            proposed_actions=("continue_conversation",),
+            risk_preference=None,
+            confidence=0.9,
+        )
+
+
+class LiveCapableTestWorkers(CountingWorkers):
+    def __init__(self) -> None:
+        super().__init__()
+        self.supports_live_input = True
+        self.interpreted_inputs: list[str] = []
+
+    def interpreter_for(self, bootstrap, turn_number=1):
+        del bootstrap, turn_number
+        self.interpreter_calls += 1
+        return _FreeTextInterpreter(self)
 
 
 class Query:
@@ -193,7 +287,12 @@ async def _database(tmp_path: Path):
     )
 
 
-def _facade(database: DatabaseManager, source: Source, first_turn: CountingFirstTurn):
+def _facade(
+    database: DatabaseManager,
+    source: Source,
+    scenario: GoldenTestScenarioPolicy,
+    workers: CountingWorkers,
+):
     return StorySessionFacade(
         initialization=StoryInitializationService(source),
         open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
@@ -201,7 +300,8 @@ def _facade(database: DatabaseManager, source: Source, first_turn: CountingFirst
         intake=SQLiteTurnInputCommandPort(database),
         advice=SQLitePlayerAdviceRepository(database),
         story=SQLiteStorySessionCommitPort(database),
-        first_turn=first_turn,
+        scenario=scenario,
+        workers=workers,
     )
 
 
@@ -209,8 +309,9 @@ def _facade(database: DatabaseManager, source: Source, first_turn: CountingFirst
 async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path):
     database, _ = await _database(tmp_path)
     source = Source()
-    first_turn = CountingFirstTurn()
-    facade = _facade(database, source, first_turn)
+    scenario = GoldenTestScenarioPolicy()
+    workers = CountingWorkers()
+    facade = _facade(database, source, scenario, workers)
     try:
         opened = await facade.open(
             scenario_id=GOLDEN_SCENARIO_ID,
@@ -222,6 +323,15 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         assert opened.session.turn == 0
         assert opened.session.can_submit
         assert opened.opened_store_revision == 1
+        initial_snapshot = await facade._query.session(
+            opened.session.session_id
+        )
+        expected_signatures = tuple(
+            rule.signature
+            for rule in scenario.resolution_policy(
+                initial_snapshot.bootstrap, initial_snapshot.session
+            ).rules
+        )
 
         command = SubmitAdviceCommand(
             session_id=opened.session.session_id,
@@ -242,8 +352,9 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         assert [
             clue.model_dump() for clue in submitted.session.discovered_clues
         ] == [{"id": "clue_doctor_pause", "display_name": "医生的停顿"}]
-        assert first_turn.interpreter_calls == 1
-        assert first_turn.proposer_calls == 1
+        assert workers.interpreter_calls == 1
+        assert workers.proposer_calls == 1
+        assert workers.allowed_signatures == expected_signatures
 
         loaded = await facade.get_advice(
             opened.session.session_id,
@@ -256,8 +367,8 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         replayed = await facade.submit(command)
         assert replayed.replayed
         assert replayed.receipt == submitted.receipt
-        assert first_turn.interpreter_calls == 1
-        assert first_turn.proposer_calls == 1
+        assert workers.interpreter_calls == 1
+        assert workers.proposer_calls == 1
 
         counts = await database.read_world(
             "SELECT "
@@ -279,8 +390,9 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
 async def test_facade_rejects_unsupported_text_before_intake(tmp_path):
     database, _ = await _database(tmp_path)
     source = Source()
-    first_turn = CountingFirstTurn()
-    facade = _facade(database, source, first_turn)
+    scenario = GoldenTestScenarioPolicy()
+    workers = CountingWorkers()
+    facade = _facade(database, source, scenario, workers)
     try:
         opened = await facade.open(
             scenario_id=GOLDEN_SCENARIO_ID,
@@ -304,7 +416,238 @@ async def test_facade_rejects_unsupported_text_before_intake(tmp_path):
         assert await database.read_world(
             "SELECT count(*) AS count FROM turn_intake_commands"
         ) == [{"count": 0}]
-        assert first_turn.interpreter_calls == 0
-        assert first_turn.proposer_calls == 0
+        assert workers.interpreter_calls == 0
+        assert workers.proposer_calls == 0
     finally:
         await database.close()
+
+
+@pytest.mark.asyncio
+async def test_fixed_method_rejects_when_scenario_has_no_fixed_input(tmp_path):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = MissingFixedInputScenario()
+    workers = CountingWorkers()
+    facade = _facade(database, source, scenario, workers)
+    try:
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_fixed_missing_001",
+            expected_store_revision=0,
+            request_id="request_open",
+            trace_id="trace_open",
+        )
+        with pytest.raises(Exception, match="fixed_input_unsupported"):
+            await facade.submit(
+                SubmitAdviceCommand(
+                    session_id=opened.session.session_id,
+                    input_turn_id="input_fixed_missing_001",
+                    raw_input=SUPPORTED_ADVICE,
+                    expected_story_revision=0,
+                    expected_store_revision=1,
+                    request_id="request_fixed_missing",
+                    trace_id="trace_fixed_missing",
+                )
+            )
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM turn_intake_commands"
+        ) == [{"count": 0}]
+        assert workers.interpreter_calls == 0
+        assert workers.proposer_calls == 0
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_live_method_requires_live_worker_before_accepting_free_input(tmp_path):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = CountingWorkers()
+    facade = _facade(database, source, scenario, workers)
+    try:
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_live_without_worker_001",
+            expected_store_revision=0,
+            request_id="request_open",
+            trace_id="trace_open",
+        )
+        with pytest.raises(Exception, match="live_worker_unavailable"):
+            await facade.submit_live(
+                SubmitAdviceCommand(
+                    session_id=opened.session.session_id,
+                    input_turn_id="input_live_without_worker_001",
+                    raw_input="自由描述一个不同的行动",
+                    expected_story_revision=0,
+                    expected_store_revision=1,
+                    request_id="request_live_without_worker",
+                    trace_id="trace_live_without_worker",
+                )
+            )
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM turn_intake_commands"
+        ) == [{"count": 0}]
+        assert workers.interpreter_calls == 0
+        assert workers.proposer_calls == 0
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_live_method_accepts_free_text_with_live_worker_using_same_policy(
+    tmp_path,
+):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = LiveCapableTestWorkers()
+    facade = _facade(database, source, scenario, workers)
+    raw_input = "我希望先记录医生刚才的停顿。"
+    try:
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_live_worker_001",
+            expected_store_revision=0,
+            request_id="request_open",
+            trace_id="trace_open",
+        )
+        snapshot = await facade._query.session(opened.session.session_id)
+        policy = scenario.resolution_policy(snapshot.bootstrap, snapshot.session)
+
+        submitted = await facade.submit_live(
+            SubmitAdviceCommand(
+                session_id=opened.session.session_id,
+                input_turn_id="input_live_worker_001",
+                raw_input=raw_input,
+                expected_story_revision=0,
+                expected_store_revision=1,
+                request_id="request_live_worker",
+                trace_id="trace_live_worker",
+            )
+        )
+
+        assert submitted.receipt.status == "committed"
+        assert submitted.session.turn == 1
+        assert [clue.id for clue in submitted.session.discovered_clues] == [
+            "clue_doctor_pause"
+        ]
+        assert workers.interpreted_inputs == [raw_input]
+        assert workers.allowed_signatures == tuple(
+            rule.signature for rule in policy.rules
+        )
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_injected_conditional_exit_policy_controls_service_public_view():
+    from test_scenario_policy import ConditionalExitTestPolicy
+
+    from application.story_session_facade import StorySessionFacade
+
+    initialized = await StoryInitializationService(Source()).initialize(
+        scenario_id=GOLDEN_SCENARIO_ID,
+        open_request_id="open_conditional_exit_001",
+    )
+    bootstrap = initialized.bootstrap.model_copy(
+        update={
+            "scenario_id": "conditional_exit",
+            "presentation": initialized.bootstrap.presentation.model_copy(
+                update={
+                    "clue_display_names": {
+                        **initialized.bootstrap.presentation.clue_display_names,
+                        "exit_clue": "出口线索",
+                    }
+                }
+            ),
+        }
+    )
+    session = initialized.initial_session.model_copy(
+        update={
+            "story_state": initialized.initial_session.story_state.model_copy(
+                update={
+                    "turn": 2,
+                    "revision": 2,
+                    "discovered_clue_ids": ["exit_clue"],
+                }
+            )
+        }
+    )
+
+    class SnapshotQuery:
+        async def session(self, session_id):
+            assert session_id == session.id
+            return StorySessionSnapshotRecord(
+                session=session,
+                bootstrap=bootstrap,
+                observed_store_revision=3,
+            )
+
+        async def input(self, _session_id, _input_turn_id):
+            return None
+
+    facade = StorySessionFacade(
+        initialization=None,
+        open_sessions=None,
+        query=SnapshotQuery(),
+        intake=None,
+        advice=None,
+        story=None,
+        scenario=ConditionalExitTestPolicy(),
+        workers=CountingWorkers(),
+    )
+
+    view = await facade.get(session.id)
+
+    assert view.session.scenario_id == "conditional_exit"
+    assert view.session.turn == 2
+    assert view.session.discovered_clues[0].display_name == "出口线索"
+    assert view.session.can_submit is False
+    with pytest.raises(StoryFacadeError, match="exit_clue_committed"):
+        await facade.submit(
+            SubmitAdviceCommand(
+                session_id=session.id,
+                input_turn_id="input_after_exit_clue",
+                raw_input="尝试继续已结束的场景。",
+                expected_story_revision=2,
+                expected_store_revision=3,
+                request_id="request_after_exit_clue",
+                trace_id="trace_after_exit_clue",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_fails_closed_for_unknown_frozen_scenario_identity():
+    initialized = await StoryInitializationService(Source()).initialize(
+        scenario_id=GOLDEN_SCENARIO_ID,
+        open_request_id="open_unknown_identity_001",
+    )
+    bootstrap = initialized.bootstrap.model_copy(
+        update={"content_digest": "f" * 64}
+    )
+    session = initialized.initial_session
+
+    class SnapshotQuery:
+        async def session(self, session_id):
+            assert session_id == session.id
+            return StorySessionSnapshotRecord(
+                session=session,
+                bootstrap=bootstrap,
+                observed_store_revision=1,
+            )
+
+    facade = StorySessionFacade(
+        initialization=None,
+        open_sessions=None,
+        query=SnapshotQuery(),
+        intake=None,
+        advice=None,
+        story=None,
+        scenario=GoldenScenarioPolicy(object()),
+        workers=CountingWorkers(),
+    )
+
+    with pytest.raises(StoryFacadeError, match="unknown_scenario_identity"):
+        await facade.get(session.id)

@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 from jsonschema import Draft202012Validator
 
+from application.scenario_policy import ScenarioPolicyError
 from application.story_initialization import (
     GOLDEN_CLUE_DISPLAY_NAMES,
     GOLDEN_SCENARIO_ID,
@@ -188,6 +189,42 @@ async def _open_runtime(root: Path, content: Path) -> StoryRuntime:
     )
 
 
+@pytest.mark.asyncio
+async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
+    tmp_path: Path,
+):
+    content_artifact = _write_content_artifact(tmp_path / "canon.db")
+    payload = _bundle_payload()
+    payload["presentation"]["scenario_title"] = "未经注册的新内容"
+    payload["content_digest"] = _canonical_digest(payload)
+    with stdlib_sqlite3.connect(content_artifact) as connection:
+        connection.execute(
+            "UPDATE scenario_bundles SET content_digest=?, payload_json=? "
+            "WHERE scenario_id=?",
+            (
+                payload["content_digest"],
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                GOLDEN_SCENARIO_ID,
+            ),
+        )
+        connection.commit()
+
+    config = StoryRuntimeConfig.for_data_root(
+        tmp_path / "app-support",
+        content_path=content_artifact,
+    )
+    with pytest.raises(ScenarioPolicyError, match="unknown_scenario_identity"):
+        await StoryRuntime.open(
+            config,
+            expected_sqlite_version=sqlite3.sqlite_version,
+        )
+
+
 def _committed_delivery_case(*, narrative=None):
     from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
 
@@ -300,7 +337,7 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         voice=None,
         audio_config=None,
         voice_id=None,
-        first_turn=first_turn,
+        workers=first_turn,
         fetch_json=None,
     )
 
@@ -366,7 +403,7 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
         voice=object(),
         audio_config=AudioProviderConfig(),
         voice_id="klein-approved",
-        first_turn=first_turn,
+        workers=first_turn,
         fetch_json=None,
     )
 
@@ -402,7 +439,7 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
         voice=None,
         audio_config=None,
         voice_id=None,
-        first_turn=first_turn,
+        workers=first_turn,
         fetch_json=None,
     )
 
@@ -453,7 +490,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
         voice=None,
         audio_config=None,
         voice_id=None,
-        first_turn=object(),
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
         fetch_json=None,
     )
 

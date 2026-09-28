@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from application.story_initialization import StorySessionBootstrap
+from application.scenario_policy import TurnPolicyDecision
 from contracts import StorySession, StorySessionStatus
 
 
@@ -65,14 +66,16 @@ class StoryPublicViewProjector:
         session: StorySession,
         bootstrap: StorySessionBootstrap,
         observed_store_revision: int,
+        policy_decision: TurnPolicyDecision,
         last_committed_turn_id: str | None = None,
         has_pending_input: bool = False,
-        max_turn: int = 1,
     ) -> PublicStorySessionView:
         if not isinstance(session, StorySession):
             raise StoryPublicViewError("invalid_story_session")
         if not isinstance(bootstrap, StorySessionBootstrap):
             raise StoryPublicViewError("invalid_bootstrap")
+        if not isinstance(policy_decision, TurnPolicyDecision):
+            raise StoryPublicViewError("invalid_turn_policy_decision")
         if session.id != bootstrap.initial_session.id:
             raise StoryPublicViewError("bootstrap_identity_mismatch")
         if (
@@ -102,7 +105,7 @@ class StoryPublicViewProjector:
 
         can_submit = (
             session.status is StorySessionStatus.ACTIVE
-            and session.story_state.turn < max_turn
+            and policy_decision.allowed_to_submit
             and not has_pending_input
         )
         try:
