@@ -1,0 +1,43 @@
+{
+  "receipt_id": "RCP-WORK-AO-05-A1A-CONTEXT-VISIBILITY-06760889ffba",
+  "receipt_type": "work",
+  "task_id": "AO-05-A1A-CONTEXT-VISIBILITY",
+  "capsule_id": "CAP-AO-05-A1A-CONTEXT-VISIBILITY",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:0ed9aae7e84896383bfaa4e9982057ee3fd95f445d8e201d81ec67cc65c25b92",
+  "diff_digest": "sha256:fe92eb926c975f671f599cfc25caa2e7a40ccc1a2f10a24694d9748d71ad9aed",
+  "assigned_role": "AGT-DOM",
+  "risk_class": "medium",
+  "base_commit": "439cf9dbeb5e1485f4d1fbfb88eec9b3647a559c",
+  "head_commit": "06760889ffbaf2f72ac5a90c12b0426365bfb2de",
+  "target_ref": "main",
+  "target_sha": "562be385b95bbc256888cd318e37999eeabf5533",
+  "stale_context": true,
+  "gate_profile_id": "DOMAIN_P0",
+  "gate_profile_digest": "sha256:773c50b2f8205aa483c9f7c9573755fa3603e180e0cd2a8f8ecde1ad0ad22dd0",
+  "gate_result": "not_run",
+  "gate_stages": [],
+  "coverage_gaps": [
+    "验证在陈旧上下文上被拒绝执行"
+  ],
+  "scope_audit": [],
+  "toolchain": {},
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DOM",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-05-a1a-context-visibility"
+  },
+  "started_at": "2026-09-28T13:58:25.229175+00:00",
+  "finished_at": "2026-09-28T13:58:25.259526+00:00",
+  "verdict": "failed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [
+    "验证在陈旧上下文上被拒绝执行"
+  ],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
