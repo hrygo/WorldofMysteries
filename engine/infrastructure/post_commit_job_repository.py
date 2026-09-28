@@ -6,6 +6,7 @@ leases, retries, and acknowledgements use the dedicated job writer.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -18,7 +19,6 @@ from .database_manager import (
     PostCommitJobTransaction,
 )
 from .database_schema import StorageError
-
 
 _JOB_KINDS = frozenset(
     {"episode_finalize", "narrative_publish", "audio_prepare"}
@@ -87,6 +87,15 @@ class PostCommitJobSpec:
     source_story_revision: int
     source_world_revision: int
     input_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class PostCommitJobRegistration:
+    """Source identity plus the only scheduler state allowed at registration."""
+
+    spec: PostCommitJobSpec
+    initial_state: str = "pending"
+    initial_reason_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +194,38 @@ def _spec_values(spec: PostCommitJobSpec) -> tuple:
     )
 
 
+def _registration_values(
+    value: PostCommitJobSpec | PostCommitJobRegistration,
+) -> tuple[PostCommitJobSpec, tuple, str, str | None]:
+    if isinstance(value, PostCommitJobRegistration):
+        spec = value.spec
+        initial_state = value.initial_state
+        initial_reason_code = value.initial_reason_code
+    elif isinstance(value, PostCommitJobSpec):
+        spec = value
+        initial_state = "pending"
+        initial_reason_code = None
+    else:
+        raise StorageError("Job registration requires typed job specifications")
+
+    if not isinstance(initial_state, str) or initial_state not in {
+        "pending",
+        "blocked",
+    }:
+        raise StorageError("Invalid initial post-COMMIT job state")
+    if initial_reason_code is not None and (
+        not isinstance(initial_reason_code, str)
+        or re.fullmatch(r"[a-z0-9_]{1,128}", initial_reason_code) is None
+    ):
+        raise StorageError("Invalid initial post-COMMIT job reason")
+    if initial_state == "pending" and initial_reason_code is not None:
+        raise StorageError("Pending post-COMMIT job cannot have an initial reason")
+    if initial_state == "blocked" and initial_reason_code is None:
+        raise StorageError("Blocked post-COMMIT job requires an initial reason")
+
+    return spec, _spec_values(spec), initial_state, initial_reason_code
+
+
 def _record(row: dict) -> PostCommitJobRecord:
     return PostCommitJobRecord(
         job_id=row["job_id"],
@@ -236,7 +277,7 @@ class SQLitePostCommitJobRepository:
     def register(
         self,
         transaction: DomainTransaction | PostCommitJobTransaction,
-        jobs: Iterable[PostCommitJobSpec],
+        jobs: Iterable[PostCommitJobSpec | PostCommitJobRegistration],
     ) -> tuple[PostCommitJobRecord, ...]:
         """Insert/reuse frozen jobs in the caller's existing transaction.
 
@@ -254,18 +295,16 @@ class SQLitePostCommitJobRepository:
     def _register_in_transaction(
         self,
         transaction: PostCommitJobRegistrationTransaction | PostCommitJobTransaction,
-        jobs: Iterable[PostCommitJobSpec],
+        jobs: Iterable[PostCommitJobSpec | PostCommitJobRegistration],
     ) -> tuple[PostCommitJobRecord, ...]:
         try:
             frozen_jobs = tuple(jobs)
         except TypeError:
             raise StorageError("Job registration requires an iterable") from None
-        if any(not isinstance(spec, PostCommitJobSpec) for spec in frozen_jobs):
-            raise StorageError("Job registration requires typed job specifications")
+        registrations = tuple(_registration_values(job) for job in frozen_jobs)
 
         registered: list[PostCommitJobRecord] = []
-        for spec in frozen_jobs:
-            values = _spec_values(spec)
+        for spec, values, initial_state, initial_reason_code in registrations:
             self._require_source_match(transaction, spec)
             rows = transaction.execute(
                 "SELECT * FROM post_commit_jobs "
@@ -308,8 +347,8 @@ class SQLitePostCommitJobRepository:
                 "source_story_revision,source_world_revision,input_digest,"
                 "state,attempt,lease_owner,lease_generation,next_attempt_at,"
                 "last_error_code,result_ref"
-                ") VALUES (?,?,?,?,?,?,?,?,'pending',0,NULL,0,NULL,NULL,NULL)",
-                values,
+                ") VALUES (?,?,?,?,?,?,?,?,?,0,NULL,0,NULL,?,NULL)",
+                (*values, initial_state, initial_reason_code),
             )
             inserted = transaction.execute(
                 "SELECT * FROM post_commit_jobs WHERE job_id=?", (spec.job_id,)
