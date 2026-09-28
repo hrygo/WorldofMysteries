@@ -39,7 +39,7 @@ description: >-
 | **`AGT-ARB`** | 架构仲裁者 | `docs/`, `contracts/`, `scripts/`, `.hacf/`, `.github/`, `.agents/` | 唯一可改门禁档案与 registry 的角色 |
 | **`AGT-DOM`** | 领域逻辑编织者 | `engine/domain/`, `engine/tests/` | 禁止 import SQLite / AgentScope / 云 SDK |
 | **`AGT-DATA`** | 数据内核管家 | `engine/infrastructure/`, `engine/tests/` | 迁移文件需仲裁扩权；`canon.db` 只读 |
-| **`AGT-AI`** | AI 运行时网关 | `engine/ai/`, `engine/application/`, `engine/tests/` | 禁止直接写库事务 |
+| **`AGT-AI`** | AI 运行时网关 | `engine/ai/`, `engine/application/`, `engine/tests/`, `engine/infrastructure/story_runtime.py`, `engine/infrastructure/episode_settlement.py`, `engine/infrastructure/scenarios/` | 禁止直接写库事务 |
 | **`AGT-VOICE`** | 语音引擎大师 | `engine/domain/audio_voice.py`, `engine/infrastructure/audio/`, 音频测试 | 禁止反向篡改已提交 StoryState |
 | **`AGT-MAC`** | macOS App 极客 | `macos-app/WorldOfMysteries/`, `.../WorldOfMysteriesTests/` | 禁止直连数据库、禁止改 `engine/**` |
 | **`AGT-QA`** | 自动化质检官 | `engine/tests/`, `macos-app/WorldOfMysteriesTests/`, `fixtures/golden_001/` | 只写断言，禁止改实现 |

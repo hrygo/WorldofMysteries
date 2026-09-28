@@ -64,7 +64,7 @@ def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_test
 
 
 def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
-    """AI may update the two composition roots while data infrastructure stays closed."""
+    """AI may update the narrow composition roots and AO-04 scenario adapter."""
     role = agent_capsule.ROLE_DEFAULTS["AGT-AI"]
     capsule = {
         "assigned_role": "AGT-AI",
@@ -78,6 +78,7 @@ def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure
     for path in (
         "engine/infrastructure/story_runtime.py",
         "engine/infrastructure/episode_settlement.py",
+        "engine/infrastructure/scenarios/golden_policy.py",
     ):
         assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized"
 
@@ -91,10 +92,17 @@ def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure
     assert hacf_policy.path_verdict(
         capsule, "engine/infrastructure/story_runtime_helpers.py"
     )["verdict"] == "out_of_scope"
+    for path in (
+        "engine/infrastructure/voice_delivery.py",
+        "engine/infrastructure/audio/voice_delivery.py",
+        "engine/infrastructure/story_control.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "out_of_scope"
 
     composition_roots = {
         "engine/infrastructure/story_runtime.py",
         "engine/infrastructure/episode_settlement.py",
+        "engine/infrastructure/scenarios/golden_policy.py",
     }
     for candidate in (REPO_ROOT / "engine/infrastructure").rglob("*"):
         if not candidate.is_file():

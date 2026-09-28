@@ -50,7 +50,9 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
     },
     # AO-04 narrow allowlist: facade/live factory signatures and composition-root
     # wiring must compile in the same slice; splitting them makes FULL_P0 fail.
-    # Only these two composition files are writable, not all of infrastructure.
+    # AO-04 §4 places the production scene adapter in scenarios/; it composes
+    # with story_runtime.py under the same writer, or the adapter has no home.
+    # Only the two composition files and that adapter directory are writable.
     "AGT-AI": {
         "write": [
             "engine/ai/",
@@ -58,6 +60,7 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
             "engine/tests/",
             "engine/infrastructure/story_runtime.py",
             "engine/infrastructure/episode_settlement.py",
+            "engine/infrastructure/scenarios/",
         ],
         "read": ["engine/ai/", "engine/application/", "engine/tests/", "contracts/"],
         "forbidden": [
