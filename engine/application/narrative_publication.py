@@ -398,7 +398,7 @@ class CommittedNarrativeService:
             await self._publisher.publish(turn_id=turn_id, narrative=block)
         except asyncio.CancelledError:
             raise
-        except Exception as publish_error:
+        except Exception:
             # Another process may have won the immutable turn slot. Re-read and
             # recover only if a valid durable block appeared on this turn. A
             # transient failure with no durable winner must still propagate.
@@ -414,7 +414,7 @@ class CommittedNarrativeService:
                     "narrative_publish_recovery_failed"
                 ) from recovery_error
             if raced is None:
-                raise publish_error
+                raise
             return raced
 
         persisted_turn = await self._reads.load_turn(turn_id)
