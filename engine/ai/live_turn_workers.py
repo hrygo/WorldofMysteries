@@ -194,8 +194,12 @@ class _StructuredWorker:
                 "authorization_snapshot_mismatch",
                 "authorization_scope_mismatch",
             }
+            # ContextError carries its stable code as the exception message, not
+            # as an attribute; reading `.code` here would raise AttributeError and
+            # mask every authorization refusal as an opaque outage.
+            code = str(exc)
             raise LiveWorkerError(
-                "context_stale" if exc.code in stale_codes else exc.code
+                "context_stale" if code in stale_codes else code
             ) from None
         if result.context_binding is None:
             raise LiveWorkerError("context_binding_required")

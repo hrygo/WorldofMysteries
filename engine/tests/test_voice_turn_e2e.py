@@ -67,6 +67,7 @@ DRIVER_SOURCES = [
     "MediaProtocol",
     "EngineRuntimeModels",
     "EngineSocketTransport",
+    "StoryPostCommitControl",
     "EngineIPCClient",
     "EngineProcessManager",
     "EngineConnectionState",

@@ -1,6 +1,7 @@
 """Scenario policy contracts and a test-only non-Golden terminal rule."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,11 @@ from ai.openai_compatible import (
     OpenAICompatibleChatTransport,
 )
 from ai.prompt_renderer import PromptRenderer
+from application.advice_interpretation import (
+    AdviceInterpretationError,
+    FrozenTurnInput,
+)
+from application.context_plan import ContextError
 from application.gameplay_context import GameplayContextCoordinator
 from application.scenario_policy import (
     FinalizationRecipe,
@@ -27,8 +33,10 @@ from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     StorySessionBootstrap,
 )
+from application.turn_input import TurnInputStatus
 from contracts import (
     BaseRevisions,
+    InputMode,
     SecretState,
     StoryPhase,
     StorySession,
@@ -262,3 +270,99 @@ async def test_live_worker_factory_uses_scenario_supplied_action_signatures() ->
         assert not hasattr(factory, "expected_input")
     finally:
         await factory.aclose()
+
+
+def _live_bootstrap() -> StorySessionBootstrap:
+    return StorySessionBootstrap.model_construct(
+        scenario_id="conditional_exit",
+        content_digest="d" * 64,
+        character={
+            "identity": {"display_name": "测试角色"},
+            "core": {"role": "调查者"},
+        },
+        world={"name": "测试世界"},
+        presentation=SimpleNamespace(
+            scene_display_name="测试地点",
+            scenario_title="测试场景",
+        ),
+        initial_session=SimpleNamespace(
+            protagonist_id="character_test",
+            world_id="world_test",
+            worldline_id="worldline_test",
+        ),
+    )
+
+
+def _frozen_turn_input() -> FrozenTurnInput:
+    raw = "我要调查这扇门"
+    return FrozenTurnInput(
+        input_turn_id="input_turn_test",
+        session_id="session_test",
+        turn_id="turn_test",
+        idempotency_key="idem_test",
+        input_mode=InputMode.TEXT,
+        raw_input=raw,
+        input_sha256=hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+        base_revisions=BaseRevisions(world=1, character=1, story=1),
+        status=TurnInputStatus.RECEIVED,
+        committed_world_revision=1,
+        public_expected_store_revision=1,
+    )
+
+
+def _execution_with_refusing_coordinator(code: str) -> AuthorizedLiveExecution:
+    """Real execution seam whose coordinator refuses with a Domain ContextError."""
+    coordinator = GameplayContextCoordinator(
+        snapshot=object(),
+        authorization=object(),
+        profiles=object(),
+    )
+
+    async def refuse(_call) -> None:
+        raise ContextError(code)
+
+    coordinator.prepare = refuse
+    return AuthorizedLiveExecution(
+        coordinator=coordinator,
+        renderer=PromptRenderer(b"r" * 32),
+        transport=OpenAICompatibleChatTransport(
+            ModelEndpointConfig(
+                base_url="http://127.0.0.1:1",
+                api_key="test-only",
+                model="test-model",
+            )
+        ),
+        validate_proposal=lambda _proposal, _request: True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("domain_code", "expected_code"),
+    [
+        ("context_stale", "context_stale"),
+        ("stale_snapshot", "context_stale"),
+        ("evidence_not_authorized", "context_stale"),
+        ("missing_current_state", "model_proposal_invalid"),
+        ("unknown_consumer", "model_proposal_invalid"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_live_worker_surfaces_domain_context_error_code(
+    domain_code: str, expected_code: str
+) -> None:
+    """A Domain refusal must reach the caller as a typed, honest code.
+
+    `ContextError` carries its stable code as the *message*; the worker used to read
+    a `.code` attribute, so every authorization refusal died as `AttributeError` and
+    the IPC boundary reported an opaque `service_unavailable` instead.
+    """
+    factory = LiveFirstTurnFactory(_execution_with_refusing_coordinator(domain_code))
+    worker = factory.interpreter_for(_live_bootstrap(), 1)
+
+    try:
+        with pytest.raises(AdviceInterpretationError) as raised:
+            await worker.interpret(_frozen_turn_input())
+    finally:
+        await factory.aclose()
+
+    assert raised.value.code == expected_code
