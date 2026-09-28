@@ -69,9 +69,22 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "contracts": ["audio_asset_ref.schema.json", "performance_plan.schema.json"],
     },
     "AGT-MAC": {
-        "write": ["macos-app/WorldOfMysteries/", "macos-app/WorldOfMysteriesTests/"],
-        "read": ["macos-app/", "contracts/", "docs/03_工程规范/"],
-        "forbidden": ["engine/**", ".hacf/**", ".github/**"],
+        # The cross-process driver registers the App Swift sources it compiles; keep
+        # that manifest with the App source owner so App changes can pass FULL_P0.
+        "write": [
+            "macos-app/WorldOfMysteries/",
+            "macos-app/WorldOfMysteriesTests/",
+            "engine/tests/test_app_engine_session.py",
+        ],
+        "read": ["macos-app/", "contracts/", "docs/03_工程规范/", "engine/tests/"],
+        "forbidden": [
+            "engine/domain/**",
+            "engine/infrastructure/**",
+            "engine/ai/**",
+            "engine/application/**",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "MACOS_APP_P0",
         "risk_class": "medium",
         "invariants": [12],

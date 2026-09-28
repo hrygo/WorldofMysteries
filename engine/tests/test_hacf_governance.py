@@ -33,6 +33,36 @@ import hacf_policy  # noqa: E402
 import project_status  # noqa: E402
 
 
+def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_tests():
+    """App source additions and their real-source driver manifest share one writer."""
+    role = agent_capsule.ROLE_DEFAULTS["AGT-MAC"]
+    capsule = {
+        "assigned_role": "AGT-MAC",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_app_engine_session.py"
+    )["verdict"] == "authorized"
+    assert "engine/tests/" in role["read"]
+
+    for path in (
+        "engine/domain/world_engine.py",
+        "engine/infrastructure/database/store.py",
+        "engine/ai/model_router.py",
+        "engine/application/session_orchestrator.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "forbidden"
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_contracts_schema.py"
+    )["verdict"] == "out_of_scope"
+
+
 def test_project_status_renders_completed_milestones_clearly(capsys):
     """Completed milestones must not share the in-progress badge in the status report."""
     state = {

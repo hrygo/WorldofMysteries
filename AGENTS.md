@@ -175,7 +175,7 @@ repo/
 | **`AGT-DATA`** | 数据内核管家 | 四库物理隔离、Outbox 事件发布、迁移脚本与事务队列 | `engine/infrastructure/database*`, `outbox*` |
 | **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/` |
 | **`AGT-VOICE`** | 语音引擎大师 | OpenAI Audio API 规范适配、SpeechRail 热拔插、指纹缓存 | `engine/domain/audio*`, `infrastructure/audio/` |
-| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/` |
+| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/`, `macos-app/WorldOfMysteriesTests/`, `engine/tests/test_app_engine_session.py` |
 | **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-app/WorldOfMysteriesTests/` |
 
 > **角色代号是接口**：唯一口径为 `contracts/engineering/task_capsule.schema.json` 的角色枚举 ——
