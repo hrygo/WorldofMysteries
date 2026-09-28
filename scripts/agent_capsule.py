@@ -69,6 +69,13 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
             "engine/infrastructure/database*",
             "engine/infrastructure/outbox*",
             "engine/infrastructure/migrations/",
+            # `engine/infrastructure/scenarios/` 是目录级授权，而上面三条禁区
+            # 都是顶层锚定的：`scenarios/database_manager.py` 这类影子路径会
+            # 同时躲开 write 与 forbidden。补齐任意层锚定，forbidden 优先于
+            # write，目录授权不得成为绕过持久化禁区的暗道。
+            "engine/infrastructure/**/database*",
+            "engine/infrastructure/**/outbox*",
+            "engine/infrastructure/**/migrations/",
             ".hacf/**",
             ".github/**",
         ],

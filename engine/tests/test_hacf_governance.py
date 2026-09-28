@@ -64,7 +64,22 @@ def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_test
 
 
 def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
-    """AI may update the narrow composition roots and AO-04 scenario adapter."""
+    """AI may update the narrow composition roots and the AO-04 scenario adapters.
+
+    ``ROLE_DEFAULTS`` 把 ``engine/infrastructure/scenarios/`` 作为**目录**授予
+    AGT-AI（见 AO-04-AI-GOV2），因此本断言不再维护一份会与授权漂移的三文件
+    白名单，而是直接断言两条不变量：
+
+    1. infrastructure 下的**源码**文件要么落在 AGT-AI 的授权面内，要么被判为
+       ``forbidden`` / ``out_of_scope``——绝不出现 ``escalation_required`` 这类
+       等待仲裁的中间态；
+    2. 授权面内不允许出现持久化与迁移资产（database* / outbox* / migrations/），
+       目录级授权不得成为绕过 forbidden 的暗道。
+
+    遍历只覆盖 ``*.py`` 源码：``__pycache__/*.pyc`` 是被 gitignore 的编译产物，
+    Stage 2 在本机与 CI 上都会生成，把编译输出纳入所有权断言只会制造与代码无关的
+    门禁脆弱点。
+    """
     role = agent_capsule.ROLE_DEFAULTS["AGT-AI"]
     capsule = {
         "assigned_role": "AGT-AI",
@@ -104,15 +119,47 @@ def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure
         "engine/infrastructure/episode_settlement.py",
         "engine/infrastructure/scenarios/golden_policy.py",
     }
+    for path in composition_roots:
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized"
+
+    persistence_patterns = [
+        pattern
+        for pattern in role["forbidden"]
+        if pattern.startswith("engine/infrastructure/")
+    ]
+    assert persistence_patterns, "AGT-AI 必须显式声明 infrastructure 的持久化禁区"
+
+    authorized: list[str] = []
     for candidate in (REPO_ROOT / "engine/infrastructure").rglob("*"):
-        if not candidate.is_file():
+        if not candidate.is_file() or candidate.suffix != ".py":
             continue
         path = candidate.relative_to(REPO_ROOT).as_posix()
         verdict = hacf_policy.path_verdict(capsule, path)["verdict"]
-        if path in composition_roots:
-            assert verdict == "authorized"
-        else:
-            assert verdict in {"forbidden", "out_of_scope"}
+        assert verdict in {"authorized", "forbidden", "out_of_scope"}, path
+        if verdict == "authorized":
+            authorized.append(path)
+
+    # 反向对照：目录级授权不得成为影子路径的暗道。`scenarios/` 被授予 write，
+    # 但 `scenarios/database_manager.py` 仍必须落在 forbidden 里——否则
+    # AGT-AI 可以把持久化代码藏进已授权目录，forbidden 的顶层锚定形同虚设。
+    for shadowed in (
+        "engine/infrastructure/scenarios/database_manager.py",
+        "engine/infrastructure/scenarios/outbox_worker.py",
+        "engine/infrastructure/scenarios/migrations/0002_seed.sql",
+    ):
+        assert hacf_policy.path_verdict(capsule, shadowed)["verdict"] == "forbidden", (
+            f"目录授权被影子路径绕过：{shadowed}"
+        )
+
+    # 目录级授权必须仍然是「窄」的：授权面只能落在两个组合根或 scenarios/ 适配器
+    # 目录内，infrastructure 下不得出现第三个授权入口。
+    unexpected = [
+        path
+        for path in authorized
+        if path not in composition_roots
+        and not path.startswith("engine/infrastructure/scenarios/")
+    ]
+    assert not unexpected, f"infrastructure 出现未预期的授权面：{unexpected}"
 
 
 def test_project_status_renders_completed_milestones_clearly(capsys):
