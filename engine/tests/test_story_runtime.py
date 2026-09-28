@@ -1407,6 +1407,104 @@ async def test_durable_runtime_exposes_only_v2_submit_methods(
         await runtime.close()
 
 
+@pytest.mark.parametrize("enabled", [False, True], ids=["default-v1", "opt-in-v2"])
+def test_ipc_entrypoint_selects_runtime_mode_and_passes_switch_to_open(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+    enabled: bool,
+):
+    from infrastructure import ipc_server
+
+    original_open = StoryRuntime.open.__func__
+    open_calls = []
+    runtime_observations = {}
+
+    async def controlled_open(cls, config, **kwargs):
+        open_calls.append(
+            {
+                "has_durable_post_commit": "durable_post_commit" in kwargs,
+                "durable_post_commit": kwargs.get("durable_post_commit"),
+            }
+        )
+        return await original_open(
+            cls,
+            config,
+            expected_sqlite_version=sqlite3.sqlite_version,
+            **kwargs,
+        )
+
+    async def inspect_loaded_runtime(
+        path,
+        token,
+        parent_pid=None,
+        *,
+        runtime_loader=None,
+    ):
+        del path, parent_pid
+        assert token == TOKEN
+        assert runtime_loader is not None
+        runtime = await runtime_loader()
+        try:
+            worker = runtime._post_commit_worker
+            runtime_observations["capabilities"] = set(runtime.capabilities)
+            runtime_observations["worker_running"] = (
+                worker is not None and worker.is_running
+            )
+            runtime_observations["jobs"] = _jobs(tmp_path / "cli-app-support")
+            runtime_observations["health"] = runtime.health()
+        finally:
+            await runtime.close()
+
+    monkeypatch.setattr(StoryRuntime, "open", classmethod(controlled_open))
+    monkeypatch.setattr(ipc_server, "read_bootstrap_token", lambda _fd: TOKEN)
+    monkeypatch.setattr(ipc_server, "_run", inspect_loaded_runtime)
+    monkeypatch.setenv("WOM_MODEL_BASE_URL", "")
+    monkeypatch.setenv("WOM_MODEL_NAME", "")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ipc_server",
+            "--socket",
+            str(socket_path),
+            "--token-fd",
+            "7",
+            "--data-root",
+            str(tmp_path / "cli-app-support"),
+            "--content-artifact",
+            str(content_artifact),
+            *(
+                ["--durable-post-commit"]
+                if enabled
+                else []
+            ),
+        ],
+    )
+
+    assert ipc_server.main() == 0
+    assert open_calls == [
+        {
+            "has_durable_post_commit": True,
+            "durable_post_commit": enabled,
+        }
+    ]
+    capabilities = runtime_observations["capabilities"]
+    v1_submit_methods = {"story.advice.submit", "story.turn.submit"}
+    v2_submit_methods = {"story.advice.submit.v2", "story.turn.submit.v2"}
+    assert runtime_observations["health"] == RUNTIME_HEALTH
+    if enabled:
+        assert v2_submit_methods <= capabilities
+        assert v1_submit_methods.isdisjoint(capabilities)
+        assert runtime_observations["worker_running"] is True
+    else:
+        assert v1_submit_methods <= capabilities
+        assert v2_submit_methods.isdisjoint(capabilities)
+        assert runtime_observations["worker_running"] is False
+        assert runtime_observations["jobs"] == []
+
+
 @pytest.mark.asyncio
 async def test_durable_v2_returns_before_worker_publication_and_drains_before_db_close(
     tmp_path: Path,
