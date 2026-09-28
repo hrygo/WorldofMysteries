@@ -6,13 +6,13 @@
   "title": "Turn submit protocol contract",
   "assigned_role": "AGT-ARB",
   "status": "CREATED",
-  "created_at": "2026-09-28T01:04:08.231998+00:00",
+  "created_at": "2026-09-28T01:07:27.937657+00:00",
   "risk_class": "privileged",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "ca86e1e63c2abb916b86d90ff89167d8f01986f3",
+    "base_sha": "387f7e0ed8af50b9ef924f715eb94b47fadda1b5",
     "target_sha": "c7b840f0de64f2b8b44457c5dd4baf6d20de0326",
-    "context_snapshot": "sha256:9edcdebd45f2eea0ccee2c3fcc213db4ceb7bb42b9b840075f555a6949a93013"
+    "context_snapshot": "sha256:b04283888838adf0892bb84bca036d3155215608199cdfe20f9da4903e9e685c"
   },
   "scope": {
     "read": [
@@ -40,7 +40,9 @@
       "macos-app/**",
       "fixtures/**"
     ],
-    "privileged_grants": []
+    "privileged_grants": [
+      "engine/contracts/__init__.py"
+    ]
   },
   "context": {
     "core_manifest": [
