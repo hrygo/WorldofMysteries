@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-AO-02-QA-DRIVER-ee155ecf85e1",
+  "receipt_type": "work",
+  "task_id": "AO-02-QA-DRIVER",
+  "capsule_id": "CAP-AO-02-QA-DRIVER",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:9077c2de36ce3e8da6f5f4f0f5a9a016b4bdcd5199c22c73cd011a1ffdf73392",
+  "diff_digest": "sha256:56b398511cea65d636eab7078d5fe187b8782cb340a1c22c2d0fe4b583c336d4",
+  "assigned_role": "AGT-QA",
+  "risk_class": "high",
+  "base_commit": "6dd3bf2704182cbbd302d01532d93cf6274b5aa0",
+  "head_commit": "ee155ecf85e1a19c24a0d140860f2adfab270cbe",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:20:04.208007+00:00",
+      "finished_at": "2026-09-28T08:20:04.242546+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:20:04.242620+00:00",
+      "finished_at": "2026-09-28T08:21:26.114691+00:00",
+      "raw_log_digest": "sha256:f2c345d2d8fa9dfec295a7b92209b1e95447a0e580a5baf8c79aeb0f44ca04e7",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:21:26.114786+00:00",
+      "finished_at": "2026-09-28T08:21:50.316990+00:00",
+      "raw_log_digest": "sha256:2d254ac64dd4ea00cd1597eaff9b5a29cc8c0f4f0e5a3f27b350724aa47e6ab3",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T08:21:50.317084+00:00",
+      "finished_at": "2026-09-28T08:21:52.263683+00:00",
+      "raw_log_digest": "sha256:8655a6969e0f507f3959852f347d652f6178b55a4c9f3b23ccb00fd531369fed",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_voice_turn_e2e.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-QA",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-02-driver-e2e"
+  },
+  "started_at": "2026-09-28T08:20:04.175030+00:00",
+  "finished_at": "2026-09-28T08:21:52.378743+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
