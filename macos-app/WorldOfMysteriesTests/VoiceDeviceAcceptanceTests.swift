@@ -43,7 +43,12 @@ struct VoiceDeviceAcceptanceTests {
     ) {
         var lastError: (any Error)?
         for attempt in 0..<4 {
-            let graph = VoiceProcessingAudioGraph()
+            // This acceptance check only captures, but the graph is built with
+            // the budget the App really uses so the device route is exercised
+            // under the production playback capacity, not a test-only one.
+            let graph = VoiceProcessingAudioGraph(
+                maxQueuedBytes: NativePlaybackCapacity.sealedUtteranceBytes
+            )
             do {
                 try graph.enableVoiceProcessing()
                 if graph.isVoiceProcessingEnabled {

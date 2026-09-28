@@ -90,7 +90,13 @@ public final class VoiceProcessingAudioGraph {
     private var saturationCount = 0
     private var underrunCount = 0
 
-    public init(maxQueuedBytes: Int = 256 * 1024) {
+    /// - Parameter maxQueuedBytes: Required on purpose. The playback queue must
+    ///   hold one whole sealed utterance, and that budget belongs to
+    ///   ``NativePlaybackCapacity/sealedUtteranceBytes``. A default here would be
+    ///   a second, silently divergent answer to the same question — and the old
+    ///   one (256 KiB) was small enough to reject a valid render. Callers state
+    ///   the budget they were given.
+    public init(maxQueuedBytes: Int) {
         precondition(maxQueuedBytes > 0)
         self.maxQueuedBytes = maxQueuedBytes
         engine.attach(player)
