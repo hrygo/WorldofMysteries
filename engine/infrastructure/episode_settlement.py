@@ -46,10 +46,16 @@ class FiveTurnSettlement:
         database: DatabaseManager,
         expression: PostCommitExpressionService,
         content_path: Path,
+        frozen_expression: bool = True,
     ) -> None:
         self._database = database
         self._expression = expression
         self._content_path = Path(content_path)
+        # A live turn narrates through the delivery pipeline, which publishes a
+        # character segment the speech contract can authorize. The frozen
+        # templates emit speakerless narration, so publishing both for one turn
+        # would be a genuine double-write, not an idempotent replay.
+        self._frozen_expression = frozen_expression
         self._episodes = SQLiteEpisodeFinalizationRepository(database)
 
     @property
@@ -63,7 +69,8 @@ class FiveTurnSettlement:
     async def settle(self, result: StoryTurnCommitResult) -> None:
         """Idempotently settle one committed turn. Never raises."""
         try:
-            await self._publish_expression(result)
+            if self._frozen_expression:
+                await self._publish_expression(result)
             if result.turn.committed_story_revision == FINAL_TURN:
                 await self._finalize_episode(result)
         except Exception:

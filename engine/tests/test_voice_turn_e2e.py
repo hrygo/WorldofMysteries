@@ -146,8 +146,16 @@ def story_engine(tmp_path_factory):
             "HOST_SQLITE_SHIM = '''", 1)[1].split("'''", 1)[0],
         encoding="utf-8",
     )
+    # Same artifact set the packaged runtime ships: the content database, the
+    # frozen five-turn catalog the turn policy resolves from, and the episode
+    # artifacts the settlement stage finalises against.
+    payload = content_builder.build_payload()
     content_builder.write_artifact(
-        staged / "infrastructure/story_content/canon.db", content_builder.build_payload())
+        staged / "infrastructure/story_content/canon.db", payload)
+    content_builder.write_five_turn_directory(
+        staged / "infrastructure/story_content", payload["seed"])
+    content_builder.write_episode_artifacts(
+        staged / "infrastructure/story_content")
     assert production_bytes == (ENGINE_DIR / "infrastructure/ipc_server.py").read_bytes()
     return staged
 

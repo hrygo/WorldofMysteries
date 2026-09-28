@@ -126,6 +126,10 @@ class TurnDeliveryPipeline:
         if not isinstance(text, str) or not text.strip():
             raise TurnDeliveryError("narrative_model_invalid")
 
+        # A live turn owns its narrative block. The frozen expression templates
+        # are suppressed for this path (see FiveTurnSettlement), because they
+        # publish speakerless narration while the speech contract requires a
+        # real speaker before a voice may be sealed.
         block = NarrativeBlock(
             schema_version="1.0",
             id=_narrative_block_id(outcome.turn_id),

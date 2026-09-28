@@ -243,6 +243,10 @@ class StoryRuntime:
                 narratives=SQLiteNarrativeBlockRepository(database),
             ),
             content_path=content_path,
+            # With a live model the delivery pipeline narrates the turn itself;
+            # the frozen templates would be a second writer for the same
+            # narrative slot. Without a model the frozen path is unchanged.
+            frozen_expression=model_endpoint is None,
         )
         query = SQLiteStorySessionQuery(
             database,
