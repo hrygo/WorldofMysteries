@@ -46,6 +46,21 @@ import build_story_content as content_builder
 import bundle_engine
 
 
+def child_environment() -> dict[str, str]:
+    """The environment the Swift process manager hands to the Engine child.
+
+    Mirrored here so a warm-up run is indistinguishable from a real launch:
+    same interpreter isolation, and none of the parent's Python or dynamic
+    loader injection.
+    """
+    blocked = ('PYTHON', 'DYLD_', 'LD_')
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(blocked) and key != 'VIRTUAL_ENV'
+    }
+
+
 @pytest.fixture(scope='module')
 def app_driver(tmp_path_factory):
     compiler = shutil.which('swiftc')
@@ -77,6 +92,18 @@ def app_driver(tmp_path_factory):
         str(context_file), str(Path(__file__).parent / 'fixtures/app_engine_driver.swift'), '-o', str(binary)],
         capture_output=True, text=True, timeout=90)
     assert result.returncode == 0, result.stdout + result.stderr
+    # The Engine child is spawned with -B and a scrubbed environment, so the
+    # very first launch on a cold machine pays to read the interpreter, the
+    # standard library and every Engine module from disk before it can bind
+    # its socket. That cost belongs to no assertion here and it is charged to
+    # whichever case happens to run first, which made the suite fail only on a
+    # fresh CI runner. Warm the identical code path once, with the same
+    # interpreter, flags, working directory and environment the child gets, so
+    # every case below measures protocol behaviour rather than disk speed.
+    warm = subprocess.run(
+        [sys.executable, '-E', '-s', '-B', '-X', 'utf8', '-c', 'import infrastructure.ipc_server'],
+        cwd=str(ENGINE_DIR), env=child_environment(), capture_output=True, text=True, timeout=90)
+    assert warm.returncode == 0, warm.stdout + warm.stderr
     return binary
 
 

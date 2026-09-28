@@ -111,9 +111,15 @@ public actor SpeechRailRealtimeASRTurnCoordinator {
             _ = try await connection.commit()
             _ = try await connection.resendSessionUpdate()
         } catch {
+            // A cancel that lands while the barrier is still in flight closes
+            // the connection and publishes `.cancelled` first; the in-flight
+            // commit or resend then fails purely as a consequence. That
+            // failure must not replace the terminal the user already earned,
+            // and it must not close the connection a second time.
+            if let published = terminalStorage { return published }
             let result: InputTurnTerminalResult = .failed(.transportFailure)
             await terminateAndClose(result)
-            return result
+            return terminalStorage ?? result
         }
 
         if let terminalStorage {
