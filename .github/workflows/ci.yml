@@ -157,7 +157,7 @@ jobs:
 
       - name: Install uv with Cache Enabled
         # setup-uv 自 v8 起不再发布大版本标签（供应链加固），必须锁不可变全版本标签。
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           # v10 起 `auto` 会对 pull_request_target / workflow_run / release 自动禁用缓存，
           # 避免缓存投毒；本工作流当前事件仍正常缓存，保留安全默认以便触发面变更后不被绕过。
