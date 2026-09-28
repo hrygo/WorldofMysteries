@@ -25,7 +25,8 @@ from application.speech_unit import (
     SpeechUnitSealingError,
     SpeechUnitSealingService,
 )
-from contracts import NarrativeBlock, NarrativeSegment, TurnTransaction
+from contracts import NarrativeBlock, TurnTransaction
+from contracts.models import NarrativeSegment
 from domain.voice_identity import VoiceBindingScope
 
 from .voice_runtime import VoiceRenderRuntime, VoiceRenderRuntimeError
