@@ -162,6 +162,62 @@ def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure
     assert not unexpected, f"infrastructure 出现未预期的授权面：{unexpected}"
 
 
+EXCLUSIVE_WRITE_OWNERS = {
+    "engine/domain/character_engine.py": "AGT-DOM",
+    "engine/ai/gateway.py": "AGT-AI",
+    "engine/application/scenario_policy.py": "AGT-AI",
+    "engine/infrastructure/database_manager.py": "AGT-DATA",
+    "engine/infrastructure/story_session_repository.py": "AGT-DATA",
+    "engine/infrastructure/story_runtime.py": "AGT-AI",
+    "engine/infrastructure/episode_settlement.py": "AGT-AI",
+    "engine/infrastructure/scenarios/golden_policy.py": "AGT-AI",
+    "engine/infrastructure/audio/voice_delivery.py": "AGT-VOICE",
+    "macos-app/WorldOfMysteries/StorySessionModel.swift": "AGT-MAC",
+    "scripts/agent_capsule.py": "AGT-ARB",
+    "contracts/protocol/engine_ipc.schema.json": "AGT-ARB",
+}
+
+
+def test_every_delivery_surface_has_exactly_one_authorized_writer():
+    """每条投递链路上有且只有一个角色被授权写入该文件。
+
+    ``AGT-DATA`` 对 ``engine/infrastructure/`` 是整目录授权，``AGT-AI`` 持有
+    AO-04 的组合根与场景适配器，``AGT-VOICE`` 持有 ``audio/``——三者叠加后，
+    同一文件会同时对多个角色 ``authorized``，范围审计会全部放行，"每个文件
+    只设一个写入者" 就只剩人工纪律而没有机器约束。本断言把独占性钉死。
+    """
+    authorized_by: dict[str, list[str]] = {}
+    for path in EXCLUSIVE_WRITE_OWNERS:
+        owners = []
+        for role, defaults in agent_capsule.ROLE_DEFAULTS.items():
+            capsule = {
+                "assigned_role": role,
+                "scope": {
+                    "write": defaults["write"],
+                    "forbidden": defaults["forbidden"],
+                    "privileged_grants": [],
+                },
+            }
+            if hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized":
+                owners.append(role)
+        authorized_by[path] = owners
+
+    overlapping = {path: owners for path, owners in authorized_by.items() if len(owners) != 1}
+    assert not overlapping, f"存在多角色写权重叠或零授权：{overlapping}"
+
+    wrong_owner = {
+        path: authorized_by[path][0]
+        for path, expected in EXCLUSIVE_WRITE_OWNERS.items()
+        if authorized_by[path][0] != expected
+    }
+    assert not wrong_owner, f"授权归属与治理矩阵不符：{wrong_owner}"
+
+    missing = [
+        path for path in EXCLUSIVE_WRITE_OWNERS if not (REPO_ROOT / path).is_file()
+    ]
+    assert not missing, f"治理矩阵引用了不存在的文件：{missing}"
+
+
 def test_project_status_renders_completed_milestones_clearly(capsys):
     """Completed milestones must not share the in-progress badge in the status report."""
     state = {

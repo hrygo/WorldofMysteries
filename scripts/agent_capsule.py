@@ -41,7 +41,22 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "AGT-DATA": {
         "write": ["engine/infrastructure/", "engine/tests/"],
         "read": ["engine/infrastructure/", "engine/tests/", "contracts/", "docs/03_工程规范/"],
-        "forbidden": ["macos-app/**", "engine/domain/**", "engine/ai/**", ".hacf/**", ".github/**"],
+        "forbidden": [
+            "macos-app/**",
+            "engine/domain/**",
+            "engine/ai/**",
+            # 本角色对 engine/infrastructure/ 是整目录授权，因此下面这批由其他
+            # 角色专属管辖的路径必须显式禁区，否则同一文件会同时 authorized
+            # 给两个角色，范围审计形同虚设、单写入者纪律失去机器约束：
+            #   story_runtime.py / episode_settlement.py / scenarios/  → AGT-AI（AO-04）
+            #   audio/                                                  → AGT-VOICE
+            "engine/infrastructure/story_runtime.py",
+            "engine/infrastructure/episode_settlement.py",
+            "engine/infrastructure/scenarios/",
+            "engine/infrastructure/audio/",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "DATA_KERNEL_P0",
         "risk_class": "high",
         "invariants": [3, 10, 11],
