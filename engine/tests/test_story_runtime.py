@@ -1239,3 +1239,75 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
             )
     finally:
         await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_production_runtime_registers_post_commit_jobs_with_the_turn(
+    tmp_path: Path, content_artifact: Path, socket_path: Path
+):
+    """AO-03: the shipped assembly binds a committed turn to durable intents.
+
+    The runtime is opened exactly as production opens it, so this exercises
+    `_build_facade` rather than a hand-built facade. The intents must appear in
+    the same world database as the turn, carrying the scenario's frozen recipe.
+    """
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        await _handshake(reader, writer)
+        opened = await _call(
+            reader, writer, "story.session.open", _open_body("open_request_1", 0),
+            "req-open", idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        assert _jobs(root) == []
+
+        submitted = await _call(
+            reader, writer, "story.advice.submit",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit", idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        assert submitted["payload"]["receipt"]["status"] == "committed"
+    finally:
+        await _close(server, reader, writer)
+        await runtime.close()
+
+    jobs = _jobs(root)
+    # Turn 1 of the five-turn Golden scenario: narrative always, audio always,
+    # and no Episode finalization before the scenario says the session ends.
+    assert {row["kind"] for row in jobs} == {"narrative_publish", "audio_prepare"}
+    assert all(row["session_id"] == session_id for row in jobs)
+    assert all(row["turn_id"] for row in jobs)
+    # This runtime is opened without a voice provider, so audio starts blocked
+    # with a public reason and the text job is unaffected.
+    by_kind = {row["kind"]: row for row in jobs}
+    assert by_kind["narrative_publish"]["state"] == "pending"
+    assert by_kind["audio_prepare"]["state"] == "blocked"
+    assert by_kind["audio_prepare"]["last_error_code"] == "voice_not_configured"
+    # The recipe is bound to the frozen rules revision of the trusted content:
+    # both jobs share one rules prefix and differ only by their recipe name.
+    rules_prefixes = {row["recipe_revision"].rsplit(":", 1)[0] for row in jobs}
+    assert len(rules_prefixes) == 1
+    assert {
+        row["recipe_revision"].rsplit(":", 1)[1] for row in jobs
+    } == {"narrative-publish-v1", "audio-prepare-v1"}
+    for row in jobs:
+        assert len(row["input_digest"]) == 64
+        assert row["source_story_revision"] == 1
+
+
+def _jobs(root: Path) -> list[dict]:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        connection.row_factory = stdlib_sqlite3.Row
+        return [
+            dict(row)
+            for row in connection.execute(
+                "SELECT job_id,turn_id,session_id,kind,recipe_revision,"
+                "source_story_revision,input_digest,state,last_error_code "
+                "FROM post_commit_jobs ORDER BY kind"
+            )
+        ]

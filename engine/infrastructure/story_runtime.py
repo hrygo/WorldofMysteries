@@ -70,6 +70,7 @@ from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
 from .scenarios.golden_policy import GoldenScenarioPolicy, GoldenScenarioWorkers
+from .scenarios.post_commit_planning import ScenarioPostCommitJobPlanner
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -261,7 +262,19 @@ class StoryRuntime:
         scenario = GoldenScenarioPolicy(golden)
         # Validate the packaged bundle before exposing a runtime. Persisted
         # sessions repeat this check against their frozen bootstrap on reads.
-        scenario.identity(content)
+        identity = scenario.identity(content)
+        # AO-03: the committed turn registers its own post-COMMIT intents in the
+        # same transaction, so the minimal job graph is decided by the same
+        # frozen scenario the turn was played under. A voice runtime without
+        # provider configuration still counts as "voice not configured": the
+        # audio job starts blocked and never holds back text or the Episode.
+        planner = ScenarioPostCommitJobPlanner(
+            scenario=scenario,
+            identity=identity,
+            story_seed_id=str(content.seed["id"]),
+            max_turn=golden.max_turn,
+            voice_configured=voice is not None and audio_config is not None,
+        )
         workers = (
             LiveFirstTurnFactory.from_config(model_endpoint)
             if model_endpoint is not None
@@ -307,7 +320,7 @@ class StoryRuntime:
             intake=SQLiteTurnInputCommandPort(database),
             advice=SQLitePlayerAdviceRepository(database),
             story=SettlingCommitPort(
-                SQLiteStorySessionCommitPort(database), settlement
+                SQLiteStorySessionCommitPort(database, planner=planner), settlement
             ),
             scenario=scenario,
             workers=workers,

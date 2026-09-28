@@ -584,11 +584,21 @@ def required_jobs_for_turn(
     max_turn: int,
     *,
     voice_configured: bool,
+    terminal: bool | None = None,
 ) -> tuple[RequiredPostCommitJob, ...]:
     """Return the minimal dependency graph for one committed Story turn.
 
     Narrative and Episode initial states do not depend on voice configuration.
     Audio waits on narrative and is initially blocked only when voice is absent.
+
+    ``terminal`` is the scenario's own end-of-episode verdict for the committed
+    turn, as produced by ``ScenarioPolicyPort.decision``. AO-04 makes the
+    scenario the sole authority on ending a session, and a scenario may end
+    before its safety cap (``conditional_exit`` ends once ``exit_clue`` is
+    committed). Callers that pass it therefore get an Episode finalization job
+    exactly when the scenario says this turn ends the session, not merely when
+    it happens to be the last allowed turn. Omitting it keeps the original
+    ``turn_number == max_turn`` behaviour for callers that predate AO-04.
     """
 
     if (
@@ -603,6 +613,10 @@ def required_jobs_for_turn(
         raise ValueError("invalid_turn_range")
     if type(voice_configured) is not bool:
         raise ValueError("invalid_voice_configuration")
+    if terminal is None:
+        terminal = turn_number == max_turn
+    elif type(terminal) is not bool:
+        raise ValueError("invalid_terminal_decision")
 
     jobs = [
         RequiredPostCommitJob(
@@ -610,7 +624,7 @@ def required_jobs_for_turn(
             initial_state=PostCommitJobState.PENDING,
         )
     ]
-    if turn_number == max_turn:
+    if terminal:
         jobs.append(
             RequiredPostCommitJob(
                 kind=PostCommitKind.EPISODE_FINALIZE,
