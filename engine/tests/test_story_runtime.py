@@ -85,6 +85,8 @@ DURABLE_STORY_CAPABILITIES = (
     "story.session.get",
     "story.session.open",
     "story.turn.submit.v2",
+    "story.turn.work.get",
+    "story.turn.work.retry",
 )
 _PRODUCT_LAUNCHER = (
     "import asyncio, sys\n"
@@ -1387,7 +1389,7 @@ async def test_v1_terminal_turn_publishes_expression_once_and_finalizes_episode(
 
 @pytest.mark.asyncio
 async def test_durable_runtime_exposes_only_v2_submit_methods(
-    tmp_path: Path, content_artifact: Path
+    tmp_path: Path, content_artifact: Path, socket_path: Path
 ):
     runtime = await StoryRuntime.open(
         StoryRuntimeConfig.for_data_root(
@@ -1397,12 +1399,123 @@ async def test_durable_runtime_exposes_only_v2_submit_methods(
         expected_sqlite_version=sqlite3.sqlite_version,
         durable_post_commit=True,
     )
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
     try:
         assert runtime.capabilities == DURABLE_STORY_CAPABILITIES
         assert "story.advice.submit" not in runtime.request_handlers
         assert "story.turn.submit" not in runtime.request_handlers
         assert "story.advice.submit.v2" in runtime.request_handlers
         assert "story.turn.submit.v2" in runtime.request_handlers
+        assert "story.turn.work.get" in runtime.request_handlers
+        assert "story.turn.work.retry" in runtime.request_handlers
+
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(DURABLE_STORY_CAPABILITIES) <= set(
+            hello["payload"]["capabilities"]
+        )
+
+        missing_work = await _call(
+            reader,
+            writer,
+            "story.turn.work.get",
+            {"session_id": "session-missing", "turn_id": "turn-missing"},
+            "req-work-get",
+        )
+        assert missing_work["error"]["code"] == "turn_not_found"
+        missing_retry = await _call(
+            reader,
+            writer,
+            "story.turn.work.retry",
+            {
+                "session_id": "session-missing",
+                "turn_id": "turn-missing",
+                "kind": "narrative_publish",
+                "retry_request_id": "retry-missing",
+            },
+            "req-work-retry",
+        )
+        assert missing_retry["error"]["code"] == "turn_not_found"
+    finally:
+        await _close(server, reader, writer)
+        await runtime.close()
+
+
+@pytest.mark.parametrize(
+    ("legacy_state", "expected_job_state", "expected_reason", "expected_unverifiable"),
+    (
+        ("artifact_present", "succeeded", None, 0),
+        ("artifact_missing", "blocked", "legacy_recipe_unknown", 0),
+        ("non_committed", None, None, 1),
+    ),
+    ids=("verified-artifact", "unknown-legacy-recipe", "unverifiable-turn"),
+)
+@pytest.mark.asyncio
+async def test_durable_runtime_reconciles_legacy_post_commit_work_on_open(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+    legacy_state: str,
+    expected_job_state: str | None,
+    expected_reason: str | None,
+    expected_unverifiable: int,
+):
+    from infrastructure.post_commit_reconciliation import PostCommitReconciler
+
+    reports = []
+    original_reconcile = PostCommitReconciler.reconcile
+
+    async def capture_report(self):
+        report = await original_reconcile(self)
+        reports.append(report)
+        return report
+
+    monkeypatch.setattr(PostCommitReconciler, "reconcile", capture_report)
+
+    root = tmp_path / "app-support"
+    legacy_runtime = await _open_runtime(root, content_artifact)
+    assert reports == []
+    try:
+        await _open_and_submit(legacy_runtime, socket_path)
+    finally:
+        await legacy_runtime.close()
+
+    assert _jobs(root) == []
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        turn_id = connection.execute(
+            "SELECT id FROM turn_transactions ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+        if legacy_state == "artifact_missing":
+            connection.execute(
+                "UPDATE turn_transactions SET narrative_block_id=NULL WHERE id=?",
+                (turn_id,),
+            )
+            connection.execute(
+                "DELETE FROM narrative_blocks WHERE turn_id=?",
+                (turn_id,),
+            )
+        elif legacy_state == "non_committed":
+            connection.execute(
+                "UPDATE turn_transactions SET status='reconcile_required' WHERE id=?",
+                (turn_id,),
+            )
+        connection.commit()
+
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    try:
+        assert len(reports) == 1
+        assert reports[0].unverifiable_turns == expected_unverifiable
+        jobs = _jobs(root)
+        assert all(job["kind"] != "audio_prepare" for job in jobs)
+        if expected_job_state is None:
+            assert jobs == []
+        else:
+            assert len(jobs) == 1
+            assert jobs[0]["kind"] == "narrative_publish"
+            assert jobs[0]["state"] == expected_job_state
+            assert jobs[0]["last_error_code"] == expected_reason
     finally:
         await runtime.close()
 
@@ -1503,6 +1616,7 @@ def test_ipc_entrypoint_selects_runtime_mode_and_passes_switch_to_open(
     else:
         assert v1_submit_methods <= capabilities
         assert v2_submit_methods.isdisjoint(capabilities)
+        assert capabilities == set(STORY_CAPABILITIES)
         assert runtime_observations["worker_present"] is False
         assert runtime_observations["worker_running"] is False
         assert runtime_observations["jobs"] == []

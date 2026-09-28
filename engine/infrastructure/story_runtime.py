@@ -23,6 +23,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
 from ai.live_turn_workers import LiveFirstTurnFactory
@@ -58,7 +59,7 @@ from .audio.voice_delivery import (
     TurnDeliveryOutcome,
     TurnDeliveryPipeline,
 )
-from .audio.voice_runtime import VoiceRenderRuntime
+from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
@@ -70,6 +71,13 @@ from .episode_settlement import (
 from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
+from .post_commit_control import (
+    PostCommitControlError,
+    PostCommitControlService,
+)
+from .post_commit_job_repository import SQLitePostCommitJobRepository
+from .post_commit_reconciliation import PostCommitReconciler
+from .post_commit_worker import PostCommitWorker
 from .scenarios.golden_policy import GoldenScenarioPolicy, GoldenScenarioWorkers
 from .scenarios.post_commit_handlers import (
     ScenarioAudioPrepareHandler,
@@ -77,8 +85,6 @@ from .scenarios.post_commit_handlers import (
     ScenarioNarrativePublishHandler,
 )
 from .scenarios.post_commit_planning import ScenarioPostCommitJobPlanner
-from .post_commit_job_repository import SQLitePostCommitJobRepository
-from .post_commit_worker import PostCommitWorker
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -120,6 +126,43 @@ def load_five_turn_catalog(
     return GoldenFiveTurnCatalog.from_directory(
         base / "turns", base / "mock", seed=seed
     )
+
+
+def _post_commit_control_handlers(
+    service: PostCommitControlService,
+) -> dict[str, StoryRequestHandler]:
+    """Expose the durable work projection and explicit retry at the IPC edge."""
+
+    async def get_work(
+        _context: Mapping[str, object], payload: Mapping[str, object]
+    ) -> tuple[dict[str, object] | None, str | None, bool]:
+        try:
+            result = await service.get_work(
+                session_id=cast(str, payload.get("session_id")),
+                turn_id=cast(str, payload.get("turn_id")),
+            )
+        except PostCommitControlError as exc:
+            return None, exc.code, False
+        return result.to_payload(), None, False
+
+    async def retry_work(
+        _context: Mapping[str, object], payload: Mapping[str, object]
+    ) -> tuple[dict[str, object] | None, str | None, bool]:
+        try:
+            result = await service.retry_work(
+                session_id=cast(str, payload.get("session_id")),
+                turn_id=cast(str, payload.get("turn_id")),
+                kind=cast(str, payload.get("kind")),
+                retry_request_id=cast(str, payload.get("retry_request_id")),
+            )
+        except PostCommitControlError as exc:
+            return None, exc.code, False
+        return result.to_payload(), None, False
+
+    return {
+        "story.turn.work.get": get_work,
+        "story.turn.work.retry": retry_work,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +245,19 @@ class StoryRuntime:
             story_handlers["story.turn.submit.v2"] = story_handlers.pop(
                 "story.turn.submit"
             )
+            post_commit_control = PostCommitControlService(
+                database=database,
+                jobs=SQLitePostCommitJobRepository(database),
+                expression=expression,
+                registry=(
+                    self._voice.sealed_units
+                    if self._voice is not None
+                    else SealedSpeechUnitRegistry()
+                ),
+            )
+            story_handlers.update(
+                _post_commit_control_handlers(post_commit_control)
+            )
         self._handlers = {
             **story_handlers,
             **story_expression_control_handlers(expression),
@@ -246,6 +302,8 @@ class StoryRuntime:
                 fetch_json=fetch_json,
                 durable_post_commit=durable_post_commit,
             )
+            if durable_post_commit:
+                await PostCommitReconciler(database).reconcile()
             if post_commit_worker is not None:
                 await post_commit_worker.start()
         except BaseException:
