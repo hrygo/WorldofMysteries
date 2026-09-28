@@ -357,3 +357,156 @@ async def test_seal_rejects_missing_execution_model_identity():
                 variant="base_clone"
             ),
         )
+
+
+async def test_delivery_seals_only_explicit_character_segment():
+    from infrastructure.audio.voice_delivery import (
+        TurnDeliveryOutcome,
+        TurnDeliveryPipeline,
+    )
+
+    display = "克莱恩没有打开5kg重的门。"
+    anchors, rules = pronunciation(display)
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-1",
+        story_session_id="session-1",
+        source_story_revision=7,
+        segments=[
+            NarrativeSegment(type="narration", text="雨落在诊所的窗外。"),
+            NarrativeSegment(
+                type="character",
+                speaker_id="klein-visible",
+                text=display,
+            ),
+        ],
+        source_state_delta_id="delta-1",
+    )
+    sealed_service = SpeechUnitSealingService(
+        disclosure=AudioDisclosureAuthorizer(
+            MemoryDisclosurePort(turn(), block)
+        ),
+        bindings=MemoryBindingPort(binding()),
+    )
+
+    class MemoryVoice:
+        def __init__(self):
+            self.units = []
+
+        def publish(self, unit):
+            self.units.append(unit)
+
+    voice = MemoryVoice()
+    pipeline = TurnDeliveryPipeline(
+        sealing=sealed_service,
+        voice=voice,
+        binding_scope=scope(),
+        expected_binding_revision=2,
+        execution_model_id="speechrail/qwen3-tts",
+        dictionary_revision="pron-v1",
+        seal_arguments={
+            "semantic_anchors": anchors,
+            "pronunciation_rules": rules,
+            "desired_performance": DesiredPerformance(),
+            "performance_capabilities": VoicePerformanceCapabilities(
+                variant="base_clone",
+                native_speed=True,
+            ),
+        },
+    )
+
+    narration_result = await pipeline.deliver(
+        TurnDeliveryOutcome(
+            turn_id="turn-1",
+            session_id="session-1",
+            story_revision=7,
+            state_delta_id="delta-1",
+            narrative=block,
+            segment_index=0,
+        )
+    )
+
+    assert narration_result is None
+    assert voice.units == []
+
+    character_result = await pipeline.deliver(
+        TurnDeliveryOutcome(
+            turn_id="turn-1",
+            session_id="session-1",
+            story_revision=7,
+            state_delta_id="delta-1",
+            narrative=block,
+            segment_index=1,
+        )
+    )
+
+    assert character_result is not None
+    assert character_result.narrative_block_id == block.id
+    assert character_result.spoken_text == "克莱恩没有打开五公斤重的门。"
+    assert [unit.segment_index for unit in voice.units] == [1]
+
+
+async def test_historical_single_narration_is_safely_skipped_by_delivery():
+    from infrastructure.audio.voice_delivery import (
+        TurnDeliveryOutcome,
+        TurnDeliveryPipeline,
+    )
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-1",
+        story_session_id="session-1",
+        source_story_revision=7,
+        segments=[
+            NarrativeSegment(
+                type="narration",
+                text="旧版本持久化的单段叙事。",
+            )
+        ],
+        source_state_delta_id="delta-1",
+    )
+    sealed_service = SpeechUnitSealingService(
+        disclosure=AudioDisclosureAuthorizer(
+            MemoryDisclosurePort(turn(), block)
+        ),
+        bindings=MemoryBindingPort(binding()),
+    )
+
+    class MemoryVoice:
+        def __init__(self):
+            self.units = []
+
+        def publish(self, unit):
+            self.units.append(unit)
+
+    voice = MemoryVoice()
+    pipeline = TurnDeliveryPipeline(
+        sealing=sealed_service,
+        voice=voice,
+        binding_scope=scope(),
+        expected_binding_revision=2,
+        execution_model_id="speechrail/qwen3-tts",
+        dictionary_revision="pron-v1",
+        seal_arguments={
+            "semantic_anchors": (),
+            "pronunciation_rules": (),
+            "desired_performance": DesiredPerformance(),
+            "performance_capabilities": VoicePerformanceCapabilities(
+                variant="base_clone"
+            ),
+        },
+    )
+
+    result = await pipeline.deliver(
+        TurnDeliveryOutcome(
+            turn_id="turn-1",
+            session_id="session-1",
+            story_revision=7,
+            state_delta_id="delta-1",
+            narrative=block,
+            segment_index=0,
+        )
+    )
+
+    assert result is None
+    assert voice.units == []

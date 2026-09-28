@@ -1,13 +1,13 @@
-"""Post-COMMIT expression delivery: narrative publication and voice hand-off.
+"""Post-COMMIT expression delivery: persisted character-segment voice hand-off.
 
-This module is the only place that turns a *committed* Domain outcome into
-audible output.  It runs strictly after ``COMMIT`` (invariant 9): the order is
+This module turns one already-persisted character segment into audible output.
+It runs strictly after ``COMMIT`` (invariant 9):
 
-    COMMIT -> narrate -> publish NarrativeBlock -> seal SpeechUnit -> VoiceRenderRuntime
+    COMMIT -> publish NarrativeBlock -> seal character SpeechUnit -> VoiceRenderRuntime
 
 Nothing here can propose or change Domain state.  A failure at any stage leaves
-the committed turn untouched and surfaces a code; it never rewrites history and
-never falls back to canned prose.
+the committed turn and NarrativeBlock untouched and surfaces a code. It never
+generates, republishes, or rewrites narrative text.
 
 The pipeline deliberately reuses the existing W-V05 sealing boundary rather than
 re-deriving disclosure: ``SpeechUnitSealingService`` re-reads the durable
@@ -16,8 +16,6 @@ provider is the text that was authorized.
 """
 from __future__ import annotations
 
-import hashlib
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from application.speech_unit import (
@@ -25,17 +23,14 @@ from application.speech_unit import (
     SpeechUnitSealingError,
     SpeechUnitSealingService,
 )
-from contracts import NarrativeBlock, TurnTransaction
-from contracts.models import NarrativeSegment
+from contracts import NarrativeBlock
 from domain.voice_identity import VoiceBindingScope
 
 from .voice_runtime import VoiceRenderRuntime, VoiceRenderRuntimeError
 
-_NarrateFn = Callable[[str], Awaitable[str]]
-
 
 class TurnDeliveryError(RuntimeError):
-    """A committed turn could not be turned into published, sealed audio."""
+    """A persisted character segment could not be sealed or rendered."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -53,31 +48,26 @@ class DeliveryReceipt:
     # The exact recipe ``voice.render`` must echo; the media identity is the only
     # part the App supplies itself, and only after ``media.open`` mints it.
     render_recipe: dict[str, object]
-    replayed: bool
 
 
 @dataclass(frozen=True, slots=True)
 class TurnDeliveryOutcome:
-    """The committed facts a narrator is allowed to describe."""
+    """One persisted narrative segment selected for possible audio delivery."""
 
     turn_id: str
     session_id: str
     story_revision: int
     state_delta_id: str
-    scene_id: str | None
-    protagonist_id: str
-    player_action: str
-    character_reply: str
-    outcome_summary: str
+    narrative: NarrativeBlock
+    segment_index: int
 
 
 class TurnDeliveryPipeline:
-    """Narrate, publish, seal and hand one committed turn to the render runtime."""
+    """Seal and hand one persisted character segment to the render runtime."""
 
     def __init__(
         self,
         *,
-        narratives: object,
         sealing: SpeechUnitSealingService,
         voice: VoiceRenderRuntime,
         binding_scope: VoiceBindingScope,
@@ -85,9 +75,7 @@ class TurnDeliveryPipeline:
         execution_model_id: str,
         dictionary_revision: str,
         seal_arguments: dict[str, object],
-        narrate: _NarrateFn | None = None,
     ) -> None:
-        self._narratives = narratives
         self._sealing = sealing
         self._voice = voice
         self._binding_scope = binding_scope
@@ -95,7 +83,6 @@ class TurnDeliveryPipeline:
         self._execution_model_id = execution_model_id
         self._dictionary_revision = dictionary_revision
         self._seal_arguments = dict(seal_arguments)
-        self._narrate = narrate
 
     @property
     def binding_scope(self) -> VoiceBindingScope:
@@ -110,56 +97,39 @@ class TurnDeliveryPipeline:
         self._binding_scope = scope
         self._expected_binding_revision = expected_binding_revision
 
-    async def deliver(self, outcome: TurnDeliveryOutcome) -> DeliveryReceipt:
-        """Run the whole post-COMMIT chain for one committed turn."""
+    async def deliver(
+        self, outcome: TurnDeliveryOutcome
+    ) -> DeliveryReceipt | None:
+        """Render only the requested character segment.
+
+        Narration and transition segments are text-only. Returning ``None`` for
+        them keeps historical narration-only NarrativeBlocks safe to replay and
+        prevents them from being sealed with a character voice.
+        """
         if not isinstance(outcome, TurnDeliveryOutcome):
             raise TurnDeliveryError("invalid_delivery_outcome")
+        block = outcome.narrative
+        if not isinstance(block, NarrativeBlock):
+            raise TurnDeliveryError("invalid_persisted_narrative")
+        if (
+            block.story_session_id != outcome.session_id
+            or block.source_story_revision != outcome.story_revision
+            or block.source_state_delta_id != outcome.state_delta_id
+        ):
+            raise TurnDeliveryError("persisted_narrative_binding_mismatch")
+        if type(outcome.segment_index) is not int or outcome.segment_index < 0:
+            raise TurnDeliveryError("invalid_segment_index")
+        if outcome.segment_index >= len(block.segments):
+            raise TurnDeliveryError("narrative_segment_out_of_bounds")
+        segment = block.segments[outcome.segment_index]
+        if segment.type != "character":
+            return None
 
-        if self._narrate is None:
-            raise TurnDeliveryError("narrator_unavailable")
-
-        try:
-            text = await self._narrate(outcome.outcome_summary)
-        except Exception:
-            # Model, transport and timeout failures all collapse into one public
-            # code; the committed turn is already durable and stays untouched.
-            raise TurnDeliveryError("narrative_model_unavailable") from None
-        if not isinstance(text, str) or not text.strip():
-            raise TurnDeliveryError("narrative_model_invalid")
-
-        # A live turn owns its narrative block. The frozen expression templates
-        # are suppressed for this path (see FiveTurnSettlement), because they
-        # publish speakerless narration while the speech contract requires a
-        # real speaker before a voice may be sealed.
-        block = NarrativeBlock(
-            schema_version="1.0",
-            id=_narrative_block_id(outcome.turn_id),
-            story_session_id=outcome.session_id,
-            source_story_revision=outcome.story_revision,
-            scene_id=outcome.scene_id,
-            segments=[
-                NarrativeSegment(
-                    type="character",
-                    speaker_id=self._binding_scope.presentation_identity,
-                    text=text.strip(),
-                    speech_intent=outcome.character_reply or None,
-                )
-            ],
-            source_state_delta_id=outcome.state_delta_id,
-        )
-        try:
-            published = await self._narratives.publish(  # type: ignore[attr-defined]
-                turn_id=outcome.turn_id, narrative=block
-            )
-        except Exception:
-            raise TurnDeliveryError("narrative_publication_failed") from None
-
-        turn: TurnTransaction = published.turn
         try:
             unit = await self._sealing.seal(
-                turn_id=turn.id,
+                turn_id=outcome.turn_id,
                 expected_story_revision=outcome.story_revision,
-                segment_index=0,
+                segment_index=outcome.segment_index,
                 binding_scope=self._binding_scope,
                 expected_binding_revision=self._expected_binding_revision,
                 execution_model_id=self._execution_model_id,
@@ -168,25 +138,22 @@ class TurnDeliveryPipeline:
             )
         except SpeechUnitSealingError as exc:
             raise TurnDeliveryError(exc.code) from None
-        except Exception:
+        except Exception:  # noqa: BLE001 - never let post-COMMIT audio unwind the turn
             raise TurnDeliveryError("speech_sealing_failed") from None
+        if unit.narrative_block_id != block.id:
+            raise TurnDeliveryError("speech_unit_narrative_mismatch")
 
         try:
             self._voice.publish(unit)
         except VoiceRenderRuntimeError as exc:
             raise TurnDeliveryError(exc.code) from None
         return DeliveryReceipt(
-            turn_id=turn.id,
-            narrative_block_id=published.narrative.id,
+            turn_id=outcome.turn_id,
+            narrative_block_id=block.id,
             speech_unit_id=unit.unit_id,
             spoken_text=unit.spoken_text,
             render_recipe=unit.render_recipe(),
-            replayed=bool(published.replayed),
         )
-
-
-def _narrative_block_id(turn_id: str) -> str:
-    return "nb_" + hashlib.sha256(f"wom-narrative/v1\0{turn_id}".encode()).hexdigest()[:32]
 
 
 __all__ = [
