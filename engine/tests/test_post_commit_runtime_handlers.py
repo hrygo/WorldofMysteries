@@ -1,0 +1,212 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from application.narrative_publication import CommittedNarrativeService
+from application.post_commit_work import (
+    PostCommitKind,
+    PostCommitResultState,
+    PostCommitWorkSource,
+)
+from contracts import StateDelta
+from infrastructure.scenarios.post_commit_handlers import (
+    ScenarioAudioPrepareHandler,
+    ScenarioNarrativePublishHandler,
+)
+
+
+def _source(kind: PostCommitKind) -> PostCommitWorkSource:
+    return PostCommitWorkSource(
+        job_id=f"turn-1:{kind.value}:recipe-1",
+        turn_id="turn-1",
+        session_id="session-1",
+        kind=kind,
+        recipe_revision="rules:recipe-1",
+        source_story_revision=1,
+        source_world_revision=4,
+        input_digest="a" * 64,
+    )
+
+
+def _delta() -> StateDelta:
+    return StateDelta.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": "delta-1",
+            "turn_id": "turn-1",
+            "outcome": "clean_success",
+            "story_delta": {
+                "scene_id": "scene-at-turn-one",
+                "world_time_delta_minutes": 5,
+                "clue_ids_add": ["clue_turn_one"],
+            },
+            "character_deltas": [],
+            "world_event_candidates": [],
+            "evidence_ids": [],
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_changes(
+    monkeypatch,
+):
+    source = _source(PostCommitKind.NARRATIVE_PUBLISH)
+    delta = _delta()
+    turn = SimpleNamespace(
+        id=source.turn_id,
+        session_id=source.session_id,
+        committed_story_revision=source.source_story_revision,
+        state_delta_id=delta.id,
+        narrative_block_id=None,
+        idempotency_key="input-turn-one",
+    )
+    bootstrap = SimpleNamespace(
+        presentation=SimpleNamespace(
+            clue_display_names={"clue_turn_one": "第一轮发现"},
+        ),
+        initial_session=SimpleNamespace(protagonist_id="protagonist-1"),
+    )
+    frozen_input = SimpleNamespace(
+        session_id=source.session_id,
+        turn_id=source.turn_id,
+        raw_input="第一轮原话",
+    )
+
+    class Database:
+        async def read_world(self, _sql, _parameters):
+            return [{"committed_world_revision": source.source_world_revision}]
+
+    class Story:
+        latest_session_reads = 0
+
+        async def load_turn(self, _turn_id):
+            return turn
+
+        async def load_delta(self, _delta_id):
+            return delta
+
+        async def load_session(self, _session_id):
+            self.latest_session_reads += 1
+            return SimpleNamespace(
+                story_state=SimpleNamespace(
+                    local_state={"scene_id": "scene-from-turn-two"},
+                    discovered_clue_ids=["clue_turn_two"],
+                )
+            )
+
+    class Bootstraps:
+        async def require(self, _session_id):
+            return bootstrap
+
+    class Advice:
+        async def load_input(self, _input_turn_id):
+            return frozen_input
+
+    class Workers:
+        def narrative_compiler(self, _bootstrap):
+            return object()
+
+    class Narratives:
+        pass
+
+    captured = []
+    narrative = SimpleNamespace(
+        id="narrative-1",
+        story_session_id=source.session_id,
+        source_story_revision=source.source_story_revision,
+        source_state_delta_id=delta.id,
+    )
+
+    async def capture_source(_service, *, turn_id, source):
+        assert turn_id == source.turn_id
+        captured.append(source)
+        return narrative
+
+    monkeypatch.setattr(CommittedNarrativeService, "ensure", capture_source)
+    story = Story()
+    handler = ScenarioNarrativePublishHandler(
+        database=Database(),
+        story=story,
+        bootstraps=Bootstraps(),
+        advice=Advice(),
+        narratives=Narratives(),
+        beat_plans=object(),
+        expression=object(),
+        workers=Workers(),
+        frozen_expression=False,
+    )
+
+    result = await handler.execute(source)
+
+    assert result.state is PostCommitResultState.SUCCEEDED
+    assert result.result_ref == "narrative:narrative-1"
+    assert len(captured) == 1
+    committed_source = captured[0]
+    assert committed_source.state_delta is delta
+    assert committed_source.scene_id == "scene-at-turn-one"
+    assert committed_source.disclosed_facts == (
+        "结果判定：clean_success\n"
+        "玩家发现了：第一轮发现\n"
+        "场景转为：scene-at-turn-one\n"
+        "世界时间推进：5 分钟\n"
+        "玩家原话：第一轮原话"
+    )
+    assert "scene-from-turn-two" not in committed_source.disclosed_facts
+    assert "clue_turn_two" not in committed_source.disclosed_facts
+    assert story.latest_session_reads == 0
+
+
+@pytest.mark.asyncio
+async def test_audio_handler_never_seals_before_narrative_artifact_exists():
+    source = _source(PostCommitKind.AUDIO_PREPARE)
+    delta = _delta()
+    turn = SimpleNamespace(
+        id=source.turn_id,
+        session_id=source.session_id,
+        committed_story_revision=source.source_story_revision,
+        state_delta_id=delta.id,
+        narrative_block_id=None,
+    )
+
+    class Database:
+        async def read_world(self, _sql, _parameters):
+            return [{"committed_world_revision": source.source_world_revision}]
+
+        async def post_commit_job_write(self, _apply):
+            raise AssertionError("audio must not persist a result without narrative")
+
+    class Story:
+        async def load_turn(self, _turn_id):
+            return turn
+
+        async def load_delta(self, _delta_id):
+            return delta
+
+    class Bootstraps:
+        async def require(self, _session_id):
+            return SimpleNamespace()
+
+    class Narratives:
+        async def load_narrative_block(self, _narrative_id):
+            raise AssertionError("turn does not identify a narrative artifact")
+
+    handler = ScenarioAudioPrepareHandler(
+        database=Database(),
+        story=Story(),
+        bootstraps=Bootstraps(),
+        narratives=Narratives(),
+        bindings=object(),
+        voice=object(),
+        audio_config=object(),
+        voice_id="approved-voice",
+        dictionary_revision="dictionary-1",
+        fetch_json=None,
+    )
+
+    result = await handler.execute(source)
+
+    assert result.state is PostCommitResultState.BLOCKED
+    assert result.reason_code == "dependency_unavailable"

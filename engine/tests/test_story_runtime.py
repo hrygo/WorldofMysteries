@@ -77,6 +77,15 @@ STORY_CAPABILITIES = (
     "story.session.open",
     "story.turn.submit",
 )
+DURABLE_STORY_CAPABILITIES = (
+    "story.advice.get",
+    "story.advice.submit.v2",
+    "story.entry.get",
+    "story.expression.get",
+    "story.session.get",
+    "story.session.open",
+    "story.turn.submit.v2",
+)
 _PRODUCT_LAUNCHER = (
     "import asyncio, sys\n"
     "from infrastructure.ipc_server import _run, read_bootstrap_token\n"
@@ -182,10 +191,16 @@ def _world_path(root: Path) -> Path:
     return DatabasePaths.for_world(root, ENGINEERING_WORLD_ID).world
 
 
-async def _open_runtime(root: Path, content: Path) -> StoryRuntime:
+async def _open_runtime(
+    root: Path,
+    content: Path,
+    *,
+    durable_post_commit: bool = False,
+) -> StoryRuntime:
     return await StoryRuntime.open(
         StoryRuntimeConfig.for_data_root(root, content_path=content),
         expected_sqlite_version=sqlite3.sqlite_version,
+        durable_post_commit=durable_post_commit,
     )
 
 
@@ -1242,14 +1257,13 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_production_runtime_registers_post_commit_jobs_with_the_turn(
+async def test_production_runtime_defaults_to_synchronous_v1_without_jobs(
     tmp_path: Path, content_artifact: Path, socket_path: Path
 ):
-    """AO-03: the shipped assembly binds a committed turn to durable intents.
+    """Legacy v1 keeps synchronous expression publication without scheduling jobs.
 
-    The runtime is opened exactly as production opens it, so this exercises
-    `_build_facade` rather than a hand-built facade. The intents must appear in
-    the same world database as the turn, carrying the scenario's frozen recipe.
+    The default is deliberately frozen at construction time: v1 owns settlement,
+    while only the explicit v2 runtime delegates it to the durable worker.
     """
     root = tmp_path / "app-support"
     runtime = await _open_runtime(root, content_artifact)
@@ -1257,7 +1271,12 @@ async def test_production_runtime_registers_post_commit_jobs_with_the_turn(
     reader = writer = None
     try:
         reader, writer = await asyncio.open_unix_connection(socket_path)
-        await _handshake(reader, writer)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *STORY_CAPABILITIES,
+        }
         opened = await _call(
             reader, writer, "story.session.open", _open_body("open_request_1", 0),
             "req-open", idempotency_key="open_request_1",
@@ -1272,32 +1291,519 @@ async def test_production_runtime_registers_post_commit_jobs_with_the_turn(
         )
         assert submitted["status"] == "ok"
         assert submitted["payload"]["receipt"]["status"] == "committed"
+        assert submitted["payload"]["delivery"]["reason"] == "voice_not_configured"
     finally:
         await _close(server, reader, writer)
         await runtime.close()
 
-    jobs = _jobs(root)
-    # Turn 1 of the five-turn Golden scenario: narrative always, audio always,
-    # and no Episode finalization before the scenario says the session ends.
-    assert {row["kind"] for row in jobs} == {"narrative_publish", "audio_prepare"}
-    assert all(row["session_id"] == session_id for row in jobs)
-    assert all(row["turn_id"] for row in jobs)
-    # This runtime is opened without a voice provider, so audio starts blocked
-    # with a public reason and the text job is unaffected.
-    by_kind = {row["kind"]: row for row in jobs}
-    assert by_kind["narrative_publish"]["state"] == "pending"
-    assert by_kind["audio_prepare"]["state"] == "blocked"
-    assert by_kind["audio_prepare"]["last_error_code"] == "voice_not_configured"
-    # The recipe is bound to the frozen rules revision of the trusted content:
-    # both jobs share one rules prefix and differ only by their recipe name.
-    rules_prefixes = {row["recipe_revision"].rsplit(":", 1)[0] for row in jobs}
-    assert len(rules_prefixes) == 1
-    assert {
-        row["recipe_revision"].rsplit(":", 1)[1] for row in jobs
-    } == {"narrative-publish-v1", "audio-prepare-v1"}
-    for row in jobs:
-        assert len(row["input_digest"]) == 64
-        assert row["source_story_revision"] == 1
+    assert _jobs(root) == []
+    assert _narrative_count(root) == 1
+
+
+@pytest.mark.asyncio
+async def test_v1_terminal_turn_publishes_expression_once_and_finalizes_episode(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_expression import PostCommitExpressionService
+
+    expression_publications = {}
+    original_publish = PostCommitExpressionService.publish
+
+    async def track_expression_publish(self, *, turn_number, commit):
+        expression_publications[commit.turn_id] = (
+            expression_publications.get(commit.turn_id, 0) + 1
+        )
+        return await original_publish(
+            self,
+            turn_number=turn_number,
+            commit=commit,
+        )
+
+    monkeypatch.setattr(
+        PostCommitExpressionService,
+        "publish",
+        track_expression_publish,
+    )
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        catalog = load_five_turn_catalog(content_artifact, _bundle_payload()["seed"])
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_v1_terminal", 0),
+            "req-open-v1-terminal",
+            idempotency_key="open_v1_terminal",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+
+        for turn_number in range(1, 6):
+            advice = catalog.advice_templates[turn_number]
+            body = _submit_body(
+                session_id,
+                f"v1_terminal_input_{turn_number:02d}",
+                advice.raw_input,
+            )
+            body["expected_story_revision"] = turn_number - 1
+            body["expected_store_revision"] = turn_number
+            submitted = await _call(
+                reader,
+                writer,
+                "story.advice.submit",
+                body,
+                f"req-v1-terminal-turn-{turn_number:02d}",
+                idempotency_key=f"v1_terminal_input_{turn_number:02d}",
+            )
+            assert submitted["status"] == "ok"
+            assert (
+                submitted["payload"]["receipt"]["committed_story_revision"]
+                == turn_number
+            )
+
+        assert len(expression_publications) == 5
+        assert set(expression_publications.values()) == {1}
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+        assert _jobs(root) == []
+    finally:
+        if server is not None:
+            await _close(server, reader, writer)
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_runtime_exposes_only_v2_submit_methods(
+    tmp_path: Path, content_artifact: Path
+):
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support",
+            content_path=content_artifact,
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        durable_post_commit=True,
+    )
+    try:
+        assert runtime.capabilities == DURABLE_STORY_CAPABILITIES
+        assert "story.advice.submit" not in runtime.request_handlers
+        assert "story.turn.submit" not in runtime.request_handlers
+        assert "story.advice.submit.v2" in runtime.request_handlers
+        assert "story.turn.submit.v2" in runtime.request_handlers
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_v2_returns_before_worker_publication_and_drains_before_db_close(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_work import PostCommitKind
+    from infrastructure.episode_settlement import ScenarioSettlement, SettlingCommitPort
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioNarrativePublishHandler,
+    )
+    from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    settlement_called = asyncio.Event()
+    acknowledged = asyncio.Event()
+    captured_sources = []
+    stop_started = asyncio.Event()
+    worker_stopped = asyncio.Event()
+    database_close_started = asyncio.Event()
+
+    original_execute = ScenarioNarrativePublishHandler.execute
+    original_settle = ScenarioSettlement.settle
+    original_complete = SQLitePostCommitJobRepository.complete
+
+    async def hold_narrative(self, source):
+        captured_sources.append(source)
+        entered.set()
+        await release.wait()
+        return await original_execute(self, source)
+
+    async def track_settlement(self, result):
+        settlement_called.set()
+        return await original_settle(self, result)
+
+    async def track_complete(self, *args, **kwargs):
+        result = await original_complete(self, *args, **kwargs)
+        acknowledged.set()
+        return result
+
+    monkeypatch.setattr(ScenarioNarrativePublishHandler, "execute", hold_narrative)
+    monkeypatch.setattr(ScenarioSettlement, "settle", track_settlement)
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(
+        root,
+        content_artifact,
+        durable_post_commit=True,
+    )
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    runtime_closed = False
+    try:
+        assert isinstance(runtime._facade._story, SQLiteStorySessionCommitPort)
+        assert not isinstance(runtime._facade._story, SettlingCommitPort)
+        assert runtime._facade._after_commit is None
+        assert runtime._post_commit_worker is not None
+        assert runtime._post_commit_worker.is_running
+
+        original_stop = runtime._post_commit_worker.stop
+        original_database_close = runtime._database.close
+
+        async def track_stop():
+            stop_started.set()
+            await original_stop()
+            worker_stopped.set()
+
+        async def track_database_close():
+            assert worker_stopped.is_set()
+            database_close_started.set()
+            await original_database_close()
+
+        runtime._post_commit_worker.stop = track_stop
+        runtime._database.close = track_database_close
+
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *DURABLE_STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_request_1", 0),
+            "req-open",
+            idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        submitted = await _call(
+            reader,
+            writer,
+            "story.advice.submit.v2",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit-v2",
+            idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        assert submitted["payload"]["receipt"]["status"] == "committed"
+        assert "delivery" not in submitted["payload"]
+        await asyncio.wait_for(entered.wait(), timeout=5)
+
+        assert _narrative_count(root) == 0
+        jobs_by_kind = {row["kind"]: row for row in _jobs(root)}
+        job = jobs_by_kind["narrative_publish"]
+        assert job["state"] == "running"
+        assert len(captured_sources) == 1
+        assert {
+            "job_id": captured_sources[0].job_id,
+            "turn_id": captured_sources[0].turn_id,
+            "session_id": captured_sources[0].session_id,
+            "kind": captured_sources[0].kind.value,
+            "recipe_revision": captured_sources[0].recipe_revision,
+            "source_story_revision": captured_sources[0].source_story_revision,
+            "source_world_revision": captured_sources[0].source_world_revision,
+            "input_digest": captured_sources[0].input_digest,
+        } == {
+            "job_id": job["job_id"],
+            "turn_id": job["turn_id"],
+            "session_id": job["session_id"],
+            "kind": job["kind"],
+            "recipe_revision": job["recipe_revision"],
+            "source_story_revision": job["source_story_revision"],
+            "source_world_revision": job["source_world_revision"],
+            "input_digest": job["input_digest"],
+        }
+        assert captured_sources[0].kind is PostCommitKind.NARRATIVE_PUBLISH
+        assert not settlement_called.is_set()
+        revision_while_blocked = _world_revision(root)
+
+        await _close(server, reader, writer)
+        server = reader = writer = None
+        close_task = asyncio.create_task(runtime.close())
+        await stop_started.wait()
+        assert runtime._post_commit_worker.is_stopping
+        assert not worker_stopped.is_set()
+        assert not database_close_started.is_set()
+        assert await runtime._database.read_world(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        )
+        release.set()
+        await close_task
+        runtime_closed = True
+        assert acknowledged.is_set()
+        assert worker_stopped.is_set()
+        assert database_close_started.is_set()
+        assert not runtime._post_commit_worker.is_running
+        assert _world_revision(root) == revision_while_blocked
+        assert _narrative_count(root) == 1
+        completed_jobs = {row["kind"]: row for row in _jobs(root)}
+        assert completed_jobs["narrative_publish"]["state"] == "succeeded"
+        assert completed_jobs["audio_prepare"]["state"] == "blocked"
+        assert not settlement_called.is_set()
+    finally:
+        release.set()
+        if server is not None:
+            await _close(server, reader, writer)
+        if not runtime_closed:
+            await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_worker_recovers_artifact_written_before_ack_after_restart(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioNarrativePublishHandler,
+    )
+
+    first_interrupted = asyncio.Event()
+    recovered = asyncio.Event()
+    acknowledged = asyncio.Event()
+    sources = []
+    original_execute = ScenarioNarrativePublishHandler.execute
+    original_complete = SQLitePostCommitJobRepository.complete
+
+    async def interrupt_after_artifact(self, source):
+        sources.append(source)
+        result = await original_execute(self, source)
+        if len(sources) == 1:
+            first_interrupted.set()
+            raise asyncio.CancelledError
+        recovered.set()
+        return result
+
+    async def track_complete(self, *args, **kwargs):
+        result = await original_complete(self, *args, **kwargs)
+        acknowledged.set()
+        return result
+
+    monkeypatch.setattr(
+        ScenarioNarrativePublishHandler,
+        "execute",
+        interrupt_after_artifact,
+    )
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        await _handshake(reader, writer)
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_request_1", 0),
+            "req-open",
+            idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        submitted = await _call(
+            reader,
+            writer,
+            "story.advice.submit.v2",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit-v2",
+            idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        await asyncio.wait_for(first_interrupted.wait(), timeout=5)
+        await _close(server, reader, writer)
+        server = reader = writer = None
+        await runtime.close()
+    finally:
+        if server is not None:
+            await _close(server, reader, writer)
+        if runtime._database._close_task is None:
+            await runtime.close()
+
+    jobs_after_crash = _jobs(root)
+    narrative_after_crash = next(
+        row for row in jobs_after_crash if row["kind"] == "narrative_publish"
+    )
+    assert narrative_after_crash["state"] == "running"
+    assert _narrative_count(root) == 1
+    revision_after_commit = _world_revision(root)
+
+    restarted = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    try:
+        await asyncio.wait_for(recovered.wait(), timeout=5)
+        await asyncio.wait_for(acknowledged.wait(), timeout=5)
+        assert len(sources) == 2
+        assert sources[0] == sources[1]
+        assert _narrative_count(root) == 1
+        recovered_job = next(
+            row for row in _jobs(root) if row["kind"] == "narrative_publish"
+        )
+        assert recovered_job["state"] == "succeeded"
+        assert _world_revision(root) == revision_after_commit
+    finally:
+        await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_episode_handler_is_the_only_revision_advancing_post_commit_work(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_work import (
+        PostCommitKind,
+        PostCommitResultState,
+        PostCommitWorkSource,
+    )
+    from application.post_commit_expression import PostCommitExpressionService
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioEpisodeFinalizeHandler,
+    )
+
+    episode_entered = asyncio.Event()
+    release_episode = asyncio.Event()
+    episode_acknowledged = asyncio.Event()
+    episode_sources = []
+    expression_publications = {}
+    original_execute = ScenarioEpisodeFinalizeHandler.execute
+    original_complete = SQLitePostCommitJobRepository.complete
+    original_publish = PostCommitExpressionService.publish
+
+    async def hold_episode(self, source):
+        episode_sources.append(source)
+        episode_entered.set()
+        await release_episode.wait()
+        return await original_execute(self, source)
+
+    async def track_complete(self, job_id, *args, **kwargs):
+        result = await original_complete(self, job_id, *args, **kwargs)
+        if ":episode_finalize:" in job_id:
+            episode_acknowledged.set()
+        return result
+
+    async def track_expression_publish(self, *, turn_number, commit):
+        expression_publications[commit.turn_id] = (
+            expression_publications.get(commit.turn_id, 0) + 1
+        )
+        return await original_publish(
+            self,
+            turn_number=turn_number,
+            commit=commit,
+        )
+
+    monkeypatch.setattr(ScenarioEpisodeFinalizeHandler, "execute", hold_episode)
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+    monkeypatch.setattr(
+        PostCommitExpressionService,
+        "publish",
+        track_expression_publish,
+    )
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        catalog = load_five_turn_catalog(content_artifact, _bundle_payload()["seed"])
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *DURABLE_STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_durable_episode", 0),
+            "req-open",
+            idempotency_key="open_durable_episode",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        for turn_number in range(1, 6):
+            advice = catalog.advice_templates[turn_number]
+            body = _submit_body(
+                session_id,
+                f"durable_input_{turn_number:02d}",
+                advice.raw_input,
+            )
+            body["expected_story_revision"] = turn_number - 1
+            body["expected_store_revision"] = turn_number
+            submitted = await _call(
+                reader,
+                writer,
+                "story.advice.submit.v2",
+                body,
+                f"req-turn-{turn_number:02d}",
+                idempotency_key=f"durable_input_{turn_number:02d}",
+            )
+            assert submitted["status"] == "ok"
+            assert submitted["payload"]["receipt"]["committed_story_revision"] == turn_number
+
+        await asyncio.wait_for(episode_entered.wait(), timeout=5)
+        assert _world_revision(root) == 6
+        assert _episode_count(root) == 0
+        rows_before_finalize = _jobs(root)
+        assert sum(row["kind"] == "narrative_publish" and row["state"] == "succeeded"
+                   for row in rows_before_finalize) == 5
+        assert sum(row["kind"] == "audio_prepare" and row["state"] == "blocked"
+                   for row in rows_before_finalize) == 5
+        assert next(row for row in rows_before_finalize
+                    if row["kind"] == "episode_finalize")["state"] == "running"
+
+        release_episode.set()
+        await asyncio.wait_for(episode_acknowledged.wait(), timeout=5)
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+
+        source = episode_sources[0]
+        assert isinstance(source, PostCommitWorkSource)
+        assert source.kind is PostCommitKind.EPISODE_FINALIZE
+        assert expression_publications[source.turn_id] == 1
+        handler = runtime._post_commit_worker._handlers[
+            PostCommitKind.EPISODE_FINALIZE.value
+        ]
+        replay = await handler.execute(source)
+        assert replay.state is PostCommitResultState.SUCCEEDED
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+    finally:
+        release_episode.set()
+        if server is not None:
+            await _close(server, reader, writer)
+        await runtime.close()
 
 
 def _jobs(root: Path) -> list[dict]:
@@ -1307,7 +1813,25 @@ def _jobs(root: Path) -> list[dict]:
             dict(row)
             for row in connection.execute(
                 "SELECT job_id,turn_id,session_id,kind,recipe_revision,"
-                "source_story_revision,input_digest,state,last_error_code "
+                "source_story_revision,source_world_revision,input_digest,"
+                "state,last_error_code "
                 "FROM post_commit_jobs ORDER BY kind"
             )
         ]
+
+
+def _narrative_count(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute("SELECT count(*) FROM narrative_blocks").fetchone()[0]
+
+
+def _world_revision(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        ).fetchone()[0]
+
+
+def _episode_count(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute("SELECT count(*) FROM episodes").fetchone()[0]

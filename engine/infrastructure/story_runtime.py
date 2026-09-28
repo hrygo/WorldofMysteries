@@ -19,6 +19,7 @@ Two capabilities are optional and are reported honestly in ``system.health``:
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,7 +71,14 @@ from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
 from .scenarios.golden_policy import GoldenScenarioPolicy, GoldenScenarioWorkers
+from .scenarios.post_commit_handlers import (
+    ScenarioAudioPrepareHandler,
+    ScenarioEpisodeFinalizeHandler,
+    ScenarioNarrativePublishHandler,
+)
 from .scenarios.post_commit_planning import ScenarioPostCommitJobPlanner
+from .post_commit_job_repository import SQLitePostCommitJobRepository
+from .post_commit_worker import PostCommitWorker
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -162,6 +170,8 @@ class StoryRuntime:
         content: TrustedScenarioBundle,
         model_ready: bool,
         voice: VoiceRenderRuntime | None,
+        post_commit_worker: PostCommitWorker | None,
+        durable_post_commit: bool,
     ) -> None:
         self._database = database
         self._facade = facade
@@ -175,6 +185,7 @@ class StoryRuntime:
         self._projector = OutboxProjector(database)
         self._model_ready = model_ready
         self._voice = voice
+        self._post_commit_worker = post_commit_worker
         narrative_port = SQLiteNarrativeBlockRepository(database)
         expression = StoryExpressionQueryService(
             reads=narrative_port,
@@ -183,8 +194,16 @@ class StoryRuntime:
                 SQLiteStoryBootstrapRepository(database)
             ),
         )
+        story_handlers = story_control_handlers(facade)
+        if durable_post_commit:
+            story_handlers["story.advice.submit.v2"] = story_handlers.pop(
+                "story.advice.submit"
+            )
+            story_handlers["story.turn.submit.v2"] = story_handlers.pop(
+                "story.turn.submit"
+            )
         self._handlers = {
-            **story_control_handlers(facade),
+            **story_handlers,
             **story_expression_control_handlers(expression),
         }
 
@@ -198,7 +217,10 @@ class StoryRuntime:
         model_endpoint: ModelEndpointConfig | None = None,
         audio_config: AudioProviderConfig | None = None,
         fetch_json=None,
+        durable_post_commit: bool = False,
     ) -> StoryRuntime:
+        if type(durable_post_commit) is not bool:
+            raise ValueError("durable_post_commit_must_be_boolean")
         content_repository = SQLiteStoryContentRepository(config.content_path)
         content = await content_repository.load(GOLDEN_SCENARIO_ID)
         catalog = load_five_turn_catalog(config.content_path, content.seed)
@@ -207,9 +229,11 @@ class StoryRuntime:
             expected_sqlite_version=expected_sqlite_version,
             fault_hook=fault_hook,
         )
+        voice = None
+        post_commit_worker = None
         try:
             voice = cls._open_voice(audio_config)
-            facade = await cls._build_facade(
+            facade, post_commit_worker = await cls._build_facade(
                 database,
                 content_repository,
                 content,
@@ -220,8 +244,13 @@ class StoryRuntime:
                 voice=voice,
                 audio_config=audio_config,
                 fetch_json=fetch_json,
+                durable_post_commit=durable_post_commit,
             )
+            if post_commit_worker is not None:
+                await post_commit_worker.start()
         except BaseException:
+            if post_commit_worker is not None:
+                await post_commit_worker.stop()
             if voice is not None:
                 await voice.aclose()
             await database.close()
@@ -232,6 +261,8 @@ class StoryRuntime:
             content=content,
             model_ready=model_endpoint is not None,
             voice=voice,
+            post_commit_worker=post_commit_worker,
+            durable_post_commit=durable_post_commit,
         )
 
     @staticmethod
@@ -257,7 +288,8 @@ class StoryRuntime:
         voice: VoiceRenderRuntime | None,
         audio_config: AudioProviderConfig | None,
         fetch_json,
-    ) -> StorySessionFacade:
+        durable_post_commit: bool = False,
+    ) -> tuple[StorySessionFacade, PostCommitWorker | None]:
         golden = GoldenFiveTurnFactory(catalog)
         scenario = GoldenScenarioPolicy(golden)
         # Validate the packaged bundle before exposing a runtime. Persisted
@@ -268,28 +300,33 @@ class StoryRuntime:
         # frozen scenario the turn was played under. A voice runtime without
         # provider configuration still counts as "voice not configured": the
         # audio job starts blocked and never holds back text or the Episode.
-        planner = ScenarioPostCommitJobPlanner(
-            scenario=scenario,
-            identity=identity,
-            story_seed_id=str(content.seed["id"]),
-            max_turn=golden.max_turn,
-            voice_configured=voice is not None and audio_config is not None,
+        planner = (
+            ScenarioPostCommitJobPlanner(
+                scenario=scenario,
+                identity=identity,
+                story_seed_id=str(content.seed["id"]),
+                max_turn=golden.max_turn,
+                voice_configured=voice is not None and audio_config is not None,
+            )
+            if durable_post_commit
+            else None
         )
         workers = (
             LiveFirstTurnFactory.from_config(model_endpoint)
             if model_endpoint is not None
             else GoldenScenarioWorkers(golden)
         )
+        expression = PostCommitExpressionService(
+            templates=golden.expression_templates,
+            beats=_SettlementBeatPlanPort(
+                SQLiteBeatPlanRepository(database), database
+            ),
+            narratives=SQLiteNarrativeBlockRepository(database),
+        )
         settlement = ScenarioSettlement(
             database=database,
             scenario=scenario,
-            expression=PostCommitExpressionService(
-                templates=golden.expression_templates,
-                beats=_SettlementBeatPlanPort(
-                    SQLiteBeatPlanRepository(database), database
-                ),
-                narratives=SQLiteNarrativeBlockRepository(database),
-            ),
+            expression=expression,
             content_path=content_path,
             # With a live model the post-COMMIT narrative service publishes its
             # disclosed model expression; frozen templates would be a second
@@ -313,19 +350,65 @@ class StoryRuntime:
             workers=workers,
             fetch_json=fetch_json,
         )
-        return StorySessionFacade(
+        story_port = SQLiteStorySessionCommitPort(database, planner=planner)
+        story = (
+            story_port
+            if durable_post_commit
+            else SettlingCommitPort(story_port, settlement)
+        )
+        facade = StorySessionFacade(
             initialization=StoryInitializationService(content_repository),
             open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
             query=query,
             intake=SQLiteTurnInputCommandPort(database),
             advice=SQLitePlayerAdviceRepository(database),
-            story=SettlingCommitPort(
-                SQLiteStorySessionCommitPort(database, planner=planner), settlement
-            ),
+            story=story,
             scenario=scenario,
             workers=workers,
-            after_commit=delivery.after_commit,
+            after_commit=None if durable_post_commit else delivery.after_commit,
         )
+        post_commit_worker = None
+        if durable_post_commit:
+            assert planner is not None
+            read_story = SQLiteStorySessionCommitPort(database)
+            bootstraps = SQLiteStoryBootstrapRepository(database)
+            narratives = SQLiteNarrativeBlockRepository(database)
+            bindings = SQLiteVoiceBindingRepository(database)
+            post_commit_worker = PostCommitWorker(
+                database=database,
+                repository=SQLitePostCommitJobRepository(database),
+                narrative_handler=ScenarioNarrativePublishHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    advice=SQLitePlayerAdviceRepository(database),
+                    narratives=narratives,
+                    beat_plans=SQLiteBeatPlanRepository(database),
+                    expression=expression,
+                    workers=workers,
+                    frozen_expression=model_endpoint is None,
+                ),
+                episode_finalize_handler=ScenarioEpisodeFinalizeHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    settlement=settlement,
+                ),
+                audio_prepare_handler=ScenarioAudioPrepareHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    narratives=narratives,
+                    bindings=bindings,
+                    voice=voice,
+                    audio_config=audio_config,
+                    voice_id=config.voice_id,
+                    dictionary_revision=DICTIONARY_REVISION,
+                    fetch_json=fetch_json,
+                ),
+                supported_recipes=planner.supported_recipes,
+            )
+        return facade, post_commit_worker
 
     @property
     def request_handlers(self) -> dict[str, StoryRequestHandler]:
@@ -373,6 +456,16 @@ class StoryRuntime:
         }
 
     async def close(self) -> None:
+        if self._post_commit_worker is not None:
+            try:
+                await self._post_commit_worker.stop()
+            except asyncio.CancelledError:
+                # A handler cancellation may already have terminated the worker
+                # loop while leaving its durable claim for the next Engine. Close
+                # can proceed only after that task is actually gone; cancellation
+                # of this close caller while the worker is still draining propagates.
+                if self._post_commit_worker.is_running:
+                    raise
         if self._voice is not None:
             await self._voice.aclose()
         await self._database.close()

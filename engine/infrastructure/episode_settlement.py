@@ -95,6 +95,18 @@ class ScenarioSettlement:
 
     async def settle(self, result: StoryTurnCommitResult) -> None:
         """Idempotently settle one committed turn and report post-COMMIT failures."""
+        await self._settle(result, publish_expression=True)
+
+    async def finalize_only(self, result: StoryTurnCommitResult) -> None:
+        """Finalize a terminal scenario without re-publishing its expression."""
+        await self._settle(result, publish_expression=False)
+
+    async def _settle(
+        self,
+        result: StoryTurnCommitResult,
+        *,
+        publish_expression: bool,
+    ) -> None:
         try:
             finalization = await self._finalization_context(result)
             if finalization is not None and await self._episode_is_finalized(
@@ -110,7 +122,7 @@ class ScenarioSettlement:
             ) from exc
 
         try:
-            if self._frozen_expression:
+            if publish_expression and self._frozen_expression:
                 await self._publish_expression(result)
         except Exception as exc:  # noqa: BLE001 - the turn is already durable
             raise ScenarioSettlementFailure(
