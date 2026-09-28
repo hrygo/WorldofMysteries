@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-03-RECONCILIATION",
+  "capsule_revision": 1,
+  "task_id": "AO-03-RECONCILIATION",
+  "title": "AO-03 §6.4: 历史数据 reconciliation",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-28T14:48:03.405040+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "013941c84da81df1c3ba29bc545b8b7d49825439",
+    "target_sha": "013941c84da81df1c3ba29bc545b8b7d49825439",
+    "context_snapshot": "sha256:4808ee9013e0e5eae8d7d1025272614d29667e0f74756bf664f2c588652dfb93"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:register@engine/infrastructure/audio/voice_control.py:127",
+      "symbol:register@engine/infrastructure/post_commit_job_repository.py:277",
+      "symbol:_register_in_transaction@engine/infrastructure/post_commit_job_repository.py:295",
+      "symbol:_require_source_match@engine/infrastructure/post_commit_job_repository.py:362",
+      "symbol:_source_matches_row@engine/infrastructure/post_commit_job_repository.py:494",
+      "symbol:test_retry_cannot_reset_other_succeeded_work@engine/tests/test_post_commit_control.py:538",
+      "symbol:test_commit_turn_registers_jobs_atomically_and_persists_blocked_voice_state@engine/tests/test_post_commit_jobs.py:794",
+      "symbol:test_repository_register_reuses_identical_identity_and_rejects_digest_conflict@engine/tests/test_post_commit_jobs.py:1266",
+      "symbol:_register@engine/tests/test_post_commit_worker.py:254",
+      "symbol:test_runtime_registers_only_exact_sealed_recipe@engine/tests/test_voice_runtime.py:163",
+      "symbol:test_runtime_unregistered_media_never_opens_provider@engine/tests/test_voice_runtime.py:259",
+      "symbol:ProbeHttpResponse@engine/infrastructure/audio/capabilities.py:45",
+      "symbol:VoiceCapabilityObservation@engine/infrastructure/audio/capabilities.py:54",
+      "symbol:RealtimeResponsibilityObservation@engine/infrastructure/audio/capabilities.py:90",
+      "symbol:AudioCapabilityObservation@engine/infrastructure/audio/capabilities.py:115",
+      "symbol:_NoRedirect@engine/infrastructure/audio/capabilities.py:153",
+      "symbol:CapabilityTransportError@engine/infrastructure/audio/capabilities.py:161",
+      "symbol:_decode_json@engine/infrastructure/audio/capabilities.py:165",
+      "symbol:_sync_get_json@engine/infrastructure/audio/capabilities.py:174",
+      "symbol:_default_fetch_json@engine/infrastructure/audio/capabilities.py:218",
+      "symbol:_speechrail_capabilities_url@engine/infrastructure/audio/capabilities.py:226",
+      "symbol:_bool_or_none@engine/infrastructure/audio/capabilities.py:249",
+      "symbol:_str_or_none@engine/infrastructure/audio/capabilities.py:253",
+      "symbol:_parameter_supported@engine/infrastructure/audio/capabilities.py:257",
+      "symbol:_parameter_supported_in@engine/infrastructure/audio/capabilities.py:261",
+      "symbol:_operation_declared@engine/infrastructure/audio/capabilities.py:285",
+      "symbol:_parse_model_identity@engine/infrastructure/audio/capabilities.py:293",
+      "symbol:_parse_quality_status@engine/infrastructure/audio/capabilities.py:313",
+      "symbol:_parse_model_ids@engine/infrastructure/audio/capabilities.py:319",
+      "symbol:_parse_voices@engine/infrastructure/audio/capabilities.py:332"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 831,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "register",
+      "register",
+      "_register_in_transaction",
+      "_require_source_match",
+      "_source_matches_row",
+      "test_retry_cannot_reset_other_succeeded_work",
+      "test_commit_turn_registers_jobs_atomically_and_persists_blocked_voice_state",
+      "test_repository_register_reuses_identical_identity_and_rejects_digest_conflict",
+      "_register",
+      "test_runtime_registers_only_exact_sealed_recipe",
+      "test_runtime_unregistered_media_never_opens_provider",
+      "ProbeHttpResponse",
+      "VoiceCapabilityObservation",
+      "RealtimeResponsibilityObservation",
+      "AudioCapabilityObservation",
+      "_NoRedirect",
+      "CapabilityTransportError",
+      "_decode_json",
+      "_sync_get_json",
+      "_default_fetch_json",
+      "_speechrail_capabilities_url",
+      "_bool_or_none",
+      "_str_or_none",
+      "_parameter_supported",
+      "_parameter_supported_in",
+      "_operation_declared",
+      "_parse_model_identity",
+      "_parse_quality_status",
+      "_parse_model_ids",
+      "_parse_voices"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
