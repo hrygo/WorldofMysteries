@@ -132,6 +132,10 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
             ".gitignore",
             "engine/tests/test_hacf_governance.py",
             "engine/tests/test_contracts_schema.py",
+            # 打包探针的源闭包断言与 scripts/build_macos_package.py 的
+            # PACKAGE_PROBE_SWIFT_SOURCES 必须同一切片内原子更新：拆成两个
+            # 切片会让其中一边在 FULL_P0 Stage 2 上必然变红。
+            "engine/tests/test_bundle_engine.py",
         ],
         "read": ["."],
         "forbidden": [
