@@ -1,0 +1,10 @@
+{
+  "scenario_id": "conditional_exit",
+  "rules_revision": "conditional-exit-v1",
+  "exit_evidence_id": "exit_clue",
+  "maximum_turn": 3,
+  "terminal_reasons": {
+    "exit_evidence": "exit_clue_committed",
+    "maximum_turn": "maximum_turn_reached"
+  }
+}

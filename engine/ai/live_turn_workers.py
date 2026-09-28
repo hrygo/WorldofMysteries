@@ -1,8 +1,8 @@
 """Live model workers for the interpretation, proposal and narrative stages.
 
-``GoldenFirstTurnFactory`` is a frozen fixture: it answers with content that was
-authored at build time.  This module provides the three model-controlled stages a
-real session needs, each one strictly bounded:
+Deterministic fixture workers provide content authored at build time.  This
+module provides the three model-controlled stages a real session needs, each
+one strictly bounded:
 
 ``LiveAdviceInterpreter``
     durable ``PlayerAdvice`` semantics for whatever the player actually said,
@@ -41,8 +41,10 @@ from application.advice_interpretation import (
 )
 from application.narrative_publication import (
     NarrativeCandidate,
+    NarrativeCompilerPort,
     NarrativePublicationError,
 )
+from application.scenario_policy import ActionSignature
 from application.story_initialization import StorySessionBootstrap
 from contracts import AdherenceType, InputMode, PlayerAdvice
 from contracts.models import IntentAction
@@ -489,74 +491,56 @@ class LiveNarrativeCompiler(_StructuredWorker):
 
 
 class LiveFirstTurnFactory:
-    """Live interpretation and proposal over the frozen turn policy.
+    """Create live model workers for a scenario-selected turn.
 
-    The turn-scoped contracts — max turn, authored input, the validated
-    resolution policy and the authorized domain evidence — stay owned by
-    ``GoldenFiveTurnFactory``. Only the two stages that genuinely need a model
-    are replaced, so a live turn proposes against exactly the same validated
-    action space the deterministic resolver will commit, on every turn rather
-    than only the opening one.
+    The application supplies allowed action signatures from the trusted
+    scenario policy. This factory creates workers only; it owns no turn limit,
+    fixed input, resolver policy, or Domain validation context.
     """
 
     def __init__(
         self,
         transport: OpenAICompatibleChatTransport,
-        golden: GoldenFiveTurnFactory,
     ) -> None:
         if not isinstance(transport, OpenAICompatibleChatTransport):
             raise LiveWorkerError("invalid_model_endpoint")
         self._transport = transport
-        self._golden = golden
 
     @classmethod
-    def from_config(
-        cls, config: ModelEndpointConfig, golden: GoldenFiveTurnFactory
-    ) -> "LiveFirstTurnFactory":
-        return cls(OpenAICompatibleChatTransport(config), golden)
+    def from_config(cls, config: ModelEndpointConfig) -> "LiveFirstTurnFactory":
+        return cls(OpenAICompatibleChatTransport(config))
 
     @property
-    def expression_templates(self) -> Mapping[int, GoldenExpressionTemplate]:
-        return self._golden.expression_templates
-
-    @property
-    def max_turn(self) -> int:
-        return self._golden.max_turn
-
-    def expected_input(
-        self, bootstrap: StorySessionBootstrap, turn_number: int
-    ) -> str:
-        return self._golden.expected_input(bootstrap, turn_number)
-
-    def policy_for_turn(
-        self, bootstrap: StorySessionBootstrap, turn_number: int
-    ) -> ResolutionPolicy:
-        return self._golden.policy_for_turn(bootstrap, turn_number)
-
-    def domain_validation_for(
-        self, bootstrap: StorySessionBootstrap, turn_number: int
-    ) -> object:
-        return self._golden.domain_validation_for(bootstrap, turn_number)
+    def supports_live_input(self) -> bool:
+        return True
 
     def _brief(self, bootstrap: StorySessionBootstrap) -> _SceneBrief:
         return _SceneBrief.from_bootstrap(bootstrap)
 
     def interpreter_for(
-        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+        self, bootstrap: StorySessionBootstrap, turn_number: int
     ) -> LiveAdviceInterpreter:
+        if turn_number < 1:
+            raise LiveWorkerError("invalid_turn_number")
         return LiveAdviceInterpreter(self._transport, self._brief(bootstrap))
 
     def proposer_for(
-        self, bootstrap: StorySessionBootstrap, turn_number: int = 1
+        self,
+        bootstrap: StorySessionBootstrap,
+        turn_number: int,
+        allowed_signatures: tuple[ActionSignature, ...],
     ) -> LiveActionIntentProposer:
-        policy = self._golden.policy_for_turn(bootstrap, turn_number)
+        if turn_number < 1:
+            raise LiveWorkerError("invalid_turn_number")
         return LiveActionIntentProposer(
             self._transport,
             self._brief(bootstrap),
-            tuple(rule.signature for rule in policy.rules),
+            allowed_signatures,
         )
 
-    def narrative_compiler(self, bootstrap: StorySessionBootstrap) -> LiveNarrativeCompiler:
+    def narrative_compiler(
+        self, bootstrap: StorySessionBootstrap
+    ) -> NarrativeCompilerPort:
         return LiveNarrativeCompiler(self._transport, self._brief(bootstrap))
 
     async def aclose(self) -> None:

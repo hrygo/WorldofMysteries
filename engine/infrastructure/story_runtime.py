@@ -34,6 +34,7 @@ from application.narrative_publication import (
     NarrativePublicationError,
 )
 from application.post_commit_expression import PostCommitExpressionService
+from application.scenario_policy import TurnWorkerFactory
 from application.speech_unit import SpeechUnitSealingService
 from application.story_expression import StoryExpressionQueryService
 from application.story_initialization import (
@@ -61,13 +62,14 @@ from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
 from .episode_settlement import (
-    FiveTurnSettlement,
+    ScenarioSettlement,
     SettlingCommitPort,
     _SettlementBeatPlanPort,
 )
 from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
+from .scenarios.golden_policy import GoldenScenarioPolicy, GoldenScenarioWorkers
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -256,8 +258,18 @@ class StoryRuntime:
         fetch_json,
     ) -> StorySessionFacade:
         golden = GoldenFiveTurnFactory(catalog)
-        settlement = FiveTurnSettlement(
+        scenario = GoldenScenarioPolicy(golden)
+        # Validate the packaged bundle before exposing a runtime. Persisted
+        # sessions repeat this check against their frozen bootstrap on reads.
+        scenario.identity(content)
+        workers = (
+            LiveFirstTurnFactory.from_config(model_endpoint)
+            if model_endpoint is not None
+            else GoldenScenarioWorkers(golden)
+        )
+        settlement = ScenarioSettlement(
             database=database,
+            scenario=scenario,
             expression=PostCommitExpressionService(
                 templates=golden.expression_templates,
                 beats=_SettlementBeatPlanPort(
@@ -276,15 +288,6 @@ class StoryRuntime:
             database,
             supported_advice=(content.advice_template.raw_input,),
         )
-        # The live factory keeps the frozen turn policy, authored inputs and
-        # validated resolution rules; only interpretation and proposal are
-        # swapped for a real model. Without a model the frozen golden path runs
-        # unchanged, so the scenario is never silently faked.
-        first_turn = (
-            LiveFirstTurnFactory.from_config(model_endpoint, golden)
-            if model_endpoint is not None
-            else golden
-        )
         narrative_port = SQLiteNarrativeBlockRepository(database)
         bindings = SQLiteVoiceBindingRepository(database)
         delivery = _DeliveryCoordinator(
@@ -294,7 +297,7 @@ class StoryRuntime:
             voice=voice,
             audio_config=audio_config,
             voice_id=config.voice_id,
-            first_turn=first_turn,
+            workers=workers,
             fetch_json=fetch_json,
         )
         return StorySessionFacade(
@@ -306,7 +309,8 @@ class StoryRuntime:
             story=SettlingCommitPort(
                 SQLiteStorySessionCommitPort(database), settlement
             ),
-            first_turn=first_turn,
+            scenario=scenario,
+            workers=workers,
             after_commit=delivery.after_commit,
         )
 
@@ -373,7 +377,7 @@ class _DeliveryCoordinator:
         voice: VoiceRenderRuntime | None,
         audio_config: AudioProviderConfig | None,
         voice_id: str | None,
-        first_turn: object,
+        workers: TurnWorkerFactory,
         fetch_json,
     ) -> None:
         self._query = query
@@ -382,7 +386,7 @@ class _DeliveryCoordinator:
         self._voice = voice
         self._audio = audio_config
         self._voice_id = voice_id
-        self._first_turn = first_turn
+        self._workers = workers
         self._fetch_json = fetch_json
 
     async def after_commit(
@@ -397,11 +401,10 @@ class _DeliveryCoordinator:
         except Exception:  # noqa: BLE001 - a read failure cannot unwind COMMIT
             return TurnDeliveryView(state="unavailable", reason="session_unavailable")
 
-        compiler_factory = getattr(self._first_turn, "narrative_compiler", None)
         source: CommittedNarrativeSource | None = None
-        if callable(compiler_factory):
-            try:
-                compiler = compiler_factory(snapshot.bootstrap)
+        try:
+            compiler = self._workers.narrative_compiler(snapshot.bootstrap)
+            if compiler is not None:
                 story_revision = result.turn.committed_story_revision
                 if story_revision is None:
                     raise NarrativePublicationError(
@@ -420,15 +423,16 @@ class _DeliveryCoordinator:
                         f"玩家原话：{command.raw_input}"
                     ),
                 )
-            except Exception as exc:  # noqa: BLE001 - expression failure is post-COMMIT
-                return TurnDeliveryView(
-                    state="unavailable",
-                    reason=_delivery_failure_code(exc, "narrative_unavailable"),
-                )
-        else:
-            # Frozen turns publish their authored NarrativeBlock during COMMIT.
-            # The service still reads it first and will not invoke this sentinel.
-            compiler = _UnavailableNarrativeCompiler()
+            else:
+                # Frozen turns publish their authored NarrativeBlock during
+                # settlement. The service reads it first and will not invoke
+                # this sentinel unless that post-COMMIT artifact is unavailable.
+                compiler = _UnavailableNarrativeCompiler()
+        except Exception as exc:  # noqa: BLE001 - expression failure is post-COMMIT
+            return TurnDeliveryView(
+                state="unavailable",
+                reason=_delivery_failure_code(exc, "narrative_unavailable"),
+            )
 
         publication = CommittedNarrativeService(
             reads=self._narratives,

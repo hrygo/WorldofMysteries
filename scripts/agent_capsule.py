@@ -48,10 +48,37 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
         "contracts": ["world_snapshot.schema.json", "state_delta.schema.json", "domain_event.schema.json"],
     },
+    # AO-04 narrow allowlist: facade/live factory signatures and composition-root
+    # wiring must compile in the same slice; splitting them makes FULL_P0 fail.
+    # AO-04 §4 places the production scene adapter in scenarios/; it composes
+    # with story_runtime.py under the same writer, or the adapter has no home.
+    # Only the two composition files and that adapter directory are writable.
     "AGT-AI": {
-        "write": ["engine/ai/", "engine/application/", "engine/tests/"],
+        "write": [
+            "engine/ai/",
+            "engine/application/",
+            "engine/tests/",
+            "engine/infrastructure/story_runtime.py",
+            "engine/infrastructure/episode_settlement.py",
+            "engine/infrastructure/scenarios/",
+        ],
         "read": ["engine/ai/", "engine/application/", "engine/tests/", "contracts/"],
-        "forbidden": ["macos-app/**", "engine/domain/**", "engine/infrastructure/**", ".hacf/**", ".github/**"],
+        "forbidden": [
+            "macos-app/**",
+            "engine/domain/**",
+            "engine/infrastructure/database*",
+            "engine/infrastructure/outbox*",
+            "engine/infrastructure/migrations/",
+            # `engine/infrastructure/scenarios/` 是目录级授权，而上面三条禁区
+            # 都是顶层锚定的：`scenarios/database_manager.py` 这类影子路径会
+            # 同时躲开 write 与 forbidden。补齐任意层锚定，forbidden 优先于
+            # write，目录授权不得成为绕过持久化禁区的暗道。
+            "engine/infrastructure/**/database*",
+            "engine/infrastructure/**/outbox*",
+            "engine/infrastructure/**/migrations/",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "AI_GATEWAY_P0",
         "risk_class": "high",
         "invariants": [5, 6, 7, 8],

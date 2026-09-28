@@ -50,12 +50,16 @@ python3 scripts/capsule_audit.py --base-ref origin/main --head-ref HEAD
 
 ### 授权范围与角色矩阵的一致性核验
 
-对照 `scripts/agent_capsule.py` 的 `ROLE_DEFAULTS`：
+按该事件记录时的 `scripts/agent_capsule.py` `ROLE_DEFAULTS`：
 
 - `AGT-AI.write = ["engine/ai/", "engine/application/", "engine/tests/"]`
 - `AGT-DATA.write = ["engine/infrastructure/", "engine/tests/"]`
 
 与上述 4 枚胶囊 receipt 记录的写域**逐一吻合**，也与 `AGENTS.md` §4.1 所有权矩阵一致。即：这 4 个任务的授权本身正确，缺的只是凭证载体。
+
+2026-09-28 的 AO-04 治理修订后来为 AGT-AI 增加了 `engine/infrastructure/story_runtime.py`、
+`engine/infrastructure/episode_settlement.py` 与 `engine/infrastructure/scenarios/` 写入路径。
+上面的列表保留当时的范围与 receipt 事实，不追溯修改历史凭证。
 
 ## 4. 补证方案与代价
 

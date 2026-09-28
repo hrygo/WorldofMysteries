@@ -6,7 +6,13 @@
 
 ## 2. 授权目录与文件
 - `engine/ai/`
-- `engine/tests/test_ai_*.py`
+- `engine/application/`
+- `engine/tests/`
+- `engine/infrastructure/story_runtime.py`
+- `engine/infrastructure/episode_settlement.py`
+- `engine/infrastructure/scenarios/`（AO-04 §4 的生产场景 adapter，与 composition root 同属一条装配链）
+
+本节与 `scripts/agent_capsule.py` 的 `ROLE_DEFAULTS["AGT-AI"]` 同源；若二者分歧，以 `ROLE_DEFAULTS`（胶囊裁决的实际依据）为准，并由治理切片同步维护。
 
 ## 3. 严格禁止行为 (Invariants 5, 7, 8)
 - **绝对严禁** 为任何 Agent 或大模型挂载具备数据库写入能力的 Tool（不变量 5）。
