@@ -53,8 +53,13 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     private var adviceView: StoryAdviceGetViewDTO
     private var submitError: (any Error)?
     private var openError: (any Error)?
+    private var expressionAvailable = false
+    private var expressionResponse: StoryExpressionGetResponseDTO?
+    private var expressionError: (any Error)?
     private var gateStream: AsyncStream<Void>?
     private var gateContinuation: AsyncStream<Void>.Continuation?
+    private var expressionGateStream: AsyncStream<Void>?
+    private var expressionGateContinuation: AsyncStream<Void>.Continuation?
 
     init(log: StoryCallLog, journal: MemoryStoryJournal,
          entryView: StoryEntryViewDTO, openView: StoryOpenViewDTO,
@@ -69,6 +74,15 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     func setSubmitError(_ error: (any Error)?) { lock.withLock { submitError = error } }
     func setEntryView(_ view: StoryEntryViewDTO) { lock.withLock { entryView = view } }
+    func setExpressionAvailable(_ available: Bool) {
+        lock.withLock { expressionAvailable = available }
+    }
+    func setExpressionResponse(_ response: StoryExpressionGetResponseDTO?) {
+        lock.withLock { expressionResponse = response }
+    }
+    func setExpressionError(_ error: (any Error)?) {
+        lock.withLock { expressionError = error }
+    }
     /// Queued results model the Engine's per-turn views: each fixed turn
     /// commits its own revision and advertises the next advice.
     func enqueueSubmitView(_ view: StoryAdviceSubmitViewDTO) { lock.withLock { submitQueue.append(view) } }
@@ -91,6 +105,28 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
             return value
         }
         continuation?.finish()
+    }
+
+    func holdExpression() {
+        let pair = AsyncStream<Void>.makeStream()
+        lock.withLock {
+            expressionGateStream = pair.stream
+            expressionGateContinuation = pair.continuation
+        }
+    }
+
+    func releaseExpression() {
+        let continuation = lock.withLock { () -> AsyncStream<Void>.Continuation? in
+            let value = expressionGateContinuation
+            expressionGateContinuation = nil
+            expressionGateStream = nil
+            return value
+        }
+        continuation?.finish()
+    }
+
+    func supportsStoryExpression() async -> Bool {
+        lock.withLock { expressionAvailable }
     }
 
     var submittedCount: Int { log.values.filter { $0 == "client.submit" }.count }
@@ -130,6 +166,22 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     func storyAdvice(sessionId: String, inputTurnId: String) async throws -> StoryAdviceGetViewDTO {
         log.append("client.advice")
         return lock.withLock { adviceView }
+    }
+
+    func storyExpressionGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryExpressionGetResponseDTO {
+        log.append("client.expression")
+        let state = lock.withLock {
+            (expressionGateStream, expressionError, expressionResponse)
+        }
+        if let gate = state.0 {
+            for await _ in gate { break }
+        }
+        if let error = state.1 { throw error }
+        guard let response = state.2 else { throw EngineConnectionError.invalidFrame }
+        return response
     }
 }
 
@@ -207,7 +259,11 @@ struct StorySessionModelTests {
     /// Committed fixed turn `turn`: story revision equals the turn number, the
     /// store revision advances independently, and `can_submit` stays true until
     /// the fifth turn closes the run.
-    static func submitResult(turn: Int = 1, canSubmit: Bool? = nil) throws -> StoryAdviceSubmitViewDTO {
+    static func submitResult(
+        turn: Int = 1,
+        canSubmit: Bool? = nil,
+        delivery: StoryTurnDeliveryDTO? = nil
+    ) throws -> StoryAdviceSubmitViewDTO {
         let open = canSubmit ?? (turn < 5)
         let json = """
         {
@@ -224,7 +280,38 @@ struct StorySessionModelTests {
           "replayed": false
         }
         """
-        return try JSONDecoder().decode(StoryAdviceSubmitViewDTO.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(StoryAdviceSubmitViewDTO.self, from: Data(json.utf8))
+        guard let delivery else { return decoded }
+        return StoryAdviceSubmitViewDTO(
+            schemaVersion: decoded.schemaVersion,
+            receipt: decoded.receipt,
+            session: decoded.session,
+            replayed: decoded.replayed,
+            delivery: delivery
+        )
+    }
+
+    static func expressionResult(
+        sessionId: String = "session_1",
+        turnId: String = "turn_first_001",
+        state: String = "ready"
+    ) throws -> StoryExpressionGetResponseDTO {
+        let segments = state == "ready"
+            ? #""segments":[{"type":"narration","text":"雨停了。"},{"type":"character","speaker_display_name":"伊芙琳·格雷","text":"我明白了。"}]"#
+            : #""segments":[],"reason":"expression_unavailable""#
+        let json = """
+        {
+          "schema_version": "1.0",
+          "session_id": "\(sessionId)",
+          "turn_id": "\(turnId)",
+          "narrative_state": "\(state)",
+          \(segments)
+        }
+        """
+        return try JSONDecoder().decode(
+            StoryExpressionGetResponseDTO.self,
+            from: Data(json.utf8)
+        )
     }
 
     static func sessionJSON(turn: Int, storeRevision: Int, canSubmit: Bool) -> String {
@@ -491,6 +578,8 @@ struct StorySessionModelTests {
             openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
                                            replayed: false),
             submitView: try Self.submitResult(), adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult())
         await model.refreshEntry()
         client.setSubmitError(EngineConnectionError.timedOut)
         model.draft = "先别问医生病人的事，我想看看他的反应。"
@@ -507,6 +596,8 @@ struct StorySessionModelTests {
         #expect(model.view?.turn == 1)
         #expect(log.values.filter { $0 == "client.submit" }.count == 1)
         #expect(log.values.contains("client.advice"))
+        #expect(model.expression?.narrativeState == .ready)
+        #expect(log.values.filter { $0 == "client.expression" }.count == 1)
     }
 
     @Test("A received request stays pending until the user continues explicitly")
@@ -575,6 +666,184 @@ struct StorySessionModelTests {
         client.setAdvice(try Self.adviceFound(committed: true))
         await model.recover()
         #expect(model.state == .unavailable)
+    }
+
+    @Test("Audio unavailable after commit still displays the persisted text")
+    func audioUnavailableDoesNotHidePersistedExpression() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let audioUnavailable = try StoryTurnDeliveryDTO(
+            state: .unavailable,
+            reason: "voice_unavailable"
+        )
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: try Self.submitResult(turn: 1, delivery: audioUnavailable),
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult())
+        await model.refreshEntry()
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+        model.draft = Self.advice(forTurn: 1)
+
+        await model.submit()
+
+        #expect(model.view?.turn == 1)
+        #expect(model.expression?.narrativeState == .ready)
+        #expect(model.expression?.segments.map(\.text) == ["雨停了。", "我明白了。"])
+        #expect(model.audioUnavailableReason == "voice_unavailable")
+        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.expression" }.count == 1)
+    }
+
+    @Test("Expression read failure never resubmits or labels a committed turn unsaved")
+    func expressionReadFailureIsReadOnly() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let audioUnavailable = try StoryTurnDeliveryDTO(
+            state: .unavailable,
+            reason: "voice_unavailable"
+        )
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: try Self.submitResult(turn: 1, delivery: audioUnavailable),
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionError(EngineConnectionError.timedOut)
+        await model.refreshEntry()
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+        model.draft = Self.advice(forTurn: 1)
+
+        await model.submit()
+
+        #expect(model.view?.turn == 1)
+        #expect(model.expressionReadFailed)
+        #expect(model.state == .ready)
+        #expect(!model.statusText.contains("未保存"))
+        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.expression" }.count == 1)
+    }
+
+    @Test("Restoring a committed session refreshes its expression without resubmitting")
+    func restoredSessionRefreshesExpressionReadOnly() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let session = try Self.view(turn: 1, storyRevision: 1, storeRevision: 2)
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(
+                session: session, storeRevision: 2, advice: [Self.advice(forTurn: 2)]),
+            openView: StoryOpenViewDTO(session: session, openedStoreRevision: 2,
+                                       replayed: false),
+            submitView: nil,
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult())
+
+        await model.refreshEntry()
+
+        #expect(model.view?.sessionId == "session_1")
+        #expect(model.view?.turn == 1)
+        #expect(model.expression?.narrativeState == .ready)
+        #expect(log.values.filter { $0 == "client.submit" }.isEmpty)
+        #expect(log.values.filter { $0 == "client.expression" }.count == 1)
+    }
+
+    @Test("Expression query is skipped when the Engine did not advertise its capability")
+    func missingExpressionCapabilityDegradesWithoutCallingMethod() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let audioUnavailable = try StoryTurnDeliveryDTO(
+            state: .unavailable,
+            reason: "voice_unavailable"
+        )
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(session: Self.view()),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: try Self.submitResult(turn: 1, delivery: audioUnavailable),
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(false)
+        await model.refreshEntry()
+        client.setEntryView(try Self.entry(
+            session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+            storeRevision: 2, advice: [Self.advice(forTurn: 2)]))
+        model.draft = Self.advice(forTurn: 1)
+
+        await model.submit()
+
+        #expect(model.view?.turn == 1)
+        #expect(model.expression == nil)
+        #expect(!model.expressionReadFailed)
+        #expect(log.values.filter { $0 == "client.submit" }.count == 1)
+        #expect(log.values.filter { $0 == "client.expression" }.isEmpty)
+    }
+
+    @Test("Expression replies for another session are discarded")
+    func mismatchedExpressionSessionIsDiscarded() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(
+                session: Self.view(turn: 1, storyRevision: 1, storeRevision: 2),
+                storeRevision: 2, advice: [Self.advice(forTurn: 2)]),
+            openView: try StoryOpenViewDTO(session: Self.view(), openedStoreRevision: 1,
+                                           replayed: false),
+            submitView: nil,
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult(sessionId: "session_other"))
+
+        await model.refreshEntry()
+
+        #expect(model.view?.sessionId == "session_1")
+        #expect(model.expression == nil)
+        #expect(model.expressionReadFailed)
+    }
+
+    @Test("Expression replies from an earlier connection generation are discarded")
+    func staleExpressionGenerationIsDiscarded() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let session = try Self.view(turn: 1, storyRevision: 1, storeRevision: 2)
+        let (model, client) = Self.makeModel(
+            log: log, journal: journal,
+            entryView: try Self.entry(
+                session: session, storeRevision: 2, advice: [Self.advice(forTurn: 2)]),
+            openView: StoryOpenViewDTO(session: session, openedStoreRevision: 2,
+                                       replayed: false),
+            submitView: nil,
+            adviceView: try Self.adviceFound())
+        client.setExpressionAvailable(true)
+        client.setExpressionResponse(try Self.expressionResult())
+        client.holdExpression()
+
+        let refresh = Task { await model.refreshEntry() }
+        for _ in 0..<200 {
+            if log.values.contains("client.expression") { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(log.values.contains("client.expression"))
+
+        model.detachForConnectionChange()
+        client.releaseExpression()
+        await refresh.value
+
+        #expect(model.state == .unavailable)
+        #expect(model.expression == nil)
+        #expect(!model.expressionReadFailed)
     }
 
     @Test("Recovery for an unknown input offers an explicit retry of the same identity")

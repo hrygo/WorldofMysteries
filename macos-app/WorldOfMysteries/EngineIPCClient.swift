@@ -86,6 +86,12 @@ public actor EngineIPCClient {
         handshake?.capabilities.contains("story.turn.submit") ?? false
     }
 
+    /// Capabilities are negotiated by `system.handshake`; health only reports
+    /// readiness and does not advertise methods.
+    public func supportsStoryExpression() async -> Bool {
+        handshake?.capabilities.contains("story.expression.get") ?? false
+    }
+
     public func openMedia(
         direction: MediaDirection,
         generation: Int64,
@@ -313,6 +319,28 @@ public actor EngineIPCClient {
                 sessionId: sessionId, inputTurnId: inputTurnId),
             traceId: traceId
         )
+    }
+
+    /// Read the persisted, player-disclosed text projection for a committed turn.
+    /// The capability check precedes encoding or sending so older Engines are safe.
+    public func storyExpressionGet(
+        sessionId: String,
+        turnId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryExpressionGetResponseDTO {
+        guard handshake?.capabilities.contains("story.expression.get") == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        let request = try StoryExpressionGetRequestDTO(sessionId: sessionId, turnId: turnId)
+        let response: StoryExpressionGetResponseDTO = try await storyRequest(
+            method: "story.expression.get",
+            payload: request,
+            traceId: traceId
+        )
+        guard response.sessionId == sessionId, response.turnId == turnId else {
+            throw EngineConnectionError.correlationMismatch
+        }
+        return response
     }
 
     private func storyRequest<Payload: Encodable, View: Decodable>(

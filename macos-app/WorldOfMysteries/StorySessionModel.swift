@@ -10,6 +10,22 @@ public protocol StoryEngineClient: Sendable {
     func storySession(sessionId: String) async throws -> StorySessionGetViewDTO
     func storySubmit(_ request: StoryAdviceSubmitRequestDTO) async throws -> StoryAdviceSubmitViewDTO
     func storyAdvice(sessionId: String, inputTurnId: String) async throws -> StoryAdviceGetViewDTO
+    func supportsStoryExpression() async -> Bool
+    func storyExpressionGet(sessionId: String, turnId: String) async throws -> StoryExpressionGetResponseDTO
+}
+
+public extension StoryEngineClient {
+    /// Older clients and test doubles default to the pre-expression capability set.
+    func supportsStoryExpression() async -> Bool { false }
+
+    func storyExpressionGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryExpressionGetResponseDTO {
+        _ = sessionId
+        _ = turnId
+        throw EngineConnectionError.methodUnavailable
+    }
 }
 
 /// Business failure reported by the Engine. The code is a stable public interface.
@@ -49,6 +65,9 @@ public final class StorySessionModel {
     public private(set) var state: State = .unavailable
     public private(set) var supportedAdvice: [String] = []
     public private(set) var view: StoryPublicViewDTO?
+    public private(set) var expression: StoryExpressionGetResponseDTO?
+    public private(set) var expressionReadFailed = false
+    public private(set) var audioUnavailableReason: String?
     public private(set) var pendingInputTurnId: String?
     public private(set) var generation: UInt64 = 0
     public private(set) var canRetrySameRequest = false
@@ -58,6 +77,8 @@ public final class StorySessionModel {
     @ObservationIgnored private let client: any StoryEngineClient
     @ObservationIgnored private let journal: any StoryJournalWriting
     @ObservationIgnored private let idFactory: @Sendable () -> String
+    @ObservationIgnored private var expressionRequestGeneration: UInt64 = 0
+    @ObservationIgnored private var currentCommittedTurnId: String?
 
     public init(
         client: any StoryEngineClient,
@@ -142,7 +163,12 @@ public final class StorySessionModel {
     /// Connection generation changes discard stale completions and never resubmit.
     public func detachForConnectionChange() {
         generation &+= 1
+        expressionRequestGeneration &+= 1
         state = .unavailable
+        expression = nil
+        expressionReadFailed = false
+        audioUnavailableReason = nil
+        currentCommittedTurnId = nil
         pendingInputTurnId = nil
         canRetrySameRequest = false
         lastServiceCode = nil
@@ -179,7 +205,7 @@ public final class StorySessionModel {
     private func apply(entry: StoryEntryViewDTO, attempt: UInt64) async {
         guard let session = entry.session else {
             pendingInputTurnId = entry.pendingInputTurnId
-            view = nil
+            updateCurrentSession(nil)
             if entry.pendingInputTurnId != nil {
                 state = .pending
                 return
@@ -188,7 +214,7 @@ public final class StorySessionModel {
             await recoverPendingOpen(entry: entry, attempt: attempt)
             return
         }
-        view = session
+        updateCurrentSession(session)
         pendingInputTurnId = nil
         let record = try? journal.load()
         if let record, let frozen = record.frozenSubmission, frozen.sessionId == session.sessionId {
@@ -196,12 +222,26 @@ public final class StorySessionModel {
                 clearCommittedJournal()
                 state = Self.settledState(session)
                 canRetrySameRequest = false
+                if let turnId = currentCommittedTurnId {
+                    await refreshExpression(
+                        sessionId: session.sessionId,
+                        turnId: turnId,
+                        attempt: attempt
+                    )
+                }
             } else {
                 await recover()
             }
             return
         }
         state = Self.settledState(session)
+        if let turnId = currentCommittedTurnId {
+            await refreshExpression(
+                sessionId: session.sessionId,
+                turnId: turnId,
+                attempt: attempt
+            )
+        }
     }
 
     /// A committed turn is only "completed" when the Engine stops advertising
@@ -221,7 +261,7 @@ public final class StorySessionModel {
             let opened = try await client.storyOpen(
                 openRequestId: openRequestId, expectedStoreRevision: frozenRevision)
             guard attempt == generation else { return }
-            view = opened.session
+            updateCurrentSession(opened.session)
             try? journal.save(
                 StoryRequestRecord(phase: .opened, openRequestId: openRequestId,
                                    openStoreRevision: frozenRevision,
@@ -247,7 +287,7 @@ public final class StorySessionModel {
             let opened = try await client.storyOpen(
                 openRequestId: openRequestId, expectedStoreRevision: expectedStoreRevision)
             guard attempt == generation else { return }
-            view = opened.session
+            updateCurrentSession(opened.session)
             guard writeJournal(
                 StoryRequestRecord(phase: .opened, openRequestId: openRequestId,
                                    openStoreRevision: expectedStoreRevision,
@@ -321,7 +361,12 @@ public final class StorySessionModel {
                 expectedStoreRevision: frozen.expectedStoreRevision)
             let result = try await client.storySubmit(request)
             guard attempt == generation else { return }
-            view = result.session
+            updateCurrentSession(result.session, committedTurnId: result.receipt.turnId)
+            if let delivery = result.delivery, delivery.state == .unavailable {
+                audioUnavailableReason = delivery.reason
+            } else {
+                audioUnavailableReason = nil
+            }
             draft = ""
             try? journal.save(record.withPhase(.committed))
             lastServiceCode = nil
@@ -334,6 +379,13 @@ public final class StorySessionModel {
                 // `can_submit == false` is the Engine's closed-run signal, so the
                 // last turn's advice must not stay advertised.
                 supportedAdvice = []
+            }
+            if let turnId = currentCommittedTurnId {
+                await refreshExpression(
+                    sessionId: result.session.sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                )
             }
         } catch {
             guard attempt == generation else { return }
@@ -354,7 +406,7 @@ public final class StorySessionModel {
             supportedAdvice = entry.supportedAdvice
             pendingInputTurnId = entry.pendingInputTurnId
             guard let session = entry.session else { return }
-            view = session
+            updateCurrentSession(session)
             if entry.pendingInputTurnId != nil {
                 state = .pending
             } else {
@@ -362,6 +414,58 @@ public final class StorySessionModel {
             }
         } catch {
             // Committed facts stay authoritative; only the advice hint is stale.
+        }
+    }
+
+    /// Reads the durable, player-disclosed text projection after commit or restore.
+    /// It never resubmits input and treats a query failure as a read failure only.
+    private func refreshExpression(
+        sessionId: String,
+        turnId: String,
+        attempt: UInt64
+    ) async {
+        guard attempt == generation,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
+            return
+        }
+        expressionRequestGeneration &+= 1
+        let queryAttempt = expressionRequestGeneration
+        expression = nil
+        expressionReadFailed = false
+
+        guard await client.supportsStoryExpression(),
+              attempt == generation,
+              queryAttempt == expressionRequestGeneration,
+              view?.sessionId == sessionId,
+              currentCommittedTurnId == turnId else {
+            return
+        }
+
+        do {
+            let response = try await client.storyExpressionGet(
+                sessionId: sessionId,
+                turnId: turnId
+            )
+            guard attempt == generation,
+                  queryAttempt == expressionRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return
+            }
+            guard response.sessionId == sessionId, response.turnId == turnId else {
+                expressionReadFailed = true
+                return
+            }
+            expression = response
+        } catch {
+            guard attempt == generation,
+                  queryAttempt == expressionRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return
+            }
+            expressionReadFailed = true
         }
     }
 
@@ -411,7 +515,14 @@ public final class StorySessionModel {
         do {
             let fetched = try await client.storySession(sessionId: sessionId)
             guard attempt == generation else { return }
-            view = fetched.session
+            updateCurrentSession(fetched.session)
+            if let turnId = currentCommittedTurnId {
+                await refreshExpression(
+                    sessionId: fetched.session.sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                )
+            }
         } catch {
             // A failed refresh must not invent a failure the player did not have:
             // the committed world is unchanged and the next read will catch up.
@@ -436,13 +547,19 @@ public final class StorySessionModel {
                 state = .failed(code: "input_not_found")
                 return
             }
-            if let session = found.session { view = session }
+            if let session = found.session { updateCurrentSession(session) }
             switch receipt.status {
             case "committed":
                 try? journal.save(record.withPhase(.committed))
                 canRetrySameRequest = false
+                currentCommittedTurnId = receipt.turnId
                 let settled = found.session ?? view
                 state = settled.map(Self.settledState) ?? .completed
+                await refreshExpression(
+                    sessionId: frozen.sessionId,
+                    turnId: receipt.turnId,
+                    attempt: attempt
+                )
             case "received":
                 canRetrySameRequest = true
                 state = .pending
@@ -465,6 +582,43 @@ public final class StorySessionModel {
     }
 
     // MARK: - Helpers
+
+    private func updateCurrentSession(
+        _ session: StoryPublicViewDTO?,
+        committedTurnId: String? = nil
+    ) {
+        let oldSessionId = view?.sessionId
+        let oldTurn = view?.turn
+        let oldCommittedTurnId = currentCommittedTurnId
+        view = session
+
+        guard let session else {
+            currentCommittedTurnId = nil
+            expressionRequestGeneration &+= 1
+            expression = nil
+            expressionReadFailed = false
+            audioUnavailableReason = nil
+            return
+        }
+
+        let sameSessionAndTurn = oldSessionId == session.sessionId && oldTurn == session.turn
+        let nextCommittedTurnId =
+            committedTurnId
+            ?? session.lastCommittedTurnId
+            ?? (sameSessionAndTurn ? oldCommittedTurnId : nil)
+        let changedSessionOrTurn =
+            oldSessionId != session.sessionId
+            || oldTurn != session.turn
+            || oldCommittedTurnId != nextCommittedTurnId
+
+        if changedSessionOrTurn {
+            expressionRequestGeneration &+= 1
+            expression = nil
+            expressionReadFailed = false
+            audioUnavailableReason = nil
+        }
+        currentCommittedTurnId = nextCommittedTurnId
+    }
 
     private func writeJournal(_ record: StoryRequestRecord) -> Bool {
         do {

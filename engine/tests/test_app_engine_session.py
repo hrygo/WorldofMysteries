@@ -69,6 +69,10 @@ def app_driver(tmp_path_factory):
     sources = ['IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',
                'EngineSocketTransport', 'EngineIPCClient', 'EngineProcessManager', 'EngineConnectionState',
                'StorySessionControl', 'StoryRequestJournal', 'StorySessionModel', 'AppState',
+               # story.expression.get DTOs. EngineIPCClient and StorySessionModel
+               # decode against these types, so omitting the file breaks the real
+               # App build below with "cannot find type ... in scope".
+               'StoryExpressionControl',
                # AppState owns the voice turn controller, so the media stack it
                # composes is part of compiling the real App, not an extra.
                'Media/VoiceTurnController', 'Media/EngineMediaPlaybackSession',
