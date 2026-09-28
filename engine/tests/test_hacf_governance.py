@@ -63,6 +63,50 @@ def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_test
     )["verdict"] == "out_of_scope"
 
 
+def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
+    """AI may update the two composition roots while data infrastructure stays closed."""
+    role = agent_capsule.ROLE_DEFAULTS["AGT-AI"]
+    capsule = {
+        "assigned_role": "AGT-AI",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    for path in (
+        "engine/infrastructure/story_runtime.py",
+        "engine/infrastructure/episode_settlement.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized"
+
+    for path in (
+        "engine/infrastructure/database_manager.py",
+        "engine/infrastructure/database_migrations.py",
+        "engine/infrastructure/migrations/0001_add_story_state.sql",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "forbidden"
+
+    assert hacf_policy.path_verdict(
+        capsule, "engine/infrastructure/story_runtime_helpers.py"
+    )["verdict"] == "out_of_scope"
+
+    composition_roots = {
+        "engine/infrastructure/story_runtime.py",
+        "engine/infrastructure/episode_settlement.py",
+    }
+    for candidate in (REPO_ROOT / "engine/infrastructure").rglob("*"):
+        if not candidate.is_file():
+            continue
+        path = candidate.relative_to(REPO_ROOT).as_posix()
+        verdict = hacf_policy.path_verdict(capsule, path)["verdict"]
+        if path in composition_roots:
+            assert verdict == "authorized"
+        else:
+            assert verdict in {"forbidden", "out_of_scope"}
+
+
 def test_project_status_renders_completed_milestones_clearly(capsys):
     """Completed milestones must not share the in-progress badge in the status report."""
     state = {

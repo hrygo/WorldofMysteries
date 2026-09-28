@@ -48,10 +48,27 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
         "contracts": ["world_snapshot.schema.json", "state_delta.schema.json", "domain_event.schema.json"],
     },
+    # AO-04 narrow allowlist: facade/live factory signatures and composition-root
+    # wiring must compile in the same slice; splitting them makes FULL_P0 fail.
+    # Only these two composition files are writable, not all of infrastructure.
     "AGT-AI": {
-        "write": ["engine/ai/", "engine/application/", "engine/tests/"],
+        "write": [
+            "engine/ai/",
+            "engine/application/",
+            "engine/tests/",
+            "engine/infrastructure/story_runtime.py",
+            "engine/infrastructure/episode_settlement.py",
+        ],
         "read": ["engine/ai/", "engine/application/", "engine/tests/", "contracts/"],
-        "forbidden": ["macos-app/**", "engine/domain/**", "engine/infrastructure/**", ".hacf/**", ".github/**"],
+        "forbidden": [
+            "macos-app/**",
+            "engine/domain/**",
+            "engine/infrastructure/database*",
+            "engine/infrastructure/outbox*",
+            "engine/infrastructure/migrations/",
+            ".hacf/**",
+            ".github/**",
+        ],
         "gate_profile": "AI_GATEWAY_P0",
         "risk_class": "high",
         "invariants": [5, 6, 7, 8],

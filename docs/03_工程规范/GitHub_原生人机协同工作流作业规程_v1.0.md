@@ -150,7 +150,7 @@ python3 scripts/collab_pipeline.py integrate --branch feat/m2-data-kernel --auto
 | **`AGT-ARB`** | 架构仲裁者 | `docs/`, `contracts/schemas/`, `scripts/` | `@hrygo` | 全部 15 项不变量守卫 |
 | **`AGT-DOM`** | 领域逻辑编织者 | `engine/domain/`, `engine/tests/` | `@hrygo` | #1, #2, #4, #5, #6, #8, #9 |
 | **`AGT-DATA`** | 数据内核管家 | `engine/infrastructure/database*`, `outbox*` | `@hrygo` | #3, #10 (只读 Canon), #11 (权威与投影分离) |
-| **`AGT-AI`** | AI 运行时网关 | `engine/ai/`, `engine/application/` | `@hrygo` | #5 (仅产出 Proposal), #6, #7, #8 |
+| **`AGT-AI`** | AI 运行时网关 | `engine/ai/`, `engine/application/`, `engine/tests/`, `engine/infrastructure/story_runtime.py`, `engine/infrastructure/episode_settlement.py` | `@hrygo` | #5 (仅产出 Proposal), #6, #7, #8 |
 | **`AGT-VOICE`** | 语音引擎大师 | `engine/domain/audio*`, `infrastructure/audio/` | `@hrygo` | #9 (提交即命运), OpenAI SDK 对接 |
 | **`AGT-MAC`** | macOS App 极客 | `macos-app/WorldOfMysteries/`, `macos-app/WorldOfMysteriesTests/`, `engine/tests/test_app_engine_session.py` | `@hrygo` | #12 (App 零直连 DB, 纯 UDS 通信) |
 | **`AGT-QA`** | 自动化质检官 | `fixtures/golden_001/`, 全部测试套件 | `@hrygo` | 负责三阶段门禁终审与 Golden Scenario |
