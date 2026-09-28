@@ -49,7 +49,7 @@
 | 数据内核 | SQLite 本地多模型四库物理隔离：`canon.db` / `world.db` / `retrieval.db` / `runtime.db` |
 | 进程通信 | UDS IPC + NDJSON，32-bit length prefixed framing（App 不直连数据库） |
 | 语音交互 | OpenAI Audio API 规范适配器，默认对接本地 SpeechRail，支持兼容第三方热拔插 |
-| 协同框架 | HACF 2.0（任务胶囊切片 + Git Worktree 事务隔离 + sha256 机器验签） |
+| 协同框架 | HACF 2.1（任务胶囊切片 + 受保护门禁主权 + Worktree 事务隔离 + 可复算凭单链） |
 
 ```text
 Canon ─▶ Domain Truth (World · Character · Memory · Story · Outcome Resolver)
@@ -74,7 +74,7 @@ Canon ─▶ Domain Truth (World · Character · Memory · Story · Outcome Reso
 ## 5. 仓库结构
 
 ```text
-contracts/    跨语言协议与 Schema 唯一事实源（28 个 JSON Schema）
+contracts/    跨语言协议与 Schema 唯一事实源（27 个产品领域 Schema，另有 6 个 IPC 协议与 3 个研发编排协议）
 engine/       Local Engine Service：domain / application / infrastructure / ai / tests
 macos-app/    SwiftUI 宿主应用与 IPC 客户端、DomainContracts DTO、Swift Testing 测试
 fixtures/     Golden Scenario 固件（golden_001 5 轮状态断言资产）
@@ -109,7 +109,7 @@ cd macos-app && swift test
 | `.github/workflows/pr-gate-reporter.yml` | 在 PR 自动发表质检报告卡片 |
 | `.github/workflows/nightly-golden-audit.yml` | Golden Scenario 夜间回归 |
 
-## 8. 人机协同开发 (HACF 2.0)
+## 8. 人机协同开发 (HACF 2.1)
 
 ```bash
 # 1. 任务切片派发
@@ -118,7 +118,7 @@ python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title 
 # 2. 并行无锁工作区
 python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
 
-# 3. 验签与原子合入
+# 3. 边界裁决、凭单签发与原子合入
 python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
 python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 ```
@@ -152,4 +152,3 @@ python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
 ---
 
 **状态**：工程交付基线 v1.0 · 未执行的技术 Gate 不因文档存在而被视为已通过。
-
