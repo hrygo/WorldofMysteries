@@ -19,7 +19,7 @@ import threading
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -384,6 +384,43 @@ def _post_commit_job_authorizer(action, table, column, database, _trigger):
     return sqlite3.SQLITE_DENY
 
 
+def _post_commit_job_registration_authorizer(action, table, _column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    table_name = table.lower() if isinstance(table, str) else ''
+    if action == sqlite3.SQLITE_INSERT:
+        return (
+            sqlite3.SQLITE_OK
+            if table_name in _POST_COMMIT_JOB_INSERT_TABLES
+            else sqlite3.SQLITE_DENY
+        )
+    if action in (sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE):
+        return sqlite3.SQLITE_DENY
+    if action in (
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_FUNCTION,
+        sqlite3.SQLITE_RECURSIVE,
+    ):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
+class PostCommitJobRegistrationTransaction:
+    """Insert-only nested capability for registration inside a domain commit."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
 def _presentation_authorizer(action, table, _column, database, _trigger):
     if database not in (None, 'main'):
         return sqlite3.SQLITE_DENY
@@ -405,6 +442,7 @@ class DomainTransaction:
         self.revision = revision
         self._active = True
         self._thread = threading.get_ident()
+        self._post_commit_job_registration_active = False
 
     def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
         if not self._active or threading.get_ident() != self._thread:
@@ -412,12 +450,32 @@ class DomainTransaction:
         with closing(self._connection.execute(sql, parameters)) as cursor:
             return [dict(row) for row in cursor] if cursor.description else []
 
+    @contextmanager
+    def _post_commit_job_registration_scope(self):
+        """Temporarily permit insert-only task registration in this domain commit."""
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        if self._post_commit_job_registration_active:
+            raise StorageError('Post-COMMIT job registration scope is already active')
+        self._post_commit_job_registration_active = True
+        self._connection.set_authorizer(_post_commit_job_registration_authorizer)
+        scoped = PostCommitJobRegistrationTransaction(self._connection)
+        try:
+            yield scoped
+        finally:
+            scoped._active = False
+            self._connection.set_authorizer(_repository_authorizer)
+            self._post_commit_job_registration_active = False
+
 
 def _repository_authorizer(action, table, _column, database, _trigger):
     if database not in (None, 'main'):
         return sqlite3.SQLITE_DENY
     if action in (sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE):
-        return sqlite3.SQLITE_DENY if table.lower() in _PROTECTED else sqlite3.SQLITE_OK
+        table_name = table.lower() if isinstance(table, str) else ''
+        if table_name in _POST_COMMIT_JOB_INSERT_TABLES:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_DENY if table_name in _PROTECTED else sqlite3.SQLITE_OK
     if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, sqlite3.SQLITE_RECURSIVE):
         return sqlite3.SQLITE_OK
     return sqlite3.SQLITE_DENY
