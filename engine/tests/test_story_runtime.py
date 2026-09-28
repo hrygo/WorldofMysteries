@@ -1449,6 +1449,7 @@ def test_ipc_entrypoint_selects_runtime_mode_and_passes_switch_to_open(
         try:
             worker = runtime._post_commit_worker
             runtime_observations["capabilities"] = set(runtime.capabilities)
+            runtime_observations["worker_present"] = worker is not None
             runtime_observations["worker_running"] = (
                 worker is not None and worker.is_running
             )
@@ -1497,10 +1498,12 @@ def test_ipc_entrypoint_selects_runtime_mode_and_passes_switch_to_open(
     if enabled:
         assert v2_submit_methods <= capabilities
         assert v1_submit_methods.isdisjoint(capabilities)
+        assert runtime_observations["worker_present"] is True
         assert runtime_observations["worker_running"] is True
     else:
         assert v1_submit_methods <= capabilities
         assert v2_submit_methods.isdisjoint(capabilities)
+        assert runtime_observations["worker_present"] is False
         assert runtime_observations["worker_running"] is False
         assert runtime_observations["jobs"] == []
 
