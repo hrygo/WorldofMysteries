@@ -27,20 +27,27 @@ from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
 from ai.live_turn_workers import LiveFirstTurnFactory
 from ai.openai_compatible import ModelEndpointConfig, ModelTransportError
 from application.audio_disclosure import AudioDisclosureAuthorizer
+from application.narrative_publication import (
+    CommittedNarrativeService,
+    CommittedNarrativeSource,
+    NarrativeCandidate,
+    NarrativePublicationError,
+)
 from application.post_commit_expression import PostCommitExpressionService
 from application.speech_unit import SpeechUnitSealingService
+from application.story_expression import StoryExpressionQueryService
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
     StoryInitializationService,
     TrustedScenarioBundle,
 )
-from application.story_session_open import StorySessionOpenService
 from application.story_session_facade import (
     PublicStorySessionView,
     StorySessionFacade,
     SubmitAdviceCommand,
     TurnDeliveryView,
 )
+from application.story_session_open import StorySessionOpenService
 from application.story_turn_commit import StoryTurnCommitResult
 
 from .audio.config import AudioProviderConfig
@@ -61,8 +68,13 @@ from .episode_settlement import (
 from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
+from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
+from .story_expression_control import (
+    SQLiteNarrativePublicIdentityReader,
+    story_expression_control_handlers,
+)
 from .story_session_open_repository import SQLiteStorySessionOpenPort
 from .story_session_query import SQLiteStorySessionQuery
 from .story_session_repository import SQLiteStorySessionCommitPort
@@ -160,7 +172,18 @@ class StoryRuntime:
         self._projector = OutboxProjector(database)
         self._model_ready = model_ready
         self._voice = voice
-        self._handlers = story_control_handlers(facade)
+        narrative_port = SQLiteNarrativeBlockRepository(database)
+        expression = StoryExpressionQueryService(
+            reads=narrative_port,
+            disclosure=AudioDisclosureAuthorizer(narrative_port),
+            identities=SQLiteNarrativePublicIdentityReader(
+                SQLiteStoryBootstrapRepository(database)
+            ),
+        )
+        self._handlers = {
+            **story_control_handlers(facade),
+            **story_expression_control_handlers(expression),
+        }
 
     @classmethod
     async def open(
@@ -243,9 +266,10 @@ class StoryRuntime:
                 narratives=SQLiteNarrativeBlockRepository(database),
             ),
             content_path=content_path,
-            # With a live model the delivery pipeline narrates the turn itself;
-            # the frozen templates would be a second writer for the same
-            # narrative slot. Without a model the frozen path is unchanged.
+            # With a live model the post-COMMIT narrative service publishes its
+            # disclosed model expression; frozen templates would be a second
+            # writer for the same narrative slot. Without a model the authored
+            # frozen path is unchanged.
             frozen_expression=model_endpoint is None,
         )
         query = SQLiteStorySessionQuery(
@@ -338,7 +362,7 @@ class StoryRuntime:
 
 
 class _DeliveryCoordinator:
-    """Resolve the session's voice binding, then narrate, seal and hand off."""
+    """Publish durable text before resolving or attempting its optional audio."""
 
     def __init__(
         self,
@@ -368,16 +392,85 @@ class _DeliveryCoordinator:
         view: PublicStorySessionView,
     ) -> TurnDeliveryView:
         """Post-COMMIT expression.  A failure here never touches Domain state."""
-        if self._voice is None or self._audio is None or not self._voice_id:
-            return TurnDeliveryView(state="unavailable", reason="voice_not_configured")
         try:
             snapshot = await self._query.session(command.session_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 - a read failure cannot unwind COMMIT
             return TurnDeliveryView(state="unavailable", reason="session_unavailable")
 
-        compiler = self._first_turn.narrative_compiler(  # type: ignore[attr-defined]
-            snapshot.bootstrap
+        compiler_factory = getattr(self._first_turn, "narrative_compiler", None)
+        source: CommittedNarrativeSource | None = None
+        if callable(compiler_factory):
+            try:
+                compiler = compiler_factory(snapshot.bootstrap)
+                story_revision = result.turn.committed_story_revision
+                if story_revision is None:
+                    raise NarrativePublicationError(
+                        "committed_story_revision_missing"
+                    )
+                source = CommittedNarrativeSource(
+                    turn_id=result.turn.id,
+                    session_id=result.turn.session_id,
+                    story_revision=story_revision,
+                    state_delta_id=result.delta.id,
+                    state_delta=result.delta,
+                    scene_id=result.delta.story_delta.scene_id,
+                    protagonist_id=result.session.protagonist_id,
+                    disclosed_facts=(
+                        f"{_outcome_summary(result, snapshot.bootstrap)}\n"
+                        f"玩家原话：{command.raw_input}"
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001 - expression failure is post-COMMIT
+                return TurnDeliveryView(
+                    state="unavailable",
+                    reason=_delivery_failure_code(exc, "narrative_unavailable"),
+                )
+        else:
+            # Frozen turns publish their authored NarrativeBlock during COMMIT.
+            # The service still reads it first and will not invoke this sentinel.
+            compiler = _UnavailableNarrativeCompiler()
+
+        publication = CommittedNarrativeService(
+            reads=self._narratives,
+            publisher=self._narratives,
+            compiler=compiler,
         )
+        try:
+            narrative = await publication.ensure(
+                turn_id=result.turn.id,
+                source=source,
+            )
+        except Exception as exc:  # noqa: BLE001 - preserve the committed Domain result
+            return TurnDeliveryView(
+                state="unavailable",
+                reason=_delivery_failure_code(exc, "narrative_unavailable"),
+            )
+
+        story_revision = result.turn.committed_story_revision
+        if story_revision is None:
+            return TurnDeliveryView(
+                state="unavailable",
+                reason="committed_story_revision_missing",
+            )
+
+        if self._voice is None or self._audio is None or not self._voice_id:
+            return TurnDeliveryView(state="unavailable", reason="voice_not_configured")
+
+        segment_index = next(
+            (
+                index
+                for index, segment in enumerate(narrative.segments)
+                if segment.type == "character"
+                and segment.speaker_id == result.session.protagonist_id
+            ),
+            None,
+        )
+        if segment_index is None:
+            return TurnDeliveryView(
+                state="unavailable",
+                reason="narrative_has_no_character_segment",
+            )
+
         try:
             resolved = await resolve_voice_runtime(
                 repository=self._bindings,
@@ -388,9 +481,13 @@ class _DeliveryCoordinator:
             )
         except VoiceBindingResolutionError as exc:
             return TurnDeliveryView(state="unavailable", reason=exc.code)
+        except Exception:  # noqa: BLE001 - hide provider details after text publication
+            return TurnDeliveryView(
+                state="unavailable",
+                reason="voice_runtime_unavailable",
+            )
 
         pipeline = TurnDeliveryPipeline(
-            narratives=self._narratives,
             sealing=SpeechUnitSealingService(
                 disclosure=AudioDisclosureAuthorizer(self._narratives),
                 bindings=self._bindings,
@@ -406,24 +503,30 @@ class _DeliveryCoordinator:
                 "desired_performance": resolved.performance,
                 "performance_capabilities": resolved.capabilities,
             },
-            narrate=_narrator(compiler, command, result, snapshot.bootstrap),
         )
         try:
             receipt = await pipeline.deliver(
                 TurnDeliveryOutcome(
                     turn_id=result.turn.id,
                     session_id=command.session_id,
-                    story_revision=result.turn.committed_story_revision or 0,
+                    story_revision=story_revision,
                     state_delta_id=result.delta.id,
-                    scene_id=result.delta.story_delta.scene_id,
-                    protagonist_id=result.session.protagonist_id,
-                    player_action=command.raw_input,
-                    character_reply="",
-                    outcome_summary=_outcome_summary(result, snapshot.bootstrap),
+                    narrative=narrative,
+                    segment_index=segment_index,
                 )
             )
+            if receipt is None:
+                return TurnDeliveryView(
+                    state="unavailable",
+                    reason="narrative_has_no_character_segment",
+                )
         except TurnDeliveryError as exc:
             return TurnDeliveryView(state="unavailable", reason=exc.code)
+        except Exception:  # noqa: BLE001 - audio failures cannot unwind COMMIT
+            return TurnDeliveryView(
+                state="unavailable",
+                reason="voice_delivery_unavailable",
+            )
         return TurnDeliveryView(
             state="ready",
             narrative_block_id=receipt.narrative_block_id,
@@ -433,11 +536,23 @@ class _DeliveryCoordinator:
         )
 
 
-def _narrator(compiler, command: SubmitAdviceCommand, result: StoryTurnCommitResult, bootstrap):
-    async def narrate(committed: str) -> str:
-        return await compiler.compile(committed=f"{committed}\n玩家原话：{command.raw_input}")
+class _UnavailableNarrativeCompiler:
+    async def compile(self, *, committed: str) -> NarrativeCandidate:
+        del committed
+        raise NarrativePublicationError("narrative_compiler_unavailable")
 
-    return narrate
+
+def _delivery_failure_code(error: Exception, fallback: str) -> str:
+    code = getattr(error, "code", None)
+    if (
+        isinstance(code, str)
+        and code
+        and len(code) <= 128
+        and code.isascii()
+        and all(char.islower() or char.isdigit() or char == "_" for char in code)
+    ):
+        return code
+    return fallback
 
 
 def _outcome_summary(result: StoryTurnCommitResult, bootstrap) -> str:

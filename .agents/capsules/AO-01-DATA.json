@@ -1,0 +1,144 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-01-DATA",
+  "capsule_revision": 1,
+  "task_id": "AO-01-DATA",
+  "title": "Implement AO-01-DATA",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-28T04:46:18.459606+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "ef95822ee42de29b507c13017ebf469abd922212",
+    "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+    "context_snapshot": "sha256:ce6a9e5635e662d32ed1420da3b8ae65c365204371558eddf86e76ea88d25e52"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:DatabaseManagerProtocol@engine/infrastructure/database_manager.py:40",
+      "symbol:RevisionConflict@engine/infrastructure/database_manager.py:45",
+      "symbol:IdempotencyConflict@engine/infrastructure/database_manager.py:49",
+      "symbol:_text@engine/infrastructure/database_manager.py:53",
+      "symbol:_json@engine/infrastructure/database_manager.py:60",
+      "symbol:DatabasePaths@engine/infrastructure/database_manager.py:83",
+      "symbol:StoredEvent@engine/infrastructure/database_manager.py:110",
+      "symbol:CommitRequest@engine/infrastructure/database_manager.py:122",
+      "symbol:CommitResult@engine/infrastructure/database_manager.py:155",
+      "symbol:TurnCommandTransaction@engine/infrastructure/database_manager.py:165",
+      "symbol:_turn_command_authorizer@engine/infrastructure/database_manager.py:185",
+      "symbol:PresentationTransaction@engine/infrastructure/database_manager.py:213",
+      "symbol:AudioAssetTransaction@engine/infrastructure/database_manager.py:231",
+      "symbol:AudioCleanupTransaction@engine/infrastructure/database_manager.py:249",
+      "symbol:_audio_cleanup_authorizer@engine/infrastructure/database_manager.py:264",
+      "symbol:_audio_asset_authorizer@engine/infrastructure/database_manager.py:277",
+      "symbol:PostCommitTransaction@engine/infrastructure/database_manager.py:290",
+      "symbol:_post_commit_authorizer@engine/infrastructure/database_manager.py:311",
+      "symbol:_presentation_authorizer@engine/infrastructure/database_manager.py:327",
+      "symbol:DomainTransaction@engine/infrastructure/database_manager.py:337",
+      "symbol:_repository_authorizer@engine/infrastructure/database_manager.py:356",
+      "symbol:DatabaseManager@engine/infrastructure/database_manager.py:366",
+      "symbol:close@engine/infrastructure/database_manager.py:42",
+      "symbol:validate_keys@engine/infrastructure/database_manager.py:61",
+      "symbol:for_world@engine/infrastructure/database_manager.py:90",
+      "symbol:normalized@engine/infrastructure/database_manager.py:97",
+      "symbol:freeze@engine/infrastructure/database_manager.py:132",
+      "symbol:__init__@engine/infrastructure/database_manager.py:173",
+      "symbol:execute@engine/infrastructure/database_manager.py:178",
+      "symbol:__init__@engine/infrastructure/database_manager.py:216"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 744,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "DatabaseManagerProtocol",
+      "RevisionConflict",
+      "IdempotencyConflict",
+      "_text",
+      "_json",
+      "DatabasePaths",
+      "StoredEvent",
+      "CommitRequest",
+      "CommitResult",
+      "TurnCommandTransaction",
+      "_turn_command_authorizer",
+      "PresentationTransaction",
+      "AudioAssetTransaction",
+      "AudioCleanupTransaction",
+      "_audio_cleanup_authorizer",
+      "_audio_asset_authorizer",
+      "PostCommitTransaction",
+      "_post_commit_authorizer",
+      "_presentation_authorizer",
+      "DomainTransaction",
+      "_repository_authorizer",
+      "DatabaseManager",
+      "close",
+      "validate_keys",
+      "for_world",
+      "normalized",
+      "freeze",
+      "__init__",
+      "execute",
+      "__init__"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
