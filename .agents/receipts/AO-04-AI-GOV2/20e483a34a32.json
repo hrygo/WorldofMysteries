@@ -1,0 +1,141 @@
+{
+  "receipt_id": "RCP-WORK-AO-04-AI-GOV2-20e483a34a32",
+  "receipt_type": "work",
+  "task_id": "AO-04-AI-GOV2",
+  "capsule_id": "CAP-AO-04-AI-GOV2",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:b17a154e928ace6e06fc15b845ca21b40579513aa5ea808f76eb9b4f0c3b72fe",
+  "diff_digest": "sha256:49db6be14de6293c644177e5d6baade52929e32100bef909d089ea7d3417c384",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "cc3365e78559143fb87a2cb8839ed8780f628d44",
+  "head_commit": "20e483a34a32931ebcc75a4b00387c1ba208508e",
+  "target_ref": "origin/main",
+  "target_sha": "dace2ddf6e229f8a57eeb7d751d441fb2b7281eb",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:10:40.609928+00:00",
+      "finished_at": "2026-09-28T07:10:40.652353+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:10:40.652460+00:00",
+      "finished_at": "2026-09-28T07:12:01.675870+00:00",
+      "raw_log_digest": "sha256:4418d8932ec00fad7cc6c2b3884cb1ef16d4ad4f6406475c31cdc799a2fc58d3",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:12:01.675953+00:00",
+      "finished_at": "2026-09-28T07:12:25.227219+00:00",
+      "raw_log_digest": "sha256:c6f22f4567c13f5c117d9a24d7be81bd1d567c96051fd51c3aa7141aa5c7d856",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T07:12:25.227306+00:00",
+      "finished_at": "2026-09-28T07:12:26.447885+00:00",
+      "raw_log_digest": "sha256:7796d0b38f1253b4b9728623c0df0d0bbcaec6a05c8e17c568273bbab3d8e1f3",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/prompts/04_ai_gateway_agent.md",
+      ".agents/skills/wom-collaborator/SKILL.md",
+      "AGENTS.md",
+      "docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md",
+      "docs/03_工程规范/HACF_自动胶囊丢失缺陷与补证记录.md",
+      "docs/03_工程规范/人机协同研发工作框架_v1.0.md",
+      "engine/tests/test_hacf_governance.py",
+      "scripts/agent_capsule.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      ".agents/prompts/04_ai_gateway_agent.md",
+      ".agents/skills/wom-collaborator/SKILL.md",
+      "AGENTS.md",
+      "scripts/agent_capsule.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-ao-04-ai-gov"
+  },
+  "started_at": "2026-09-28T07:10:40.571251+00:00",
+  "finished_at": "2026-09-28T07:12:26.607064+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
