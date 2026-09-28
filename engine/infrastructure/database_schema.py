@@ -10,7 +10,7 @@ from pathlib import Path
 from .sqlite_runtime import sqlite3
 
 SQLITE_VERSION = '3.53.4'
-SCHEMA_VERSIONS = {'world': 12, 'retrieval': 1, 'runtime': 1}
+SCHEMA_VERSIONS = {'world': 13, 'retrieval': 1, 'runtime': 1}
 SCHEMA_VERSION = SCHEMA_VERSIONS['world']
 APPLICATION_IDS = {'world': 0x574F4D57, 'retrieval': 0x574F4D50, 'runtime': 0x574F4D52}
 
