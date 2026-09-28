@@ -45,6 +45,9 @@ PACKAGE_PROBE_SWIFT_SOURCES = (
     # closure has to carry them or `swiftc` cannot resolve those types.
     'StoryExpressionControl',
     'StorySubmissionCoordinator',
+    # AO-03 added the post-COMMIT work query DTOs, which EngineIPCClient
+    # references for story.turn.work.get / story.turn.work.retry.
+    'StoryPostCommitControl',
     'StorySessionModel',
     'EngineIPCClient',
     'EngineProcessManager',
