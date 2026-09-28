@@ -1,0 +1,110 @@
+{
+  "receipt_id": "RCP-WORK-VOICE-V10-QUEUE-CAPACITY-92651633f01d",
+  "receipt_type": "work",
+  "task_id": "VOICE-V10-QUEUE-CAPACITY",
+  "capsule_id": "CAP-VOICE-V10-QUEUE-CAPACITY",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:fc2417eb92275dedd125dc8babb0b0bd9b50da7f69b8ab8fd180c01d43bbd32d",
+  "diff_digest": "sha256:8a62b05d627971ccfdbb4a3f5e1dc6ca093578f21750ad0885330b5e0e8e5f64",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "67c4eeb0e306fa0e1fa1314c98512532fa942660",
+  "head_commit": "92651633f01d41761d5720f2db7cee4491b1fed2",
+  "target_ref": "origin/main",
+  "target_sha": "67c4eeb0e306fa0e1fa1314c98512532fa942660",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T02:10:07.682685+00:00",
+      "finished_at": "2026-09-28T02:10:07.719930+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        ".build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T02:10:07.720005+00:00",
+      "finished_at": "2026-09-28T02:10:31.712621+00:00",
+      "raw_log_digest": "sha256:add2c1e324467e3dcfb395c73e4136b05b88ece9e9bc87f2a7755e2b5abf4f09",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/WorldofMysteries/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T02:10:31.712850+00:00",
+      "finished_at": "2026-09-28T02:10:33.037877+00:00",
+      "raw_log_digest": "sha256:add2b14467ebcb9c7ad44f2f8cde074b0ddd80fcd88308d9ea47dae2522bf8df",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/Media/VoiceProcessingDuplexGraph.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceDeviceAcceptanceTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-28T02:10:07.642844+00:00",
+  "finished_at": "2026-09-28T02:10:33.159302+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
