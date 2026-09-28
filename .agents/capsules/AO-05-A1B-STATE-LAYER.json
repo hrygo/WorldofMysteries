@@ -1,18 +1,18 @@
 {
   "$schema": "contracts/engineering/task_capsule.schema.json",
   "capsule_id": "CAP-AO-05-A1B-STATE-LAYER",
-  "capsule_revision": 1,
+  "capsule_revision": 2,
   "task_id": "AO-05-A1B-STATE-LAYER",
   "title": "Implement AO-05-A1B-STATE-LAYER",
   "assigned_role": "AGT-DATA",
   "status": "CREATED",
-  "created_at": "2026-09-28T23:16:32.931384+00:00",
+  "created_at": "2026-09-28T23:45:13.770309+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "1e950ce989444db78ba70f992b31615d2e854ed9",
+    "base_sha": "d6e81c06d61bca24b4338f8f154693f068148292",
     "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
-    "context_snapshot": "sha256:e940c5d90b7391090c702710e973d1bf666c4b44616426df016e6bea58c36850"
+    "context_snapshot": "sha256:c1b00305273a6c7c4b1ddf07895bb41dc16ae9f98a4721afec7a2ecccd3f2762"
   },
   "scope": {
     "read": [
@@ -144,5 +144,6 @@
       "INV-10",
       "INV-11"
     ]
-  }
+  },
+  "supersedes": "CAP-AO-05-A1B-STATE-LAYER"
 }
