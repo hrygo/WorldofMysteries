@@ -260,7 +260,8 @@ public struct ContentView: View {
             }
 
             // 真实五轮闭环与示例页面共存：本面板只显示已提交的持久事实。
-            StorySessionPanel(model: appState.storyModel)
+            StorySessionPanel(model: appState.storyModel, voice: appState.voiceTurn,
+                              turnContext: appState.voiceTurnContext)
 
             FateArtifactInterventionView()
         }

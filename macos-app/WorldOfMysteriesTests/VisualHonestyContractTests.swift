@@ -159,7 +159,7 @@ struct VisualHonestyContractTests {
         let panel = try source("macos-app/WorldOfMysteries/StorySessionPanel.swift")
 
         // The live panel exists, and the demo surfaces keep their honest label.
-        #expect(content.contains("StorySessionPanel(model: appState.storyModel)"))
+        #expect(content.contains("StorySessionPanel(model: appState.storyModel"))
         #expect(content.contains("isShowingDemoData"))
         #expect(appState.contains("public var isShowingDemoData: Bool { true }"))
         // Story entry is gated on the advertised capability and a real world service.
@@ -168,7 +168,6 @@ struct VisualHonestyContractTests {
         // The panel states the verification scope instead of claiming generated narrative.
         #expect(panel.contains("工程验证 · 固定五轮"))
         #expect(panel.contains("不是生成叙事"))
-        #expect(panel.contains("语音仍禁用"))
         // The composer empties its binding synchronously once the handler returns,
         // so the panel must forward the advice it was handed. Re-reading the
         // draft from the enqueued Task would always find it empty and silently
@@ -176,6 +175,17 @@ struct VisualHonestyContractTests {
         #expect(panel.contains("onSubmitAdvice: { advice in"))
         #expect(panel.contains("model.submit(advice: advice)"))
         #expect(!panel.contains("Task { await model.submit() }"))
+        // Voice is no longer hard-disabled, but it is also never claimed: the
+        // button appears only with a real controller, and readiness comes from
+        // the Engine handshake rather than from a constant in the UI.
+        #expect(panel.contains("pushToTalk"))
+        #expect(!panel.contains("语音仍禁用"))
+        #expect(appState.contains("VoiceTurnController"))
+        // Readiness is whatever the Engine handshake advertised, never a
+        // constant: a voice-less Engine must leave the button inert.
+        #expect(appState.contains("engineHealth.voiceReady"))
+        let client = try source("macos-app/WorldOfMysteries/EngineIPCClient.swift")
+        #expect(client.contains("var voiceRenderAvailable"))
     }
 
     private func source(_ relativePath: String) throws -> String {

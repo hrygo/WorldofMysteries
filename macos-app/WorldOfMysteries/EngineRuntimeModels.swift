@@ -71,6 +71,102 @@ public nonisolated struct EngineHealth: Sendable, Equatable {
 }
 
 // MARK: - Sealed Voice Render Control DTO
+
+/// The exact sealed render recipe the Engine produced for a committed turn.
+///
+/// The App replays it verbatim; only `mediaStreamId` and `generation` are the
+/// App's to supply, and only after `media.open` mints them. A client therefore
+/// cannot choose the voice, its revision or the speed for a committed turn.
+public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
+    public let speechUnitId: String
+    public let turnId: String
+    public let storyRevision: Int
+    public let narrativeBlockId: String
+    public let segmentIndex: Int
+    public let performancePlanId: String
+    public let spokenText: String
+    public let voiceId: String
+    public let expectedVoiceRevision: String
+    public let expectedModelRevision: String?
+    public let speed: Double
+    public let language: String?
+
+    enum CodingKeys: String, CodingKey {
+        case speechUnitId = "speech_unit_id"
+        case turnId = "turn_id"
+        case storyRevision = "story_revision"
+        case narrativeBlockId = "narrative_block_id"
+        case segmentIndex = "segment_index"
+        case performancePlanId = "performance_plan_id"
+        case spokenText = "spoken_text"
+        case voiceId = "voice_id"
+        case expectedVoiceRevision = "expected_voice_revision"
+        case expectedModelRevision = "expected_model_revision"
+        case speed
+        case language
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let keys: Set<String> = [
+            "speech_unit_id", "turn_id", "story_revision", "narrative_block_id",
+            "segment_index", "performance_plan_id", "spoken_text", "voice_id",
+            "expected_voice_revision", "expected_model_revision", "speed", "language",
+        ]
+        try checkWireKeys(decoder, allowed: keys, required: keys)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        speechUnitId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .speechUnitId))
+        turnId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .turnId))
+        storyRevision = try VoiceRenderRecipeDTO.revision(container.decode(Int.self, forKey: .storyRevision))
+        narrativeBlockId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .narrativeBlockId))
+        segmentIndex = try VoiceRenderRecipeDTO.segmentIndex(container.decode(Int.self, forKey: .segmentIndex))
+        performancePlanId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .performancePlanId))
+        spokenText = try VoiceRenderRecipeDTO.spokenText(container.decode(String.self, forKey: .spokenText))
+        voiceId = try VoiceRenderRecipeDTO.identifier(container.decode(String.self, forKey: .voiceId))
+        expectedVoiceRevision = try VoiceRenderRecipeDTO.identifier(
+            container.decode(String.self, forKey: .expectedVoiceRevision))
+        expectedModelRevision = try container.decodeIfPresent(String.self, forKey: .expectedModelRevision)
+        if let expectedModelRevision {
+            _ = try VoiceRenderRecipeDTO.identifier(expectedModelRevision)
+        }
+        speed = try VoiceRenderRecipeDTO.speed(container.decode(Double.self, forKey: .speed))
+        language = try container.decodeIfPresent(String.self, forKey: .language)
+        if let language {
+            _ = try VoiceRenderRecipeDTO.identifier(language)
+        }
+    }
+
+    private static func identifier(_ value: String) throws -> String {
+        guard !value.isEmpty, value.utf8.count <= 256, !value.unicodeScalars.contains("\u{0}") else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return value
+    }
+
+    private static func revision(_ value: Int) throws -> Int {
+        guard value >= 0, value <= 9_223_372_036_854_775_807 else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return value
+    }
+
+    private static func segmentIndex(_ value: Int) throws -> Int {
+        guard value >= 0, value <= 131_071 else { throw EngineConnectionError.invalidFrame }
+        return value
+    }
+
+    private static func spokenText(_ value: String) throws -> String {
+        guard !value.isEmpty, value.utf8.count <= 4096, !value.unicodeScalars.contains("\u{0}") else {
+            throw EngineConnectionError.invalidFrame
+        }
+        return value
+    }
+
+    private static func speed(_ value: Double) throws -> Double {
+        guard value.isFinite, value > 0, value <= 4 else { throw EngineConnectionError.invalidFrame }
+        return value
+    }
+}
+
 public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let speechUnitId: String
@@ -104,6 +200,67 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
         case generation
         case speed
         case language
+    }
+
+
+    public init(
+        schemaVersion: String,
+        speechUnitId: String,
+        turnId: String,
+        storyRevision: Int,
+        narrativeBlockId: String,
+        segmentIndex: Int,
+        performancePlanId: String,
+        spokenText: String,
+        voiceId: String,
+        expectedVoiceRevision: String,
+        expectedModelRevision: String?,
+        mediaStreamId: String,
+        generation: Int,
+        speed: Double,
+        language: String?
+    ) {
+        self.schemaVersion = schemaVersion
+        self.speechUnitId = speechUnitId
+        self.turnId = turnId
+        self.storyRevision = storyRevision
+        self.narrativeBlockId = narrativeBlockId
+        self.segmentIndex = segmentIndex
+        self.performancePlanId = performancePlanId
+        self.spokenText = spokenText
+        self.voiceId = voiceId
+        self.expectedVoiceRevision = expectedVoiceRevision
+        self.expectedModelRevision = expectedModelRevision
+        self.mediaStreamId = mediaStreamId
+        self.generation = generation
+        self.speed = speed
+        self.language = language
+    }
+
+    /// Bind a sealed recipe to the one-time media identity `media.open` minted.
+    ///
+    /// The execution fields are copied verbatim: the Engine rejects any drift,
+    /// so this initializer cannot be used to alter how a committed turn sounds.
+    public init(
+        recipe: VoiceRenderRecipeDTO,
+        mediaStreamId: String,
+        generation: Int
+    ) {
+        self.schemaVersion = "1.0"
+        self.speechUnitId = recipe.speechUnitId
+        self.turnId = recipe.turnId
+        self.storyRevision = recipe.storyRevision
+        self.narrativeBlockId = recipe.narrativeBlockId
+        self.segmentIndex = recipe.segmentIndex
+        self.performancePlanId = recipe.performancePlanId
+        self.spokenText = recipe.spokenText
+        self.voiceId = recipe.voiceId
+        self.expectedVoiceRevision = recipe.expectedVoiceRevision
+        self.expectedModelRevision = recipe.expectedModelRevision
+        self.mediaStreamId = mediaStreamId
+        self.generation = generation
+        self.speed = recipe.speed
+        self.language = recipe.language
     }
 }
 

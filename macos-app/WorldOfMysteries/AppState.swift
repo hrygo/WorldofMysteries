@@ -14,6 +14,9 @@ public final class AppState {
     public let processManager: EngineProcessManager
     /// Independent trusted first-turn state. It never rewrites the demo snapshot.
     public let storyModel: StorySessionModel
+    /// Voice-first turn control. It commits through the same durable path as a
+    /// typed turn and only renders audio *after* that commit succeeds.
+    public let voiceTurn: VoiceTurnController
 
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var stopTask: Task<Void, Never>?
@@ -38,6 +41,19 @@ public final class AppState {
         self.ipcClient = ipcClient
         self.processManager = processManager
         self.storyModel = StorySessionModel(client: ipcClient)
+        self.voiceTurn = VoiceTurnController(client: ipcClient)
+    }
+
+    /// The revision tokens one voice turn must present. They are read from the
+    /// last committed public view, never invented, so a stale UI can never
+    /// commit against a world that has already moved on.
+    public var voiceTurnContext: VoiceTurnController.TurnContext? {
+        guard let view = storyModel.view else { return nil }
+        return VoiceTurnController.TurnContext(
+            sessionId: view.sessionId,
+            storyRevision: view.storyRevision,
+            storeRevision: view.observedStoreRevision
+        )
     }
 
     public func startAndConnect() async {

@@ -89,6 +89,25 @@ public nonisolated struct NativePlaybackBackendMetrics: Sendable, Equatable {
     }
 }
 
+/// Sizing rule for the local PCM queue.
+///
+/// The Engine streams a SpeechRail *sealed* unit: already rendered, pushed far
+/// faster than real time, and bounded by the provider's own declared
+/// `utterance_wall_clock_seconds` (120 s) at the fixed 24 kHz mono PCM16 wire
+/// rate — 5,760,000 bytes. A queue smaller than one whole utterance rejects a
+/// render that is perfectly valid, which is exactly what a 256 KiB cap did to
+/// a ~29 s line of dialogue.
+///
+/// The App deliberately cannot pace the Engine by real-time playback instead.
+/// The provider's incremental TTS tolerates only a 48 KB pending buffer and
+/// 2 s of slow consumption, so withholding transport credit until the device
+/// has actually played a buffer stalls the Engine's reader and aborts the
+/// render upstream with `tts_backpressure`. Buffering one bounded utterance is
+/// the only arrangement that satisfies both contracts.
+public nonisolated enum NativePlaybackCapacity {
+    public static let sealedUtteranceBytes = 5_760_000
+}
+
 public nonisolated protocol NativePCMPlaybackBackend: Sendable {
     func start(sampleRate: Int, channels: Int, outputGain: Double) async throws
     func enqueue(pcm16: Data, frameCount: Int) async throws
@@ -286,6 +305,9 @@ public actor NativePlaybackActor {
 /// It schedules SpeechRail's 24 kHz mono signed-16-bit PCM directly. Scheduling
 /// completion is deliberately not exposed as audible completion evidence.
 public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
+    /// The queue bound used when a caller does not supply one.
+    public static let maximumQueuedBytes = NativePlaybackCapacity.sealedUtteranceBytes
+
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private var format: AVAudioFormat?
@@ -298,7 +320,7 @@ public actor AVAudioEnginePCMPlaybackBackend: NativePCMPlaybackBackend {
     private var saturationCount = 0
     private var underrunCount = 0
 
-    public init(maxQueuedBytes: Int = 256 * 1024) {
+    public init(maxQueuedBytes: Int = AVAudioEnginePCMPlaybackBackend.maximumQueuedBytes) {
         precondition(maxQueuedBytes > 0)
         self.maxQueuedBytes = maxQueuedBytes
         engine.attach(player)

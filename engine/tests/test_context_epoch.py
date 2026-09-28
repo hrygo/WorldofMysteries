@@ -1,9 +1,9 @@
 from dataclasses import replace
 import pytest
 
-from engine.application.context_compiler import CacheAwareContextCompiler
-from engine.application.context_epoch import ContextEpochRegistry
-from engine.application.context_plan import ContextError, Evidence, Layer
+from application.context_compiler import CacheAwareContextCompiler
+from application.context_epoch import ContextEpochRegistry
+from application.context_plan import ContextError, Evidence, Layer
 from engine.tests.test_context_compiler import sample
 
 

@@ -6,9 +6,18 @@ import SwiftUI
 /// 的示例页面继续保留「示例数据」标记，本面板不把它们改名为真实数据。
 public struct StorySessionPanel: View {
     @Bindable public var model: StorySessionModel
+    /// Optional so the deterministic-only surfaces keep rendering unchanged.
+    private let voice: VoiceTurnController?
+    private let turnContext: VoiceTurnController.TurnContext?
 
-    public init(model: StorySessionModel) {
+    public init(
+        model: StorySessionModel,
+        voice: VoiceTurnController? = nil,
+        turnContext: VoiceTurnController.TurnContext? = nil
+    ) {
         self.model = model
+        self.voice = voice
+        self.turnContext = turnContext
     }
 
     public var body: some View {
@@ -66,6 +75,31 @@ public struct StorySessionPanel: View {
         }
     }
 
+    /// Push-to-talk. The App never picks a microphone or a speaker: it uses the
+    /// system defaults, so whatever hardware the player owns just works.
+    @ViewBuilder
+    private var pushToTalk: some View {
+        if let voice, let turnContext {
+            Button(voice.phase == .listening ? "松开结束" : "按住说话") {
+                Task {
+                    if voice.phase == .listening {
+                        _ = await voice.finishAndSpeak(context: turnContext)
+                        await model.reloadSession()
+                    } else {
+                        await voice.startListening()
+                    }
+                }
+            }
+            .buttonStyle(WOMButtonStyle(voice.phase == .listening ? .primary : .secondary))
+            .disabled(voice.phase.isBusy && voice.phase != .listening)
+            .accessibilityIdentifier("voicePushToTalk")
+        } else {
+            Text("语音不可用")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+        }
+    }
+
     private func clueText(_ view: StoryPublicViewDTO) -> String {
         let names = view.discoveredClues.map(\.displayName)
         return names.isEmpty ? "无" : names.joined(separator: "、")
@@ -95,9 +129,7 @@ public struct StorySessionPanel: View {
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Button("填入本轮建议") { model.fillSupportedAdvice() }
                     .buttonStyle(WOMButtonStyle(.secondary))
-                Text("语音仍禁用")
-                    .font(Font.Mystic.caption)
-                    .foregroundStyle(Color.Mystic.textSecondary)
+                pushToTalk
             }
         case .completed:
             Text("固定五轮验证已完成；已提交的 5 轮可以随时重新读取。")

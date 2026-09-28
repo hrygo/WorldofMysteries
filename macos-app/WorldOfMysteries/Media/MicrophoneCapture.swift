@@ -5,6 +5,7 @@ public nonisolated enum MicrophoneCaptureFailure: Error, Sendable, Equatable, Lo
     case permissionDenied
     case deviceUnavailable
     case invalidDeviceFormat
+    case deviceChanged
     case converterUnavailable
     case converterFailed
     case bufferOverflow
@@ -45,11 +46,13 @@ public nonisolated struct MicrophonePCM16Chunk: Sendable, Equatable {
 
 public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     public let targetSampleRate: Int
+    /// Tap size in **input** frames, so the wall-clock chunk length does not
+    /// change when the wire rate moves to 24 kHz.
     public let tapFrameCount: AVAudioFrameCount
     public let bufferedChunkLimit: Int
 
     public init(
-        targetSampleRate: Int = 16_000,
+        targetSampleRate: Int = SpeechRailRealtimeWire.sampleRate,
         tapFrameCount: AVAudioFrameCount = 960,
         bufferedChunkLimit: Int = 8
     ) {
@@ -59,7 +62,7 @@ public nonisolated struct MicrophoneCaptureConfiguration: Sendable, Equatable {
     }
 
     fileprivate func validate() throws {
-        guard targetSampleRate == 16_000,
+        guard targetSampleRate == SpeechRailRealtimeWire.sampleRate,
               (128...4096).contains(tapFrameCount),
               (2...32).contains(bufferedChunkLimit)
         else {
@@ -158,12 +161,60 @@ public final class MicrophoneCaptureSession {
         let sink = channel.continuation
         let targetRate = configuration.targetSampleRate
 
-        input.installTap(
-            onBus: 0,
+        Self.installCaptureTap(
+            on: input,
             bufferSize: configuration.tapFrameCount,
+            inputFormat: inputFormat,
+            outputFormat: outputFormat,
+            converter: converter,
+            sink: sink,
+            targetRate: targetRate
+        )
+
+        do {
+            engine.prepare()
+            try engine.start()
+            running = true
+            return channel.stream
+        } catch {
+            input.removeTap(onBus: 0)
+            continuation?.finish(throwing: error)
+            continuation = nil
+            streamStorage = nil
+            throw error
+        }
+    }
+
+    /// Installs the capture tap from a nonisolated context.
+    ///
+    /// `AVAudioEngine` dispatches this callback on its realtime audio thread.
+    /// A closure formed inside a `@MainActor` method inherits that isolation,
+    /// and the first buffer trips Swift's isolation check and traps with
+    /// SIGTRAP -- on a real microphone only, which is why no automated test
+    /// ever saw it. Building the closure here keeps it off the main actor.
+    nonisolated private static func installCaptureTap(
+        on node: AVAudioNode,
+        bufferSize: AVAudioFrameCount,
+        inputFormat: AVAudioFormat,
+        outputFormat: AVAudioFormat,
+        converter: AVAudioConverter,
+        sink: AsyncThrowingStream<MicrophonePCM16Chunk, any Error>.Continuation,
+        targetRate: Int
+    ) {
+        node.installTap(
+            onBus: 0,
+            bufferSize: bufferSize,
             format: inputFormat
         ) { buffer, _ in
             guard buffer.frameLength > 0 else { return }
+            // A device switch (or a route change) invalidates the converter we
+            // built from the old input format. Resampling 44.1/48 kHz buffers
+            // against a stale ratio would silently relabel bytes, so fail the
+            // turn and let the caller reconnect with a fresh epoch.
+            guard abs(buffer.format.sampleRate - inputFormat.sampleRate) < 0.5 else {
+                sink.finish(throwing: MicrophoneCaptureFailure.deviceChanged)
+                return
+            }
             let ratio = outputFormat.sampleRate / inputFormat.sampleRate
             let estimated = max(
                 1,
@@ -212,19 +263,6 @@ public final class MicrophoneCaptureSession {
             if case .dropped = result {
                 sink.finish(throwing: MicrophoneCaptureFailure.bufferOverflow)
             }
-        }
-
-        do {
-            engine.prepare()
-            try engine.start()
-            running = true
-            return channel.stream
-        } catch {
-            input.removeTap(onBus: 0)
-            continuation?.finish(throwing: error)
-            continuation = nil
-            streamStorage = nil
-            throw error
         }
     }
 

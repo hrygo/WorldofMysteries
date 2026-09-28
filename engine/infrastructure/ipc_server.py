@@ -588,6 +588,10 @@ async def _run(
         path,
         token,
         request_handlers=None if runtime is None else runtime.request_handlers,
+        control_handlers=None if runtime is None else runtime.control_handlers,
+        media_session_handler=(
+            None if runtime is None else runtime.media_session_handler
+        ),
         health_provider=None if runtime is None else runtime.health,
     )
     loop = asyncio.get_running_loop()
@@ -632,24 +636,47 @@ def main() -> int:
         type=Path,
         help="Build-time trusted content artifact override (defaults to the packaged path)",
     )
+    parser.add_argument(
+        "--voice-id",
+        default=None,
+        help=(
+            "SpeechRail voice to bind for sealed rendering. Omit to run without "
+            "an audio plane; system.health then reports voice_ready=false."
+        ),
+    )
     args = parser.parse_args()
     try:
         token = read_bootstrap_token(args.token_fd)
         runtime_loader: Callable[[], Awaitable[Any]] | None = None
         if args.data_root is not None:
+            from ai.openai_compatible import ModelEndpointConfig
+            from .audio.config import AudioProviderConfig
             from .story_runtime import StoryRuntime, StoryRuntimeConfig
 
             config = StoryRuntimeConfig.for_data_root(
-                args.data_root, content_path=args.content_artifact
+                args.data_root,
+                content_path=args.content_artifact,
+                voice_id=args.voice_id,
+            )
+            # Both capabilities are optional and are reported through
+            # system.health.  A missing model or provider degrades the matching
+            # stage; it never silently substitutes a different endpoint.
+            model_endpoint = ModelEndpointConfig.from_env()
+            audio_config = (
+                AudioProviderConfig.from_env() if args.voice_id else None
             )
 
             async def runtime_loader() -> Any:
-                return await StoryRuntime.open(config)
+                return await StoryRuntime.open(
+                    config,
+                    model_endpoint=model_endpoint,
+                    audio_config=audio_config,
+                )
 
         asyncio.run(
             _run(args.socket, token, args.parent_pid, runtime_loader=runtime_loader)
         )
-    except (BootstrapError, OSError, ValueError):
+    except (BootstrapError, OSError, ValueError, RuntimeError):
         print("Local Engine startup failed; check the private runtime and bootstrap channel.",
               file=sys.stderr)
         return 1

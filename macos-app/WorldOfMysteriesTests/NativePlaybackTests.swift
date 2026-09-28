@@ -285,6 +285,23 @@ private actor BoundedPlaybackBackend: NativePCMPlaybackBackend {
 
 @Suite("Native playback queue budget metrics")
 struct NativePlaybackQueueBudgetTests {
+    @Test("The default queue holds one whole sealed utterance")
+    func defaultQueueHoldsSealedUtterance() async throws {
+        // A sealed SpeechRail unit arrives far faster than real time and is
+        // bounded by the provider's `utterance_wall_clock_seconds` at the fixed
+        // wire rate. A smaller default rejected valid renders with
+        // `queueCapacityExceeded`; the App cannot pace the Engine by playback
+        // instead, because that stalls the Engine's TTS reader and the provider
+        // aborts the render with `tts_backpressure`.
+        let sealedUtteranceBytes =
+            120 * SpeechRailRealtimeWire.sampleRate * MemoryLayout<Int16>.size
+        #expect(NativePlaybackCapacity.sealedUtteranceBytes == sealedUtteranceBytes)
+        // Asserted against the factory default rather than a live engine so the
+        // check stays deterministic on machines with no output device.
+        #expect(AVAudioEnginePCMPlaybackBackend.maximumQueuedBytes
+            >= sealedUtteranceBytes)
+    }
+
     @Test("Queue saturation is bounded, explicit, and observable")
     func boundedQueue() async throws {
         let backend = BoundedPlaybackBackend(capacityBytes: 4)

@@ -17,6 +17,8 @@ public nonisolated enum StoryControl {
     public static let maxRawInput = 16_384
     public static let maxRevision = 9_223_372_036_854_775_807
     public static let maxExpectedRevision = 9_223_372_036_854_775_806
+    public static let maxSpokenText = 4096
+    public static let maxDeliveryReason = 128
 
     static func identifier(_ value: String, maxLength: Int = maxIdentifier) throws -> String {
         let scalars = value.unicodeScalars
@@ -47,6 +49,29 @@ public nonisolated enum StoryControl {
 
     static func schema(_ value: String) throws -> String {
         guard value == schemaVersion else { throw StoryControlError.invalidPayload }
+        return value
+    }
+
+    /// One sealed utterance bound for TTS. The bound mirrors the contract so a
+    /// hostile or truncated Engine reply cannot smuggle unbounded text into the
+    /// render path.
+    static func spokenText(_ value: String) throws -> String {
+        let scalars = value.unicodeScalars
+        guard !value.isEmpty, value.utf8.count <= maxSpokenText,
+              scalars.contains(where: { !$0.properties.isWhitespace }),
+              !value.unicodeScalars.contains("\u{0}") else {
+            throw StoryControlError.invalidPayload
+        }
+        return value
+    }
+
+    /// A bounded, non-secret failure label for the expression layer. It reaches
+    /// the UI verbatim, so it carries no provider detail and no request content.
+    static func reason(_ value: String) throws -> String {
+        guard !value.isEmpty, value.utf8.count <= maxDeliveryReason,
+              !value.unicodeScalars.contains("\u{0}") else {
+            throw StoryControlError.invalidPayload
+        }
         return value
     }
 
@@ -182,6 +207,67 @@ public nonisolated struct StoryAdviceSubmitRequestDTO: Codable, Sendable, Equata
         sessionId = try StoryControl.identifier(container.decode(String.self, forKey: .sessionId))
         inputTurnId = try StoryControl.identifier(container.decode(String.self, forKey: .inputTurnId))
         rawInput = try StoryControl.rawInput(container.decode(String.self, forKey: .rawInput))
+        expectedStoryRevision = try StoryControl.revision(
+            container.decode(Int.self, forKey: .expectedStoryRevision), expected: true)
+        expectedStoreRevision = try StoryControl.revision(
+            container.decode(Int.self, forKey: .expectedStoreRevision), expected: true)
+    }
+}
+
+/// `story.turn.submit` accepts whatever the player actually said, typed or spoken.
+///
+/// It shares every durability and revision guard with `story.advice.submit` and
+/// adds an explicit input mode, so a SpeechRail transcript is committed under
+/// the mode it was produced in.
+public nonisolated struct StoryTurnSubmitRequestDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let sessionId: String
+    public let inputTurnId: String
+    public let rawInput: String
+    public let inputMode: StoryInputMode
+    public let expectedStoryRevision: Int
+    public let expectedStoreRevision: Int
+
+    public init(
+        sessionId: String,
+        inputTurnId: String,
+        rawInput: String,
+        inputMode: StoryInputMode,
+        expectedStoryRevision: Int,
+        expectedStoreRevision: Int
+    ) throws {
+        self.schemaVersion = StoryControl.schemaVersion
+        self.sessionId = try StoryControl.identifier(sessionId)
+        self.inputTurnId = try StoryControl.identifier(inputTurnId)
+        self.rawInput = try StoryControl.rawInput(rawInput)
+        self.inputMode = inputMode
+        self.expectedStoryRevision = try StoryControl.revision(expectedStoryRevision, expected: true)
+        self.expectedStoreRevision = try StoryControl.revision(expectedStoreRevision, expected: true)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case sessionId = "session_id"
+        case inputTurnId = "input_turn_id"
+        case rawInput = "raw_input"
+        case inputMode = "input_mode"
+        case expectedStoryRevision = "expected_story_revision"
+        case expectedStoreRevision = "expected_store_revision"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["schema_version", "session_id", "input_turn_id",
+                                             "raw_input", "input_mode", "expected_story_revision",
+                                             "expected_store_revision"],
+                          required: ["schema_version", "session_id", "input_turn_id",
+                                     "raw_input", "input_mode", "expected_story_revision",
+                                     "expected_store_revision"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try StoryControl.schema(container.decode(String.self, forKey: .schemaVersion))
+        sessionId = try StoryControl.identifier(container.decode(String.self, forKey: .sessionId))
+        inputTurnId = try StoryControl.identifier(container.decode(String.self, forKey: .inputTurnId))
+        rawInput = try StoryControl.rawInput(container.decode(String.self, forKey: .rawInput))
+        inputMode = try container.decode(StoryInputMode.self, forKey: .inputMode)
         expectedStoryRevision = try StoryControl.revision(
             container.decode(Int.self, forKey: .expectedStoryRevision), expected: true)
         expectedStoreRevision = try StoryControl.revision(
@@ -573,25 +659,137 @@ public nonisolated struct StoryReceiptViewDTO: Codable, Sendable, Equatable {
     }
 }
 
+/// How the player delivered one turn. `voice` marks a SpeechRail transcript and
+/// is recorded on the durable receipt, so a replayed turn can never be silently
+/// reinterpreted as typed text.
+public nonisolated enum StoryInputMode: String, Codable, Sendable, Equatable {
+    case text
+    case voice
+}
+
+/// Post-COMMIT expression state for one committed turn.
+///
+/// `unavailable` never means the turn was lost: the Domain commit already
+/// succeeded and stays durable, and only the audible rendering is missing.
+public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
+    public enum State: String, Codable, Sendable, Equatable {
+        case ready
+        case unavailable
+    }
+
+    public let state: State
+    public let narrativeBlockId: String?
+    public let speechUnitId: String?
+    public let spokenText: String?
+    public let reason: String?
+    /// Present exactly when `state == .ready`. It is the sealed recipe the App
+    /// must replay into `voice.render`; the Engine rejects any drift.
+    public let renderRecipe: VoiceRenderRecipeDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case state
+        case narrativeBlockId = "narrative_block_id"
+        case speechUnitId = "speech_unit_id"
+        case spokenText = "spoken_text"
+        case reason
+        case renderRecipe = "render_recipe"
+    }
+
+    public init(
+        state: State,
+        narrativeBlockId: String? = nil,
+        speechUnitId: String? = nil,
+        spokenText: String? = nil,
+        reason: String? = nil,
+        renderRecipe: VoiceRenderRecipeDTO? = nil
+    ) throws {
+        self.state = state
+        self.narrativeBlockId = try narrativeBlockId.map { try StoryControl.identifier($0) }
+        self.speechUnitId = try speechUnitId.map { try StoryControl.identifier($0) }
+        self.spokenText = try spokenText.map { try StoryControl.spokenText($0) }
+        self.reason = try reason.map { try StoryControl.reason($0) }
+        self.renderRecipe = renderRecipe
+        switch state {
+        case .ready:
+            guard narrativeBlockId != nil, speechUnitId != nil, spokenText != nil,
+                  let renderRecipe else {
+                throw StoryControlError.invalidPayload
+            }
+            // The recipe must describe the very segment this delivery names;
+            // otherwise a client could play one unit while reporting another.
+            guard renderRecipe.narrativeBlockId == narrativeBlockId,
+                  renderRecipe.spokenText == spokenText else {
+                throw StoryControlError.invalidPayload
+            }
+        case .unavailable:
+            guard reason != nil else { throw StoryControlError.invalidPayload }
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["state", "narrative_block_id", "speech_unit_id", "spoken_text",
+                      "reason", "render_recipe"],
+            required: ["state"]
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            state: try container.decode(State.self, forKey: .state),
+            narrativeBlockId: try container.decodeIfPresent(String.self, forKey: .narrativeBlockId),
+            speechUnitId: try container.decodeIfPresent(String.self, forKey: .speechUnitId),
+            spokenText: try container.decodeIfPresent(String.self, forKey: .spokenText),
+            reason: try container.decodeIfPresent(String.self, forKey: .reason),
+            renderRecipe: try container.decodeIfPresent(VoiceRenderRecipeDTO.self, forKey: .renderRecipe)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(state, forKey: .state)
+        try container.encodeIfPresent(narrativeBlockId, forKey: .narrativeBlockId)
+        try container.encodeIfPresent(speechUnitId, forKey: .speechUnitId)
+        try container.encodeIfPresent(spokenText, forKey: .spokenText)
+        try container.encodeIfPresent(reason, forKey: .reason)
+        try container.encodeIfPresent(renderRecipe, forKey: .renderRecipe)
+    }
+}
+
 public nonisolated struct StoryAdviceSubmitViewDTO: Codable, Sendable, Equatable {
     public let schemaVersion: String
     public let receipt: StoryReceiptViewDTO
     public let session: StoryPublicViewDTO
     public let replayed: Bool
+    public let delivery: StoryTurnDeliveryDTO?
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
-        case receipt, session, replayed
+        case receipt, session, replayed, delivery
+    }
+
+    public init(
+        schemaVersion: String = StoryControl.schemaVersion,
+        receipt: StoryReceiptViewDTO,
+        session: StoryPublicViewDTO,
+        replayed: Bool,
+        delivery: StoryTurnDeliveryDTO? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.receipt = receipt
+        self.session = session
+        self.replayed = replayed
+        self.delivery = delivery
     }
 
     public init(from decoder: any Decoder) throws {
         let required: Set<String> = ["schema_version", "receipt", "session", "replayed"]
-        try checkWireKeys(decoder, allowed: required, required: required)
+        try checkWireKeys(decoder, allowed: required.union(["delivery"]), required: required)
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try StoryControl.schema(container.decode(String.self, forKey: .schemaVersion))
         receipt = try container.decode(StoryReceiptViewDTO.self, forKey: .receipt)
         session = try container.decode(StoryPublicViewDTO.self, forKey: .session)
         replayed = try container.decode(Bool.self, forKey: .replayed)
+        delivery = try container.decodeIfPresent(StoryTurnDeliveryDTO.self, forKey: .delivery)
         guard receipt.status == "committed" else { throw StoryControlError.invalidPayload }
         guard receipt.sessionId == session.sessionId else { throw StoryControlError.invalidPayload }
     }
@@ -602,6 +800,7 @@ public nonisolated struct StoryAdviceSubmitViewDTO: Codable, Sendable, Equatable
         try container.encode(receipt, forKey: .receipt)
         try container.encode(session, forKey: .session)
         try container.encode(replayed, forKey: .replayed)
+        try container.encodeIfPresent(delivery, forKey: .delivery)
     }
 }
 

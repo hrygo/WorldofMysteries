@@ -1,9 +1,19 @@
-"""Atomic read-only capability discovery for SpeechRail 3.x.
+"""Atomic read-only capability discovery for SpeechRail.
 
 SpeechRail's namespaced effective capability endpoint is the routing source of
 truth. The client never rebuilds an atomic view by joining health, model and
 voice reads from different instants. Discovery remains side-effect free and
 does not imply a model residency or inference lease.
+
+Two separations are load bearing and must not be collapsed:
+
+* ``operations.http_speech`` and ``operations.realtime_speech`` are different
+  capability entries. A voice can support an HTTP parameter while having no
+  incremental Realtime path, so the two are observed independently.
+* ``available`` is catalogue availability, not worker residency, not quality
+  evidence and not a conditional-synthesis pin. ``status == "ready"`` only
+  means the discovery document parsed as one atomic generation; ``ready``,
+  ``asr_ready`` and ``tts_ready`` stay ``None`` without explicit evidence.
 """
 
 from __future__ import annotations
@@ -46,13 +56,59 @@ class VoiceCapabilityObservation:
 
     voice_id: str
     available: bool | None = None
+    availability_reason: str | None = None
     variant: str | None = None
     voice_revision: str | None = None
     voice_identity_assurance: str | None = None
+    revoked: bool = False
     production_ready: bool | None = None
+    production_ready_reason: str | None = None
+    quality_status: str | None = None
     supports_speaker: bool | None = None
     supports_instruction: bool | None = None
     supports_clone: bool | None = None
+    # HTTP synthesis parameters and the Realtime incremental path are separate
+    # provider claims; a parameter that works over HTTP proves nothing about
+    # ``speechrail.tts.start``.
+    realtime_speech: bool | None = None
+    model_source: str | None = None
+    model_artifact: str | None = None
+    model_variant: str | None = None
+    model_assurance: str | None = None
+    model_runtime_revision: str | None = None
+    model_catalog_revision: str | None = None
+
+    @property
+    def conditional_pin(self) -> str | None:
+        """Revision suitable for a provider conditional synthesis request."""
+        if self.voice_identity_assurance == "content_addressed" and not self.revoked:
+            return self.voice_revision
+        return None
+
+
+@dataclass(frozen=True)
+class RealtimeResponsibilityObservation:
+    """The provider's published Realtime responsibility split.
+
+    SpeechRail is a stateless Speech Plane: the caller owns orchestration,
+    conversation state, playback and barge-in. Asserting this in discovery
+    keeps the Engine from assuming a server-side assistant.
+    """
+
+    orchestration: str | None = None
+    server_llm: bool | None = None
+    conversation_state: bool | None = None
+    websocket_path: str | None = None
+    mcp_realtime: bool | None = None
+
+    @property
+    def caller_orchestrated(self) -> bool | None:
+        """True only when the provider explicitly states caller orchestration."""
+        if self.orchestration != "caller":
+            return None
+        if self.server_llm is False and self.conversation_state is False:
+            return True
+        return None
 
 
 @dataclass(frozen=True)
@@ -62,6 +118,12 @@ class AudioCapabilityObservation:
     Readiness and runtime revision stay unknown unless the snapshot explicitly
     provides equivalent evidence. A discovery snapshot is not an inference
     lease and available is not worker residency or quality proof.
+
+    ``status == "ready"`` means exactly one thing: the document parsed as a
+    single atomic generation of the declared schema. It is not a statement that
+    a model is resident, that a voice can be rendered, or that the user may
+    start recording. Product surfaces must keep using ``ready``/``asr_ready``/
+    ``tts_ready``, which stay ``None`` without explicit evidence.
     """
 
     provider_name: str
@@ -79,6 +141,8 @@ class AudioCapabilityObservation:
     catalog_revision: str | None = None
     snapshot_id: str | None = None
     etag: str | None = None
+    realtime: RealtimeResponsibilityObservation | None = None
+    guarantees: Mapping[str, object] | None = None
 
 
 JsonFetcher = Callable[[str, float, Mapping[str, str]], Awaitable[ProbeHttpResponse]]
@@ -191,10 +255,17 @@ def _str_or_none(value: object) -> str | None:
 
 
 def _parameter_supported(entry: Mapping[str, object], name: str) -> bool | None:
+    return _parameter_supported_in(entry, "http_speech", name)
+
+
+def _parameter_supported_in(
+    entry: Mapping[str, object], operation: str, name: str
+) -> bool | None:
+    """Read one parameter status from a named provider operation entry."""
     operations = entry.get("operations")
     if not isinstance(operations, Mapping):
         return None
-    speech = operations.get("http_speech")
+    speech = operations.get(operation)
     if not isinstance(speech, Mapping):
         return None
     parameters = speech.get("parameters")
@@ -209,6 +280,40 @@ def _parameter_supported(entry: Mapping[str, object], name: str) -> bool | None:
     if status == "unsupported":
         return False
     return None
+
+
+def _operation_declared(entry: Mapping[str, object], operation: str) -> bool | None:
+    """Whether the provider publishes this operation for the entry at all."""
+    operations = entry.get("operations")
+    if not isinstance(operations, Mapping):
+        return None
+    return operation in operations
+
+
+def _parse_model_identity(value: object) -> dict[str, str | None]:
+    if not isinstance(value, Mapping):
+        return {
+            "source": None,
+            "artifact": None,
+            "variant": None,
+            "assurance": None,
+            "runtime_revision": None,
+            "catalog_revision": None,
+        }
+    return {
+        "source": _str_or_none(value.get("source_model")),
+        "artifact": _str_or_none(value.get("artifact")),
+        "variant": _str_or_none(value.get("variant")),
+        "assurance": _str_or_none(value.get("assurance")),
+        "runtime_revision": _str_or_none(value.get("runtime_revision")),
+        "catalog_revision": _str_or_none(value.get("catalog_revision")),
+    }
+
+
+def _parse_quality_status(value: object) -> str | None:
+    if not isinstance(value, Mapping):
+        return None
+    return _str_or_none(value.get("status"))
 
 
 def _parse_model_ids(payload: Mapping[str, object]) -> tuple[str, ...] | None:
@@ -236,20 +341,46 @@ def _parse_voices(payload: Mapping[str, object]) -> tuple[VoiceCapabilityObserva
         if not isinstance(voice_id, str) or not voice_id:
             return None
         mode = entry.get("mode")
+        identity = _parse_model_identity(entry.get("model"))
         voices.append(
             VoiceCapabilityObservation(
                 voice_id=voice_id,
                 available=_bool_or_none(entry.get("available")),
+                availability_reason=_str_or_none(entry.get("availability_reason")),
                 variant=_str_or_none(entry.get("variant")),
                 voice_revision=_str_or_none(entry.get("voice_revision")),
                 voice_identity_assurance=_str_or_none(entry.get("voice_identity_assurance")),
                 production_ready=_bool_or_none(entry.get("production_ready")),
+                production_ready_reason=_str_or_none(
+                    entry.get("production_ready_reason")
+                ),
+                quality_status=_parse_quality_status(entry.get("quality_summary")),
                 supports_instruction=_parameter_supported(entry, "instructions"),
                 supports_speaker=None,
                 supports_clone=(True if mode == "clone" else None),
+                realtime_speech=_operation_declared(entry, "realtime_speech"),
+                model_source=identity["source"],
+                model_artifact=identity["artifact"],
+                model_variant=identity["variant"],
+                model_assurance=identity["assurance"],
+                model_runtime_revision=identity["runtime_revision"],
+                model_catalog_revision=identity["catalog_revision"],
             )
         )
     return tuple(sorted(voices, key=lambda item: item.voice_id))
+
+
+def _parse_realtime(payload: Mapping[str, object]) -> RealtimeResponsibilityObservation | None:
+    value = payload.get("realtime")
+    if not isinstance(value, Mapping):
+        return None
+    return RealtimeResponsibilityObservation(
+        orchestration=_str_or_none(value.get("orchestration")),
+        server_llm=_bool_or_none(value.get("server_llm")),
+        conversation_state=_bool_or_none(value.get("conversation_state")),
+        websocket_path=_str_or_none(value.get("websocket_path")),
+        mcp_realtime=_bool_or_none(value.get("mcp_realtime")),
+    )
 
 
 def _invalid_snapshot(config: AudioProviderConfig, code: str) -> AudioCapabilityObservation:
@@ -296,6 +427,8 @@ def _parse_snapshot(
         catalog_revision=catalog_revision,
         snapshot_id=snapshot_id,
         etag=response.etag,
+        realtime=_parse_realtime(payload),
+        guarantees=dict(payload["guarantees"]),
     )
 
 
@@ -330,6 +463,10 @@ async def probe_audio_capabilities(
     fetch = fetch_json or _default_fetch_json
     try:
         response = await fetch(url, config.timeout_seconds, headers)
+    except asyncio.CancelledError:
+        # Cancellation is not an observation. Swallowing it here would let a
+        # cancelled probe answer a live voice request with "unreachable".
+        raise
     except BaseException:
         return AudioCapabilityObservation(
             provider_name=config.provider_name,

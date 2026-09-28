@@ -41,6 +41,9 @@
 /fixtures/                              @hrygo
 /engine/tests/                          @hrygo
 /macos-app/WorldOfMysteriesTests/       @hrygo
+# 7.1 固定的**上游供应商契约快照**（SpeechRail 4.0），仅作消费者回归证据。
+#     归属 AGT-QA；注意它不是本项目契约，本项目契约在 /contracts/ 且由 ARB 独占。
+/fixtures/speechrail_contract/          @hrygo
 
 # 8. 工程治理脚本与 CI 流水线 (Tooling & Infrastructure)
 /scripts/                               @hrygo

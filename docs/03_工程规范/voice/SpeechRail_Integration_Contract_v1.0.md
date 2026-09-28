@@ -1,8 +1,14 @@
 # SpeechRail 接入契约与跨仓依赖 v1.0
 
-日期：2026-09-19。状态：**提议的接入与演进合同；下列新字段/操作尚非当前SpeechRail API**。
+日期：2026-09-19；2026-09-28 按 SpeechRail 4.0 契约修订。状态：**已接线部分见 §2；§3 仍是提议的接入与演进合同**。
 
-消费者基线 WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；供应者基线 SpeechRail `28755de8cc51046f25ce75c7869fe1bacd34752d`。总设计见[Voice-First技术方案](Voice_First_Technical_Design_v2.0.md)。两仓无共享Python环境和文件路径依赖。
+消费者基线 WorldofMysteries `591b4900606c122cb07416cd71fd56b66d056423`；
+供应者基线 SpeechRail `3a1b02e07a573041d08920a09efc195af794332f`（Realtime 契约 `4.0.0`，2026-09-25 生效）。
+总设计见[Voice-First技术方案](Voice_First_Technical_Design_v2.0.md)。两仓无共享Python环境和文件路径依赖。
+
+> **三个版本不要混用**：供应者**代码版本**是上面的 SHA，**契约版本**是 `4.0.0`，**运行中服务版本**必须另行通过
+> 公开只读接口核实。三者可以不同；源码 HEAD 不代表正在运行的服务。跨仓证据快照见
+> `fixtures/speechrail_contract/`，由 `scripts/sync_speechrail_contract_fixture.py --check` 校验来源与摘要。
 
 ## 1. 已有契约与不能假定的能力
 
@@ -14,19 +20,64 @@
 
 - App负责ASR连接，Engine负责TTS连接；每条连接有独立connection_epoch、服务会话ID和单调sequence。
 - ASR按实际协商格式append，在manual/null模式由唯一应用端点器commit；把多个item聚合成一个input_turn，partial不进入Domain。
-- TTS使用一个text item和一个活动response，明确voice；当前支持的audio事件组归一成PCM；收到正常`response.done`并校验流后才允许发布完整take。
-- 本机stop不依赖`response.cancel`成功；独立generation避免旧块回流。`conversation.item.truncate`不支持且不需要用于本游戏事实回滚。
+- 4.0 的 wire 只有 `audio/pcm` @ 24000 Hz mono，配置写在 `session.update` 的嵌套 `audio.input`；
+  `task=transcription`，TTS/alignment/diarization 一律 false。上游不再下发 `input_audio_buffer.committed`、
+  `input_audio_buffer.cleared` 与 `conversation.item.created`。
+- TTS使用 `speechrail.tts.start → append_text → finish_text` 三段式与 `speechrail.tts.*` 终态事件；
+  成功终态 `speechrail.tts.completed` 只带 `task_id/request_id/generated_samples`，render 凭据走 REST `by-request`，
+  凭据只证明交给 transport，不等于用户听到。
+- 本机stop不依赖 `speechrail.tts.cancel` 成功；独立generation避免旧块回流。`conversation.item.truncate`不支持且不需要用于本游戏事实回滚。
 - 请求被拒绝、连接终止、超时或无正常终态时清理临时流；已经完成的独立单元可继续合法回放。
 
 这修订此前“首版TTS采用HTTP streaming”的建议：当前HTTP实现按BATCH_TTS准入且raw PCM缺少显式语义终态，因此先用已有Realtime的调度/取消/终态能力。不是宣称HTTP不能流式，也不是让两连接共享ASR状态。
 
 ### 2.1 普通 ASR 收口的已存在路径与消费者责任
 
-已核查普通事件由 FIFO handler 串行执行，commit 等待 reader 后退出，clear 完成清理后发送 cleared。首版独立 manual/no-diarization 连接在本轮 append 全部排队完成后执行 `commit → clear → cleared`，收口期间不发送下一轮 append。不要只等某个 completed，也不要使用当前始终为空的 previous_item_id。所有 item 按 committed 的 service sequence 排序、按 connection epoch 与 item ID 配对。
+已核查普通事件由 FIFO handler 串行执行（仅 `speechrail.tts.cancel` 走控制队列），commit 等待 ASR reader 后退出。
+首版独立 manual/no-diarization 连接在本轮 append 全部排队完成后执行
+`commit → 重发完全相同的 session.update → session.updated`，收口期间不发送下一轮 append。
+不要只等某个 completed，也不要使用当前始终为空的 previous_item_id。
+所有 item 按 **首见顺序**（首个 delta/completed/failed 决定成员与次序）排序，按 connection epoch 与 item ID 配对。
 
-cleared 仅是排空栅栏；本轮任意 append/commit error、failed item、缺终态或连接缺口都必须使整体失败。clear 不能把之前失败“洗成成功”；取消时的 clear 也不能生成 FinalTranscript。该路径不声称有源采样水位证明，不替代内容正确性验收。其他 Provider 未证明同一串行语义时退回明确支持的整段模式，不猜测等价。
+`session.updated` 仅是普通 handler 已排空的**实现证据**，不表示后台 alignment 已完成；本迭代已禁用 alignment/diarization。
+这是**锁定实现的消费者屏障，不是通用保证**：若上游改变队列或 commit reader 等待行为，消费者必须 fail closed。
+该路径不声称有源采样水位证明，不替代内容正确性验收。其他 Provider 未证明同一串行语义时退回明确支持的整段模式，不猜测等价。
 
-这不是新协议提案；[SR-V08 / #69](https://github.com/hrygo/SpeechRail/issues/69) 将已有 legacy EOF 集中写入当前契约并补组合回归，保留 #10 已完成的语音准入工作。只有今后架构改变确需新 barrier 时才另行协商扩展。
+#### 2.1.1 屏障的上游依据（2026-09-28 对 `3a1b02e0` 复核）
+
+屏障成立依赖两条可核对的事实，均在固定基线源码中：
+
+1. `handle_loop` 从单一 `client_events` 队列串行取事件，`await handle_client_event(...)` **等待当前 handler 结束后**才取下一个；
+   `control_loop` 只消费另一条 `control_events` 队列（`speechrail.tts.cancel` 走这条），不破坏普通事件的 FIFO。
+2. `_commit_audio_once` 在 `asyncio.timeout(request_timeout_seconds)` 内执行
+   `await self._asr.commit(...)`，随后 **`await self._asr_reader`**——即等待本轮 ASR reader 任务终结，
+   之后才关闭 ASR 会话并返回。
+
+因此紧随 commit 之后的那次 `session.update` 只可能在 commit handler 完整返回后才被处理，其 `session.updated`
+必然晚于本轮全部转写终态。commit 超时会抛 `RealtimeAdapterError("backend_timeout")` 并作为 `error` 事件下发，
+消费者按失败处理（fail closed），不存在「静默部分成功」。
+
+> 上游工作区在 `3a1b02e0` 之后有**未提交**改动（含把 `sequence` 改为从 0 起、`ManualTurnCollector` 哨兵改为 `-1`）。
+> 本仓客户端对首个 sequence 容忍 0 或 1，因此两种行为都成立；但**上面的两条屏障依据只对 `3a1b02e0` 成立**，
+> 上游一旦改变队列或 commit reader 等待语义，必须重新复核而不是沿用本节结论。
+
+收口时的判定是**全有或全无**：barrier 到达时所有已观察 item 必须有成功 final；
+任意 error/failed、sequence 缺口或未终结 item 都使整轮失败；空白 final 聚合为 empty；
+**不存在"超时返回已收到部分文字"的降级成功路径**。取消、超时、错误与成功都会关闭连接，下一轮必须重连并获得新的 connection epoch。
+
+上游 `sequence` 实现从 1 起而 schema 允许 0，故消费端只放宽**首值**为 0 或 1，之后严格要求连续，不容忍任意 gap 或回退。
+
+## 2.2 交接状态四档（不得混用）
+
+| 档位 | 含义 |
+|:---|:---|
+| schema/端点存在 | 上游契约与路由已发布 |
+| 消费者已实现 | 本仓库已按该契约编码并有回归覆盖 |
+| 集成已验证 | 已对**运行中的**服务完成联调 |
+| 设备人工验收 | 真人听感/录音/延迟的主观验收 |
+
+`fixtures/speechrail_contract/` 与 `engine/tests/test_speechrail_wire_contract.py` 证明的是**消费者实现**这一档，
+不是集成验证，更不是设备验收。
 
 ## 3. 新契约草案（必须经上游评审/能力协商）
 
@@ -89,6 +140,23 @@ cleared 仅是排空栅栏；本轮任意 append/commit error、failed item、�
 | [SR-V11 / #72](https://github.com/hrygo/SpeechRail/issues/72) | P1 | 长文本planner与跨句韵律连续性 | 长叙述自然度/一致断句；基础短句可先用 |
 | [SR-V12 / #73](https://github.com/hrygo/SpeechRail/issues/73) | P2 | 可选TTS文本-音频时间轴sidecar | 字幕/口型/精确回放增强；不阻塞首版句级时间轴 |
 
+**Issue 关闭口径**：上表 Issue 仍按上游仓库状态管理。4.0 已经发布 schema/端点，
+只满足 §2.2 的「schema/端点存在」一档，**不因此关闭任何 Issue**；
+只有集成已验证与设备人工验收也成立，才谈得上下游职责已尽。
+
+### 4.1 SR-V 逐项交接状态（2026-09-28 复核）
+
+| 键 | schema/端点存在 | 消费者已实现 | 集成已验证 | 设备人工验收 |
+|---|:---:|:---:|:---:|:---:|
+| SR-V01 | 是（4.0 能力响应） | 是（`capabilities.py` 观察对象） | 否 | 否 |
+| SR-V02 | 部分 | 是（`expected_model_revision` 校验） | 否 | 否 |
+| SR-V03 | 是（`by-request` receipt） | 是（`render_receipts.py`） | 否 | 否 |
+| SR-V08 | 是（4.0 收口语义） | 是（barrier 收口 + 回归） | 否 | 否 |
+| SR-V04–V07、V09–V12 | 见上游 | 否 | 否 | 否 |
+
+> 「消费者已实现」由 `engine/tests/` 回归证明；「集成已验证」需要对**运行中**的服务联调，
+> 本轮**未执行**（源码 HEAD 不代表安装服务，联调前须通过公开只读接口核实能力）。
+
 ### C8 — PronunciationSet 与 SpokenText 映射
 
 SpeechRail 管通用发音规范化，不管理业务 DisplayText。词典按语言和 revision 版本化，输出 deterministic SpokenText + span mapping；否定、数字、单位、URL、缩写和混合语言需守恒。是否存在模型原生 phoneme/SSML 是独立 capability，未知时不能静默接受。
@@ -103,7 +171,9 @@ voice catalog 应区分“合成选择需要的公开目录元数据”和“参
 
 ### C11 — Optional TTS Timing Sidecar
 
-对已生成音频可选提供 chunk/word 等分级时间映射；没有可靠证据时为 unavailable。若复用现有 FixedTextAligner，必须解决 24k TTS 与 16k aligner 的坐标映射，并放在受治理的可选后处理，不阻塞首 PCM。该 sidecar 不代表设备已播放。
+对已生成音频可选提供 chunk/word 等分级时间映射；没有可靠证据时为 unavailable。
+4.0 起 wire 统一为 24 kHz，此前「24k TTS 与 16k aligner 坐标映射」的错配随之消失；
+但对齐仍放在受治理的可选后处理，不阻塞首 PCM。该 sidecar 不代表设备已播放。
 
 现有[#34响度](https://github.com/hrygo/SpeechRail/issues/34)和[#44架构演进](https://github.com/hrygo/SpeechRail/issues/44)继续负责既有范围；不重复建响度修复或全局架构epic。所有Issue是待办，不代表创建后功能已可用。
 
@@ -121,12 +191,15 @@ voice catalog 应区分“合成选择需要的公开目录元数据”和“参
 
 ## 6. 源码依据
 
-均固定SpeechRail `28755de8`，具体行为以上游当前代码和契约为准：
+均固定 SpeechRail `3a1b02e0`（契约 `4.0.0`），具体行为以上游当前代码和契约为准。
+**Realtime 事件与 wire 格式以机器事实源 `contracts/realtime-events.schema.json` 为准**，
+不以散文描述为准；跨仓快照见 `fixtures/speechrail_contract/`：
 
-- [voice字段与参数能力](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/domain/tts.py)
-- [voice发现/注册/内存幂等/质量run](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/system.py)
-- [HTTP TTS准入与StreamingResponse](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/http/routes/audio.py)
-- [已有PCM验证与deadline](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/application/tts_delivery.py)
-- [已有资源governor](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/runtime/resource_governor.py)
-- [Base generate与decoded-waveform cache](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/src/speechrail/backends/qwen3_tts_worker.py)
-- [Realtime公共边界](https://github.com/hrygo/SpeechRail/blob/28755de8cc51046f25ce75c7869fe1bacd34752d/contracts/realtime-openai.md)
+- [voice字段与参数能力](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/domain/tts.py)
+- [voice发现/注册/内存幂等/质量run](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/http/routes/system.py)
+- [HTTP TTS准入与StreamingResponse](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/http/routes/audio.py)
+- [已有PCM验证与deadline](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/application/tts_delivery.py)
+- [已有资源governor](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/runtime/resource_governor.py)
+- [Base generate与decoded-waveform cache](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/src/speechrail/backends/qwen3_tts_worker.py)
+- [Realtime机器事实源（事件/wire）](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/contracts/realtime-events.schema.json)
+- [Realtime公共边界](https://github.com/hrygo/SpeechRail/blob/3a1b02e07a573041d08920a09efc195af794332f/contracts/realtime-openai.md)

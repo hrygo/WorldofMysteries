@@ -2,11 +2,11 @@ import asyncio
 from dataclasses import replace
 import pytest
 
-from engine.application.context_plan import ContextError
-from engine.ai.agentscope_adapter import PreparedAgentScopeAdapter
-from engine.ai.gateway import CacheAwareGateway, ExecutionBudget, ModelReply, TokenCount
-from engine.ai.prompt_cache_policy import ProviderProfile, Protocol
-from engine.ai.prompt_renderer import PromptRenderer
+from application.context_plan import ContextError
+from ai.agentscope_adapter import PreparedAgentScopeAdapter
+from ai.gateway import CacheAwareGateway, ExecutionBudget, ModelReply, TokenCount
+from ai.prompt_cache_policy import ProviderProfile, Protocol
+from ai.prompt_renderer import PromptRenderer
 from engine.tests.test_context_compiler import sample
 
 

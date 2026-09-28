@@ -402,6 +402,22 @@ public final class StorySessionModel {
 
     // MARK: - Recovery
 
+    /// Re-read the committed session after a turn this client did not submit
+    /// through `submit()` — for example a voice turn, which commits its own
+    /// durable input turn id.
+    public func reloadSession() async {
+        guard state != .unavailable, let sessionId = view?.sessionId else { return }
+        let attempt = generation
+        do {
+            let fetched = try await client.storySession(sessionId: sessionId)
+            guard attempt == generation else { return }
+            view = fetched.session
+        } catch {
+            // A failed refresh must not invent a failure the player did not have:
+            // the committed world is unchanged and the next read will catch up.
+        }
+    }
+
     public func recover() async {
         // A detached panel never queries the previous connection's Engine.
         guard state != .unavailable else { return }

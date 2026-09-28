@@ -1,0 +1,594 @@
+{
+  "case_set_version": "1.0",
+  "description": "Shared SpeechRail Realtime 4.0.0 wire cases. Every payload is synthetic: no recording, no key, no developer-machine path, no reference text.",
+  "constants": {
+    "session_id": "realtime_test01",
+    "task_id": "task_1",
+    "request_id": "wom-tts-0001",
+    "plan_id": "plan_00000000000000000000000000000000",
+    "voice": "alloy",
+    "voice_revision": "rev-2026-09-27.a",
+    "model_revision": "3a1b02e07a573041d08920a09efc195af794332f",
+    "pcm_base64_4_bytes": "AAECAw=="
+  },
+  "valid_client_events": [
+    {
+      "name": "asr_session_update",
+      "direction": "client",
+      "payload": {
+        "type": "session.update",
+        "event_id": "evt_asr_session",
+        "session": {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 24000},
+              "transcription": {
+                "model": "whisper-1",
+                "language": "zh",
+                "keywords": ["SpeechRail"],
+                "timestamp_granularities": ["segment"]
+              },
+              "turn_detection": null
+            }
+          },
+          "speechrail": {
+            "task": "transcription",
+            "tts": {"enabled": false},
+            "alignment": {"enabled": false},
+            "diarization": {"enabled": false}
+          }
+        }
+      }
+    },
+    {
+      "name": "render_session_update",
+      "direction": "client",
+      "payload": {
+        "type": "session.update",
+        "event_id": "evt_render_session",
+        "session": {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 24000},
+              "transcription": {"model": "whisper-1"},
+              "turn_detection": null
+            }
+          },
+          "speechrail": {
+            "task": "render",
+            "tts": {"enabled": true},
+            "alignment": {"enabled": false},
+            "diarization": {"enabled": false}
+          }
+        }
+      }
+    },
+    {
+      "name": "input_append",
+      "direction": "client",
+      "payload": {
+        "type": "input_audio_buffer.append",
+        "event_id": "evt_append_0",
+        "audio": "AAECAw=="
+      }
+    },
+    {
+      "name": "input_commit",
+      "direction": "client",
+      "payload": {"type": "input_audio_buffer.commit", "event_id": "evt_commit_0"}
+    },
+    {
+      "name": "input_clear",
+      "direction": "client",
+      "payload": {"type": "input_audio_buffer.clear", "event_id": "evt_clear_0"}
+    },
+    {
+      "name": "tts_start",
+      "direction": "client",
+      "payload": {
+        "type": "speechrail.tts.start",
+        "event_id": "evt_tts_start",
+        "request_id": "wom-tts-0001",
+        "task": "render",
+        "voice": "alloy",
+        "voice_revision": "rev-2026-09-27.a",
+        "speed": 1.0,
+        "expected_model_revision": "3a1b02e07a573041d08920a09efc195af794332f",
+        "limits": {
+          "max_append_codepoints": 512,
+          "max_total_codepoints": 8192,
+          "max_pending_codepoints": 1024
+        }
+      }
+    },
+    {
+      "name": "tts_append_text_0",
+      "direction": "client",
+      "payload": {
+        "type": "speechrail.tts.append_text",
+        "event_id": "evt_tts_append_0",
+        "request_id": "wom-tts-0001",
+        "sequence": 0,
+        "text": "先别问医生病人的事，"
+      }
+    },
+    {
+      "name": "tts_append_text_1_emoji",
+      "direction": "client",
+      "payload": {
+        "type": "speechrail.tts.append_text",
+        "event_id": "evt_tts_append_1",
+        "request_id": "wom-tts-0001",
+        "sequence": 1,
+        "text": "我想看看他的反应🜁"
+      }
+    },
+    {
+      "name": "tts_finish_text",
+      "direction": "client",
+      "payload": {
+        "type": "speechrail.tts.finish_text",
+        "event_id": "evt_tts_finish",
+        "request_id": "wom-tts-0001",
+        "last_sequence": 1
+      }
+    },
+    {
+      "name": "tts_cancel",
+      "direction": "client",
+      "payload": {
+        "type": "speechrail.tts.cancel",
+        "event_id": "evt_tts_cancel",
+        "request_id": "wom-tts-0001"
+      }
+    }
+  ],
+  "valid_server_events": [
+    {
+      "name": "session_created",
+      "direction": "server",
+      "payload": {
+        "type": "session.created",
+        "event_id": "event_1",
+        "session_id": "realtime_test01",
+        "sequence": 1,
+        "session": {
+          "id": "realtime_test01",
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 24000},
+              "transcription": {"model": "whisper-1"},
+              "turn_detection": null
+            }
+          },
+          "speechrail": {"task": "conversation"}
+        }
+      }
+    },
+    {
+      "name": "session_updated",
+      "direction": "server",
+      "payload": {
+        "type": "session.updated",
+        "event_id": "event_2",
+        "session_id": "realtime_test01",
+        "sequence": 2,
+        "session": {
+          "id": "realtime_test01",
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 24000},
+              "transcription": {"model": "whisper-1", "language": "zh"},
+              "turn_detection": null
+            }
+          },
+          "speechrail": {
+            "task": "render",
+            "tts": {"enabled": true},
+            "alignment": {"enabled": false},
+            "diarization": {"enabled": false}
+          }
+        }
+      }
+    },
+    {
+      "name": "transcription_delta",
+      "direction": "server",
+      "payload": {
+        "type": "conversation.item.input_audio_transcription.delta",
+        "event_id": "event_3",
+        "session_id": "realtime_test01",
+        "sequence": 3,
+        "item_id": "item_1",
+        "content_index": 0,
+        "delta": "先别问"
+      }
+    },
+    {
+      "name": "transcription_completed",
+      "direction": "server",
+      "payload": {
+        "type": "conversation.item.input_audio_transcription.completed",
+        "event_id": "event_4",
+        "session_id": "realtime_test01",
+        "sequence": 4,
+        "item_id": "item_1",
+        "content_index": 0,
+        "transcript": "先别问医生病人的事"
+      }
+    },
+    {
+      "name": "transcription_failed",
+      "direction": "server",
+      "payload": {
+        "type": "conversation.item.input_audio_transcription.failed",
+        "event_id": "event_5",
+        "session_id": "realtime_test01",
+        "sequence": 5,
+        "item_id": "item_1",
+        "content_index": 0,
+        "error": {
+          "type": "server_error",
+          "code": "backend_timeout",
+          "message": "streaming ASR commit timed out"
+        }
+      }
+    },
+    {
+      "name": "transcription_hypothesis",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.transcription.hypothesis",
+        "event_id": "event_6",
+        "session_id": "realtime_test01",
+        "sequence": 6,
+        "task_id": "task_1",
+        "epoch": 0,
+        "utterance_id": "utt_1",
+        "revision": 3,
+        "text": "先别问医生",
+        "sample_span": {"start": 0, "end": 24000}
+      }
+    },
+    {
+      "name": "tts_started",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.started",
+        "event_id": "event_7",
+        "session_id": "realtime_test01",
+        "sequence": 7,
+        "task_id": "task_1",
+        "plan_id": "plan_00000000000000000000000000000000",
+        "request_id": "wom-tts-0001",
+        "voice_revision": "rev-2026-09-27.a",
+        "output_format": {
+          "type": "audio/pcm",
+          "sample_rate": 24000,
+          "channels": 1
+        },
+        "limits": {
+          "max_append_codepoints": 512,
+          "max_total_codepoints": 8192,
+          "max_pending_codepoints": 1024
+        }
+      }
+    },
+    {
+      "name": "tts_text_accepted_0",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.text_accepted",
+        "event_id": "event_8",
+        "session_id": "realtime_test01",
+        "sequence": 8,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "append_sequence": 0,
+        "accepted_codepoints": 10,
+        "total_codepoints": 10
+      }
+    },
+    {
+      "name": "tts_text_accepted_1",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.text_accepted",
+        "event_id": "event_9",
+        "session_id": "realtime_test01",
+        "sequence": 9,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "append_sequence": 1,
+        "accepted_codepoints": 11,
+        "total_codepoints": 21
+      }
+    },
+    {
+      "name": "tts_audio_delta_0",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.audio.delta",
+        "event_id": "event_10",
+        "session_id": "realtime_test01",
+        "sequence": 10,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "chunk_index": 0,
+        "sample_offset": 0,
+        "delta": "AAECAw=="
+      }
+    },
+    {
+      "name": "tts_completed",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.completed",
+        "event_id": "event_11",
+        "session_id": "realtime_test01",
+        "sequence": 11,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "generated_samples": 2
+      }
+    },
+    {
+      "name": "tts_cancelled",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.cancelled",
+        "event_id": "event_12",
+        "session_id": "realtime_test01",
+        "sequence": 12,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001"
+      }
+    },
+    {
+      "name": "tts_failed",
+      "direction": "server",
+      "payload": {
+        "type": "speechrail.tts.failed",
+        "event_id": "event_13",
+        "session_id": "realtime_test01",
+        "sequence": 13,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "error": {
+          "type": "server_error",
+          "code": "tts_backend_failed",
+          "message": "incremental TTS response failed"
+        }
+      }
+    },
+    {
+      "name": "error_rejected_client_event",
+      "direction": "server",
+      "payload": {
+        "type": "error",
+        "event_id": "event_14",
+        "session_id": "realtime_test01",
+        "sequence": 14,
+        "request_id": "wom-tts-0001",
+        "error": {
+          "type": "invalid_request_error",
+          "code": "unsupported_operation",
+          "message": "only session.update is supported",
+          "event_id": "evt_tts_create_legacy"
+        }
+      }
+    }
+  ],
+  "rejected_legacy_events": [
+    {
+      "name": "legacy_transcription_session_update",
+      "reason": "SpeechRail 4.0.0 accepts only session.update as the client session event.",
+      "payload": {
+        "type": "transcription_session.update",
+        "event_id": "evt_legacy",
+        "session": {
+          "type": "transcription",
+          "input_audio_format": "pcm16",
+          "input_audio_transcription": {"model": "whisper-1"},
+          "turn_detection": null
+        }
+      }
+    },
+    {
+      "name": "legacy_flat_input_audio_format",
+      "reason": "input_audio_format and input_audio_transcription are rejected flat fields.",
+      "payload": {
+        "type": "session.update",
+        "event_id": "evt_flat",
+        "session": {
+          "type": "transcription",
+          "input_audio_format": "pcm16",
+          "input_audio_transcription": {"model": "whisper-1"},
+          "turn_detection": null
+        }
+      }
+    },
+    {
+      "name": "legacy_16k_wire_rate",
+      "reason": "The wire PCM rate is 24 kHz; any other rate is rejected before the first frame.",
+      "payload": {
+        "type": "session.update",
+        "event_id": "evt_16k",
+        "session": {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 16000},
+              "transcription": {"model": "whisper-1"}
+            }
+          },
+          "speechrail": {"task": "transcription"}
+        }
+      }
+    },
+    {
+      "name": "legacy_render_receipts_session_field",
+      "reason": "speechrail.render_receipts is no longer an accepted session field.",
+      "payload": {
+        "type": "session.update",
+        "event_id": "evt_receipts",
+        "session": {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {"type": "audio/pcm", "rate": 24000},
+              "transcription": {"model": "whisper-1"}
+            }
+          },
+          "speechrail": {
+            "task": "render",
+            "tts": {"enabled": true},
+            "render_receipts": {"enabled": true}
+          }
+        }
+      }
+    },
+    {
+      "name": "legacy_tts_create",
+      "reason": "speechrail.tts.create was removed; incremental start/append_text/finish_text replaces it.",
+      "payload": {
+        "type": "speechrail.tts.create",
+        "request_id": "wom-tts-0001",
+        "text": "先别问医生病人的事",
+        "voice": "alloy",
+        "speed": 1.0,
+        "expected_voice_revision": "rev-2026-09-27.a"
+      }
+    },
+    {
+      "name": "legacy_tts_start_expected_voice_revision",
+      "reason": "expected_voice_revision was renamed to voice_revision on speechrail.tts.start.",
+      "payload": {
+        "type": "speechrail.tts.start",
+        "event_id": "evt_start_legacy_field",
+        "request_id": "wom-tts-0001",
+        "task": "render",
+        "voice": "alloy",
+        "expected_voice_revision": "rev-2026-09-27.a"
+      }
+    },
+    {
+      "name": "legacy_tts_start_without_task",
+      "reason": "speechrail.tts.start requires an explicit task.",
+      "payload": {
+        "type": "speechrail.tts.start",
+        "event_id": "evt_start_no_task",
+        "request_id": "wom-tts-0001",
+        "voice": "alloy"
+      }
+    },
+    {
+      "name": "legacy_tts_cancel_with_response_id",
+      "reason": "speechrail.tts.cancel accepts only type, event_id and request_id.",
+      "payload": {
+        "type": "speechrail.tts.cancel",
+        "event_id": "evt_cancel_legacy",
+        "request_id": "wom-tts-0001",
+        "response_id": "resp_1"
+      }
+    },
+    {
+      "name": "legacy_tts_cancel_without_event_id",
+      "reason": "speechrail.tts.cancel requires event_id.",
+      "payload": {
+        "type": "speechrail.tts.cancel",
+        "request_id": "wom-tts-0001"
+      }
+    },
+    {
+      "name": "legacy_response_create",
+      "reason": "Server-side conversation/response orchestration is not a SpeechRail capability.",
+      "payload": {
+        "type": "response.create",
+        "event_id": "evt_response_create",
+        "response": {"modalities": ["text", "audio"]}
+      }
+    },
+    {
+      "name": "legacy_tts_completed_with_inline_receipt",
+      "reason": "speechrail.tts.completed carries no inline render receipt; the receipt is read over REST.",
+      "payload": {
+        "type": "speechrail.tts.completed",
+        "event_id": "event_legacy_receipt",
+        "session_id": "realtime_test01",
+        "sequence": 11,
+        "task_id": "task_1",
+        "request_id": "wom-tts-0001",
+        "generated_samples": 2,
+        "speechrail": {
+          "kind": "tts",
+          "render_receipt": {"receipt_id": "rr_0123456789abcdef0123456789abcdef"}
+        }
+      }
+    },
+    {
+      "name": "legacy_response_output_audio_delta",
+      "reason": "Audio deltas are speechrail.tts.audio.delta; response.* lifecycle events are not emitted.",
+      "payload": {
+        "type": "response.output_audio.delta",
+        "event_id": "event_legacy_delta",
+        "session_id": "realtime_test01",
+        "sequence": 10,
+        "response_id": "resp_1",
+        "item_id": "item_1",
+        "delta": "AAECAw=="
+      }
+    },
+    {
+      "name": "legacy_input_buffer_committed_ack",
+      "reason": "The service emits no input_audio_buffer.committed acknowledgement.",
+      "payload": {
+        "type": "input_audio_buffer.committed",
+        "event_id": "event_legacy_committed",
+        "session_id": "realtime_test01",
+        "sequence": 5,
+        "item_id": "item_1"
+      }
+    },
+    {
+      "name": "legacy_input_buffer_cleared_ack",
+      "reason": "clear is a local discard semantic; the service emits no cleared acknowledgement.",
+      "payload": {
+        "type": "input_audio_buffer.cleared",
+        "event_id": "event_legacy_cleared",
+        "session_id": "realtime_test01",
+        "sequence": 6
+      }
+    },
+    {
+      "name": "legacy_conversation_item_created",
+      "reason": "conversation.item.created is not part of the current-only event set.",
+      "payload": {
+        "type": "conversation.item.created",
+        "event_id": "event_legacy_item",
+        "session_id": "realtime_test01",
+        "sequence": 2,
+        "item_id": "item_1"
+      }
+    }
+  ],
+  "revision_samples": {
+    "valid": [
+      "3a1b02e07a573041d08920a09efc195af794332f",
+      "rev-2026-09-27.a",
+      "v1",
+      "A0"
+    ],
+    "invalid": [
+      "",
+      "-leading",
+      "has space",
+      "has/slash",
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

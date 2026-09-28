@@ -2,12 +2,12 @@
 from dataclasses import replace
 import pytest
 
-from engine.application.context_compiler import CacheAwareContextCompiler
-from engine.application.context_plan import (
+from application.context_compiler import CacheAwareContextCompiler
+from application.context_plan import (
     AuthorizationView, ContextError, ContextInput, ContextScope, Evidence, Layer,
     WorkerProfile, canonical_json,
 )
-from engine.ai.prompt_renderer import PromptRenderer
+from ai.prompt_renderer import PromptRenderer
 
 
 def sample():

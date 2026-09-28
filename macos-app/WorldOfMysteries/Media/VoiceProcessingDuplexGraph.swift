@@ -37,9 +37,9 @@ public struct VoiceProcessingDuplexStack {
 public enum VoiceProcessingDuplexFactory {
     public static func make(
         microphoneConfiguration: MicrophoneCaptureConfiguration = .init(),
-        maxQueuedBytes: Int = 256 * 1024
+        maxQueuedBytes: Int = NativePlaybackCapacity.sealedUtteranceBytes
     ) -> VoiceProcessingDuplexProvision {
-        guard microphoneConfiguration.targetSampleRate == 16_000,
+        guard microphoneConfiguration.targetSampleRate == SpeechRailRealtimeWire.sampleRate,
               (128...4096).contains(microphoneConfiguration.tapFrameCount),
               (2...32).contains(microphoneConfiguration.bufferedChunkLimit),
               maxQueuedBytes > 0
@@ -180,10 +180,6 @@ public final class VoiceProcessingAudioGraph {
                   sampleRate: Double(configuration.targetSampleRate),
                   channels: 1,
                   interleaved: false
-              ),
-              let converter = AVAudioConverter(
-                  from: inputFormat,
-                  to: outputFormat
               )
         else {
             throw MicrophoneCaptureFailure.converterUnavailable
@@ -196,16 +192,102 @@ public final class VoiceProcessingAudioGraph {
         let targetRate = configuration.targetSampleRate
         captureContinuation = sink
 
-        input.installTap(
-            onBus: 0,
+        Self.installCaptureTap(
+            on: input,
             bufferSize: configuration.tapFrameCount,
-            format: inputFormat
+            outputFormat: outputFormat,
+            sink: sink,
+            targetRate: targetRate
+        )
+
+        do {
+            try startEngineIfNeeded()
+            captureActive = true
+            return channel.stream
+        } catch {
+            input.removeTap(onBus: 0)
+            captureContinuation = nil
+            sink.finish(throwing: error)
+            throw error
+        }
+    }
+
+    /// Installs the capture tap from a nonisolated context.
+    ///
+    /// `AVAudioEngine` dispatches this callback on its realtime audio thread.
+    /// A closure formed inside this `@MainActor` type inherits that isolation,
+    /// and the first buffer trips Swift's isolation check and traps with
+    /// SIGTRAP -- only on a real microphone, which is why the automated suite
+    /// never saw it. Building the closure here keeps it off the main actor.
+    /// The mono format matching a delivered format's rate and sample type.
+    nonisolated private static func monoFormat(from format: AVAudioFormat) -> AVAudioFormat {
+        AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: format.sampleRate,
+            channels: 1,
+            interleaved: false
+        )!
+    }
+
+    nonisolated private static func installCaptureTap(
+        on node: AVAudioNode,
+        bufferSize: AVAudioFrameCount,
+        outputFormat: AVAudioFormat,
+        sink: AsyncThrowingStream<MicrophonePCM16Chunk, any Error>.Continuation,
+        targetRate: Int
+    ) {
+        // The converter is built from the format the engine *delivers*, not
+        // from the one the input node advertised before voice processing was
+        // switched on.
+        //
+        // With VoiceProcessingIO the node reports mono, but the tap is handed
+        // the raw 9-channel layout (microphone plus the AEC reference
+        // channels). A converter built from the advertised format accepts
+        // those buffers and emits pure silence -- every frame zero, no error.
+        // The turn then records a mute microphone and reports success. A mock
+        // hands over a well-formed mono buffer, so no test ever sees it.
+        let converter = CaptureConverter(target: outputFormat)
+        node.installTap(
+            onBus: 0,
+            bufferSize: bufferSize,
+            format: nil
         ) { buffer, _ in
             guard buffer.frameLength > 0 else { return }
-            let ratio = outputFormat.sampleRate / inputFormat.sampleRate
+            // VoiceProcessingIO hands over its raw 9-channel layout: channel 0
+            // is the microphone, the rest are the AEC reference channels.
+            // Extracting channel 0 explicitly is deliberate -- asking
+            // AVAudioConverter to downmix that layout yields frames of silence
+            // rather than an error, so a turn records a mute microphone and
+            // reports success.
+            let source: AVAudioPCMBuffer
+            if buffer.format.channelCount > 1, let planes = buffer.floatChannelData {
+                guard let mono = AVAudioPCMBuffer(
+                    pcmFormat: Self.monoFormat(from: buffer.format),
+                    frameCapacity: buffer.frameLength
+                ), let out = mono.floatChannelData?[0] else {
+                    sink.finish(
+                        throwing: MicrophoneCaptureFailure.converterFailed
+                    )
+                    return
+                }
+                mono.frameLength = buffer.frameLength
+                out.update(from: planes[0], count: Int(buffer.frameLength))
+                source = mono
+            } else {
+                source = buffer
+            }
+            // The converter is built for what actually reaches it, so a
+            // genuine route change is caught instead of silently resampling.
+            guard converter.accepts(source.format) else {
+                sink.finish(
+                    throwing: MicrophoneCaptureFailure.converterFailed
+                )
+                return
+            }
+            let ratio = outputFormat.sampleRate / source.format.sampleRate
             let estimated = max(
                 1,
-                Int(ceil(Double(buffer.frameLength) * ratio)) + 32
+                Int(ceil(Double(source.frameLength) * ratio)) + 32
             )
             guard let output = AVAudioPCMBuffer(
                 pcmFormat: outputFormat,
@@ -217,20 +299,9 @@ public final class VoiceProcessingAudioGraph {
                 return
             }
 
-            var supplied = false
             var error: NSError?
             let status = converter.convert(
-                to: output,
-                error: &error
-            ) { _, inputStatus in
-                if supplied {
-                    inputStatus.pointee = .noDataNow
-                    return nil
-                }
-                supplied = true
-                inputStatus.pointee = .haveData
-                return buffer
-            }
+                to: output, buffer: source, error: &error)
 
             guard error == nil,
                   status != .error,
@@ -259,17 +330,6 @@ public final class VoiceProcessingAudioGraph {
                     throwing: MicrophoneCaptureFailure.bufferOverflow
                 )
             }
-        }
-
-        do {
-            try startEngineIfNeeded()
-            captureActive = true
-            return channel.stream
-        } catch {
-            input.removeTap(onBus: 0)
-            captureContinuation = nil
-            sink.finish(throwing: error)
-            throw error
         }
     }
 
@@ -501,5 +561,66 @@ public actor VoiceProcessingPlaybackBackend: NativePCMPlaybackBackend {
 
     public func stop() async {
         await graph.stopPlayback()
+    }
+}
+
+/// Resamples whatever the engine delivers down to the mono wire rate,
+/// rebuilding itself whenever the delivered format changes.
+///
+/// Deliberately declared at file scope rather than inside the graph type: the
+/// graph is `@MainActor`, and a nested type would inherit that isolation,
+/// which the capture tap cannot satisfy on the audio realtime thread.
+///
+/// The format has to come from the buffers, not from `outputFormat(forBus: 0)`
+/// read before voice processing is enabled. That reports mono while the tap is
+/// handed VoiceProcessingIO's 9-channel layout, and a converter built for the
+/// advertised shape returns frames of silence instead of failing.
+nonisolated private final class CaptureConverter: @unchecked Sendable {
+    private let target: AVAudioFormat
+    private let lock = NSLock()
+    private var source: AVAudioFormat?
+    private var converter: AVAudioConverter?
+
+    init(target: AVAudioFormat) {
+        self.target = target
+    }
+
+    /// True when a converter for `format` is the one already in place, or when
+    /// one can be built for it now.
+    func accepts(_ format: AVAudioFormat) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if let source, source == format { return true }
+        guard format.channelCount > 0,
+              format.sampleRate.isFinite,
+              format.sampleRate > 0
+        else { return false }
+        guard let built = AVAudioConverter(from: format, to: target) else {
+            return false
+        }
+        source = format
+        converter = built
+        return true
+    }
+
+    func convert(
+        to output: AVAudioPCMBuffer,
+        buffer: AVAudioPCMBuffer,
+        error: inout NSError?
+    ) -> AVAudioConverterOutputStatus {
+        lock.lock()
+        let active = converter
+        lock.unlock()
+        guard let active else { return .error }
+        var supplied = false
+        return active.convert(to: output, error: &error) { _, status in
+            if supplied {
+                status.pointee = .noDataNow
+                return nil
+            }
+            supplied = true
+            status.pointee = .haveData
+            return buffer
+        }
     }
 }

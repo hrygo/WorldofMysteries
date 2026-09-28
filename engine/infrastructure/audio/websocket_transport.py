@@ -14,6 +14,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import ssl
 import struct
 from collections.abc import Mapping
@@ -22,6 +23,10 @@ from urllib.parse import urlsplit
 
 
 _WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+_MAX_DIAGNOSTIC_REASON_CHARS = 120
+_CREDENTIAL_PATTERN = re.compile(
+    r"(?i)\b(bearer\s+\S+|sk-[A-Za-z0-9._-]{4,}|token\s*[:=]\s*\S+)"
+)
 _RESERVED_REQUEST_HEADERS = {
     "connection",
     "host",
@@ -31,10 +36,56 @@ _RESERVED_REQUEST_HEADERS = {
 }
 
 
+def redact_reason(reason: str) -> str:
+    """Keep a close reason useful for diagnosis without echoing user content.
+
+    A peer reason can carry arbitrary text, so it is length-bounded and has
+    anything that looks like a credential removed before it reaches a log.
+    """
+    bounded = reason.replace("\r", " ").replace("\n", " ").strip()
+    bounded = _CREDENTIAL_PATTERN.sub("[redacted]", bounded)
+    return bounded[:_MAX_DIAGNOSTIC_REASON_CHARS]
+
+
 class JSONWebSocketTransportError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        *,
+        status: int | None = None,
+        close_code: int | None = None,
+        close_reason: str | None = None,
+    ) -> None:
         super().__init__(code)
         self.code = code
+        # Diagnostic only. These never carry a key, audio or transcript text,
+        # and they never become the user-facing message.
+        self.status = status
+        self.close_code = close_code
+        self.close_reason = close_reason
+
+
+def classify_handshake_status(status: int) -> str:
+    """Map a non-101 handshake response to a transport failure code.
+
+    A rejection before the upgrade completes never reaches the WebSocket close
+    handshake, so a 1008 close code cannot be assumed. Only statuses that are
+    evidence of a specific cause get their own code; everything else stays the
+    generic rejection rather than guessing why.
+    """
+    if status == 401:
+        return "websocket_unauthorized"
+    if status == 403:
+        # A proxy or the service refused the upgrade. This is evidence of a
+        # rejected request, not proof that a credential was wrong.
+        return "websocket_forbidden"
+    if status in {426}:
+        return "websocket_upgrade_required"
+    if status in {503, 502, 504}:
+        return "websocket_backend_not_ready"
+    if status in {404, 405}:
+        return "websocket_endpoint_missing"
+    return "websocket_handshake_rejected"
 
 
 class StdlibJSONWebSocketTransport:
@@ -100,21 +151,37 @@ class StdlibJSONWebSocketTransport:
                 if len(raw_headers) > self.maximum_http_header_bytes:
                     raise JSONWebSocketTransportError("websocket_handshake_too_large")
                 response_headers = self._parse_handshake(raw_headers)
+                status_text = response_headers.get(":status", "")
+                status = int(status_text) if status_text.isdigit() else None
+                # Status is classified before the accept token is checked: a
+                # rejected upgrade never carries one, and reporting it as a
+                # protocol error would hide the real cause.
+                if status != 101:
+                    code = (
+                        "websocket_handshake_invalid"
+                        if status is None
+                        else classify_handshake_status(status)
+                    )
+                    raise JSONWebSocketTransportError(code, status=status)
                 expected_accept = base64.b64encode(
                     hashlib.sha1((key + _WEBSOCKET_GUID).encode("ascii")).digest()
                 ).decode("ascii")
                 if response_headers.get("sec-websocket-accept") != expected_accept:
-                    raise JSONWebSocketTransportError("websocket_handshake_invalid")
-                if response_headers.get(":status") != "101":
-                    raise JSONWebSocketTransportError("websocket_handshake_rejected")
+                    raise JSONWebSocketTransportError(
+                        "websocket_handshake_invalid", status=status
+                    )
                 if response_headers.get("upgrade", "").lower() != "websocket":
-                    raise JSONWebSocketTransportError("websocket_handshake_invalid")
+                    raise JSONWebSocketTransportError(
+                        "websocket_handshake_invalid", status=status
+                    )
                 connection_tokens = {
                     token.strip().lower()
                     for token in response_headers.get("connection", "").split(",")
                 }
                 if "upgrade" not in connection_tokens:
-                    raise JSONWebSocketTransportError("websocket_handshake_invalid")
+                    raise JSONWebSocketTransportError(
+                        "websocket_handshake_invalid", status=status
+                    )
             self._reader = reader
             self._writer = writer
             self._close_sent = False
@@ -151,7 +218,18 @@ class StdlibJSONWebSocketTransport:
                 if not self._close_sent:
                     await self._send_frame(0x8, payload[:125])
                     self._close_sent = True
-                raise JSONWebSocketTransportError("websocket_closed")
+                close_code, close_reason = self._parse_close(payload)
+                # 1008 (policy violation) is the one close code that is real
+                # evidence of a rejected credential; anything else stays a
+                # plain close so no cause is invented.
+                code = (
+                    "websocket_unauthorized"
+                    if close_code == 1008
+                    else "websocket_closed"
+                )
+                raise JSONWebSocketTransportError(
+                    code, close_code=close_code, close_reason=close_reason
+                )
             if opcode == 0x9:  # ping
                 await self._send_frame(0xA, payload)
                 continue
@@ -288,6 +366,22 @@ class StdlibJSONWebSocketTransport:
                 raise JSONWebSocketTransportError("websocket_handshake_invalid")
             headers[key] = value.strip()
         return headers
+
+    @staticmethod
+    def _parse_close(payload: bytes) -> tuple[int | None, str | None]:
+        """Split a close frame into its code and a redacted reason."""
+        if len(payload) < 2:
+            return None, None
+        code = struct.unpack("!H", payload[:2])[0]
+        if code in {1005, 1006} or not 1000 <= code <= 4999:
+            # Reserved / never-sent codes carry no diagnostic meaning.
+            return code, None
+        try:
+            reason = payload[2:].decode("utf-8")
+        except UnicodeDecodeError:
+            return code, None
+        redacted = redact_reason(reason)
+        return code, redacted or None
 
     @staticmethod
     def _host_header(hostname: str, port: int, *, secure: bool) -> str:

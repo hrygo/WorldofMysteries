@@ -9,9 +9,9 @@ from typing import Any, Awaitable, Callable, Mapping, Protocol
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 
-from engine.application.context_compiler import CacheAwareContextCompiler
-from engine.application.context_epoch import ContextEpochRegistry
-from engine.application.context_plan import (
+from application.context_compiler import CacheAwareContextCompiler
+from application.context_epoch import ContextEpochRegistry
+from application.context_plan import (
     AuthorizationView, ContextError, ContextInput, WorkerProfile, canonical_json, parse_json,
 )
 from .cache_metrics import CacheUsage, normalize_usage

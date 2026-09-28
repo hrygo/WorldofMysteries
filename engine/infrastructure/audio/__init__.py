@@ -3,6 +3,7 @@
 from .capabilities import (
     AudioCapabilityObservation,
     ProbeHttpResponse,
+    RealtimeResponsibilityObservation,
     VoiceCapabilityObservation,
     probe_audio_capabilities,
 )
@@ -30,15 +31,26 @@ from .media_protocol import (
 from .mock_adapter import MockAudioAdapter
 from .openai_adapter import OpenAIAudioAdapter, create_audio_adapter
 from .websocket_transport import JSONWebSocketTransportError, StdlibJSONWebSocketTransport
+from .render_receipts import (
+    HttpRenderReceiptReader,
+    RenderReceiptError,
+    RenderReceiptReader,
+    create_render_receipt_reader,
+)
 from .realtime_tts import (
     REALTIME_TTS_SAMPLE_RATE,
+    RECEIPT_INTEGRITY_BOUNDARY,
+    WIRE_REVISION,
     RealtimeTTSChunk,
+    RealtimeTTSPhase,
     RealtimeTTSRequest,
+    RealtimeTTSStatus,
     RealtimeTTSTerminal,
     RealtimeTTSTransport,
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
     create_realtime_tts_adapter,
+    split_text_segments,
 )
 from .media_bridge import (
     EngineRealtimeTTSMediaStream,
@@ -84,12 +96,20 @@ __all__ = [
     "VoiceRenderControlError",
     "VoiceRenderControlRequest",
     "ProbeHttpResponse",
+    "RealtimeResponsibilityObservation",
     "EngineRealtimeTTSMediaStream",
     "MediaPeerStop",
     "RealtimeTTSMediaBridgeError",
     "REALTIME_TTS_SAMPLE_RATE",
+    "RECEIPT_INTEGRITY_BOUNDARY",
+    "WIRE_REVISION",
+    "HttpRenderReceiptReader",
+    "RenderReceiptError",
+    "RenderReceiptReader",
     "RealtimeTTSChunk",
+    "RealtimeTTSPhase",
     "RealtimeTTSRequest",
+    "RealtimeTTSStatus",
     "RealtimeTTSTerminal",
     "RealtimeTTSTransport",
     "VoiceCapabilityObservation",
@@ -99,6 +119,8 @@ __all__ = [
     "StdlibJSONWebSocketTransport",
     "create_audio_adapter",
     "create_realtime_tts_adapter",
+    "create_render_receipt_reader",
+    "split_text_segments",
     "render_realtime_tts_to_media",
     "probe_audio_capabilities",
 ]

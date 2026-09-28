@@ -1,11 +1,11 @@
 from dataclasses import replace
 import pytest
 
-from engine.application.context_compiler import CacheAwareContextCompiler
-from engine.application.context_plan import (
+from application.context_compiler import CacheAwareContextCompiler
+from application.context_plan import (
     AuthorizationView, ContextError, Evidence, Layer, WorkerProfile,
 )
-from engine.application.gameplay_context import (
+from application.gameplay_context import (
     CacheHorizon, ContextFacet, ContextSnapshot, EligibilityTicket, GameplayCall,
     GameplayContextCoordinator, GameplayMode, ModelUse, ProviderCachePreference,
     gameplay_recipe,

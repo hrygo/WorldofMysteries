@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from engine.application.context_plan import ContextError
-from engine.application.gameplay_context import (
+from application.context_plan import ContextError
+from application.gameplay_context import (
     GameplayCall, GameplayContextCoordinator, GameplayRecipe, ModelUse,
     ProviderCachePreference, gameplay_recipe,
 )

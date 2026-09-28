@@ -18,11 +18,15 @@ private final class FakeMicrophonePCMSource: MicrophonePCMSource {
     }
 
     func emit(_ bytes: [UInt8]) {
+        emit(bytes, sampleRate: SpeechRailRealtimeWire.sampleRate)
+    }
+
+    func emit(_ bytes: [UInt8], sampleRate: Int) {
         let data = Data(bytes)
         continuation?.yield(
             MicrophonePCM16Chunk(
                 data: data,
-                sampleRate: 16_000,
+                sampleRate: sampleRate,
                 channels: 1,
                 frameCount: data.count / 2
             )
@@ -66,7 +70,7 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
         await orderProbe?.record("transport.open")
         sequence = 0
         sessionID = UUID().uuidString
-        emit("session.created")
+        emitSession()
     }
 
     func sendText(_ text: String) async throws {
@@ -76,19 +80,25 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
         let type = try #require(object["type"] as? String)
         sentTypes.append(type)
         switch type {
-        case "transcription_session.update":
-            emit("transcription_session.updated")
+        case "session.update":
+            let speechrail = pendingSessionSpeechrail ?? [
+                "task": "transcription",
+                "tts": ["enabled": false],
+                "alignment": ["enabled": false],
+                "diarization": ["enabled": false],
+            ]
+            emit(
+                "session.updated",
+                extra: ["session": sessionObject(speechrail: speechrail)]
+            )
         case "input_audio_buffer.append":
             let encoded = try #require(object["audio"] as? String)
             appendPayloads.append(try #require(Data(base64Encoded: encoded)))
         case "input_audio_buffer.commit":
-            emit("input_audio_buffer.committed", extra: ["item_id": "final"])
             emit(
                 "conversation.item.input_audio_transcription.completed",
-                extra: ["item_id": "final", "transcript": "打开门"]
+                extra: ["item_id": "final", "content_index": 0, "transcript": "打开门"]
             )
-        case "input_audio_buffer.clear":
-            emit("input_audio_buffer.cleared")
         default:
             break
         }
@@ -112,6 +122,38 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
         (sentTypes, appendPayloads, closed)
     }
 
+    private func emitSession() {
+        let speechrail: [String: Any] = [
+            "task": "transcription",
+            "tts": ["enabled": false],
+            "alignment": ["enabled": false],
+            "diarization": ["enabled": false],
+        ]
+        pendingSessionSpeechrail = speechrail
+        emit("session.created", extra: ["session": sessionObject(speechrail: speechrail)])
+    }
+
+    private var pendingSessionSpeechrail: [String: Any]?
+
+    private func sessionObject(speechrail: [String: Any]) -> [String: Any] {
+        [
+            "id": sessionID,
+            "type": "transcription",
+            "audio": [
+                "input": [
+                    "format": ["type": "audio/pcm", "rate": 24_000],
+                    "transcription": [
+                        "model": SpeechRailRealtimeSessionConfiguration.registeredASRModel,
+                        "language": "zh",
+                    ],
+                    "turn_detection": NSNull(),
+                    "speechrail": speechrail,
+                ],
+            ],
+            "speechrail": speechrail,
+        ]
+    }
+
     private func emit(_ type: String, extra: [String: Any] = [:]) {
         sequence += 1
         var object: [String: Any] = [
@@ -130,7 +172,7 @@ private actor PTTScriptTransport: SpeechRailRealtimeASRTransport {
 @Suite("Voice push-to-talk input ordering")
 @MainActor
 struct VoiceInputPTTSessionTests {
-    @Test("Stopping capture drains all local appends before commit and clear")
+    @Test("Stopping capture drains all local appends before commit and the barrier update")
     func drainBeforeCommit() async throws {
         let transport = PTTScriptTransport()
         let connection = SpeechRailRealtimeASRConnection(transport: transport)
@@ -155,11 +197,11 @@ struct VoiceInputPTTSessionTests {
 
         let snapshot = await transport.snapshot()
         #expect(snapshot.types == [
-            "transcription_session.update",
+            "session.update",
             "input_audio_buffer.append",
             "input_audio_buffer.append",
             "input_audio_buffer.commit",
-            "input_audio_buffer.clear",
+            "session.update",
         ])
         #expect(snapshot.payloads == [Data([0, 0, 1, 0]), Data([2, 0, 3, 0])])
     }
@@ -183,6 +225,50 @@ struct VoiceInputPTTSessionTests {
         let snapshot = await transport.snapshot()
         #expect(!snapshot.types.contains("input_audio_buffer.commit"))
         #expect(snapshot.closed)
+    }
+
+    @Test("A chunk that is not the 24 kHz wire rate fails the turn before commit")
+    func wrongSampleRateDoesNotCommit() async throws {
+        let transport = PTTScriptTransport()
+        let connection = SpeechRailRealtimeASRConnection(transport: transport)
+        let microphone = FakeMicrophonePCMSource()
+        let session = VoiceInputPTTSession(
+            connection: connection,
+            microphone: microphone
+        )
+        _ = try await session.start()
+
+        // 16 kHz was the pre-4.0 rate; accepting it would put audio on the wire
+        // that the service would have to resample or reject on its own terms.
+        microphone.emit([0, 0], sampleRate: 16_000)
+        try await Task.sleep(for: .milliseconds(20))
+        let result = await session.finish()
+
+        #expect(result == .failed(.captureFailure))
+        let snapshot = await transport.snapshot()
+        #expect(!snapshot.types.contains("input_audio_buffer.commit"))
+        #expect(snapshot.closed)
+    }
+
+    @Test("A malformed frame is rejected rather than partially appended")
+    func malformedChunkDoesNotCommit() async throws {
+        let transport = PTTScriptTransport()
+        let connection = SpeechRailRealtimeASRConnection(transport: transport)
+        let microphone = FakeMicrophonePCMSource()
+        let session = VoiceInputPTTSession(
+            connection: connection,
+            microphone: microphone
+        )
+        _ = try await session.start()
+
+        // An odd byte count cannot be a whole PCM16 frame.
+        microphone.emit([0, 0, 1], sampleRate: SpeechRailRealtimeWire.sampleRate)
+        try await Task.sleep(for: .milliseconds(20))
+        let result = await session.finish()
+
+        #expect(result == .failed(.captureFailure))
+        let snapshot = await transport.snapshot()
+        #expect(!snapshot.types.contains("input_audio_buffer.commit"))
     }
 
     @Test("Explicit cancel never finalizes an Advice transcript")

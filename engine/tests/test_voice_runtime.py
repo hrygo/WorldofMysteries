@@ -53,9 +53,9 @@ class FakeRuntimeAdapter:
         *,
         expected_model_id=None,
         expected_model_revision=None,
-        enable_render_receipts=True,
+        require_render_receipt=True,
     ):
-        assert enable_render_receipts is True
+        assert require_render_receipt is True
         self.connected_model_id = expected_model_id
         self.connected_model_revision = expected_model_revision
 
@@ -64,9 +64,11 @@ class FakeRuntimeAdapter:
         pcm = b"\x01\x00\x02\x00"
         await on_chunk(
             RealtimeTTSChunk(
-                response_id="resp-runtime",
-                item_id="item-runtime",
+                task_id="task-runtime",
+                plan_id="plan-runtime",
+                request_id=request.request_id,
                 sequence=1,
+                chunk_index=0,
                 offset_frames=0,
                 frame_count=2,
                 pcm16=pcm,
@@ -74,7 +76,8 @@ class FakeRuntimeAdapter:
         )
         return RealtimeTTSTerminal(
             request_id=request.request_id,
-            response_id="resp-runtime",
+            task_id="task-runtime",
+            plan_id="plan-runtime",
             status="completed",
             total_frames=2,
             total_bytes=len(pcm),
@@ -412,5 +415,84 @@ async def test_runtime_executes_authenticated_control_to_media_uds_end_to_end():
             control_writer.close()
             await media_writer.wait_closed()
             await control_writer.wait_closed()
+        finally:
+            await server.close()
+
+
+@pytest.mark.asyncio
+async def test_runtime_over_ipc_rejects_forged_text_and_keeps_the_sealed_unit():
+    """The IPC composition must not become a way around the sealed recipe.
+
+    The app supplies ``spoken_text`` in the request. Over a real authenticated
+    socket a drifted value has to be refused exactly as it is in-process, and
+    the sealed unit must survive so the honest request can still be rendered.
+    """
+    import tempfile
+    from pathlib import Path
+
+    adapter = FakeRuntimeAdapter()
+    runtime = VoiceRenderRuntime(
+        provider_instance="speechrail-local",
+        adapter_factory=lambda: adapter,
+    )
+    unit = sealed_unit()
+    runtime.publish(unit)
+
+    with tempfile.TemporaryDirectory(prefix="wom-voice-forged-") as directory:
+        socket_path = Path(directory) / "engine.sock"
+        server = LocalIPCServer(
+            socket_path,
+            "9" * 64,
+            media_session_handler=runtime.media_handler,
+            control_handlers={"voice.render": runtime.handle_control},
+        )
+        await server.start()
+        try:
+            reader, writer = await asyncio.open_unix_connection(socket_path)
+            await write_frame(
+                writer,
+                {
+                    "kind": "request",
+                    "protocol_version": "1.0",
+                    "request_id": "hello",
+                    "trace_id": "trace-forged",
+                    "method": "system.handshake",
+                    "payload": {
+                        "app_version": "0.1.0",
+                        "app_build": "test",
+                        "supported_protocols": ["1.0"],
+                        "session_token": "9" * 64,
+                    },
+                },
+            )
+            assert (await read_frame(reader))["status"] == "ok"
+
+            await write_frame(
+                writer,
+                {
+                    "kind": "request",
+                    "protocol_version": "1.0",
+                    "request_id": "forged",
+                    "trace_id": "trace-forged",
+                    "method": "voice.render",
+                    # Only the text drifts; every other field is the sealed one.
+                    "payload": request_payload(
+                        unit,
+                        media_stream_id="media-forged",
+                        generation=1,
+                        spoken_text="克莱恩打开了门。",
+                    ),
+                },
+            )
+            reply = await read_frame(reader)
+            assert reply["status"] == "error"
+            assert reply["error"]["code"] == "voice_render_recipe_mismatch"
+
+            # The rejected request must not have consumed or altered the unit.
+            assert runtime.sealed_units.peek(unit.unit_id) == unit
+            assert adapter.requests == []
+
+            writer.close()
+            await writer.wait_closed()
         finally:
             await server.close()
