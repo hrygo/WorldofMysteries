@@ -53,6 +53,19 @@ def _evidence(**overrides):
     return VoiceEvidenceReference(**values)
 
 
+def _reviewed(**overrides):
+    """A reservation that already carries the review standing behind it."""
+    values = {
+        "binding_id": "binding-1",
+        "scope": _scope(),
+        "persona": _persona(),
+        "provider": _provider(),
+        "world_revision": 5,
+    }
+    values.update(overrides)
+    return replace(VoiceBinding.reserve(**values), evidence=_evidence())
+
+
 @pytest.mark.parametrize(
     "digest",
     ["D" * 64, "d" * 63, "d" * 65, "not-a-digest", "", 12345],
@@ -196,6 +209,45 @@ def test_rebind_creates_new_presentation_revision_without_mutating_world_revisio
     assert rebound.reserved_at_world_revision == 99
     assert rebound.status is VoiceBindingStatus.RESERVED
     assert not rebound.permits_new_render
+
+
+def test_rebinding_drops_the_review_that_belonged_to_the_old_voice():
+    """Trust is not transferable. A human approved one specific voice; letting
+    a replacement inherit that approval would put an unheard voice behind a
+    signature they never gave."""
+    active = _reviewed(world_revision=99).activate(expected_binding_revision=1)
+    assert active.evidence is not None
+
+    rebound = active.rebind(
+        expected_binding_revision=2,
+        persona=_persona("persona-r2"),
+        provider=_provider(revision="vr_" + "d" * 40),
+    )
+    assert rebound.evidence is None
+
+
+def test_rebinding_can_carry_the_review_of_the_replacement_voice():
+    active = _reviewed(world_revision=99).activate(expected_binding_revision=1)
+    replacement_review = _evidence(evidence_id="ev_klein_2")
+
+    rebound = active.rebind(
+        expected_binding_revision=2,
+        persona=_persona("persona-r2"),
+        provider=_provider(revision="vr_" + "d" * 40),
+        evidence=replacement_review,
+    )
+    assert rebound.evidence == replacement_review
+
+
+def test_rebinding_refuses_a_malformed_review_reference():
+    active = _reviewed(world_revision=99).activate(expected_binding_revision=1)
+    with pytest.raises(VoiceIdentityError, match="evidence reference"):
+        active.rebind(
+            expected_binding_revision=2,
+            persona=_persona("persona-r2"),
+            provider=_provider(revision="vr_" + "d" * 40),
+            evidence="ev_klein_2",
+        )
 
 
 def test_revocation_blocks_new_render_but_preserves_historical_identity():

@@ -241,18 +241,26 @@ class VoiceBinding:
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference | None = None,
     ) -> "VoiceBinding":
         self._require_revision(expected_binding_revision)
         if self.status is VoiceBindingStatus.REVOKED:
             raise VoiceIdentityError("a revoked binding cannot be rebound")
         if provider.revoked:
             raise VoiceIdentityError("a revoked provider voice cannot be bound")
+        if evidence is not None and not isinstance(evidence, VoiceEvidenceReference):
+            raise VoiceIdentityError("binding evidence reference is invalid")
         return replace(
             self,
             persona=persona,
             provider=provider,
             binding_revision=self.binding_revision + 1,
             status=VoiceBindingStatus.RESERVED,
+            # A different voice is a different voice. Carrying the old review
+            # forward would let an unreviewed replacement inherit the trust a
+            # human placed in the voice it replaced, so the evidence is set
+            # explicitly here rather than inherited from ``self``.
+            evidence=evidence,
         )
 
     def revoke(self, *, expected_binding_revision: int) -> "VoiceBinding":
