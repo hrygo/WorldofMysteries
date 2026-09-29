@@ -1,0 +1,111 @@
+{
+  "receipt_id": "RCP-WORK-FLASH-03B-PROGRESSIVE-NARRATIVE-e65456dc64a3",
+  "receipt_type": "work",
+  "task_id": "FLASH-03B-PROGRESSIVE-NARRATIVE",
+  "capsule_id": "CAP-FLASH-03B-PROGRESSIVE-NARRATIVE",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:ce3c223102bd8779ed981fc8efd873bb466378a119cac56b5137b07d267d0a33",
+  "diff_digest": "sha256:b65cbb373693f1658f57358a3f4541fe4a79d5da2acd565a4d4bf678e5fa6966",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "c19f89f7f80794ae6b618f5aeba5bddd080934d2",
+  "head_commit": "e65456dc64a3a1eb2ed7c699801e013e101682ca",
+  "target_ref": "origin/main",
+  "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03b-progressive-narrative",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T08:46:50.238203+00:00",
+      "finished_at": "2026-09-29T08:46:50.276621+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-flash-03b-progressive-narrative/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03b-progressive-narrative/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T08:46:50.276703+00:00",
+      "finished_at": "2026-09-29T08:47:17.954312+00:00",
+      "raw_log_digest": "sha256:efeb2681cd2a625943d8c98ad648eabc755ebd82770af54c36c7b816a8130ad3",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03b-progressive-narrative/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T08:47:17.954456+00:00",
+      "finished_at": "2026-09-29T08:47:19.459495+00:00",
+      "raw_log_digest": "sha256:c4877561ceff8867f42d34a7893f51bd04f4b6808c33d660f7641bf81f64f94a",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/NarrativeSegmentReveal.swift",
+      "macos-app/WorldOfMysteries/StorySessionPanel.swift",
+      "macos-app/WorldOfMysteriesTests/NarrativeSegmentRevealTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03b-progressive-narrative"
+  },
+  "started_at": "2026-09-29T08:46:50.201696+00:00",
+  "finished_at": "2026-09-29T08:47:19.602419+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
