@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://worldofmysteries.io/schemas/protocol/voice_render_control.schema.json",
-  "title": "World of Mysteries sealed voice render control v1.0",
-  "description": "Typed payloads carried inside authenticated Engine IPC envelopes. The request references an already committed/sealed speech unit and an already granted engine_to_app media stream; it does not authorize Domain mutation.",
+  "title": "World of Mysteries sealed voice render control",
+  "description": "Typed payloads carried inside authenticated Engine IPC envelopes. The request references an already committed/sealed speech unit and an already granted engine_to_app media stream; it does not authorize Domain mutation. Request v2.0 additionally pins the human-approved evidence identity and the exact model artifact, so a render can be attributed to the listening review that authorised it. Request v1.0 is retained solely so units sealed before v2.0 can still be replayed; it carries no evidence identity and must not be minted for new work.",
   "oneOf": [
     {"$ref": "#/$defs/request"},
+    {"$ref": "#/$defs/request_v2"},
     {"$ref": "#/$defs/accepted"}
   ],
   "$defs": {
@@ -45,6 +46,90 @@
         "voice_id": {"type": "string", "minLength": 1, "maxLength": 128},
         "expected_voice_revision": {"type": "string", "minLength": 1, "maxLength": 128},
         "expected_model_revision": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "media_stream_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 4.0
+        },
+        "language": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 32
+        }
+      },
+      "additionalProperties": false
+    },
+    "request_v2": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "speech_unit_id",
+        "turn_id",
+        "story_revision",
+        "narrative_block_id",
+        "segment_index",
+        "performance_plan_id",
+        "spoken_text",
+        "voice_id",
+        "expected_voice_revision",
+        "evidence_id",
+        "evidence_digest",
+        "expected_model_artifact_revision",
+        "expected_model_catalog_revision",
+        "media_stream_id",
+        "generation",
+        "speed"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0"},
+        "speech_unit_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "turn_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "story_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "narrative_block_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "segment_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "performance_plan_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "voice_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "expected_voice_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+        "expected_model_revision": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Identifier of the stored evidence snapshot a human approved. Never the evidence body itself."
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Content digest of that snapshot, so a rewritten record cannot pass as the reviewed one."
+        },
+        "expected_model_artifact_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The exact model artifact the review heard. Kept separate from the catalogue revision: an old catalogue entry must never stand in for the current artifact."
+        },
+        "expected_model_catalog_revision": {
           "type": ["string", "null"],
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
         },

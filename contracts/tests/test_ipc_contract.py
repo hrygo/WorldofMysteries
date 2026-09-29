@@ -79,8 +79,56 @@ def test_voice_render_control_protocol_fixture():
     )
     validator = Draft202012Validator(schema)
     validator.validate(fixture["request"])
+    validator.validate(fixture["request_v2"])
     validator.validate(fixture["accepted"])
 
     invalid = dict(fixture["request"])
     invalid["display_text"] = "must not cross the render control boundary"
     assert not validator.is_valid(invalid)
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        "evidence_id",
+        "evidence_digest",
+        "expected_model_artifact_revision",
+        "expected_model_catalog_revision",
+    ],
+)
+def test_voice_render_control_v2_refuses_an_unpinned_render(pin):
+    """Each of the four pins is load-bearing on its own. A render that cannot
+    name the review that authorised it, or the exact artifact that review
+    heard, is not a weaker v2 — it is an unattributable one."""
+    schema = json.loads(
+        (ROOT / "contracts" / "protocol" / "voice_render_control.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    fixture = json.loads(
+        (ROOT / "contracts" / "fixtures" / "ipc" / "voice_render_control.json")
+        .read_text(encoding="utf-8")
+    )
+    validator = Draft202012Validator(schema)
+
+    unpinned = dict(fixture["request_v2"])
+    unpinned.pop(pin)
+    assert not validator.is_valid(unpinned)
+
+
+def test_voice_render_control_v2_cannot_be_downgraded_to_v1():
+    """v1 is kept only so units sealed before v2 can be replayed. A peer must
+    not be able to present a fully pinned render as the unpinned version and
+    have the evidence pins silently dropped by a lenient reader."""
+    schema = json.loads(
+        (ROOT / "contracts" / "protocol" / "voice_render_control.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    fixture = json.loads(
+        (ROOT / "contracts" / "fixtures" / "ipc" / "voice_render_control.json")
+        .read_text(encoding="utf-8")
+    )
+    validator = Draft202012Validator(schema)
+
+    downgraded = dict(fixture["request_v2"])
+    downgraded["schema_version"] = "1.0"
+    assert not validator.is_valid(downgraded)
