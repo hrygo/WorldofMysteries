@@ -59,6 +59,20 @@ from infrastructure.audio import (
     render_realtime_tts_to_media,
     split_text_segments,
 )
+from application.voice_foundry_ports import (
+    AssetRequest,
+    ConfirmRequest,
+    CreateRequest,
+    PreviewRequest,
+    ProviderLocaleMap,
+    VoiceFoundryPortError,
+    admit_strict_rendering,
+)
+from infrastructure.audio.voice_foundry_adapter import (
+    FoundryExecutionPolicy,
+    HttpResponse,
+    SpeechRailVoiceFoundryAdapter,
+)
 
 
 def test_audio_provider_config_default_speechrail():
@@ -2271,3 +2285,284 @@ def test_sealed_unit_codec_republishes_the_same_unit_after_registry_expiry():
     assert restarted_registry.peek(unit.unit_id) == unit
     assert restarted_registry.peek(unit.unit_id).unit_id == unit.unit_id
     assert restarted_registry.consume(unit.unit_id) == unit
+
+
+# ---------------------------------------------------------------------------
+# VF-03B: SpeechRail adapter for the Voice Foundry provider port
+#
+# The adapter is the only place that knows SpeechRail's wire shape. These
+# tests pin the transport contract — URL trust boundary, exact request
+# bodies (SpeechRail forbids extra fields), header requirements, error
+# classification and fail-closed degradation — without a live provider.
+# ---------------------------------------------------------------------------
+
+_EXECUTION_POLICY = FoundryExecutionPolicy(
+    model_id="qwen3-tts",
+    variant="custom_voice",
+    validation_policy_revision="policy-1",
+    processing_fingerprint="f" * 64,
+    allowed_usages=frozenset({"dialogue"}),
+    scope_ref="klein-visible",
+)
+
+VOICE_DESIGN_CANDIDATE = {
+    "id": "vd_" + "a" * 24,
+    "target_voice_id": "klein_visible",
+    "name": "Klein",
+    "language": "zh",
+    "state": "validating",
+    "revision": "vr_" + "b" * 32,
+    "published_voice_revision": "wvr_" + "9" * 24,
+    "source_model": {"artifact": "qwen3-tts", "revision": "art-1"},
+    "reference": {
+        "audio_sha256": "c" * 64,
+        "text_sha256": "d" * 64,
+        "duration_seconds": 4.5,
+    },
+    "validations": [
+        {
+            "validation_id": "vv_" + "e" * 24,
+            "candidate_revision": "vr_" + "b" * 32,
+            "status": "passed",
+            "machine_status": "pass",
+            "identity_status": "pass",
+            "naturalness_status": "pass",
+            "capability_key": "quality.render",
+            "model_artifact": "qwen3-tts",
+            "model_catalog_revision": "cat-1",
+        }
+    ],
+    "publishable": True,
+}
+
+
+class _RecordingTransport:
+    """Capture requests and reply with canned bodies."""
+
+    def __init__(self, *responses):
+        self._responses = list(responses)
+        self.calls: list[dict] = []
+
+    async def __call__(self, method, url, headers, body, max_bytes, timeout):
+        self.calls.append(
+            {
+                "method": method,
+                "url": url,
+                "headers": dict(headers),
+                "body": body,
+                "max_bytes": max_bytes,
+                "timeout": timeout,
+            }
+        )
+        status, raw = self._responses.pop(0) if self._responses else (200, b"{}")
+        return HttpResponse(status_code=status, body=raw)
+
+
+def _adapter(transport, **kwargs):
+    config = AudioProviderConfig(
+        base_url=kwargs.pop("base_url", "http://127.0.0.1:8080/v1"),
+        api_key=kwargs.pop("api_key", "speechrail-local"),
+        timeout_seconds=30.0,
+    )
+    kwargs.setdefault("preview_model", "qwen3-tts-voice-design")
+    return SpeechRailVoiceFoundryAdapter(config, fetch=transport, **kwargs)
+
+
+def test_adapter_rejects_a_base_url_outside_the_trust_boundary():
+    for bad in (
+        "http://user:pw@127.0.0.1:8080/v1",
+        "http://127.0.0.1:8080/v1?x=1",
+        "http://127.0.0.1:8080/v2",
+        "file:///tmp/voices",
+    ):
+        with pytest.raises(VoiceFoundryPortError) as excinfo:
+            _adapter(_RecordingTransport(), base_url=bad)
+        assert excinfo.value.code == "foundry_invalid_configuration"
+
+
+async def test_create_sends_exactly_the_fields_speechrail_accepts_and_is_idempotent():
+    transport = _RecordingTransport((201, json.dumps(VOICE_DESIGN_CANDIDATE).encode()))
+    adapter = _adapter(transport)
+
+    await adapter.create(
+        CreateRequest(
+            voice_id="klein_visible",
+            name="Klein",
+            instruction="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+            provider_locale="zh",
+            idempotency_key="idem-1",
+        )
+    )
+
+    call = transport.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"] == "http://127.0.0.1:8080/v1/voice-designs"
+    # SpeechRail request models forbid extra fields; sending one is a 422.
+    assert set(json.loads(call["body"])) == {
+        "voice_id",
+        "name",
+        "instruction",
+        "reference_text",
+        "seed",
+        "language",
+    }
+    assert json.loads(call["body"])["language"] == "zh"
+    # An unknown create outcome is reconciled with this exact key.
+    assert call["headers"]["Idempotency-Key"] == "idem-1"
+    assert call["headers"]["Authorization"] == "Bearer speechrail-local"
+
+
+async def test_publish_sends_the_candidate_revision_as_an_opaque_string():
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+    await adapter.publish(
+        "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+    )
+
+    body = json.loads(transport.calls[0]["body"])
+    assert body == {"expected_candidate_revision": "vr_" + "b" * 32}
+    assert isinstance(body["expected_candidate_revision"], str)
+    assert transport.calls[0]["url"].endswith(
+        "/voice-designs/vd_" + "a" * 24 + "/publish"
+    )
+
+
+async def test_unsupported_locale_is_refused_before_any_request_is_sent():
+    transport = _RecordingTransport()
+    adapter = _adapter(transport)
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.preview(
+            PreviewRequest(
+                game_locale="zh-TW",
+                voice_description="克制而警觉的年轻男性声音。",
+                reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+                seed=7,
+            )
+        )
+    assert excinfo.value.code == "unsupported_locale"
+    assert transport.calls == []
+
+
+async def test_zh_cn_is_the_only_admitted_locale_and_maps_explicitly():
+    preview_wav = b"RIFF----WAVEpreview"
+    transport = _RecordingTransport(
+        (
+            200,
+            json.dumps(
+                {
+                    "audio_base64": base64.b64encode(preview_wav).decode(),
+                    "duration_seconds": 3.5,
+                }
+            ).encode(),
+        )
+    )
+    adapter = _adapter(transport)
+    result = await adapter.preview(
+        PreviewRequest(
+            game_locale="zh-CN",
+            voice_description="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+        )
+    )
+    body = json.loads(transport.calls[0]["body"])
+    # zh-CN is mapped by an explicit table entry, never inferred from "zh".
+    assert body["language"] == "zh"
+    assert result.audio_digest == hashlib.sha256(preview_wav).hexdigest()
+    assert result.audio_bytes == len(preview_wav)
+    assert adapter.locale_map.resolve("zh-CN") == "zh"
+    assert adapter.locale_map.resolve("en-US") is None
+
+
+def test_strict_rendering_is_not_claimed_without_an_explicit_entitlement():
+    # The game renders over Realtime; a REST header does not prove the
+    # transport the game actually uses can gate output before first audio.
+    adapter = _adapter(_RecordingTransport())
+    assert adapter.capabilities.strict_rendering is False
+    decision = admit_strict_rendering(adapter.capabilities)
+    assert decision.admitted is False
+    assert decision.retain_subtitles is True
+
+    entitled = _adapter(_RecordingTransport(), strict_rendering_entitlement="ent-1")
+    assert entitled.capabilities.strict_rendering is True
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [
+        (401, "foundry_unauthorized"),
+        (403, "foundry_forbidden"),
+        (404, "foundry_not_found"),
+        (409, "foundry_conflict"),
+        (422, "foundry_rejected"),
+        (429, "foundry_busy"),
+        (503, "foundry_transient"),
+    ],
+)
+async def test_upstream_status_codes_map_to_stable_reason_codes(status, code):
+    transport = _RecordingTransport((status, b'{"error":{"code":"x"}}'))
+    adapter = _adapter(transport)
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.query("vd_" + "a" * 24)
+    assert excinfo.value.code == code
+
+
+async def test_evidence_is_not_invented_when_upstream_cannot_supply_it():
+    """A published voice whose execution section cannot be filled must fail
+    closed rather than fabricate the fields our evidence contract requires."""
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport)  # no execution policy declared
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.publish(
+            "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+        )
+    assert excinfo.value.code == "provider_contract_unsupported"
+
+
+async def test_publish_binds_evidence_to_the_actual_assets_and_execution_identity():
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+    result = await adapter.publish(
+        "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+    )
+
+    evidence = result.evidence
+    assert result.voice_id == "klein_visible"
+    # Reference evidence must be the digests the provider actually reported.
+    assert evidence.reference["audio_digest"] == "c" * 64
+    assert evidence.reference["text_digest"] == "d" * 64
+    assert evidence.execution["model_artifact_revision"] == "art-1"
+    assert evidence.execution["model_catalog_revision"] == "cat-1"
+    assert evidence.human["identity_status"] == "pass"
+    assert evidence.human["naturalness_status"] == "pass"
+    assert evidence.publication["state"] == "published"
+
+
+async def test_read_asset_hashes_the_exact_bytes_returned():
+    audio = b"RIFF----WAVEfake"
+    transport = _RecordingTransport((200, audio))
+    adapter = _adapter(transport)
+    asset = await adapter.read_asset(AssetRequest(candidate_id="vd_" + "a" * 24))
+
+    assert asset.audio_digest == hashlib.sha256(audio).hexdigest()
+    assert asset.audio_bytes == len(audio)
+    assert transport.calls[0]["url"].endswith("/voice-designs/vd_" + "a" * 24 + "/audio")
+
+
+async def test_validation_audio_is_read_from_its_own_route():
+    transport = _RecordingTransport((200, b"RIFF----WAVEfake"))
+    adapter = _adapter(transport)
+    await adapter.read_asset(
+        AssetRequest(candidate_id="vd_" + "a" * 24, validation_id="vv_" + "e" * 24)
+    )
+    assert transport.calls[0]["url"].endswith(
+        "/voice-designs/vd_" + "a" * 24 + "/validations/vv_" + "e" * 24 + "/audio"
+    )
