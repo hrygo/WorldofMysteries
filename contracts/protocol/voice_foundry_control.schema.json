@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/voice_foundry_control.schema.json",
+  "title": "World of Mysteries Voice Foundry control v1.0",
+  "description": "Typed control surface for authorization-safe voice supply. Reads never write, call a provider, select a candidate, review audio, publish, or bind. Every write is an idempotent command with a frozen payload digest and an expected task revision; none of these methods may rewrite a committed Domain turn or world fact.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S",
+      "not": {"pattern": "\u0000"}
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "\\S",
+      "not": {"pattern": "\u0000"}
+    },
+    "foundry_get_request": {
+      "description": "Pure read of one authorized task. It never writes, calls a provider, changes task state, starts a preview, reviews audio, publishes, or binds a voice.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_list_request": {
+      "description": "Pure read of authorized tasks. It never writes, calls a provider, changes task state, or reveals another world or owner scope.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "page_size"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "page_token": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "stage": {
+          "oneOf": [
+            {
+              "enum": [
+                "requested",
+                "previewing",
+                "awaiting_selection",
+                "provisioning",
+                "validating",
+                "awaiting_review",
+                "published",
+                "binding",
+                "ready",
+                "failed",
+                "cancelled"
+              ]
+            },
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "human_review": {
+      "description": "A real human conclusion about the exact assets auditioned. Machine metrics never fill this object.",
+      "type": "object",
+      "required": [
+        "validation_id",
+        "reference_audio_digest",
+        "validation_audio_digest",
+        "identity",
+        "naturalness"
+      ],
+      "properties": {
+        "validation_id": {"$ref": "#/$defs/identifier"},
+        "reference_audio_digest": {"$ref": "#/$defs/digest"},
+        "validation_audio_digest": {"$ref": "#/$defs/digest"},
+        "identity": {"enum": ["pass", "reject"]},
+        "naturalness": {"enum": ["pass", "reject"]}
+      },
+      "additionalProperties": false
+    },
+    "select_payload": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "preview_audio_digest"
+      ],
+      "properties": {
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "preview_audio_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "confirm_reference_payload": {
+      "type": "object",
+      "required": [
+        "provider_candidate_revision",
+        "reference_text",
+        "reference_audio_digest"
+      ],
+      "properties": {
+        "provider_candidate_revision": {"$ref": "#/$defs/identifier"},
+        "reference_text": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 240
+        },
+        "reference_audio_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "validate_payload": {
+      "type": "object",
+      "required": [
+        "test_text",
+        "capability_key"
+      ],
+      "properties": {
+        "test_text": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 240
+        },
+        "capability_key": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "review_payload": {
+      "type": "object",
+      "required": ["human_review"],
+      "properties": {
+        "human_review": {"$ref": "#/$defs/human_review"}
+      },
+      "additionalProperties": false
+    },
+    "publish_payload": {
+      "type": "object",
+      "required": ["provider_candidate_revision"],
+      "properties": {
+        "provider_candidate_revision": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "retry_payload": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "cancel_payload": {
+      "type": "object",
+      "properties": {
+        "reason_code": {"$ref": "#/$defs/reason"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_command": {
+      "description": "Idempotently accepts one explicitly authorized Foundry action. The same command_id with the same payload_digest replays; a different digest conflicts. It never submits player input or rewrites a committed Domain turn.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "payload_digest",
+        "task_id",
+        "expected_task_revision",
+        "action",
+        "payload"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "expected_task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "action": {
+          "enum": [
+            "select",
+            "confirm_reference",
+            "validate",
+            "review",
+            "publish",
+            "retry",
+            "cancel"
+          ]
+        },
+        "payload": {
+          "oneOf": [
+            {"$ref": "#/$defs/select_payload"},
+            {"$ref": "#/$defs/confirm_reference_payload"},
+            {"$ref": "#/$defs/validate_payload"},
+            {"$ref": "#/$defs/review_payload"},
+            {"$ref": "#/$defs/publish_payload"},
+            {"$ref": "#/$defs/retry_payload"},
+            {"$ref": "#/$defs/cancel_payload"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"action": {"const": "select"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/select_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "confirm_reference"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/confirm_reference_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "validate"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/validate_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "review"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/review_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "publish"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/publish_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "retry"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/retry_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "cancel"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/cancel_payload"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "binding_replace_request": {
+      "description": "Explicit user-commanded replacement of the future binding for one complete scope. Existing audio takes and previous binding revisions remain unchanged.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "payload_digest",
+        "scope",
+        "expected_binding_revision",
+        "provider_instance",
+        "voice_id",
+        "voice_revision",
+        "evidence_id",
+        "evidence_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "scope": {
+          "$ref": "voice_cast_request.schema.json#/$defs/scope"
+        },
+        "expected_binding_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "provider_instance": {"$ref": "#/$defs/identifier"},
+        "voice_id": {"$ref": "#/$defs/identifier"},
+        "voice_revision": {"$ref": "#/$defs/identifier"},
+        "evidence_id": {"$ref": "#/$defs/identifier"},
+        "evidence_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_get_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_list_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "tasks",
+        "next_page_token"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "tasks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "voice_foundry_state.schema.json"
+          }
+        },
+        "next_page_token": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_command_response": {
+      "description": "Acknowledges one accepted idempotent command. Replayed means the same command was already accepted; it is not a second provider action or Domain commit.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "command_id",
+        "accepted",
+        "replayed",
+        "task"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "binding_replace_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "accepted",
+        "replayed",
+        "binding_id",
+        "binding_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"},
+        "binding_id": {"$ref": "#/$defs/identifier"},
+        "binding_revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
