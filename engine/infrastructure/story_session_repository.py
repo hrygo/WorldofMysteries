@@ -562,6 +562,17 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
         if committed.value != expected:
             raise StorageError("Idempotent Story commit result does not match request")
 
+        if not committed.replayed:
+            # Acceptance checkpoint "immediately after commit": the turn is
+            # durable and no post-COMMIT work has started. It is announced here,
+            # on the commit itself, because that is the only boundary both
+            # wirings share — the durable worker commits through this port
+            # directly, while the synchronous story methods wrap it in a
+            # settling decorator. A replay is the same commit, not a new
+            # boundary, so it must not announce one: a fault here must recover
+            # to the same committed turn, never a second commit.
+            self.database.checkpoint("after_turn_commit")
+
         # Re-read authoritative rows even on the first commit. This proves the
         # result exposed to Application is exactly what survived SQLite COMMIT.
         persisted_session = await self.load_session(session.id)
