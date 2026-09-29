@@ -10,7 +10,11 @@ import pytest
 import pytest_asyncio
 
 from domain.voice_identity import VoiceBindingScope
-from engine.infrastructure.database_manager import DatabaseManager, DatabasePaths
+from engine.infrastructure.database_manager import (
+    DatabaseManager,
+    DatabasePaths,
+    StorageError,
+)
 from engine.infrastructure.voice_foundry_repository import (
     VoiceCandidateRecord,
     VoiceCommandAck,
@@ -507,4 +511,108 @@ async def test_candidate_update_is_guarded_by_task_revision(database):
             expected_revision=task.task_revision + 5,
             candidate_id=f"{task.task_id}:candidate:0",
             state="selected",
+        )
+
+
+def _candidate_at(slot: int, candidate_id: str) -> VoiceCandidateRecord:
+    return VoiceCandidateRecord(
+        candidate_id=candidate_id,
+        slot=slot,
+        seed=100 + slot,
+        state="ready",
+        preview_audio_digest="d" * 64,
+        recipe={"seed": 100 + slot},
+        recipe_digest="e" * 64,
+    )
+
+
+async def test_load_candidates_presents_every_slot_in_slot_order(database):
+    """Preview order is provider timing; presentation order is the slot.
+
+    A player comparing candidates must see the same candidate in the same
+    place every time, otherwise a selection recorded as "the third one" names a
+    different voice on a re-read.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    revision = task.task_revision
+    # Land the slots out of order, the way concurrent previews would finish.
+    for slot in (3, 1, 4, 2):
+        task = await repo.add_candidate(
+            task.task_id,
+            expected_revision=revision,
+            candidate=_candidate_at(slot, f"candidate-{slot}"),
+        )
+        revision = task.task_revision
+
+    loaded = await repo.load_candidates("task-1")
+    assert [item.slot for item in loaded] == [1, 2, 3, 4]
+    assert [item.candidate_id for item in loaded] == [
+        "candidate-1",
+        "candidate-2",
+        "candidate-3",
+        "candidate-4",
+    ]
+
+
+async def test_load_candidates_is_empty_before_any_preview_lands(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    await repo.register_task(task_spec())
+    assert await repo.load_candidates("task-1") == ()
+
+
+async def test_load_scope_tasks_keeps_the_history_a_precheck_needs(database):
+    """A scope that failed once must not look like a scope never asked.
+
+    Pre-warming reads this list to decide whether an identity still needs
+    supply. If abandoned tasks were filtered out, a cancelled or failed task
+    would read as "nothing was ever requested" and the scene would queue the
+    same work again.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    first = await repo.register_task(task_spec())
+    cancelled = await repo.request_cancel(
+        first.task_id,
+        expected_revision=first.task_revision,
+        reason_code="operator_withdrew",
+    )
+    assert cancelled.stage is VoiceFoundryStage.CANCELLED
+
+    await repo.register_task(
+        task_spec(task_id="task-2", request_id="request-2", request_digest="b" * 64)
+    )
+
+    listed = await repo.load_scope_tasks(scope())
+    assert [item.task_id for item in listed] == ["task-1", "task-2"]
+    assert listed[0].stage is VoiceFoundryStage.CANCELLED
+    assert listed[1].stage is VoiceFoundryStage.REQUESTED
+
+
+async def test_load_scope_tasks_is_scoped_to_one_presentation_identity(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    await repo.register_task(task_spec())
+
+    other = VoiceBindingScope(
+        owner_id="player",
+        world_id="voice-foundry-world",
+        worldline_id="line-1",
+        presentation_identity="amanda-visible",
+        phase="narrative",
+        locale="zh-CN",
+    )
+    assert await repo.load_scope_tasks(other) == ()
+
+
+async def test_load_scope_tasks_refuses_an_untyped_scope(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    with pytest.raises(StorageError):
+        await repo.load_scope_tasks(
+            {
+                "owner_id": "player",
+                "world_id": "voice-foundry-world",
+                "worldline_id": "line-1",
+                "presentation_identity": "klein-visible",
+                "phase": "narrative",
+                "locale": "zh-CN",
+            }
         )

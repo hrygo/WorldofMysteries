@@ -678,6 +678,48 @@ class SQLiteVoiceFoundryRepository:
             raise StorageError("Voice Foundry candidate not found")
         return _candidate_from_row(rows[0])
 
+    async def load_candidates(self, task_id: str) -> tuple[VoiceCandidateRecord, ...]:
+        """Every candidate minted for one task, in slot order.
+
+        A task holds at most ``MAX_CANDIDATES`` slots, so the whole set is one
+        small read.  Ordering by slot is what makes the public projection
+        stable: the same task always presents its candidates in the same
+        sequence, whichever order they finished previewing in.
+        """
+        rows = await self.database.read_world(
+            "SELECT * FROM voice_foundry_candidates WHERE task_id=? ORDER BY slot ASC",
+            (_identifier(task_id, "task id"),),
+        )
+        return tuple(_candidate_from_row(row) for row in rows)
+
+    async def load_scope_tasks(
+        self, scope: VoiceBindingScope
+    ) -> tuple[VoiceFoundryTaskRecord, ...]:
+        """Every supply task ever opened for one presentation scope.
+
+        Pre-warming a scene asks what each identity already has before it asks
+        for anything new, so this has to include finished and abandoned tasks,
+        not just the live one — otherwise a scope that failed once looks like a
+        scope that was never asked.  Ordered by creation so a caller reading
+        the list sees the same history every time.
+        """
+        checked = _validate_scope(scope)
+        rows = await self.database.read_world(
+            "SELECT * FROM voice_foundry_tasks "
+            "WHERE owner_id=? AND world_id=? AND worldline_id=? "
+            "AND presentation_identity=? AND phase=? AND locale=? "
+            "ORDER BY created_at ASC, task_id ASC",
+            (
+                checked.owner_id,
+                checked.world_id,
+                checked.worldline_id,
+                checked.presentation_identity,
+                checked.phase,
+                checked.locale,
+            ),
+        )
+        return tuple(_task_from_row(row) for row in rows)
+
     async def update_candidate(
         self,
         task_id: str,
