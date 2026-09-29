@@ -41,6 +41,7 @@ from application.gameplay_context import (
     MemoryContextPort,
     StoryContextPort,
     WorldContextPort,
+    gameplay_recipe,
 )
 from domain.context_visibility import (
     ContextAuthorization,
@@ -708,7 +709,7 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
                 )
             )
         if session is not None:
-            projected.append(self._project_story_state(call, snapshot, session))
+            projected.extend(self._project_story_state(call, snapshot, session))
         return tuple(projected)
 
     def _project_story_state(
@@ -716,20 +717,17 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
         call: GameplayCall,
         snapshot: ContextSnapshot,
         session: dict[str, object],
-    ) -> _ProjectedFact:
+    ) -> tuple[_ProjectedFact, ...]:
         state = session.get("story_state")
         protagonist_id = self._require_text(session.get("protagonist_id"))
         story_revision = self._require_natural(session.get("story_revision"))
-        committed_world_revision = self._require_natural(
-            session.get("committed_world_revision")
-        )
+        committed_world_revision = self._require_natural(session.get("committed_world_revision"))
         if not isinstance(state, dict):
             raise ContextError("invalid_context_snapshot")
         state_session_id = state.get("story_session_id")
         if (
-            (state_session_id is not None and state_session_id != call.session_id)
-            or self._require_natural(state.get("revision")) != story_revision
-        ):
+            state_session_id is not None and state_session_id != call.session_id
+        ) or self._require_natural(state.get("revision")) != story_revision:
             raise ContextError("invalid_context_snapshot")
 
         scene = state.get("scene")
@@ -764,29 +762,61 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
             "story_revision": story_revision,
             "world_time": world_time,
         }
-        return self._projection(
-            call=call,
-            source_id=self._stable_source_id("story-state", call.session_id),
-            source_revision=story_revision,
-            kind="checkpoint",
-            layer=Layer.STATE,
-            sequence=None,
-            session_id=call.session_id,
-            subject_id=protagonist_id,
-            available_at_tick=snapshot.world_tick,
-            committed_world_revision=committed_world_revision,
-            content=content,
-            model_content=content,
-            known_by=(protagonist_id,),
-            public=False,
-            # The committed scene is a result the owner is already entitled to
-            # see, so it rides the player-disclosure axis that AO-05 defines for
-            # the advice interpreter and the narrative compiler. It stays
-            # non-public, and `subject_id` still scopes it to this session's
-            # protagonist, so no unrelated consumer gains it for free.
-            disclosed_to_owner=True,
-            hidden=self._hidden_flag(state),
-            facets=frozenset({ContextFacet.STORY}),
+        if gameplay_recipe(call.mode).consumer == "advice_interpreter":
+            # The advice interpreter admits only
+            # {observation, available_target, current_goal, pressure}, so the
+            # narrative checkpoint is not admissible to it and offering one
+            # would trip `consumer_kind_forbidden`. It gets a purpose-built
+            # observation of the same committed scene instead, over the same
+            # already-vetted content: no new field becomes reachable by widening
+            # the vocabulary, only the same disclosed facts under a kind this
+            # consumer is allowed to read.
+            return (
+                self._projection(
+                    call=call,
+                    source_id=self._stable_source_id("advice-scene", call.session_id),
+                    source_revision=story_revision,
+                    kind="observation",
+                    layer=Layer.STATE,
+                    sequence=None,
+                    session_id=call.session_id,
+                    subject_id=protagonist_id,
+                    available_at_tick=snapshot.world_tick,
+                    committed_world_revision=committed_world_revision,
+                    content=content,
+                    model_content=content,
+                    known_by=(protagonist_id,),
+                    public=False,
+                    disclosed_to_owner=True,
+                    hidden=self._hidden_flag(state),
+                    facets=frozenset({ContextFacet.STORY}),
+                ),
+            )
+        return (
+            self._projection(
+                call=call,
+                source_id=self._stable_source_id("story-state", call.session_id),
+                source_revision=story_revision,
+                kind="checkpoint",
+                layer=Layer.STATE,
+                sequence=None,
+                session_id=call.session_id,
+                subject_id=protagonist_id,
+                available_at_tick=snapshot.world_tick,
+                committed_world_revision=committed_world_revision,
+                content=content,
+                model_content=content,
+                known_by=(protagonist_id,),
+                public=False,
+                # The committed scene is a result the owner is already entitled to
+                # see, so it rides the player-disclosure axis that AO-05 defines for
+                # the advice interpreter and the narrative compiler. It stays
+                # non-public, and `subject_id` still scopes it to this session's
+                # protagonist, so no unrelated consumer gains it for free.
+                disclosed_to_owner=True,
+                hidden=self._hidden_flag(state),
+                facets=frozenset({ContextFacet.STORY}),
+            ),
         )
 
     def _projection(
