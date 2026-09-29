@@ -199,6 +199,9 @@ def test_real_voice_turn_speaks_a_committed_world(voice_driver, story_engine, tm
     # pytest truncates a long dict in the assertion message, and the truncated
     # tail is exactly where the audio evidence lives. Report it as JSON.
     summary = json.dumps(facts, ensure_ascii=False, sort_keys=True)
+    # A live run is the only place the measured liveness timeline exists, so
+    # print it: on a pass there is otherwise nothing to inspect afterwards.
+    print(f"\nE2E-FACTS {summary}")
 
     # The Engine must have proven both halves of the live path at startup rather
     # than degrading to the frozen fixture while still claiming to speak.
@@ -212,6 +215,28 @@ def test_real_voice_turn_speaks_a_committed_world(voice_driver, story_engine, tm
     # A real Domain commit, not a canned one.
     assert facts["committedTurn"] == 1, summary
     assert facts["storyRevision"] >= 1, summary
+
+    # The commit ACK alone must NOT be the finished delivery. If it were, the
+    # client's re-read would be decoration and nothing below would prove
+    # anything about liveness.
+    assert facts["submitDeliveryState"] in {"absent", "unavailable"}, summary
+
+    # The load-bearing claim: the App published an in-flight state and then a
+    # different one. One entry would mean a single lucky read of an already
+    # finished turn, which is exactly the defect this test exists to catch.
+    states = facts["observedWorkStates"]
+    assert len(states) >= 2, summary
+    in_flight = {"pending", "running"}
+    first = set(states[0].split("|"))
+    last = set(states[-1].split("|"))
+    assert first & in_flight, summary
+    assert not (last & in_flight), summary
+    # Narratives and audio both settle into `ready`; only a lost turn or a
+    # refused render would end anywhere else, and the audio assertions below
+    # already demand real PCM.
+    assert states[-1].endswith("|ready|ready"), summary
+    assert facts["pollGaveUp"] is False, summary
+    assert facts["narrativeSegments"] >= 1, summary
 
     # A sealed unit bound to a content-addressed provider voice.
     assert facts["deliveryState"] == "ready", summary

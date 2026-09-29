@@ -41,6 +41,16 @@ private struct Facts: Codable {
     var committedTurn: Int
     var storyRevision: Int
     var discoveredClues: [String]
+    /// Delivery advertised by the submit ACK itself. Under durable post-COMMIT
+    /// there is nothing to hear yet, which is the whole point: the finished
+    /// state can only arrive through the liveness re-read.
+    var submitDeliveryState: String
+    /// Every distinct `settlement|narrative|audio` triple the App published,
+    /// in order. More than one entry is the proof that the client watched the
+    /// work move instead of reading one lucky finished snapshot.
+    var observedWorkStates: [String]
+    var pollGaveUp: Bool
+    var narrativeSegments: Int
     var deliveryState: String
     var deliveryReason: String?
     var speechUnitID: String?
@@ -137,6 +147,7 @@ private let forwardedEnvironment: [String: String] = {
 
 /// Synthesize the spoken stimulus with SpeechRail and play it out the system
 /// default speaker, so the system default microphone hears real speech.
+@MainActor
 private func speakStimulus(text: String) async throws {
     var request = URLRequest(url: URL(string: "http://127.0.0.1:8201/v1/audio/speech")!)
     request.httpMethod = "POST"
@@ -166,42 +177,42 @@ private func speakStimulus(text: String) async throws {
     let wav = try await box.data
     step("stimulus.synthesized")
 
-    let file = try AVAudioFile(forReading: try writeTemporary(wav))
+    // `AVAudioPlayer`, not a second `AVAudioEngine`. The microphone is already
+    // capturing through its own engine, and on macOS a second engine — or a
+    // node attached to the capture engine's own graph — reconfigures the shared
+    // audio device and silently starves the running input tap. Measured: with a
+    // second engine the tap delivers 0 samples for the whole utterance and the
+    // recognizer is handed pure silence; with `AVAudioPlayer` the same tap
+    // delivers the whole sentence while the speaker plays it.
+    let player = try AVAudioPlayer(contentsOf: try writeTemporary(wav))
+    let delegate = StimulusPlayer()
+    player.delegate = delegate
+    guard player.prepareToPlay() else {
+        throw E2EFailure.missing("stimulus could not prepare for playback")
+    }
     step("stimulus.file.opened")
-    let player = AVAudioPlayerNode()
-    let engine = AVAudioEngine()
-    engine.attach(player)
-    engine.connect(player, to: engine.outputNode, format: file.processingFormat)
-    engine.prepare()
-    try engine.start()
-    step("stimulus.engine.started")
     // `scheduleFile(_:at:)`'s async overload and `player.isPlaying` are both
     // unusable here: the async overload never returns on this toolchain, and
     // `isPlaying` stays true after the data has been played, so polling it
-    // never terminates. The data-played-back callback is the only signal that
+    // never terminates. The delegate callback is the only signal that
     // actually means "the speaker finished the sentence".
-    let fence = PlaybackFence()
-    player.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { _ in
-        fence.reach()
-    }
     player.play()
     step("stimulus.playing")
     // The callback is the signal, but a wedged audio device must surface as an
     // honest failure rather than as a 10-minute hang.
-    let budget = UInt64(file.length) / UInt64(file.processingFormat.sampleRate) + 30
-    try await fence.wait(seconds: budget)
+    try await delegate.wait(seconds: player.duration + 30)
     step("stimulus.playback.finished")
     player.stop()
-    engine.stop()
 }
 
-/// One-shot fence signalled by the player node's data-played-back callback.
-private final class PlaybackFence: @unchecked Sendable {
+/// One-shot fence signalled by `AVAudioPlayer`'s did-finish-playing callback.
+@MainActor
+private final class StimulusPlayer: NSObject, AVAudioPlayerDelegate, @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Void, any Error>?
     private var reached = false
 
-    func reach() {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         lock.lock()
         defer { lock.unlock() }
         reached = true
@@ -209,7 +220,8 @@ private final class PlaybackFence: @unchecked Sendable {
         continuation = nil
     }
 
-    func wait(seconds: UInt64) async throws {
+    func wait(seconds: TimeInterval) async throws {
+        let whole = UInt64(max(seconds, 1))
         try await withCheckedThrowingContinuation { continuation in
             lock.lock()
             if reached {
@@ -220,7 +232,7 @@ private final class PlaybackFence: @unchecked Sendable {
             self.continuation = continuation
             lock.unlock()
             Task {
-                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                try await Task.sleep(nanoseconds: whole * 1_000_000_000)
                 self.fail(E2EFailure.missing("stimulus playback did not finish in time"))
             }
         }
@@ -276,6 +288,46 @@ private func writeTemporary(_ data: Data) throws -> URL {
     return url
 }
 
+/// What the App's own post-COMMIT projection looked like while it converged.
+private struct LivenessObservation {
+    var states: [String] = []
+    var final: StoryTurnWorkGetResponseDTO?
+    var reason: String?
+}
+
+/// Watch the committed turn until nothing about it is still moving.
+///
+/// The model's bounded loop re-reads once a second and every in-flight state
+/// it publishes lasts seconds, so a 50 ms sample cannot step over a
+/// transition. What lands in `states` is therefore what a player watching the
+/// panel would have seen — the same property the panel renders — not a private
+/// peek at the Engine.
+@MainActor
+private func observePostCommitLiveness(
+    model: StorySessionModel, seconds: Double
+) async -> LivenessObservation {
+    var observation = LivenessObservation()
+    let deadline = ContinuousClock.now.advanced(by: .seconds(seconds))
+    while ContinuousClock.now < deadline {
+        if let work = model.postCommitWork {
+            let triple = "\(work.settlementState.rawValue)|"
+                + "\(work.narrativeState.rawValue)|\(work.audioState.rawValue)"
+            if observation.states.last != triple { observation.states.append(triple) }
+            if StorySessionModel.isTerminalPostCommitWork(work) {
+                observation.final = work
+                return observation
+            }
+        } else if model.postCommitWorkPollGaveUp {
+            observation.reason = "the client stopped re-reading before the work finished"
+            return observation
+        }
+        try? await Task.sleep(for: .milliseconds(50))
+    }
+    observation.reason = "post-COMMIT work was still \(observation.states.last ?? "unread") "
+        + "after \(Int(seconds))s"
+    return observation
+}
+
 @MainActor
 private func run(_ args: [String]) async throws {
     let environment = ProcessInfo.processInfo.environment
@@ -290,7 +342,16 @@ private func run(_ args: [String]) async throws {
         voiceId: voiceID,
         environment: forwardedEnvironment
     ))
-    let app = AppState(ipcClient: EngineIPCClient(requestTimeout: 180), processManager: manager)
+    // The App-side journal keeps the durable first-turn request. Left at its
+    // default it is one shared file for the whole machine, so a second run
+    // inherits the previous run's frozen request, `canStartStory` is already
+    // false, and the story silently never opens. Give each run its own.
+    let app = AppState(
+        ipcClient: EngineIPCClient(requestTimeout: 180),
+        processManager: manager,
+        journalRoot: URL(fileURLWithPath: args[3], isDirectory: true)
+            .appendingPathComponent("app-journal", isDirectory: true)
+    )
     step("engine.start")
     try await app.startAndConnect()
     step("engine.connected")
@@ -299,7 +360,8 @@ private func run(_ args: [String]) async throws {
         fail("no handshake; state=\(String(describing: app.connectionState)) "
              + "error=\(app.connectionError ?? "none") health=\(app.engineHealth == nil ? "nil" : "set")")
     }
-    guard capabilities.contains("story.turn.submit"), capabilities.contains("media.open"),
+    guard capabilities.contains(StoryPostCommitMethodCapability.turnSubmitV2.rawValue),
+          capabilities.contains("media.open"),
           capabilities.contains("voice.render") else {
         fail("engine did not advertise the live voice path: \(capabilities.sorted())")
     }
@@ -323,7 +385,13 @@ private func run(_ args: [String]) async throws {
     step("asr.finalizing")
     let terminal = await voiceSession.finish()
     step("asr.done")
-    guard case .transcript(let final) = terminal else { fail("ASR produced no transcript") }
+    // Name the actual terminal case. "no transcript" on its own cannot be
+    // attributed: an empty result, a provider failure and a cancelled session
+    // are three different bugs, and collapsing them is what made an earlier
+    // run of this test unattributable.
+    guard case .transcript(let final) = terminal else {
+        fail("ASR produced no transcript (\(terminal))")
+    }
     let transcript = final.text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !transcript.isEmpty else { fail("ASR produced an empty transcript") }
 
@@ -332,21 +400,54 @@ private func run(_ args: [String]) async throws {
     step("story.open")
     try await app.storyModel.startStory()
     step("story.opened")
-    let view = try require(app.storyModel.view, "no committed session view")
-    let committed = try await client.storyTurnSubmit(try StoryTurnSubmitRequestDTO(
-        sessionId: view.sessionId,
-        inputTurnId: UUID().uuidString,
-        rawInput: transcript,
-        inputMode: .voice,
-        expectedStoryRevision: view.storyRevision,
-        expectedStoreRevision: view.observedStoreRevision
-    ))
+    // Commit through the production voice controller, not a hand-rolled
+    // `story.turn.submit` call. The controller owns the shared submission
+    // coordinator, so the receipt it records is what lets `StorySessionModel`
+    // find the committed turn afterwards; a driver-side call would leave the
+    // model with no turn id and the liveness re-read would never start.
+    let context = try require(app.voiceTurnContext, "no voice turn context")
+    guard await app.voiceTurn.submitFinalTranscript(transcript, context: context) != nil else {
+        fail("the voice turn did not commit (phase=\(app.voiceTurn.phase))")
+    }
     step("turn.committed")
-    let delivery = try require(committed.delivery, "commit returned no delivery state")
+    let submitDeliveryState = app.submissionCoordinator.latestResult?.delivery?.state.rawValue ?? "absent"
+
+    // 3. Client liveness. The turn is committed, but narrative and audio are a
+    //    background worker's job, so the ACK carries no finished delivery. The
+    //    App is the thing that has to notice, and `reloadSession()` is exactly
+    //    what the panel calls once a voice turn finishes. From there the model
+    //    re-reads the projection on a bounded loop. Sampling the same property
+    //    the panel renders records what the client actually saw.
+    step("work.liveness")
+    await app.storyModel.reloadSession()
+    let observed = await observePostCommitLiveness(model: app.storyModel, seconds: 180)
+    step("work.observed.\(observed.states.count)")
+    let view = try require(app.storyModel.view, "no committed session view")
+    guard let work = observed.final else {
+        emit(Facts(transcript: transcript, committedTurn: view.turn,
+                   storyRevision: view.storyRevision,
+                   discoveredClues: view.discoveredClues.map(\.displayName),
+                   submitDeliveryState: submitDeliveryState,
+                   observedWorkStates: observed.states,
+                   pollGaveUp: app.storyModel.postCommitWorkPollGaveUp,
+                   narrativeSegments: 0,
+                   deliveryState: "unavailable", deliveryReason: observed.reason,
+                   speechUnitID: nil, voiceID: nil, mediaFrames: 0, mediaBytes: 0,
+                   pcmPeak: 0, pcmRMSMilli: 0, sampleRate: 24_000, playedToDevice: false,
+                   playbackTerminal: "not-started",
+                   healthModelReady: health.modelReady, healthVoiceReady: health.voiceReady))
+        fail("post-COMMIT work never reached a terminal state: \(observed.reason ?? "unknown"); "
+             + "saw \(observed.states)")
+    }
+    let delivery = try require(work.delivery, "terminal work without a delivery state")
     guard delivery.state == .ready else {
-        emit(Facts(transcript: transcript, committedTurn: committed.session.turn,
-                   storyRevision: committed.session.storyRevision,
-                   discoveredClues: committed.session.discoveredClues.map(\.displayName),
+        emit(Facts(transcript: transcript, committedTurn: view.turn,
+                   storyRevision: view.storyRevision,
+                   discoveredClues: view.discoveredClues.map(\.displayName),
+                   submitDeliveryState: submitDeliveryState,
+                   observedWorkStates: observed.states,
+                   pollGaveUp: app.storyModel.postCommitWorkPollGaveUp,
+                   narrativeSegments: work.narrativeSegments.count,
                    deliveryState: delivery.state.rawValue, deliveryReason: delivery.reason,
                    speechUnitID: nil, voiceID: nil, mediaFrames: 0, mediaBytes: 0,
                    pcmPeak: 0, pcmRMSMilli: 0, sampleRate: 24_000, playedToDevice: false,
@@ -356,7 +457,7 @@ private func run(_ args: [String]) async throws {
     }
     let recipe = try require(delivery.renderRecipe, "ready delivery without a render recipe")
 
-    // 3. Real audio out: verified SpeechRail PCM over the media socket into the
+    // 4. Real audio out: verified SpeechRail PCM over the media socket into the
     //    system default output device.
     let grant = try await client.openMedia(
         direction: .engineToApp,
@@ -391,9 +492,13 @@ private func run(_ args: [String]) async throws {
     await app.shutdown()
     emit(Facts(
         transcript: transcript,
-        committedTurn: committed.session.turn,
-        storyRevision: committed.session.storyRevision,
-        discoveredClues: committed.session.discoveredClues.map(\.displayName),
+        committedTurn: view.turn,
+        storyRevision: view.storyRevision,
+        discoveredClues: view.discoveredClues.map(\.displayName),
+        submitDeliveryState: submitDeliveryState,
+        observedWorkStates: observed.states,
+        pollGaveUp: app.storyModel.postCommitWorkPollGaveUp,
+        narrativeSegments: work.narrativeSegments.count,
         deliveryState: delivery.state.rawValue,
         deliveryReason: nil,
         speechUnitID: recipe.speechUnitId,
