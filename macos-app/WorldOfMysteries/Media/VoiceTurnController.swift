@@ -66,6 +66,13 @@ public final class VoiceTurnController {
     @ObservationIgnored private var playback: NativePlaybackActor?
     @ObservationIgnored private var renderGeneration: Int64 = 0
     @ObservationIgnored private var busy = false
+    /// Speech units this controller has already tried to speak, oldest first.
+    ///
+    /// The App re-reads a turn's post-COMMIT projection until the work settles,
+    /// so the same ready delivery is offered again and again. Without this the
+    /// player would hear their own turn repeated once per poll.
+    @ObservationIgnored private var spokenSpeechUnits: [String] = []
+    @ObservationIgnored private static let spokenHistoryLimit = 64
 
     public init(
         client: EngineIPCClient,
@@ -226,6 +233,40 @@ public final class VoiceTurnController {
     }
 
     // MARK: - Post-COMMIT rendering
+
+    /// Speak a turn's already-committed delivery.
+    ///
+    /// Strictly post-COMMIT, exactly like the push-to-talk path: the recipe is
+    /// a projection of a SpeechUnit the Engine already sealed, so this renders
+    /// and plays audio without creating, querying or replaying any world fact.
+    /// That is what lets the audio start the moment it is ready and overlap the
+    /// text, instead of waiting for the player's next turn.
+    ///
+    /// Each speech unit is attempted once. A failure is reported honestly and
+    /// left to the Engine's explicit `work.retry`, never retried on the App's
+    /// own polling cadence — a renderer that is failing must not be hammered
+    /// once a second, and the text has to keep working regardless.
+    public func speakDelivery(_ recipe: VoiceRenderRecipeDTO) async {
+        // Never talk over the player, and never render two things at once.
+        guard captureSession == nil, !busy else { return }
+        guard !spokenSpeechUnits.contains(recipe.speechUnitId) else { return }
+        spokenSpeechUnits.append(recipe.speechUnitId)
+        if spokenSpeechUnits.count > Self.spokenHistoryLimit {
+            spokenSpeechUnits.removeFirst(spokenSpeechUnits.count - Self.spokenHistoryLimit)
+        }
+        phase = .rendering
+        do {
+            if let renderDelivery {
+                try await renderDelivery(recipe)
+            } else {
+                try await renderAndPlay(recipe: recipe)
+            }
+            lastSpokenText = recipe.spokenText
+            phase = .idle
+        } catch {
+            phase = .unavailable(reason: "render_failed")
+        }
+    }
 
     private func renderAndPlay(recipe: VoiceRenderRecipeDTO) async throws {
         renderGeneration += 1

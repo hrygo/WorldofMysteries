@@ -32,20 +32,38 @@ public struct StorySessionPanel: View {
             }
         }
         .accessibilityIdentifier("storySessionPanel")
-        .task { advanceReveal(to: model.postCommitWork) }
+        .task { advance(to: model.postCommitWork) }
         .onChange(of: model.postCommitWork) { _, work in
-            advanceReveal(to: work)
+            advance(to: work)
         }
     }
 
-    /// Feed the committed projection to the reveal. An in-flight or blocked turn
-    /// carries no segments, so this is also what hides a previous turn's text.
-    private func advanceReveal(to work: StoryTurnWorkGetResponseDTO?) {
+    /// Feed the committed projection to the presentation layer.
+    ///
+    /// An in-flight or blocked turn carries no segments, so this is also what
+    /// hides a previous turn's text. Audio starts from the same hook, which is
+    /// why the player hears a turn while its text is still being revealed
+    /// rather than after the whole thing is on screen.
+    private func advance(to work: StoryTurnWorkGetResponseDTO?) {
         guard let work else {
             reveal.reset()
             return
         }
         reveal.present(turnId: work.turnId, segments: work.narrativeSegments)
+        playDeliveryIfReady(work)
+    }
+
+    /// Start the turn's audio as soon as the Engine has sealed it.
+    ///
+    /// The controller refuses to speak the same sealed unit twice, so the
+    /// repeated re-reads that keep the projection fresh cannot replay it.
+    private func playDeliveryIfReady(_ work: StoryTurnWorkGetResponseDTO) {
+        guard let voice,
+              work.audioState == .ready,
+              let recipe = work.delivery?.renderRecipe else {
+            return
+        }
+        Task { await voice.speakDelivery(recipe) }
     }
 
     private var header: some View {
@@ -228,7 +246,7 @@ public struct StorySessionPanel: View {
                     .foregroundStyle(Color.Mystic.textSecondary)
                     .accessibilityIdentifier("storyAudioUnavailable")
             case .ready:
-                Text("语音配方已就绪，等待后续回放。")
+                Text(voice?.phase == .rendering ? "语音正在播放…" : "语音已就绪。")
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
                     .accessibilityIdentifier("storyAudioReady")
