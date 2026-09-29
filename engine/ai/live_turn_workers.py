@@ -175,6 +175,7 @@ class _StructuredWorker:
         *,
         binding_identity: TurnContextBindingIdentity,
         expected_binding: AuthorizedTurnContextBinding | None = None,
+        schema_enums: Mapping[str, Sequence[str]] | None = None,
     ) -> tuple[dict[str, Any], AuthorizedTurnContextBinding]:
         if call.mode is not self._mode:
             raise LiveWorkerError("gameplay_mode_mismatch")
@@ -184,6 +185,7 @@ class _StructuredWorker:
                 self._budget,
                 binding_identity=binding_identity,
                 expected_binding=expected_binding,
+                schema_enums=schema_enums,
             )
         except ContextError as exc:
             stale_codes = {
@@ -496,6 +498,21 @@ class LiveActionIntentProposer(_StructuredWorker):
                     source_story_revision=frozen.base_revisions.story,
                 ),
                 expected_binding=expected_context_binding,
+                # The scenario decides which intents and action types exist, so
+                # the contract is narrowed to exactly those. Without this the
+                # model is only *asked* to copy the identifiers, and one that
+                # answers with a prose intent fails the turn despite returning
+                # perfectly valid JSON.
+                schema_enums={
+                    "properties.intent": tuple(
+                        sorted({intent for intent, _ in self._allowed})
+                    ),
+                    "properties.actions.items.properties.type": tuple(
+                        sorted(
+                            {action for _, types in self._allowed for action in types}
+                        )
+                    ),
+                },
             )
         except LiveWorkerError as exc:
             if exc.code == "context_stale":

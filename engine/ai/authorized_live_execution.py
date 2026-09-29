@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from time import monotonic
 from typing import Any
@@ -58,6 +59,44 @@ _MAX_REQUEST_BYTES = 8 * 1024 * 1024
 _NARRATIVE_TASK = canonical_json({
     "task": "Narrate only the Domain-authorized disclosed committed results."
 })
+
+
+def constrain_output_schema(
+    schema: Mapping[str, Any],
+    enums: Mapping[str, Sequence[str]],
+) -> dict[str, Any]:
+    """Return a copy of ``schema`` with per-call ``enum`` constraints injected.
+
+    A profile schema is only validated locally after the model answers, so a
+    model that does not feel bound by the prompt still returns well-formed JSON
+    that violates the contract. Narrowing the same schema into the provider's
+    decode-time constraint moves that contract from an instruction to a
+    guarantee. Paths are dot separated (``"actions.items.type"``).
+
+    The profile schema is shared per profile, so the copy is deep and the source
+    is never mutated.
+    """
+    if not isinstance(schema, Mapping):
+        raise TypeError("invalid_output_schema")
+    narrowed = deepcopy(dict(schema))
+    for path, values in enums.items():
+        if not isinstance(path, str) or not path or not isinstance(values, Sequence):
+            raise TypeError("invalid_output_schema")
+        allowed = [str(value) for value in values]
+        if not allowed:
+            raise ValueError("invalid_output_schema")
+        cursor: Any = narrowed
+        *parents, leaf = path.split(".")
+        for step in parents:
+            if not isinstance(cursor, dict) or step not in cursor:
+                raise ValueError("unknown_schema_path")
+            cursor = cursor[step]
+        if not isinstance(cursor, dict) or leaf not in cursor:
+            raise ValueError("unknown_schema_path")
+        if not isinstance(cursor[leaf], dict):
+            raise TypeError("invalid_output_schema")
+        cursor[leaf]["enum"] = allowed
+    return narrowed
 
 
 @dataclass(frozen=True)
@@ -140,6 +179,7 @@ class AuthorizedLiveExecution:
         *,
         binding_identity: TurnContextBindingIdentity | None = None,
         expected_binding: AuthorizedTurnContextBinding | None = None,
+        schema_enums: Mapping[str, Sequence[str]] | None = None,
     ) -> AuthorizedProposalResult:
         """Return a proposal or reject it; this method never writes Domain state."""
         started = monotonic()
@@ -151,6 +191,7 @@ class AuthorizedLiveExecution:
                     started,
                     binding_identity=binding_identity,
                     expected_binding=expected_binding,
+                    schema_enums=schema_enums,
                 )
         except TimeoutError:
             raise ContextError("model_stage_timeout") from None
@@ -172,6 +213,7 @@ class AuthorizedLiveExecution:
         *,
         binding_identity: TurnContextBindingIdentity | None,
         expected_binding: AuthorizedTurnContextBinding | None,
+        schema_enums: Mapping[str, Sequence[str]] | None = None,
     ) -> AuthorizedProposalResult:
         recipe = gameplay_recipe(call.mode)
         if recipe.model_use is not ModelUse.STRUCTURED:
@@ -232,6 +274,18 @@ class AuthorizedLiveExecution:
         self.epochs.observe(plan)
         prompt = self.renderer.render(plan)
         validator = self._validator(prepared.profile)
+        # An optional per-call narrowing of the profile schema. Handing the same
+        # contract to the provider turns it from an instruction the model may
+        # ignore into a decode-time guarantee; endpoints that cannot honour it
+        # degrade inside the transport rather than failing the turn.
+        response_schema: dict[str, Any] | None = None
+        if schema_enums:
+            try:
+                response_schema = constrain_output_schema(
+                    parse_json(prepared.profile.schema_json), schema_enums
+                )
+            except (ContextError, TypeError, ValueError):
+                raise ContextError("invalid_output_schema") from None
 
         for attempt in range(2):
             if attempt:
@@ -244,6 +298,7 @@ class AuthorizedLiveExecution:
                 output_tokens=budget.output_tokens,
                 json_mode=True,
                 repair_hint=_REPAIR_HINT if attempt else None,
+                response_schema=response_schema,
             )
             if len(wire.body_json.encode("utf-8")) > budget.max_request_bytes:
                 raise ContextError("model_request_too_large")

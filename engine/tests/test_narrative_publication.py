@@ -192,9 +192,13 @@ def _live_narrative_worker(payload, source):
         *,
         binding_identity,
         expected_binding,
+        schema_enums=None,
     ):
         assert binding_identity.stage == "narrative"
         assert binding_identity.turn_id == source.turn_id
+        # The narrative compiler has no per-call narrowing to declare; only the
+        # action proposer constrains its schema.
+        assert schema_enums is None
         return SimpleNamespace(
             proposal=lambda: dict(payload),
             context_binding=binding,

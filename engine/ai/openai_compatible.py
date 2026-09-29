@@ -149,6 +149,7 @@ def chat_wire(
     output_tokens: int,
     json_mode: bool = True,
     repair_hint: str | None = None,
+    response_schema: Mapping[str, Any] | None = None,
 ) -> WireRequest:
     """Build one bounded chat body without inventing cache-accounting claims.
 
@@ -191,7 +192,18 @@ def chat_wire(
         "temperature": 0.0,
         "stream": False,
     }
-    if json_mode:
+    if response_schema is not None:
+        if not isinstance(response_schema, Mapping) or not response_schema:
+            raise ModelTransportError("invalid_model_prompt")
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "structured_output",
+                "strict": True,
+                "schema": dict(response_schema),
+            },
+        }
+    elif json_mode:
         body["response_format"] = {"type": "json_object"}
     if repair_hint is not None:
         if not isinstance(repair_hint, str) or not repair_hint.strip():
@@ -219,6 +231,8 @@ class OpenAICompatibleChatTransport(PreparedTransport):
         self._config = config
         self._client: Any | None = None
         self._lock = asyncio.Lock()
+        # None until an endpoint has been asked for a decode-time constraint.
+        self._structured_output: bool | None = None
 
     @property
     def config(self) -> ModelEndpointConfig:
@@ -254,6 +268,13 @@ class OpenAICompatibleChatTransport(PreparedTransport):
         if "response_format" in body:
             extra.setdefault("response_format", body.pop("response_format"))
         body.pop("stream", None)
+        constrained = (
+            isinstance(extra.get("response_format"), Mapping)
+            and extra["response_format"].get("type") == "json_schema"
+        )
+        if constrained and self._structured_output is False:
+            extra["response_format"] = {"type": "json_object"}
+            constrained = False
         try:
             completion = await client.chat.completions.create(
                 **body, extra_body=extra or None
@@ -261,8 +282,25 @@ class OpenAICompatibleChatTransport(PreparedTransport):
         except asyncio.CancelledError:
             raise
         except Exception:
-            # Provider exceptions can embed the request body or the API key.
-            raise ModelTransportError("model_endpoint_unreachable") from None
+            if not (constrained and self._structured_output is None):
+                # Provider exceptions can embed the request body or the API key.
+                raise ModelTransportError("model_endpoint_unreachable") from None
+            # The endpoint refused the decode-time constraint. Learn that once and
+            # degrade, so an OpenAI-compatible server without json_schema support
+            # costs one rejected call instead of failing every later turn.
+            self._structured_output = False
+            extra["response_format"] = {"type": "json_object"}
+            try:
+                completion = await client.chat.completions.create(
+                    **body, extra_body=extra or None
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - provider errors may embed request material
+                raise ModelTransportError("model_endpoint_unreachable") from None
+        else:
+            if constrained:
+                self._structured_output = True
         return self._to_reply(completion)
 
     @staticmethod
