@@ -383,3 +383,116 @@ async def test_foundry_write_scope_cannot_touch_world_facts_or_delete_history(da
             )
         )[0]["recipe_json"]
     ) == candidate().recipe
+async def _seeded_candidate(repo, task):
+    """Register a task and give it one previewed candidate at slot 1."""
+    await repo.add_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate=VoiceCandidateRecord(
+            candidate_id=f"{task.task_id}:candidate:0",
+            slot=1,
+            seed=7,
+            state="ready",
+            preview_audio_digest="a" * 64,
+            recipe={"seed": 7},
+            recipe_digest="b" * 64,
+        ),
+    )
+    return await repo.load_task(task.task_id)
+
+
+async def test_candidate_provider_identity_is_attached_once_and_never_swapped(
+    database,
+):
+    """A candidate that already carries a provider identity must never be
+    re-pointed at another one; that would be a silent re-cast."""
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    task = await _seeded_candidate(repo, task)
+
+    # A human picks the candidate before it is provisioned.
+    await repo.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="selected",
+    )
+    task = await repo.load_task(task.task_id)
+    attached = await repo.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="provisioning",
+        provider_candidate_id="vd_" + "a" * 24,
+        provider_candidate_revision="vr_" + "b" * 32,
+    )
+    assert attached.provider_candidate_id == "vd_" + "a" * 24
+    assert attached.provider_candidate_revision == "vr_" + "b" * 32
+    assert attached.state == "provisioning"
+
+    # Re-sending the identical identity is idempotent...
+    task = await repo.load_task(task.task_id)
+    again = await repo.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="validating",
+    )
+    assert again.provider_candidate_id == "vd_" + "a" * 24
+    assert again.state == "validating"
+
+    # ...but pointing the same slot at a different candidate is refused.
+    task = await repo.load_task(task.task_id)
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=f"{task.task_id}:candidate:0",
+            provider_candidate_id="vd_" + "9" * 24,
+        )
+
+
+async def test_candidate_state_must_advance_forward_and_terminal_is_final(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    task = await _seeded_candidate(repo, task)
+
+    # ready cannot jump straight to published.
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=f"{task.task_id}:candidate:0",
+            state="published",
+        )
+
+    # A failed candidate is terminal; it cannot come back into review.
+    task = await repo.load_task(task.task_id)
+    await repo.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="failed",
+    )
+    task = await repo.load_task(task.task_id)
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=f"{task.task_id}:candidate:0",
+            state="reviewing",
+        )
+
+
+async def test_candidate_update_is_guarded_by_task_revision(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    task = await _seeded_candidate(repo, task)
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision + 5,
+            candidate_id=f"{task.task_id}:candidate:0",
+            state="selected",
+        )

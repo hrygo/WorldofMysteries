@@ -38,6 +38,42 @@ class VoiceFoundryStage(StrEnum):
 _OPERATION_STATUSES = frozenset({"prepared", "unknown", "confirmed", "rejected"})
 _TERMINAL_STAGES = frozenset({VoiceFoundryStage.FAILED, VoiceFoundryStage.CANCELLED})
 
+# A candidate walks this ladder exactly once. The order encodes the real supply
+# sequence, so no caller can shortcut "ready" straight to "published" and call
+# it done; the two off-ladder states are terminal.
+_CANDIDATE_STATE_ORDER = {
+    "previewing": 0,
+    "ready": 1,
+    "selected": 2,
+    "provisioning": 3,
+    "validating": 4,
+    "reviewing": 5,
+    "published": 6,
+}
+_CANDIDATE_TERMINAL_STATES = frozenset({"failed", "cancelled"})
+_CANDIDATE_STATES = frozenset(_CANDIDATE_STATE_ORDER) | _CANDIDATE_TERMINAL_STATES
+
+
+def _require_forward_state(current: str, target: str) -> None:
+    """Allow only a no-op, the single next rung, or a terminal exit.
+
+    Skipping is refused as firmly as going backwards: a candidate that could
+    jump from "ready" to "published" would let a caller claim publication
+    without ever having been provisioned, validated or reviewed.
+    """
+    if current in _CANDIDATE_TERMINAL_STATES:
+        raise VoiceFoundryConflict(
+            "Terminal Voice Foundry candidate cannot change state"
+        )
+    if target in _CANDIDATE_TERMINAL_STATES:
+        return
+    if target == current:
+        return
+    if _CANDIDATE_STATE_ORDER[target] != _CANDIDATE_STATE_ORDER[current] + 1:
+        raise VoiceFoundryConflict(
+            "Voice Foundry candidate state must advance one step at a time"
+        )
+
 
 def _identifier(value: str, field: str) -> str:
     if (
@@ -641,6 +677,108 @@ class SQLiteVoiceFoundryRepository:
         if len(rows) != 1:
             raise StorageError("Voice Foundry candidate not found")
         return _candidate_from_row(rows[0])
+
+    async def update_candidate(
+        self,
+        task_id: str,
+        *,
+        expected_revision: int,
+        candidate_id: str,
+        state: str | None = None,
+        provider_candidate_id: str | None = None,
+        provider_candidate_revision: str | None = None,
+        reference_audio_digest: str | None = None,
+        reference_text_digest: str | None = None,
+        validation_audio_digest: str | None = None,
+        validation_text_digest: str | None = None,
+    ) -> VoiceCandidateRecord:
+        """Attach provider-owned facts to a candidate that already exists.
+
+        Only the fields the provider actually reported may be patched, and the
+        task revision is the CAS guard. Two rules make this safe to resume:
+
+        * A provider identity, once written, is immutable. Re-pointing a slot
+          at a different provider candidate would be a silent re-cast, so it
+          is refused rather than applied.
+        * Candidate state only moves forward, and a terminal state is final.
+          A failed candidate cannot quietly re-enter review.
+        """
+        task_id = _identifier(task_id, "task id")
+        expected_revision = _revision(expected_revision, "expected task revision")
+        candidate_id = _identifier(candidate_id, "candidate id")
+        patches: dict[str, str] = {}
+        for column, value in (
+            ("provider_candidate_id", provider_candidate_id),
+            ("provider_candidate_revision", provider_candidate_revision),
+            ("reference_audio_digest", reference_audio_digest),
+            ("reference_text_digest", reference_text_digest),
+            ("validation_audio_digest", validation_audio_digest),
+            ("validation_text_digest", validation_text_digest),
+        ):
+            if value is None:
+                continue
+            if column.endswith("digest"):
+                patches[column] = _digest(value, column)
+            else:
+                patches[column] = _identifier(value, column)
+        if state is not None:
+            if state not in _CANDIDATE_STATES:
+                raise StorageError("Invalid Voice Foundry candidate state")
+            patches["state"] = state
+        if not patches:
+            raise StorageError("Voice Foundry candidate update changes nothing")
+
+        def apply(tx: VoiceFoundryTransaction):
+            current_task = self._require_task(tx, task_id)
+            self._require_revision(current_task, expected_revision)
+            rows = tx.execute(
+                "SELECT * FROM voice_foundry_candidates "
+                "WHERE task_id=? AND candidate_id=?",
+                (task_id, candidate_id),
+            )
+            if len(rows) != 1:
+                raise StorageError("Voice Foundry candidate not found")
+            current = _candidate_from_row(rows[0])
+            if (
+                current.provider_candidate_id is not None
+                and "provider_candidate_id" in patches
+                and patches["provider_candidate_id"] != current.provider_candidate_id
+            ):
+                raise VoiceFoundryConflict(
+                    "Voice Foundry candidate identity is already bound"
+                )
+            if (
+                current.provider_candidate_revision is not None
+                and "provider_candidate_revision" in patches
+                and patches["provider_candidate_revision"]
+                != current.provider_candidate_revision
+            ):
+                raise VoiceFoundryConflict(
+                    "Voice Foundry candidate revision is already bound"
+                )
+            if "state" in patches:
+                _require_forward_state(current.state, patches["state"])
+            now = _now()
+            assignments = ",".join(f"{column}=?" for column in patches)
+            tx.execute(
+                f"UPDATE voice_foundry_candidates SET {assignments},updated_at=? "
+                f"WHERE task_id=? AND candidate_id=?",
+                (*patches.values(), now, task_id, candidate_id),
+            )
+            tx.execute(
+                "UPDATE voice_foundry_tasks SET task_revision=?,updated_at=? "
+                "WHERE task_id=? AND task_revision=?",
+                (expected_revision + 1, now, task_id, expected_revision),
+            )
+            return _candidate_from_row(
+                tx.execute(
+                    "SELECT * FROM voice_foundry_candidates "
+                    "WHERE task_id=? AND candidate_id=?",
+                    (task_id, candidate_id),
+                )[0]
+            )
+
+        return await self.database.voice_foundry_write(apply)
 
     async def record_operation(
         self, intent: VoiceFoundryOperationIntent
