@@ -285,6 +285,11 @@ class SQLiteVoiceBindingRepository:
                 binding_revision=source_binding.binding_revision,
                 status=source_binding.status,
                 reserved_at_world_revision=source_binding.reserved_at_world_revision,
+                # The review is a fact about this voice built from this model
+                # artifact, not about the worldline it is spoken in. A fork
+                # inherits the same voice, so it inherits the same review;
+                # dropping it would strand the child on an unrenderable voice.
+                evidence=source_binding.evidence,
             )
 
             binding_rows = tx.execute(

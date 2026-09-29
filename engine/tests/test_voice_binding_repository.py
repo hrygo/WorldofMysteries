@@ -292,6 +292,35 @@ async def test_a_binding_predating_the_evidence_rollout_still_loads(database):
     assert (await repo.load("binding-1")).evidence is None
 
 
+async def test_a_worldline_fork_inherits_the_review_behind_the_voice(database):
+    """The review is a fact about the voice and the artifact it was built from,
+    not about the worldline speaking it. A fork inherits the same voice, so it
+    inherits the same review rather than stranding the child."""
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+    source = await repo.activate("binding-1", expected_binding_revision=1)
+    assert source.evidence is not None
+
+    child_scope = VoiceBindingScope(
+        owner_id="player",
+        world_id="voice-world",
+        worldline_id="line-2",
+        presentation_identity="klein-visible",
+        phase="default",
+        locale="zh-CN",
+    )
+    child = await repo.fork_scope_snapshot(
+        source.scope,
+        expected_source_binding_revision=source.binding_revision,
+        target_worldline_id="line-2",
+        target_binding_id="binding-line-2",
+    )
+
+    assert child.scope == child_scope
+    assert child.evidence == _evidence()
+    assert (await repo.load("binding-line-2")).evidence == _evidence()
+
+
 async def test_a_half_written_evidence_reference_is_refused(database):
     # Part of the triple cannot be re-checked against the stored snapshot, so
     # it is refused rather than completed with a blank.
