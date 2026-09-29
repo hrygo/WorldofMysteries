@@ -111,6 +111,37 @@ class ProviderVoiceRevision:
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceEvidenceReference:
+    """Domain pointer to the listening review that approved one voice.
+
+    This is a reference, not the review itself: the Engine stores the evidence
+    snapshot and re-admits it on every synthesis. What the Domain needs is the
+    fact that *some* review stands behind this exact voice, plus the model
+    artifact that review actually heard.
+
+    ``model_artifact_revision`` is deliberately separate from
+    ``model_catalog_revision`` on :class:`ProviderVoiceRevision`. A catalogue
+    entry describes what is offered now; only the artifact revision names the
+    thing a human listened to and approved. Folding one into the other would
+    let an old catalogue row stand in for a current, unheard voice.
+    """
+
+    evidence_id: str
+    evidence_digest: str
+    model_artifact_revision: str
+
+    def __post_init__(self) -> None:
+        _identifier(self.evidence_id, "evidence_id")
+        if not isinstance(self.evidence_digest, str) or re.fullmatch(
+            r"[0-9a-f]{64}", self.evidence_digest
+        ) is None:
+            raise VoiceIdentityError(
+                "evidence digest must be a lowercase sha256 hex digest"
+            )
+        _identifier(self.model_artifact_revision, "model_artifact_revision")
+
+
+@dataclass(frozen=True, slots=True)
 class VoiceBindingScope:
     """Stable presentation scope; hidden/canonical identity is intentionally absent."""
 
@@ -149,6 +180,11 @@ class VoiceBinding:
     binding_revision: int
     status: VoiceBindingStatus
     reserved_at_world_revision: int
+    # The listening review standing behind this binding, when one exists.
+    # Optional here so a binding can be reserved before it is reviewed; whether
+    # a *render* may proceed is a separate question answered by
+    # :meth:`permits_new_render`.
+    evidence: VoiceEvidenceReference | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.binding_id, "binding_id")
@@ -158,6 +194,10 @@ class VoiceBinding:
             raise VoiceIdentityError("reserved world revision must be a nonnegative integer")
         if not isinstance(self.status, VoiceBindingStatus):
             raise VoiceIdentityError("binding status is invalid")
+        if self.evidence is not None and not isinstance(
+            self.evidence, VoiceEvidenceReference
+        ):
+            raise VoiceIdentityError("binding evidence reference is invalid")
 
     @classmethod
     def reserve(

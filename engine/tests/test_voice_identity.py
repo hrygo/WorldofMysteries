@@ -8,6 +8,7 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoiceIdentityError,
     VoicePersonaRevision,
@@ -40,6 +41,75 @@ def _provider(*, revision="vr_" + "a" * 40, revoked=False):
         model_catalog_revision="b" * 40,
         revoked=revoked,
     )
+
+
+def _evidence(**overrides):
+    values = {
+        "evidence_id": "ev_klein_1",
+        "evidence_digest": "d" * 64,
+        "model_artifact_revision": "qwen3-tts-2026-09-29",
+    }
+    values.update(overrides)
+    return VoiceEvidenceReference(**values)
+
+
+@pytest.mark.parametrize(
+    "digest",
+    ["D" * 64, "d" * 63, "d" * 65, "not-a-digest", "", 12345],
+)
+def test_evidence_reference_requires_a_real_sha256_digest(digest):
+    """The digest is what makes the reference checkable. An identifier alone
+    can be reused against a rewritten record; a content digest cannot."""
+    with pytest.raises(VoiceIdentityError, match="evidence digest"):
+        _evidence(evidence_digest=digest)
+
+
+@pytest.mark.parametrize("field", ["evidence_id", "model_artifact_revision"])
+def test_evidence_reference_requires_bounded_identifiers(field):
+    with pytest.raises(VoiceIdentityError, match=field):
+        _evidence(**{field: "  "})
+
+
+def test_a_reserved_binding_may_exist_before_it_is_reviewed():
+    """Reserving a voice is a claim; activating it is a decision. This task
+    only introduces the reference, so a reservation without one is still
+    legal — refusing it is the next step, not this one."""
+    binding = VoiceBinding.reserve(
+        binding_id="binding-1",
+        scope=_scope(),
+        persona=_persona(),
+        provider=_provider(),
+        world_revision=7,
+    )
+    assert binding.evidence is None
+
+
+def test_a_binding_carries_the_review_that_stands_behind_it():
+    binding = VoiceBinding.reserve(
+        binding_id="binding-1",
+        scope=_scope(),
+        persona=_persona(),
+        provider=_provider(),
+        world_revision=7,
+    )
+    reviewed = replace(binding, evidence=_evidence())
+    assert reviewed.evidence is not None
+    assert reviewed.evidence.evidence_id == "ev_klein_1"
+    # The artifact a human heard is not the catalogue entry describing it.
+    assert reviewed.evidence.model_artifact_revision != reviewed.provider.model_catalog_revision
+    assert binding.evidence is None
+
+
+def test_a_binding_rejects_a_malformed_evidence_reference():
+    binding = VoiceBinding.reserve(
+        binding_id="binding-1",
+        scope=_scope(),
+        persona=_persona(),
+        provider=_provider(),
+        world_revision=7,
+    )
+    with pytest.raises(VoiceIdentityError, match="evidence reference"):
+        replace(binding, evidence="ev_klein_1")
 
 
 def test_content_addressed_identity_requires_real_voice_revision():
