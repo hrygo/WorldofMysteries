@@ -2084,6 +2084,9 @@ def _sealed_unit_codec_fixture() -> SealedSpeechUnit:
         voice_revision="voice-" + "b" * 40,
         model_id="speechrail/qwen3-tts",
         model_revision="model-" + "c" * 32,
+        evidence_id="ev_codec_1",
+        evidence_digest="d" * 64,
+        model_artifact_revision="artifact-" + "e" * 24,
         language="zh-CN",
         performance_plan_id="perf_" + "d" * 24,
         display_text="克莱恩走进雾中。",
@@ -2139,10 +2142,13 @@ def _repack_sealed_unit_payload(
     *,
     top_level_updates: dict[str, object] | None = None,
     unit_updates: dict[str, object] | None = None,
+    unit_removals: tuple[str, ...] = (),
 ) -> tuple[str, str]:
     payload = json.loads(payload_json)
     payload.update(top_level_updates or {})
     payload["unit"].update(unit_updates or {})
+    for key in unit_removals:
+        payload["unit"].pop(key, None)
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
@@ -2261,10 +2267,7 @@ def test_sealed_unit_codec_rejects_a_partially_pinned_evidence_identity():
     payload_json, _digest = codec.encode(_sealed_unit_codec_fixture())
     partial_payload, partial_digest = _repack_sealed_unit_payload(
         payload_json,
-        unit_updates={
-            "evidence_id": "ev_codec_1",
-            "evidence_digest": "d" * 64,
-        },
+        unit_removals=("model_artifact_revision",),
     )
 
     with pytest.raises(ValueError, match="incomplete_evidence_pins"):

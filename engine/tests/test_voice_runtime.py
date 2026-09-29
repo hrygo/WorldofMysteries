@@ -22,6 +22,7 @@ from infrastructure.audio.realtime_tts import (
     RealtimeTTSChunk,
     RealtimeTTSTerminal,
 )
+from infrastructure.audio.voice_control import EVIDENCE_PIN_FIELDS
 from infrastructure.audio.voice_runtime import (
     SealedSpeechUnitRegistry,
     VoiceRenderRuntime,
@@ -111,6 +112,9 @@ def sealed_unit() -> SealedSpeechUnit:
         voice_revision="voice-" + "b" * 40,
         model_id="speechrail/qwen3-tts",
         model_revision="c" * 40,
+        evidence_id="ev_runtime_1",
+        evidence_digest="d" * 64,
+        model_artifact_revision="artifact-" + "e" * 24,
         language="zh-CN",
         performance_plan_id="perf_" + "d" * 24,
         display_text="克莱恩没有开门。",
@@ -129,8 +133,13 @@ def sealed_unit() -> SealedSpeechUnit:
 
 
 def request_payload(unit: SealedSpeechUnit, **overrides):
+    # Mirror the App: a recipe carrying evidence pins goes out as 2.0, which
+    # requires them; a pre-evidence recipe replays as 1.0.
+    is_pinned = all(
+        key in unit.render_recipe() for key in EVIDENCE_PIN_FIELDS
+    )
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "2.0" if is_pinned else "1.0",
         **unit.render_recipe(),
         "media_stream_id": "media-runtime",
         "generation": 4,

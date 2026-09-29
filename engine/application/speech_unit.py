@@ -32,6 +32,11 @@ from .performance_compiler import (
     PerformanceCompiler,
     VoicePerformanceCapabilities,
 )
+from .voice_evidence import (
+    ExecutionRequirements,
+    VoiceEvidenceGate,
+    VoiceEvidenceRecord,
+)
 
 
 class SpeechUnitSealingError(RuntimeError):
@@ -108,6 +113,9 @@ class SealedSpeechUnit:
     voice_revision: str
     model_id: str
     model_revision: str | None
+    evidence_id: str
+    evidence_digest: str
+    model_artifact_revision: str
     language: str
     performance_plan_id: str
     display_text: str
@@ -140,6 +148,13 @@ class SealedSpeechUnit:
             "voice_id": self.voice_id,
             "expected_voice_revision": self.voice_revision,
             "expected_model_revision": self.model_revision,
+            # The render request must pin the evidence a human approved and
+            # the exact artifact it was approved against, or the provider call
+            # could land on a different voice or a newer model.
+            "evidence_id": self.evidence_id,
+            "evidence_digest": self.evidence_digest,
+            "expected_model_artifact_revision": self.model_artifact_revision,
+            "expected_model_catalog_revision": self.model_revision,
             "speed": float(fields["speed"]),
             "language": self.language,
         }
@@ -155,11 +170,13 @@ class SpeechUnitSealingService:
         bindings: VoiceBindingReadPort,
         spoken_text: SpokenTextCompiler | None = None,
         performance: PerformanceCompiler | None = None,
+        evidence_gate: VoiceEvidenceGate | None = None,
     ) -> None:
         self._disclosure = disclosure
         self._bindings = bindings
         self._spoken_text = spoken_text or SpokenTextCompiler()
         self._performance = performance or PerformanceCompiler()
+        self._evidence = evidence_gate or VoiceEvidenceGate()
 
     async def seal(
         self,
@@ -170,6 +187,8 @@ class SpeechUnitSealingService:
         binding_scope: VoiceBindingScope,
         expected_binding_revision: int,
         execution_model_id: str,
+        execution: ExecutionRequirements,
+        evidence: VoiceEvidenceRecord | None,
         dictionary_revision: str,
         semantic_anchors: tuple[SemanticAnchor, ...],
         pronunciation_rules: tuple[PronunciationRule, ...],
@@ -229,6 +248,27 @@ class SpeechUnitSealingService:
             # W-V03 sealed render requires an exact immutable provider voice pin.
             raise SpeechUnitSealingError("voice_revision_is_not_content_addressed")
 
+        # The binding is authoritative for identity; the caller's declared
+        # execution is only allowed to describe *how* the render runs. If the
+        # two disagree about who is speaking, refuse rather than pick one.
+        if (
+            execution.provider_instance != binding.provider.provider_instance
+            or execution.voice_id != binding.provider.voice_id
+            or execution.voice_revision != voice_revision
+        ):
+            raise SpeechUnitSealingError(
+                "execution_identity_conflicts_with_binding"
+            )
+        if execution.model_id != execution_model_id:
+            raise SpeechUnitSealingError("execution_model_conflicts_with_binding")
+
+        # Sealing is the last point before bytes exist, so this is where
+        # evidence is enforced. The gate is consulted here rather than left to
+        # the caller, so a unit cannot be sealed without admitted evidence.
+        verdict = self._evidence.admit(evidence, execution)
+        if not verdict.synthesis_allowed:
+            raise SpeechUnitSealingError("voice_evidence_not_admitted")
+
         spoken = self._spoken_text.compile(
             display_text=authorized.display_text,
             dictionary_revision=dictionary_revision,
@@ -266,6 +306,9 @@ class SpeechUnitSealingService:
             "voice_revision": voice_revision,
             "model_id": execution_model_id,
             "model_revision": binding.provider.model_catalog_revision,
+            "model_artifact_revision": execution.model_artifact_revision,
+            "evidence_id": evidence.evidence_id,
+            "evidence_digest": evidence.evidence_digest,
             "language": binding.scope.locale,
             "performance_plan_id": performance_plan_id,
             "display_text": spoken.display_text,
@@ -304,6 +347,9 @@ class SpeechUnitSealingService:
             voice_revision=voice_revision,
             model_id=execution_model_id,
             model_revision=binding.provider.model_catalog_revision,
+            model_artifact_revision=execution.model_artifact_revision,
+            evidence_id=evidence.evidence_id,
+            evidence_digest=evidence.evidence_digest,
             language=binding.scope.locale,
             performance_plan_id=performance_plan_id,
             display_text=spoken.display_text,
