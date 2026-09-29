@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-ARB-COLLAB-LEASE-TASK-ID-0d4b5eddbb47",
+  "receipt_type": "work",
+  "task_id": "ARB-COLLAB-LEASE-TASK-ID",
+  "capsule_id": "CAP-ARB-COLLAB-LEASE-TASK-ID",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:336408b201a4445777dcef1a02c959893c2d7173b58c03bbd6b0a09b4498eb0a",
+  "diff_digest": "sha256:bb2b6559f0b6bfa3bf3a31a6b223cbe86f14204724ce307f6458b70145944863",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "439cf9dbeb5e1485f4d1fbfb88eec9b3647a559c",
+  "head_commit": "0d4b5eddbb47df49e91a0439243806d38096cef6",
+  "target_ref": "origin/main",
+  "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T13:43:48.524691+00:00",
+      "finished_at": "2026-09-28T13:43:48.558818+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T13:43:48.558893+00:00",
+      "finished_at": "2026-09-28T13:45:14.305714+00:00",
+      "raw_log_digest": "sha256:db6a45c46d8b34366814ee0af802a68726659aa7196baf6ee1eb80b936f62a55",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T13:45:14.305829+00:00",
+      "finished_at": "2026-09-28T13:45:41.256467+00:00",
+      "raw_log_digest": "sha256:6f792a6a34a9b3c244ab9006c61020afacea27d1ddd82b918c5bf57467d101e1",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T13:45:41.256648+00:00",
+      "finished_at": "2026-09-28T13:45:43.419020+00:00",
+      "raw_log_digest": "sha256:f1e37806f552c90ff93ca54fcb17b9201750423405b5cedd48132f3c6d70f242",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_hacf_governance.py",
+      "scripts/collab_pipeline.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/collab_pipeline.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-arb-collab-lease-task-id"
+  },
+  "started_at": "2026-09-28T13:43:48.494556+00:00",
+  "finished_at": "2026-09-28T13:45:43.555096+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

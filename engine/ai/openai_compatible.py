@@ -41,10 +41,24 @@ class ModelTransportError(RuntimeError):
         self.code = code
 
 
+class _StreamingRefused(Exception):
+    """The endpoint would not stream; the caller degrades to a one-shot call.
+
+    Private to this module: it never crosses the transport boundary, so a
+    provider error carrying request material cannot escape through it.
+    """
+
+
 _MAX_REPLY_BYTES = 262_144
 _MAX_MESSAGES = 64
 _MAX_MESSAGE_CHARS = 32_768
-_DEFAULT_TIMEOUT_SECONDS = 60.0
+# The HTTP call is the *inner* bound: it has to sit inside the
+# ``AuthorizedExecutionBudget`` that wraps a whole stage, or it can never fire
+# and a slow endpoint is reported as a generic stage timeout rather than as
+# the transport verdict that names the real cause. Measured local turns land
+# near 3.5s with peaks under 10s, so this keeps roughly a 3x margin while
+# staying inside the 45s stage budget. An operator can still widen it.
+_DEFAULT_TIMEOUT_SECONDS = 30.0
 _MAX_TIMEOUT_SECONDS = 600.0
 
 
@@ -63,6 +77,7 @@ class ModelEndpointConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     extra_body: Mapping[str, Any] = field(default_factory=dict, repr=False)
     provider_id: str = "wom-local-model"
+    stream: bool = True
 
     def __post_init__(self) -> None:
         for value in (self.base_url, self.model, self.provider_id):
@@ -82,6 +97,8 @@ class ModelEndpointConfig:
         ):
             raise ModelTransportError("invalid_model_endpoint")
         if not isinstance(self.extra_body, Mapping):
+            raise ModelTransportError("invalid_model_endpoint")
+        if not isinstance(self.stream, bool):
             raise ModelTransportError("invalid_model_endpoint")
         try:
             json.dumps(dict(self.extra_body), allow_nan=False)
@@ -132,6 +149,13 @@ class ModelEndpointConfig:
                 timeout = float(raw_timeout)
             except ValueError:
                 raise ModelTransportError("invalid_model_endpoint") from None
+        raw_stream = (source.get("WOM_MODEL_STREAM") or "").strip().lower()
+        if raw_stream in {"", "1", "true", "yes", "on"}:
+            stream = True
+        elif raw_stream in {"0", "false", "no", "off"}:
+            stream = False
+        else:
+            raise ModelTransportError("invalid_model_endpoint") from None
         return cls(
             base_url=base_url,
             api_key=source.get("WOM_MODEL_API_KEY") or "",
@@ -139,6 +163,7 @@ class ModelEndpointConfig:
             timeout_seconds=timeout,
             extra_body=extra,
             provider_id=(source.get("WOM_MODEL_PROVIDER_ID") or "wom-local-model").strip(),
+            stream=stream,
         )
 
 
@@ -149,6 +174,8 @@ def chat_wire(
     output_tokens: int,
     json_mode: bool = True,
     repair_hint: str | None = None,
+    response_schema: Mapping[str, Any] | None = None,
+    stream: bool = False,
 ) -> WireRequest:
     """Build one bounded chat body without inventing cache-accounting claims.
 
@@ -181,6 +208,8 @@ def chat_wire(
         rendered.append({"role": role, "content": content})
     if type(output_tokens) is not int or not 1 <= output_tokens <= 8192:
         raise ModelTransportError("invalid_model_prompt")
+    if not isinstance(stream, bool):
+        raise ModelTransportError("invalid_model_prompt")
     if rendered[-1]["role"] != "user":
         raise ModelTransportError("invalid_model_prompt")
 
@@ -191,7 +220,23 @@ def chat_wire(
         "temperature": 0.0,
         "stream": False,
     }
-    if json_mode:
+    if stream:
+        # ``include_usage`` is what lets the aggregate carry the same token
+        # accounting the one-shot path reads off a single completion object.
+        body["stream"] = True
+        body["stream_options"] = {"include_usage": True}
+    if response_schema is not None:
+        if not isinstance(response_schema, Mapping) or not response_schema:
+            raise ModelTransportError("invalid_model_prompt")
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "structured_output",
+                "strict": True,
+                "schema": dict(response_schema),
+            },
+        }
+    elif json_mode:
         body["response_format"] = {"type": "json_object"}
     if repair_hint is not None:
         if not isinstance(repair_hint, str) or not repair_hint.strip():
@@ -219,6 +264,11 @@ class OpenAICompatibleChatTransport(PreparedTransport):
         self._config = config
         self._client: Any | None = None
         self._lock = asyncio.Lock()
+        # None until an endpoint has been asked for a decode-time constraint.
+        self._structured_output: bool | None = None
+        # None until an endpoint has been asked to stream. The two capabilities
+        # are learned independently: a provider may refuse either one.
+        self._streaming: bool | None = None
 
     @property
     def config(self) -> ModelEndpointConfig:
@@ -247,23 +297,155 @@ class OpenAICompatibleChatTransport(PreparedTransport):
             raise ModelTransportError("invalid_model_request")
         client = await self._ensure_client()
         body = request.body()
+        if (
+            self._config.stream
+            and body.get("stream") is True
+            and self._streaming is not False
+        ):
+            try:
+                reply = await self._send_stream(client, body)
+            except _StreamingRefused:
+                # The endpoint would not stream. Learn that once, so later turns
+                # go straight to the one-shot path instead of paying a rejected
+                # call each.
+                self._streaming = False
+            else:
+                self._streaming = True
+                return reply
+        return await self._send_one_shot(client, body)
+
+    def _prepare(
+        self, body: Mapping[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any], bool]:
+        """Split a wire body into SDK arguments and provider extensions.
+
+        ``response_format`` and chat-template switches are provider extensions
+        on an OpenAI-compatible surface; they travel in extra_body so a server
+        that rejects them fails loudly instead of silently changing behaviour.
+        """
         extra = dict(self._config.extra_body)
-        # ``response_format`` and chat-template switches are provider extensions
-        # on an OpenAI-compatible surface; they travel in extra_body so a server
-        # that rejects them fails loudly instead of silently changing behaviour.
-        if "response_format" in body:
-            extra.setdefault("response_format", body.pop("response_format"))
-        body.pop("stream", None)
+        payload = dict(body)
+        if "response_format" in payload:
+            extra.setdefault("response_format", payload.pop("response_format"))
+        payload.pop("stream", None)
+        payload.pop("stream_options", None)
+        constrained = (
+            isinstance(extra.get("response_format"), Mapping)
+            and extra["response_format"].get("type") == "json_schema"
+        )
+        if constrained and self._structured_output is False:
+            extra["response_format"] = {"type": "json_object"}
+            constrained = False
+        return payload, extra, constrained
+
+    async def _send_one_shot(self, client: Any, body: Mapping[str, Any]) -> ModelReply:
+        payload, extra, constrained = self._prepare(body)
         try:
             completion = await client.chat.completions.create(
-                **body, extra_body=extra or None
+                **payload, extra_body=extra or None
             )
         except asyncio.CancelledError:
             raise
         except Exception:
-            # Provider exceptions can embed the request body or the API key.
-            raise ModelTransportError("model_endpoint_unreachable") from None
+            if not (constrained and self._structured_output is None):
+                # Provider exceptions can embed the request body or the API key.
+                raise ModelTransportError("model_endpoint_unreachable") from None
+            # The endpoint refused the decode-time constraint. Learn that once and
+            # degrade, so an OpenAI-compatible server without json_schema support
+            # costs one rejected call instead of failing every later turn.
+            self._structured_output = False
+            # The constraint, not the transport, was the problem — so streaming
+            # was never actually ruled out. Let the next turn probe it again.
+            self._streaming = None
+            extra["response_format"] = {"type": "json_object"}
+            try:
+                completion = await client.chat.completions.create(
+                    **payload, extra_body=extra or None
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - provider errors may embed request material
+                raise ModelTransportError("model_endpoint_unreachable") from None
+        else:
+            if constrained:
+                self._structured_output = True
         return self._to_reply(completion)
+
+    async def _send_stream(self, client: Any, body: Mapping[str, Any]) -> ModelReply:
+        payload, extra, constrained = self._prepare(body)
+        payload["stream"] = True
+        payload["stream_options"] = {"include_usage": True}
+        try:
+            events = await client.chat.completions.create(
+                **payload, extra_body=extra or None
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - provider errors may embed request material
+            # A refusal here is ambiguous between "no streaming" and "no
+            # constraint". Assume the new capability is the one that was
+            # refused and let the one-shot path re-test the constraint, so one
+            # rejected call settles whichever capability was actually missing.
+            raise _StreamingRefused from None
+        if constrained:
+            self._structured_output = True
+        return await self._aggregate(events)
+
+    @staticmethod
+    async def _aggregate(events: Any) -> ModelReply:
+        """Fold a provider's SSE deltas into the one reply the caller asked for.
+
+        Reasoning deltas are dropped on purpose: they are the model's private
+        scratch, and the reply is the player's text.
+        """
+        parts: list[str] = []
+        size = 0
+        usage_obj = None
+        saw_event = False
+        try:
+            async for event in events:
+                saw_event = True
+                usage = getattr(event, "usage", None)
+                if usage is not None:
+                    usage_obj = usage
+                for choice in getattr(event, "choices", None) or ():
+                    content = getattr(getattr(choice, "delta", None), "content", None)
+                    if not isinstance(content, str) or not content:
+                        continue
+                    parts.append(content)
+                    size += len(content.encode("utf-8"))
+                    if size > _MAX_REPLY_BYTES:
+                        raise ModelTransportError("model_reply_too_large")
+        except ModelTransportError:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a broken stream is a provider failure
+            raise _StreamingRefused from None
+        finally:
+            close = getattr(events, "close", None)
+            if close is not None:
+                try:
+                    await close()
+                except Exception:  # noqa: BLE001 - closing must not mask a verdict
+                    pass
+        text = "".join(parts)
+        if not saw_event:
+            # A conforming SSE stream always emits at least one event before it
+            # ends. Receiving none means the endpoint answered in some other
+            # shape entirely, which is a transport fact rather than a verdict
+            # about the model's answer.
+            raise _StreamingRefused
+        if not text.strip():
+            raise ModelTransportError("model_reply_empty")
+        usage = None
+        if usage_obj is not None:
+            usage = {
+                "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+                "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+                "total_tokens": getattr(usage_obj, "total_tokens", None),
+            }
+        return ModelReply(text=text, usage=usage)
 
     @staticmethod
     def _to_reply(completion: Any) -> ModelReply:

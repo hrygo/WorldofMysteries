@@ -644,6 +644,11 @@ def main() -> int:
             "an audio plane; system.health then reports voice_ready=false."
         ),
     )
+    parser.add_argument(
+        "--durable-post-commit",
+        action="store_true",
+        help="Opt in to durable v2 post-COMMIT work and v2 story methods.",
+    )
     args = parser.parse_args()
     try:
         token = read_bootstrap_token(args.token_fd)
@@ -671,6 +676,7 @@ def main() -> int:
                     config,
                     model_endpoint=model_endpoint,
                     audio_config=audio_config,
+                    durable_post_commit=args.durable_post_commit,
                 )
 
         asyncio.run(

@@ -16,6 +16,18 @@ struct EngineSessionTests {
             "capabilities": .array([.string("system.health")])
         ]
         #expect(try EngineHandshake(payload: hello).capabilities == ["system.health"])
+        #expect(try EngineHandshake(payload: hello).liveTurnAvailable == false)
+
+        var legacyTurn = hello
+        legacyTurn["capabilities"] = .array([.string("story.turn.submit")])
+        #expect(try EngineHandshake(payload: legacyTurn).liveTurnAvailable)
+
+        var v2Turn = hello
+        v2Turn["capabilities"] = .array([
+            .string(StoryPostCommitMethodCapability.turnSubmitV2.rawValue)
+        ])
+        #expect(try EngineHandshake(payload: v2Turn).liveTurnAvailable)
+
         var duplicate = hello
         duplicate["capabilities"] = .array([.string("system.health"), .string("system.health")])
         #expect(throws: EngineConnectionError.authenticationFailed) { try EngineHandshake(payload: duplicate) }
@@ -86,6 +98,64 @@ struct EngineSessionTests {
                 turnId: "turn_1"
             )
             Issue.record("Story expression query was accepted without an advertised capability")
+        } catch {
+            #expect(error as? EngineConnectionError == .methodUnavailable)
+        }
+    }
+
+    @Test("Post-COMMIT methods require their negotiated capabilities")
+    func postCommitMethodsRequireHandshakeCapabilities() async throws {
+        let client = EngineIPCClient(requestTimeout: 0.1)
+        #expect(await !client.supportsStoryPostCommitMethod(.adviceSubmitV2))
+        #expect(await !client.supportsStoryPostCommitMethod(.turnSubmitV2))
+        #expect(await !client.supportsStoryPostCommitMethod(.turnWorkGet))
+        #expect(await !client.supportsStoryPostCommitMethod(.turnWorkRetry))
+
+        let advice = try StoryAdviceSubmitRequestDTO(
+            sessionId: "session_1",
+            inputTurnId: "input_turn_1",
+            rawInput: "观察医生",
+            expectedStoryRevision: 0,
+            expectedStoreRevision: 1
+        )
+        let turn = try StoryTurnSubmitRequestDTO(
+            sessionId: "session_1",
+            inputTurnId: "input_turn_1",
+            rawInput: "观察医生",
+            inputMode: .voice,
+            expectedStoryRevision: 0,
+            expectedStoreRevision: 1
+        )
+
+        do {
+            _ = try await client.storyAdviceSubmitV2(advice)
+            Issue.record("The v2 advice mutation was accepted without negotiation")
+        } catch {
+            #expect(error as? EngineConnectionError == .methodUnavailable)
+        }
+        do {
+            _ = try await client.storyTurnSubmitV2(turn)
+            Issue.record("The v2 turn mutation was accepted without negotiation")
+        } catch {
+            #expect(error as? EngineConnectionError == .methodUnavailable)
+        }
+        do {
+            _ = try await client.storyTurnWorkGet(
+                sessionId: "session_1",
+                turnId: "turn_1"
+            )
+            Issue.record("The work query was accepted without negotiation")
+        } catch {
+            #expect(error as? EngineConnectionError == .methodUnavailable)
+        }
+        do {
+            _ = try await client.storyTurnWorkRetry(
+                sessionId: "session_1",
+                turnId: "turn_1",
+                kind: .narrativePublish,
+                retryRequestId: "retry_1"
+            )
+            Issue.record("The work retry was accepted without negotiation")
         } catch {
             #expect(error as? EngineConnectionError == .methodUnavailable)
         }

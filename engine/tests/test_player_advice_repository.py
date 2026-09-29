@@ -1,15 +1,19 @@
 """world.db integration for immutable W-V09 PlayerAdvice interpretations."""
 from __future__ import annotations
 
-from pathlib import Path
 import hashlib
 import sqlite3 as stdlib_sqlite3
+from pathlib import Path
 
 import pytest
 
 from application.advice_interpretation import (
     AdviceInterpretationCandidate,
     PlayerAdviceInterpretationService,
+)
+from application.turn_context_binding import (
+    AuthorizedContextSource,
+    AuthorizedTurnContextBinding,
 )
 from application.turn_input import TurnInputCommand, TurnInputStatus
 from contracts import BaseRevisions, InputMode
@@ -19,6 +23,11 @@ from infrastructure.player_advice_repository import (
     SQLitePlayerAdviceRepository,
 )
 from infrastructure.sqlite_runtime import sqlite3
+from infrastructure.story_runtime import (
+    _BoundSQLitePlayerAdviceRepository,
+    _SQLiteTurnContextBindingPort,
+)
+from infrastructure.turn_context_repository import SQLiteTurnContextRepository
 from infrastructure.turn_intake_repository import SQLiteTurnInputCommandPort
 
 
@@ -50,8 +59,9 @@ def command():
 
 
 class Interpreter:
-    def __init__(self, primary="observe"):
+    def __init__(self, primary="observe", context_binding=None):
         self.primary = primary
+        self.context_binding = context_binding
         self.calls = 0
 
     async def interpret(self, value):
@@ -63,6 +73,7 @@ class Interpreter:
             proposed_actions=("observe_morris",),
             risk_preference="cautious",
             confidence=0.97,
+            context_binding=self.context_binding,
         )
 
 
@@ -105,6 +116,54 @@ async def test_player_advice_survives_restart_and_lost_ack_without_second_model_
         assert second_model.calls == 0
     finally:
         await reopened.close()
+
+
+async def test_live_interpretation_writes_its_authorized_binding_atomically(tmp_path):
+    database, _ = await open_database(tmp_path)
+    try:
+        await SQLiteTurnInputCommandPort(database).receive(command())
+        binding = AuthorizedTurnContextBinding(
+            turn_id="turn-advice-1",
+            stage="interpretation",
+            input_turn_id="input-advice-1",
+            source_store_revision=0,
+            source_story_revision=0,
+            policy_revision="context-visibility.v1",
+            content_digest="a" * 64,
+            lineage_digest="lineage-v1",
+            manifest=(
+                AuthorizedContextSource(
+                    source_id="observation.one",
+                    source_revision=0,
+                    fingerprint="b" * 64,
+                ),
+            ),
+        )
+        contexts = _SQLiteTurnContextBindingPort(
+            SQLiteTurnContextRepository(database)
+        )
+        advice = _BoundSQLitePlayerAdviceRepository(
+            SQLitePlayerAdviceRepository(database),
+            contexts,
+        )
+
+        result = await PlayerAdviceInterpretationService(
+            durable=advice,
+            interpreter=Interpreter(context_binding=binding),
+        ).interpret("input-advice-1")
+
+        rows = await database.read_world(
+            "SELECT stage,context_revision,manifest_digest "
+            "FROM turn_context_bindings WHERE turn_id=?",
+            ("turn-advice-1",),
+        )
+        assert result.advice.turn_id == "turn-advice-1"
+        assert len(rows) == 1
+        assert rows[0]["stage"] == "interpretation"
+        assert rows[0]["context_revision"] == binding.context_revision
+        assert rows[0]["manifest_digest"] == binding.manifest_digest
+    finally:
+        await database.close()
 
 
 async def test_first_durable_interpretation_wins_if_second_candidate_differs(tmp_path):
@@ -159,5 +218,46 @@ async def test_cancelled_input_cannot_publish_first_player_advice(tmp_path):
                 advice,
                 interpreter_revision="advice-profile-v1",
             )
+    finally:
+        await database.close()
+
+
+async def test_frozen_input_is_reachable_by_turn_identity(tmp_path):
+    """Post-COMMIT work only holds the turn, not the input id.
+
+    A turn's ``idempotency_key`` is a derived ``turn-input:<digest>`` form, so
+    it can never satisfy a lookup keyed by ``input_turn_id``. Anything that
+    resolves the pre-COMMIT input from a committed turn must go through the
+    turn identity instead.
+    """
+    database, _ = await open_database(tmp_path)
+    intake = SQLiteTurnInputCommandPort(database)
+    stored = await intake.receive(command())
+    repository = SQLitePlayerAdviceRepository(database)
+    try:
+        resolved = await repository.load_input_for_turn(stored.turn_id)
+        assert resolved is not None
+        assert resolved.input_turn_id == command().input_turn_id
+        assert resolved.session_id == command().session_id
+        assert resolved.turn_id == stored.turn_id
+
+        # The derived idempotency key is not an input identity.
+        assert await repository.load_input(stored.idempotency_key) is None
+        assert await repository.load_input_for_turn("turn-does-not-exist") is None
+    finally:
+        await database.close()
+
+
+async def test_turn_lookup_agrees_with_the_input_lookup(tmp_path):
+    """Both routes must resolve the same immutable input."""
+    database, _ = await open_database(tmp_path)
+    intake = SQLiteTurnInputCommandPort(database)
+    stored = await intake.receive(command())
+    repository = SQLitePlayerAdviceRepository(database)
+    try:
+        by_input = await repository.load_input(command().input_turn_id)
+        by_turn = await repository.load_input_for_turn(stored.turn_id)
+        assert by_input is not None and by_turn is not None
+        assert by_input == by_turn
     finally:
         await database.close()

@@ -39,10 +39,18 @@ public final class AppState {
         return "模型" + (engineHealth.modelReady ? "可用" : "未连接") + " · 语音" + (engineHealth.voiceReady ? "可用" : "未连接")
     }
 
-    public init(ipcClient: EngineIPCClient = EngineIPCClient(), processManager: EngineProcessManager = EngineProcessManager()) {
+    /// - Parameter journalRoot: where the durable first-turn request is kept.
+    ///   Production shares one location; a harness that runs several sessions
+    ///   back to back must pass its own, or the second run inherits the first
+    ///   run's frozen request and silently declines to open a story.
+    public init(
+        ipcClient: EngineIPCClient = EngineIPCClient(),
+        processManager: EngineProcessManager = EngineProcessManager(),
+        journalRoot: URL? = nil
+    ) {
         self.ipcClient = ipcClient
         self.processManager = processManager
-        let journal = StoryRequestJournal()
+        let journal = StoryRequestJournal(root: journalRoot)
         let coordinator = StorySubmissionCoordinator(client: ipcClient, journal: journal)
         self.submissionCoordinator = coordinator
         self.storyModel = StorySessionModel(

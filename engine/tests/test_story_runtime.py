@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 from jsonschema import Draft202012Validator
 
+import infrastructure.story_runtime as story_runtime_module
 from application.scenario_policy import ScenarioPolicyError
 from application.story_initialization import (
     GOLDEN_CLUE_DISPLAY_NAMES,
@@ -26,7 +27,7 @@ from application.story_initialization import (
 )
 from application.story_session_facade import StoryFacadeError, SubmitAdviceCommand
 from contracts.envelope import EngineIPCEnvelope
-from infrastructure.database_manager import DatabasePaths
+from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.ipc_framing import encode_frame, read_frame, write_frame
 from infrastructure.ipc_server import LocalIPCServer
 from infrastructure.sqlite_runtime import sqlite3
@@ -76,6 +77,17 @@ STORY_CAPABILITIES = (
     "story.session.get",
     "story.session.open",
     "story.turn.submit",
+)
+DURABLE_STORY_CAPABILITIES = (
+    "story.advice.get",
+    "story.advice.submit.v2",
+    "story.entry.get",
+    "story.expression.get",
+    "story.session.get",
+    "story.session.open",
+    "story.turn.submit.v2",
+    "story.turn.work.get",
+    "story.turn.work.retry",
 )
 _PRODUCT_LAUNCHER = (
     "import asyncio, sys\n"
@@ -182,11 +194,330 @@ def _world_path(root: Path) -> Path:
     return DatabasePaths.for_world(root, ENGINEERING_WORLD_ID).world
 
 
-async def _open_runtime(root: Path, content: Path) -> StoryRuntime:
+async def _open_runtime(
+    root: Path,
+    content: Path,
+    *,
+    durable_post_commit: bool = False,
+) -> StoryRuntime:
     return await StoryRuntime.open(
         StoryRuntimeConfig.for_data_root(root, content_path=content),
         expected_sqlite_version=sqlite3.sqlite_version,
+        durable_post_commit=durable_post_commit,
     )
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_close_orders_resources_once():
+    events: list[str] = []
+
+    class Worker:
+        is_running = False
+
+        async def stop(self):
+            events.append("worker.stop")
+
+    class ModelWorkers:
+        async def aclose(self):
+            events.append("model.aclose")
+
+    class Voice:
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = Worker()
+    runtime._workers = ModelWorkers()
+    runtime._voice = Voice()
+    runtime._database = Database()
+    runtime._close_task = None
+
+    await runtime.close()
+    await runtime.close()
+
+    assert events == [
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_close_releases_later_resources_after_partial_failure():
+    events: list[str] = []
+
+    class Worker:
+        is_running = False
+
+        async def stop(self):
+            events.append("worker.stop")
+
+    class ModelWorkers:
+        async def aclose(self):
+            events.append("model.aclose")
+            raise RuntimeError("model shutdown failed")
+
+    class Voice:
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = Worker()
+    runtime._workers = ModelWorkers()
+    runtime._voice = Voice()
+    runtime._database = Database()
+    runtime._close_task = None
+
+    with pytest.raises(RuntimeError, match="model shutdown failed"):
+        await runtime.close()
+
+    assert events == [
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_story_runtime_open_releases_partial_resources_when_startup_fails(
+    tmp_path: Path,
+    content_artifact: Path,
+    monkeypatch,
+):
+    events: list[str] = []
+
+    class ModelWorkers:
+        supports_live_input = True
+
+        def interpreter_for(self, bootstrap, turn_number):
+            del bootstrap, turn_number
+            raise AssertionError("worker is not used during startup")
+
+        def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+            del bootstrap, turn_number, allowed_signatures
+            raise AssertionError("worker is not used during startup")
+
+        def narrative_compiler(self, bootstrap):
+            del bootstrap
+
+        async def aclose(self):
+            events.append("model.aclose")
+            raise RuntimeError("model shutdown failed")
+
+    class Voice:
+        sealed_units = object()
+        media_handler = None
+
+        async def aclose(self):
+            events.append("voice.aclose")
+
+    model_workers = ModelWorkers()
+    voice = Voice()
+    async def make_workers(database, endpoint):
+        del database, endpoint
+        return model_workers
+
+    monkeypatch.setattr(
+        story_runtime_module,
+        "_live_worker_factory",
+        make_workers,
+    )
+    monkeypatch.setattr(
+        StoryRuntime,
+        "_open_voice",
+        staticmethod(lambda audio_config: voice),
+    )
+
+    async def reconcile(self):
+        del self
+        events.append("reconcile")
+
+    async def start(self):
+        del self
+        events.append("worker.start")
+        raise RuntimeError("worker startup failed")
+
+    async def stop(self):
+        del self
+        events.append("worker.stop")
+
+    original_database_close = DatabaseManager.close
+
+    async def tracked_database_close(database):
+        events.append("database.close")
+        await original_database_close(database)
+
+    monkeypatch.setattr(
+        story_runtime_module.PostCommitReconciler,
+        "reconcile",
+        reconcile,
+    )
+    monkeypatch.setattr(story_runtime_module.PostCommitWorker, "start", start)
+    monkeypatch.setattr(story_runtime_module.PostCommitWorker, "stop", stop)
+    monkeypatch.setattr(DatabaseManager, "close", tracked_database_close)
+
+    from ai.openai_compatible import ModelEndpointConfig
+
+    with pytest.raises(RuntimeError, match="worker startup failed"):
+        await StoryRuntime.open(
+            StoryRuntimeConfig.for_data_root(
+                tmp_path / "app-support",
+                content_path=content_artifact,
+            ),
+            expected_sqlite_version=sqlite3.sqlite_version,
+            model_endpoint=ModelEndpointConfig(
+                base_url="http://127.0.0.1:9/v1",
+                api_key="test-only-key",
+                model="test-live-model",
+            ),
+            durable_post_commit=True,
+        )
+
+    assert events == [
+        "reconcile",
+        "worker.start",
+        "worker.stop",
+        "model.aclose",
+        "voice.aclose",
+        "database.close",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_live_worker_factory_closes_transport_if_execution_assembly_fails(
+    monkeypatch,
+):
+    events: list[str] = []
+
+    class Transport:
+        def __init__(self, endpoint):
+            del endpoint
+
+        async def aclose(self):
+            events.append("transport.aclose")
+
+    def fail_execution(**kwargs):
+        del kwargs
+        raise RuntimeError("execution assembly failed")
+
+    monkeypatch.setattr(
+        story_runtime_module,
+        "OpenAICompatibleChatTransport",
+        Transport,
+    )
+    monkeypatch.setattr(
+        story_runtime_module,
+        "AuthorizedLiveExecution",
+        fail_execution,
+    )
+    from ai.openai_compatible import ModelEndpointConfig
+
+    with pytest.raises(RuntimeError, match="execution assembly failed"):
+        await story_runtime_module._live_worker_factory(
+            object(),
+            ModelEndpointConfig(
+                base_url="http://127.0.0.1:9/v1",
+                api_key="test-only-key",
+                model="test-live-model",
+            ),
+        )
+
+    assert events == ["transport.aclose"]
+
+
+@pytest.mark.asyncio
+async def test_live_runtime_composes_authorized_workers_over_sqlite_context_ports(
+    tmp_path: Path,
+    content_artifact: Path,
+):
+    from ai.authorized_live_execution import AuthorizedLiveExecution
+    from ai.live_turn_workers import LiveFirstTurnFactory, LiveTurnWorkerProfiles
+    from ai.openai_compatible import (
+        ModelEndpointConfig,
+        OpenAICompatibleChatTransport,
+    )
+    from ai.prompt_renderer import PromptRenderer
+    from application.gameplay_context import GameplayContextCoordinator, GameplayMode
+    from infrastructure.gameplay_context_repository import (
+        SQLiteGameplayContextRepository,
+    )
+    from infrastructure.story_runtime import (
+        _BoundSQLitePlayerAdviceRepository,
+        _SQLiteTurnContextBindingPort,
+    )
+    from infrastructure.turn_context_repository import SQLiteTurnContextRepository
+
+    endpoint = ModelEndpointConfig(
+        base_url="http://127.0.0.1:9/v1",
+        api_key="test-only-key",
+        model="test-live-model",
+    )
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support",
+            content_path=content_artifact,
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        model_endpoint=endpoint,
+    )
+    try:
+        workers = runtime._workers
+        assert isinstance(workers, LiveFirstTurnFactory)
+        execution = workers._execution
+        assert isinstance(execution, AuthorizedLiveExecution)
+
+        coordinator = execution.coordinator
+        assert isinstance(coordinator, GameplayContextCoordinator)
+        gameplay_repository = coordinator.snapshot
+        assert isinstance(gameplay_repository, SQLiteGameplayContextRepository)
+        assert coordinator.authorization is gameplay_repository
+        assert gameplay_repository._database is runtime._database
+        assert set(coordinator._ports.values()) == {
+            gameplay_repository.lore_port,
+            gameplay_repository.world_port,
+            gameplay_repository.character_port,
+            gameplay_repository.story_port,
+            gameplay_repository.memory_port,
+        }
+        assert all(port is not None for port in coordinator._ports.values())
+
+        profiles = coordinator.profiles
+        assert isinstance(profiles, LiveTurnWorkerProfiles)
+        assert profiles.profile(
+            GameplayMode.ADVICE_INTERPRETATION, "advice_interpreter"
+        ).prompt_revision == "wom-live-interpreter-v2"
+        assert profiles.profile(
+            GameplayMode.CHARACTER_REASONING, "character_reasoner"
+        ).prompt_revision == "wom-live-proposer-v2"
+        assert profiles.profile(
+            GameplayMode.NARRATIVE_COMPILATION, "narrative_compiler"
+        ).prompt_revision == "wom-live-narrative-v2"
+
+        assert isinstance(execution.renderer, PromptRenderer)
+        assert isinstance(execution.transport, OpenAICompatibleChatTransport)
+        assert execution.transport.config == endpoint
+
+        facade = runtime._facade
+        turns = facade._turns
+        assert isinstance(turns._context, _SQLiteTurnContextBindingPort)
+        assert isinstance(
+            turns._context._repository,
+            SQLiteTurnContextRepository,
+        )
+        assert isinstance(turns._advice, _BoundSQLitePlayerAdviceRepository)
+        assert turns._advice._contexts is turns._context
+    finally:
+        await runtime.close()
 
 
 @pytest.mark.asyncio
@@ -310,9 +641,11 @@ def _committed_delivery_case(*, narrative=None):
         turn=turn,
         delta=delta,
         session=SimpleNamespace(protagonist_id="protagonist-1"),
+        store_revision=2,
     )
     command = SimpleNamespace(
         session_id="session-1",
+        input_turn_id="input-1",
         raw_input="我想看看预约簿。",
     )
     return NarrativeRepository(), FirstTurnWithNarrativeCompiler(), snapshot, result, command
@@ -338,6 +671,7 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         audio_config=None,
         voice_id=None,
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -404,6 +738,7 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
         audio_config=AudioProviderConfig(),
         voice_id="klein-approved",
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -440,6 +775,7 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
         audio_config=None,
         voice_id=None,
         workers=first_turn,
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -491,6 +827,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
         audio_config=None,
         voice_id=None,
         workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
         fetch_json=None,
     )
 
@@ -1239,3 +1576,803 @@ async def test_story_runtime_serves_all_five_turns_and_closes_after_fifth(tmp_pa
             )
     finally:
         await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_production_runtime_defaults_to_synchronous_v1_without_jobs(
+    tmp_path: Path, content_artifact: Path, socket_path: Path
+):
+    """Legacy v1 keeps synchronous expression publication without scheduling jobs.
+
+    The default is deliberately frozen at construction time: v1 owns settlement,
+    while only the explicit v2 runtime delegates it to the durable worker.
+    """
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader, writer, "story.session.open", _open_body("open_request_1", 0),
+            "req-open", idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        assert _jobs(root) == []
+
+        submitted = await _call(
+            reader, writer, "story.advice.submit",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit", idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        assert submitted["payload"]["receipt"]["status"] == "committed"
+        assert submitted["payload"]["delivery"]["reason"] == "voice_not_configured"
+    finally:
+        await _close(server, reader, writer)
+        await runtime.close()
+
+    assert _jobs(root) == []
+    assert _narrative_count(root) == 1
+
+
+@pytest.mark.asyncio
+async def test_v1_terminal_turn_publishes_expression_once_and_finalizes_episode(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_expression import PostCommitExpressionService
+
+    expression_publications = {}
+    original_publish = PostCommitExpressionService.publish
+
+    async def track_expression_publish(self, *, turn_number, commit):
+        expression_publications[commit.turn_id] = (
+            expression_publications.get(commit.turn_id, 0) + 1
+        )
+        return await original_publish(
+            self,
+            turn_number=turn_number,
+            commit=commit,
+        )
+
+    monkeypatch.setattr(
+        PostCommitExpressionService,
+        "publish",
+        track_expression_publish,
+    )
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        catalog = load_five_turn_catalog(content_artifact, _bundle_payload()["seed"])
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_v1_terminal", 0),
+            "req-open-v1-terminal",
+            idempotency_key="open_v1_terminal",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+
+        for turn_number in range(1, 6):
+            advice = catalog.advice_templates[turn_number]
+            body = _submit_body(
+                session_id,
+                f"v1_terminal_input_{turn_number:02d}",
+                advice.raw_input,
+            )
+            body["expected_story_revision"] = turn_number - 1
+            body["expected_store_revision"] = turn_number
+            submitted = await _call(
+                reader,
+                writer,
+                "story.advice.submit",
+                body,
+                f"req-v1-terminal-turn-{turn_number:02d}",
+                idempotency_key=f"v1_terminal_input_{turn_number:02d}",
+            )
+            assert submitted["status"] == "ok"
+            assert (
+                submitted["payload"]["receipt"]["committed_story_revision"]
+                == turn_number
+            )
+
+        assert len(expression_publications) == 5
+        assert set(expression_publications.values()) == {1}
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+        assert _jobs(root) == []
+    finally:
+        if server is not None:
+            await _close(server, reader, writer)
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_runtime_exposes_only_v2_submit_methods(
+    tmp_path: Path, content_artifact: Path, socket_path: Path
+):
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support",
+            content_path=content_artifact,
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        durable_post_commit=True,
+    )
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        assert runtime.capabilities == DURABLE_STORY_CAPABILITIES
+        assert "story.advice.submit" not in runtime.request_handlers
+        assert "story.turn.submit" not in runtime.request_handlers
+        assert "story.advice.submit.v2" in runtime.request_handlers
+        assert "story.turn.submit.v2" in runtime.request_handlers
+        assert "story.turn.work.get" in runtime.request_handlers
+        assert "story.turn.work.retry" in runtime.request_handlers
+
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(DURABLE_STORY_CAPABILITIES) <= set(
+            hello["payload"]["capabilities"]
+        )
+
+        missing_work = await _call(
+            reader,
+            writer,
+            "story.turn.work.get",
+            {"session_id": "session-missing", "turn_id": "turn-missing"},
+            "req-work-get",
+        )
+        assert missing_work["error"]["code"] == "turn_not_found"
+        missing_retry = await _call(
+            reader,
+            writer,
+            "story.turn.work.retry",
+            {
+                "session_id": "session-missing",
+                "turn_id": "turn-missing",
+                "kind": "narrative_publish",
+                "retry_request_id": "retry-missing",
+            },
+            "req-work-retry",
+        )
+        assert missing_retry["error"]["code"] == "turn_not_found"
+    finally:
+        await _close(server, reader, writer)
+        await runtime.close()
+
+
+@pytest.mark.parametrize(
+    ("legacy_state", "expected_job_state", "expected_reason", "expected_unverifiable"),
+    (
+        ("artifact_present", "succeeded", None, 0),
+        ("artifact_missing", "blocked", "legacy_recipe_unknown", 0),
+        ("non_committed", None, None, 1),
+    ),
+    ids=("verified-artifact", "unknown-legacy-recipe", "unverifiable-turn"),
+)
+@pytest.mark.asyncio
+async def test_durable_runtime_reconciles_legacy_post_commit_work_on_open(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+    legacy_state: str,
+    expected_job_state: str | None,
+    expected_reason: str | None,
+    expected_unverifiable: int,
+):
+    from infrastructure.post_commit_reconciliation import PostCommitReconciler
+
+    reports = []
+    original_reconcile = PostCommitReconciler.reconcile
+
+    async def capture_report(self):
+        report = await original_reconcile(self)
+        reports.append(report)
+        return report
+
+    monkeypatch.setattr(PostCommitReconciler, "reconcile", capture_report)
+
+    root = tmp_path / "app-support"
+    legacy_runtime = await _open_runtime(root, content_artifact)
+    assert reports == []
+    try:
+        await _open_and_submit(legacy_runtime, socket_path)
+    finally:
+        await legacy_runtime.close()
+
+    assert _jobs(root) == []
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        turn_id = connection.execute(
+            "SELECT id FROM turn_transactions ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+        if legacy_state == "artifact_missing":
+            connection.execute(
+                "UPDATE turn_transactions SET narrative_block_id=NULL WHERE id=?",
+                (turn_id,),
+            )
+            connection.execute(
+                "DELETE FROM narrative_blocks WHERE turn_id=?",
+                (turn_id,),
+            )
+        elif legacy_state == "non_committed":
+            connection.execute(
+                "UPDATE turn_transactions SET status='reconcile_required' WHERE id=?",
+                (turn_id,),
+            )
+        connection.commit()
+
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    try:
+        assert len(reports) == 1
+        assert reports[0].unverifiable_turns == expected_unverifiable
+        jobs = _jobs(root)
+        assert all(job["kind"] != "audio_prepare" for job in jobs)
+        if expected_job_state is None:
+            assert jobs == []
+        else:
+            assert len(jobs) == 1
+            assert jobs[0]["kind"] == "narrative_publish"
+            assert jobs[0]["state"] == expected_job_state
+            assert jobs[0]["last_error_code"] == expected_reason
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.parametrize("enabled", [False, True], ids=["default-v1", "opt-in-v2"])
+def test_ipc_entrypoint_selects_runtime_mode_and_passes_switch_to_open(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+    enabled: bool,
+):
+    from infrastructure import ipc_server
+
+    original_open = StoryRuntime.open.__func__
+    open_calls = []
+    runtime_observations = {}
+
+    async def controlled_open(cls, config, **kwargs):
+        open_calls.append(
+            {
+                "has_durable_post_commit": "durable_post_commit" in kwargs,
+                "durable_post_commit": kwargs.get("durable_post_commit"),
+            }
+        )
+        return await original_open(
+            cls,
+            config,
+            expected_sqlite_version=sqlite3.sqlite_version,
+            **kwargs,
+        )
+
+    async def inspect_loaded_runtime(
+        path,
+        token,
+        parent_pid=None,
+        *,
+        runtime_loader=None,
+    ):
+        del path, parent_pid
+        assert token == TOKEN
+        assert runtime_loader is not None
+        runtime = await runtime_loader()
+        try:
+            worker = runtime._post_commit_worker
+            runtime_observations["capabilities"] = set(runtime.capabilities)
+            runtime_observations["worker_present"] = worker is not None
+            runtime_observations["worker_running"] = (
+                worker is not None and worker.is_running
+            )
+            runtime_observations["jobs"] = _jobs(tmp_path / "cli-app-support")
+            runtime_observations["health"] = runtime.health()
+        finally:
+            await runtime.close()
+
+    monkeypatch.setattr(StoryRuntime, "open", classmethod(controlled_open))
+    monkeypatch.setattr(ipc_server, "read_bootstrap_token", lambda _fd: TOKEN)
+    monkeypatch.setattr(ipc_server, "_run", inspect_loaded_runtime)
+    monkeypatch.setenv("WOM_MODEL_BASE_URL", "")
+    monkeypatch.setenv("WOM_MODEL_NAME", "")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ipc_server",
+            "--socket",
+            str(socket_path),
+            "--token-fd",
+            "7",
+            "--data-root",
+            str(tmp_path / "cli-app-support"),
+            "--content-artifact",
+            str(content_artifact),
+            *(
+                ["--durable-post-commit"]
+                if enabled
+                else []
+            ),
+        ],
+    )
+
+    assert ipc_server.main() == 0
+    assert open_calls == [
+        {
+            "has_durable_post_commit": True,
+            "durable_post_commit": enabled,
+        }
+    ]
+    capabilities = runtime_observations["capabilities"]
+    v1_submit_methods = {"story.advice.submit", "story.turn.submit"}
+    v2_submit_methods = {"story.advice.submit.v2", "story.turn.submit.v2"}
+    assert runtime_observations["health"] == RUNTIME_HEALTH
+    if enabled:
+        assert v2_submit_methods <= capabilities
+        assert v1_submit_methods.isdisjoint(capabilities)
+        assert runtime_observations["worker_present"] is True
+        assert runtime_observations["worker_running"] is True
+    else:
+        assert v1_submit_methods <= capabilities
+        assert v2_submit_methods.isdisjoint(capabilities)
+        assert capabilities == set(STORY_CAPABILITIES)
+        assert runtime_observations["worker_present"] is False
+        assert runtime_observations["worker_running"] is False
+        assert runtime_observations["jobs"] == []
+
+
+@pytest.mark.asyncio
+async def test_durable_v2_returns_before_worker_publication_and_drains_before_db_close(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_work import PostCommitKind
+    from infrastructure.episode_settlement import ScenarioSettlement, SettlingCommitPort
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioNarrativePublishHandler,
+    )
+    from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    settlement_called = asyncio.Event()
+    acknowledged = asyncio.Event()
+    captured_sources = []
+    stop_started = asyncio.Event()
+    worker_stopped = asyncio.Event()
+    database_close_started = asyncio.Event()
+
+    original_execute = ScenarioNarrativePublishHandler.execute
+    original_settle = ScenarioSettlement.settle
+    original_complete = SQLitePostCommitJobRepository.complete
+
+    async def hold_narrative(self, source):
+        captured_sources.append(source)
+        entered.set()
+        await release.wait()
+        return await original_execute(self, source)
+
+    async def track_settlement(self, result):
+        settlement_called.set()
+        return await original_settle(self, result)
+
+    async def track_complete(self, *args, **kwargs):
+        result = await original_complete(self, *args, **kwargs)
+        acknowledged.set()
+        return result
+
+    monkeypatch.setattr(ScenarioNarrativePublishHandler, "execute", hold_narrative)
+    monkeypatch.setattr(ScenarioSettlement, "settle", track_settlement)
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(
+        root,
+        content_artifact,
+        durable_post_commit=True,
+    )
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    runtime_closed = False
+    try:
+        assert isinstance(
+            runtime._facade._turns._story,
+            SQLiteStorySessionCommitPort,
+        )
+        assert not isinstance(
+            runtime._facade._turns._story,
+            SettlingCommitPort,
+        )
+        assert runtime._facade._turns._work is None
+        assert runtime._post_commit_worker is not None
+        assert runtime._post_commit_worker.is_running
+
+        original_stop = runtime._post_commit_worker.stop
+        original_database_close = runtime._database.close
+
+        async def track_stop():
+            stop_started.set()
+            await original_stop()
+            worker_stopped.set()
+
+        async def track_database_close():
+            assert worker_stopped.is_set()
+            database_close_started.set()
+            await original_database_close()
+
+        runtime._post_commit_worker.stop = track_stop
+        runtime._database.close = track_database_close
+
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *DURABLE_STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_request_1", 0),
+            "req-open",
+            idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        submitted = await _call(
+            reader,
+            writer,
+            "story.advice.submit.v2",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit-v2",
+            idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        assert submitted["payload"]["receipt"]["status"] == "committed"
+        assert "delivery" not in submitted["payload"]
+        await asyncio.wait_for(entered.wait(), timeout=5)
+
+        assert _narrative_count(root) == 0
+        jobs_by_kind = {row["kind"]: row for row in _jobs(root)}
+        job = jobs_by_kind["narrative_publish"]
+        assert job["state"] == "running"
+        assert len(captured_sources) == 1
+        assert {
+            "job_id": captured_sources[0].job_id,
+            "turn_id": captured_sources[0].turn_id,
+            "session_id": captured_sources[0].session_id,
+            "kind": captured_sources[0].kind.value,
+            "recipe_revision": captured_sources[0].recipe_revision,
+            "source_story_revision": captured_sources[0].source_story_revision,
+            "source_world_revision": captured_sources[0].source_world_revision,
+            "input_digest": captured_sources[0].input_digest,
+        } == {
+            "job_id": job["job_id"],
+            "turn_id": job["turn_id"],
+            "session_id": job["session_id"],
+            "kind": job["kind"],
+            "recipe_revision": job["recipe_revision"],
+            "source_story_revision": job["source_story_revision"],
+            "source_world_revision": job["source_world_revision"],
+            "input_digest": job["input_digest"],
+        }
+        assert captured_sources[0].kind is PostCommitKind.NARRATIVE_PUBLISH
+        assert not settlement_called.is_set()
+        revision_while_blocked = _world_revision(root)
+
+        await _close(server, reader, writer)
+        server = reader = writer = None
+        close_task = asyncio.create_task(runtime.close())
+        await stop_started.wait()
+        assert runtime._post_commit_worker.is_stopping
+        assert not worker_stopped.is_set()
+        assert not database_close_started.is_set()
+        assert await runtime._database.read_world(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        )
+        release.set()
+        await close_task
+        runtime_closed = True
+        assert acknowledged.is_set()
+        assert worker_stopped.is_set()
+        assert database_close_started.is_set()
+        assert not runtime._post_commit_worker.is_running
+        assert _world_revision(root) == revision_while_blocked
+        assert _narrative_count(root) == 1
+        completed_jobs = {row["kind"]: row for row in _jobs(root)}
+        assert completed_jobs["narrative_publish"]["state"] == "succeeded"
+        assert completed_jobs["audio_prepare"]["state"] == "blocked"
+        assert not settlement_called.is_set()
+    finally:
+        release.set()
+        if server is not None:
+            await _close(server, reader, writer)
+        if not runtime_closed:
+            await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_worker_recovers_artifact_written_before_ack_after_restart(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioNarrativePublishHandler,
+    )
+
+    first_interrupted = asyncio.Event()
+    recovered = asyncio.Event()
+    acknowledged = asyncio.Event()
+    sources = []
+    original_execute = ScenarioNarrativePublishHandler.execute
+    original_complete = SQLitePostCommitJobRepository.complete
+
+    async def interrupt_after_artifact(self, source):
+        sources.append(source)
+        result = await original_execute(self, source)
+        if len(sources) == 1:
+            first_interrupted.set()
+            raise asyncio.CancelledError
+        recovered.set()
+        return result
+
+    async def track_complete(self, *args, **kwargs):
+        result = await original_complete(self, *args, **kwargs)
+        acknowledged.set()
+        return result
+
+    monkeypatch.setattr(
+        ScenarioNarrativePublishHandler,
+        "execute",
+        interrupt_after_artifact,
+    )
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        await _handshake(reader, writer)
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_request_1", 0),
+            "req-open",
+            idempotency_key="open_request_1",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        submitted = await _call(
+            reader,
+            writer,
+            "story.advice.submit.v2",
+            _submit_body(session_id, "input_turn_1"),
+            "req-submit-v2",
+            idempotency_key="input_turn_1",
+        )
+        assert submitted["status"] == "ok"
+        await asyncio.wait_for(first_interrupted.wait(), timeout=5)
+        await _close(server, reader, writer)
+        server = reader = writer = None
+        await runtime.close()
+    finally:
+        if server is not None:
+            await _close(server, reader, writer)
+        if runtime._database._close_task is None:
+            await runtime.close()
+
+    jobs_after_crash = _jobs(root)
+    narrative_after_crash = next(
+        row for row in jobs_after_crash if row["kind"] == "narrative_publish"
+    )
+    assert narrative_after_crash["state"] == "running"
+    assert _narrative_count(root) == 1
+    revision_after_commit = _world_revision(root)
+
+    restarted = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    try:
+        await asyncio.wait_for(recovered.wait(), timeout=5)
+        await asyncio.wait_for(acknowledged.wait(), timeout=5)
+        assert len(sources) == 2
+        assert sources[0] == sources[1]
+        assert _narrative_count(root) == 1
+        recovered_job = next(
+            row for row in _jobs(root) if row["kind"] == "narrative_publish"
+        )
+        assert recovered_job["state"] == "succeeded"
+        assert _world_revision(root) == revision_after_commit
+    finally:
+        await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_durable_episode_handler_is_the_only_revision_advancing_post_commit_work(
+    tmp_path: Path,
+    content_artifact: Path,
+    socket_path: Path,
+    monkeypatch,
+):
+    from application.post_commit_expression import PostCommitExpressionService
+    from application.post_commit_work import (
+        PostCommitKind,
+        PostCommitResultState,
+        PostCommitWorkSource,
+    )
+    from infrastructure.post_commit_job_repository import SQLitePostCommitJobRepository
+    from infrastructure.scenarios.post_commit_handlers import (
+        ScenarioEpisodeFinalizeHandler,
+    )
+
+    episode_entered = asyncio.Event()
+    release_episode = asyncio.Event()
+    episode_acknowledged = asyncio.Event()
+    episode_sources = []
+    expression_publications = {}
+    original_execute = ScenarioEpisodeFinalizeHandler.execute
+    original_complete = SQLitePostCommitJobRepository.complete
+    original_publish = PostCommitExpressionService.publish
+
+    async def hold_episode(self, source):
+        episode_sources.append(source)
+        episode_entered.set()
+        await release_episode.wait()
+        return await original_execute(self, source)
+
+    async def track_complete(self, job_id, *args, **kwargs):
+        result = await original_complete(self, job_id, *args, **kwargs)
+        if ":episode_finalize:" in job_id:
+            episode_acknowledged.set()
+        return result
+
+    async def track_expression_publish(self, *, turn_number, commit):
+        expression_publications[commit.turn_id] = (
+            expression_publications.get(commit.turn_id, 0) + 1
+        )
+        return await original_publish(
+            self,
+            turn_number=turn_number,
+            commit=commit,
+        )
+
+    monkeypatch.setattr(ScenarioEpisodeFinalizeHandler, "execute", hold_episode)
+    monkeypatch.setattr(SQLitePostCommitJobRepository, "complete", track_complete)
+    monkeypatch.setattr(
+        PostCommitExpressionService,
+        "publish",
+        track_expression_publish,
+    )
+
+    root = tmp_path / "app-support"
+    runtime = await _open_runtime(root, content_artifact, durable_post_commit=True)
+    server = await _start_server(socket_path, runtime)
+    reader = writer = None
+    try:
+        catalog = load_five_turn_catalog(content_artifact, _bundle_payload()["seed"])
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        hello = await _handshake(reader, writer)
+        assert set(hello["payload"]["capabilities"]) == {
+            "system.health",
+            "system.shutdown",
+            *DURABLE_STORY_CAPABILITIES,
+        }
+        opened = await _call(
+            reader,
+            writer,
+            "story.session.open",
+            _open_body("open_durable_episode", 0),
+            "req-open",
+            idempotency_key="open_durable_episode",
+        )
+        session_id = opened["payload"]["session"]["session_id"]
+        for turn_number in range(1, 6):
+            advice = catalog.advice_templates[turn_number]
+            body = _submit_body(
+                session_id,
+                f"durable_input_{turn_number:02d}",
+                advice.raw_input,
+            )
+            body["expected_story_revision"] = turn_number - 1
+            body["expected_store_revision"] = turn_number
+            submitted = await _call(
+                reader,
+                writer,
+                "story.advice.submit.v2",
+                body,
+                f"req-turn-{turn_number:02d}",
+                idempotency_key=f"durable_input_{turn_number:02d}",
+            )
+            assert submitted["status"] == "ok"
+            assert submitted["payload"]["receipt"]["committed_story_revision"] == turn_number
+
+        await asyncio.wait_for(episode_entered.wait(), timeout=5)
+        assert _world_revision(root) == 6
+        assert _episode_count(root) == 0
+        rows_before_finalize = _jobs(root)
+        assert sum(row["kind"] == "narrative_publish" and row["state"] == "succeeded"
+                   for row in rows_before_finalize) == 5
+        assert sum(row["kind"] == "audio_prepare" and row["state"] == "blocked"
+                   for row in rows_before_finalize) == 5
+        assert next(row for row in rows_before_finalize
+                    if row["kind"] == "episode_finalize")["state"] == "running"
+
+        release_episode.set()
+        await asyncio.wait_for(episode_acknowledged.wait(), timeout=5)
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+
+        source = episode_sources[0]
+        assert isinstance(source, PostCommitWorkSource)
+        assert source.kind is PostCommitKind.EPISODE_FINALIZE
+        assert expression_publications[source.turn_id] == 1
+        handler = runtime._post_commit_worker._handlers[
+            PostCommitKind.EPISODE_FINALIZE.value
+        ]
+        replay = await handler.execute(source)
+        assert replay.state is PostCommitResultState.SUCCEEDED
+        assert _episode_count(root) == 1
+        assert _world_revision(root) == 7
+    finally:
+        release_episode.set()
+        if server is not None:
+            await _close(server, reader, writer)
+        await runtime.close()
+
+
+def _jobs(root: Path) -> list[dict]:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        connection.row_factory = stdlib_sqlite3.Row
+        return [
+            dict(row)
+            for row in connection.execute(
+                "SELECT job_id,turn_id,session_id,kind,recipe_revision,"
+                "source_story_revision,source_world_revision,input_digest,"
+                "state,last_error_code "
+                "FROM post_commit_jobs ORDER BY kind"
+            )
+        ]
+
+
+def _narrative_count(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute("SELECT count(*) FROM narrative_blocks").fetchone()[0]
+
+
+def _world_revision(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        ).fetchone()[0]
+
+
+def _episode_count(root: Path) -> int:
+    with stdlib_sqlite3.connect(_world_path(root)) as connection:
+        return connection.execute("SELECT count(*) FROM episodes").fetchone()[0]

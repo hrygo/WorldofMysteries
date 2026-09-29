@@ -165,9 +165,10 @@ struct VisualHonestyContractTests {
         // Story entry is gated on the advertised capability and a real world service.
         #expect(appState.contains("handshake.capabilities.contains(\"story.entry.get\")"))
         #expect(appState.contains("guard health.worldReady"))
-        // The panel states the verification scope instead of claiming generated narrative.
+        // The panel distinguishes committed domain facts from independent post-commit work.
         #expect(panel.contains("工程验证 · 固定五轮"))
-        #expect(panel.contains("不是生成叙事"))
+        #expect(panel.contains("领域事实在提交时保存"))
+        #expect(panel.contains("叙事与语音由提交后工作独立推进"))
         // The composer empties its binding synchronously once the handler returns,
         // so the panel must forward the advice it was handed. Re-reading the
         // draft from the enqueued Task would always find it empty and silently

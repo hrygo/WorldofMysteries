@@ -99,16 +99,6 @@ class PostCommitResultState(StrEnum):
     BLOCKED = "blocked"
 
 
-class PostCommitStoreCode(StrEnum):
-    """Stable store operation outcomes without lease or exception details."""
-
-    APPLIED = "applied"
-    ALREADY_REGISTERED = "already_registered"
-    STALE_CLAIM = "stale_claim"
-    NOT_FOUND = "not_found"
-    CONFLICT = "conflict"
-
-
 PostCommitClaimToken = NewType("PostCommitClaimToken", object)
 type RetryDecision = tuple[PostCommitJobState, int | None]
 
@@ -429,130 +419,6 @@ class PostCommitExecutionClaim:
             raise ValueError("invalid_post_commit_claim_token")
 
 
-@dataclass(frozen=True, slots=True)
-class PostCommitJobSnapshot:
-    """Read-only store view with scheduler status but no owner/generation."""
-
-    source: PostCommitWorkSource
-    state: PostCommitJobState
-    attempt: int
-    next_attempt_at: datetime | None
-    last_error_code: str | None
-    result_ref: str | None
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.source, PostCommitWorkSource):
-            raise TypeError("invalid_post_commit_work_source")
-        if not isinstance(self.state, PostCommitJobState):
-            raise TypeError("invalid_post_commit_job_state")
-        _natural_number(self.attempt, "attempt")
-        if self.next_attempt_at is not None and (
-            not isinstance(self.next_attempt_at, datetime)
-            or self.next_attempt_at.tzinfo is None
-            or self.next_attempt_at.utcoffset() is None
-        ):
-            raise ValueError("invalid_next_attempt_at")
-        if self.last_error_code is not None:
-            object.__setattr__(
-                self,
-                "last_error_code",
-                _reason_code(self.last_error_code, "last_error_code"),
-            )
-        if self.result_ref is not None:
-            object.__setattr__(
-                self,
-                "result_ref",
-                _safe_text(
-                    self.result_ref,
-                    "result_ref",
-                    limit=_MAX_IDENTIFIER_LENGTH,
-                ),
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class PostCommitStoreResult:
-    """Stable outcome code for a store mutation or compare-and-swap."""
-
-    code: PostCommitStoreCode
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.code, PostCommitStoreCode):
-            raise TypeError("invalid_post_commit_store_code")
-
-
-@dataclass(frozen=True, slots=True)
-class PostCommitRetryReceipt:
-    """Idempotent retry acceptance; contains no internal scheduler identity."""
-
-    accepted: bool
-    replayed: bool
-    reason_code: str | None = None
-
-    def __post_init__(self) -> None:
-        if type(self.accepted) is not bool or type(self.replayed) is not bool:
-            raise ValueError("invalid_post_commit_retry_receipt")
-        if self.accepted and self.reason_code is not None:
-            raise ValueError("accepted_retry_cannot_have_reason")
-        if not self.accepted and self.reason_code is None:
-            raise ValueError("rejected_retry_requires_reason")
-        if self.reason_code is not None:
-            object.__setattr__(
-                self,
-                "reason_code",
-                _reason_code(self.reason_code, "reason_code"),
-            )
-
-
-class PostCommitJobStore(Protocol):
-    """Persistence boundary for atomic registration and durable scheduling.
-
-    ``register_in_commit`` must be called by the same transaction adapter that
-    commits the source Story turn. Claims are ordered by source turn within a
-    session and are issued only when dependencies are complete. The opaque
-    claim token lets ACK/failure operations compare the current generation
-    without returning owner or generation to a handler.
-    """
-
-    async def register_in_commit(
-        self,
-        job: PostCommitJob,
-    ) -> PostCommitStoreResult: ...
-
-    async def claim_next(
-        self,
-        session_id: str,
-        *,
-        now: datetime,
-    ) -> PostCommitExecutionClaim | None: ...
-
-    async def acknowledge_success(
-        self,
-        claim: PostCommitExecutionClaim,
-        result: PostCommitResult,
-    ) -> PostCommitStoreResult: ...
-
-    async def acknowledge_failure(
-        self,
-        claim: PostCommitExecutionClaim,
-        *,
-        decision: RetryDecision,
-        reason_code: str,
-    ) -> PostCommitStoreResult: ...
-
-    async def request_retry(
-        self,
-        session_id: str,
-        turn_id: str,
-        kind: PostCommitKind,
-        retry_request_id: str,
-    ) -> PostCommitRetryReceipt: ...
-
-    async def load_turn_jobs(
-        self,
-        session_id: str,
-        turn_id: str,
-    ) -> tuple[PostCommitJobSnapshot, ...]: ...
 
 
 class NarrativePublishHandler(Protocol):
@@ -584,11 +450,21 @@ def required_jobs_for_turn(
     max_turn: int,
     *,
     voice_configured: bool,
+    terminal: bool | None = None,
 ) -> tuple[RequiredPostCommitJob, ...]:
     """Return the minimal dependency graph for one committed Story turn.
 
     Narrative and Episode initial states do not depend on voice configuration.
     Audio waits on narrative and is initially blocked only when voice is absent.
+
+    ``terminal`` is the scenario's own end-of-episode verdict for the committed
+    turn, as produced by ``ScenarioPolicyPort.decision``. AO-04 makes the
+    scenario the sole authority on ending a session, and a scenario may end
+    before its safety cap (``conditional_exit`` ends once ``exit_clue`` is
+    committed). Callers that pass it therefore get an Episode finalization job
+    exactly when the scenario says this turn ends the session, not merely when
+    it happens to be the last allowed turn. Omitting it keeps the original
+    ``turn_number == max_turn`` behaviour for callers that predate AO-04.
     """
 
     if (
@@ -603,6 +479,10 @@ def required_jobs_for_turn(
         raise ValueError("invalid_turn_range")
     if type(voice_configured) is not bool:
         raise ValueError("invalid_voice_configuration")
+    if terminal is None:
+        terminal = turn_number == max_turn
+    elif type(terminal) is not bool:
+        raise ValueError("invalid_terminal_decision")
 
     jobs = [
         RequiredPostCommitJob(
@@ -610,7 +490,7 @@ def required_jobs_for_turn(
             initial_state=PostCommitJobState.PENDING,
         )
     ]
-    if turn_number == max_turn:
+    if terminal:
         jobs.append(
             RequiredPostCommitJob(
                 kind=PostCommitKind.EPISODE_FINALIZE,
@@ -689,16 +569,11 @@ __all__ = [
     "PostCommitErrorKind",
     "PostCommitExecutionClaim",
     "PostCommitJob",
-    "PostCommitJobSnapshot",
     "PostCommitJobState",
-    "PostCommitJobStore",
     "PostCommitKind",
     "PostCommitLifecycleAction",
     "PostCommitResult",
     "PostCommitResultState",
-    "PostCommitRetryReceipt",
-    "PostCommitStoreCode",
-    "PostCommitStoreResult",
     "PostCommitWorkSource",
     "RequiredPostCommitJob",
     "RetryDecision",

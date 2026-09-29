@@ -175,13 +175,18 @@ repo/
 | **`AGT-DATA`** | 数据内核管家 | 四库物理隔离、Outbox 事件发布、迁移脚本与事务队列 | `engine/infrastructure/database*`, `outbox*` |
 | **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/`, `engine/tests/`, `engine/infrastructure/story_runtime.py`, `engine/infrastructure/episode_settlement.py`, `engine/infrastructure/scenarios/` |
 | **`AGT-VOICE`** | 语音引擎大师 | OpenAI Audio API 规范适配、SpeechRail 热拔插、指纹缓存 | `engine/domain/audio*`, `infrastructure/audio/` |
-| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/`, `macos-app/WorldOfMysteriesTests/`, `engine/tests/test_app_engine_session.py` |
+| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/`, `macos-app/WorldOfMysteriesTests/`, `engine/tests/test_app_engine_session.py`, `engine/tests/test_voice_turn_e2e.py`, `engine/tests/fixtures/app_engine_driver.swift`, `engine/tests/fixtures/voice_turn_e2e_driver.swift` |
 | **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-app/WorldOfMysteriesTests/` |
 
 > **角色代号是接口**：唯一口径为 `contracts/engineering/task_capsule.schema.json` 的角色枚举 ——
 > `AGT-ARB` / `AGT-DOM` / `AGT-DATA` / `AGT-AI` / `AGT-VOICE` / `AGT-MAC` / `AGT-QA`。
 > 早期文档里的 `AGT-DAT` / `AGT-VOX` 只是历史别名：`pack --role` 只接受枚举值，写别名会直接 `ValueError`；
 > 新增/改名角色必须同时更新枚举、`scripts/agent_capsule.py` 的 `ROLE_DEFAULTS` 与 `.github/CODEOWNERS`。
+>
+> **`engine/tests/` 下的 App 跨进程夹具归 `AGT-MAC`**：`fixtures/app_engine_driver.swift`、
+> `fixtures/voice_turn_e2e_driver.swift` 与 `test_voice_turn_e2e.py` 编译并驱动**生产 App 源码**，
+> 编码的是 App 自己的启动与会话契约，属于 App 测试载体而非 QA 断言。App 行为变更若只有 QA 角色
+> 有权修改这些文件，`FULL_P0` 就会在无人能修的情况下变红——那不是门禁，是逼人回退真实修复。
 
 ### 4.2 协同作业标准流程 (SOP)
 

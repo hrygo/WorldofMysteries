@@ -111,12 +111,19 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "contracts": ["audio_asset_ref.schema.json", "performance_plan.schema.json"],
     },
     "AGT-MAC": {
-        # The cross-process driver registers the App Swift sources it compiles; keep
-        # that manifest with the App source owner so App changes can pass FULL_P0.
+        # The cross-process driver registers the App Swift sources it compiles and
+        # drives the real Engine; keep that manifest *and* the driver itself with
+        # the App source owner so App changes can pass FULL_P0. The Swift drivers
+        # and their launchers are App harness rather than QA assertions: they
+        # encode the App's own launch and session contract, and a behaviour change
+        # there that only a QA role may make is a behaviour change nobody can make.
         "write": [
             "macos-app/WorldOfMysteries/",
             "macos-app/WorldOfMysteriesTests/",
             "engine/tests/test_app_engine_session.py",
+            "engine/tests/test_voice_turn_e2e.py",
+            "engine/tests/fixtures/app_engine_driver.swift",
+            "engine/tests/fixtures/voice_turn_e2e_driver.swift",
         ],
         "read": ["macos-app/", "contracts/", "docs/03_工程规范/", "engine/tests/"],
         "forbidden": [

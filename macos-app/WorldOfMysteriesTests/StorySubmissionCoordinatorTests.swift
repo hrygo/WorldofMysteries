@@ -36,12 +36,18 @@ private final class CoordinatorSubmissionClient: StorySubmissionClient, @uncheck
     private let journal: any StoryJournalWriting
     private var textRequests: [StoryAdviceSubmitRequestDTO] = []
     private var voiceRequests: [StoryTurnSubmitRequestDTO] = []
+    private var textV2Requests: [StoryAdviceSubmitRequestDTO] = []
+    private var voiceV2Requests: [StoryTurnSubmitRequestDTO] = []
+    private var capabilities: Set<StoryPostCommitMethodCapability> = []
     private var queries: [(String, String)] = []
     private var submitFailure: (any Error)?
     private var queryFailure: (any Error)?
     private var response: StoryAdviceSubmitViewDTO?
     private var advice: StoryAdviceGetViewDTO?
     private var recordObservedBeforeSend: StoryRequestRecord?
+    private var capabilityLookupStarted: AsyncStream<Void>.Continuation?
+    private var capabilityLookupGate: AsyncStream<Void>?
+    private var capabilityLookupGateContinuation: AsyncStream<Void>.Continuation?
     private var startContinuation: AsyncStream<Void>.Continuation?
     private var submissionGate: AsyncStream<Void>?
     private var gateContinuation: AsyncStream<Void>.Continuation?
@@ -56,6 +62,14 @@ private final class CoordinatorSubmissionClient: StorySubmissionClient, @uncheck
 
     var voiceSubmissionRequests: [StoryTurnSubmitRequestDTO] {
         lock.withLock { voiceRequests }
+    }
+
+    var textV2SubmissionRequests: [StoryAdviceSubmitRequestDTO] {
+        lock.withLock { textV2Requests }
+    }
+
+    var voiceV2SubmissionRequests: [StoryTurnSubmitRequestDTO] {
+        lock.withLock { voiceV2Requests }
     }
 
     var adviceQueries: [(String, String)] {
@@ -80,6 +94,49 @@ private final class CoordinatorSubmissionClient: StorySubmissionClient, @uncheck
 
     func setAdvice(_ value: StoryAdviceGetViewDTO?) {
         lock.withLock { advice = value }
+    }
+
+    func setCapabilities(_ value: Set<StoryPostCommitMethodCapability>) {
+        lock.withLock { capabilities = value }
+    }
+
+    func holdNextCapabilityLookup() -> AsyncStream<Void> {
+        let started = AsyncStream<Void>.makeStream()
+        let gate = AsyncStream<Void>.makeStream()
+        lock.withLock {
+            capabilityLookupStarted = started.continuation
+            capabilityLookupGate = gate.stream
+            capabilityLookupGateContinuation = gate.continuation
+        }
+        return started.stream
+    }
+
+    func releaseCapabilityLookup() {
+        let continuation = lock.withLock { () -> AsyncStream<Void>.Continuation? in
+            let value = capabilityLookupGateContinuation
+            capabilityLookupGate = nil
+            capabilityLookupGateContinuation = nil
+            return value
+        }
+        continuation?.finish()
+    }
+
+    func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool {
+        let state = lock.withLock {
+            () -> (AsyncStream<Void>?, AsyncStream<Void>.Continuation?, Bool) in
+            let gate = capabilityLookupGate
+            capabilityLookupGate = nil
+            let started = capabilityLookupStarted
+            capabilityLookupStarted = nil
+            return (gate, started, capabilities.contains(capability))
+        }
+        state.1?.yield(())
+        if let gate = state.0 {
+            for await _ in gate { break }
+        }
+        return state.2
     }
 
     func holdNextSubmission() -> AsyncStream<Void> {
@@ -138,6 +195,32 @@ private final class CoordinatorSubmissionClient: StorySubmissionClient, @uncheck
         state.3?.yield(())
         if let gate = state.2 {
             for await _ in gate { break }
+        }
+        if let error = state.0 { throw error }
+        guard let response = state.1 else { throw EngineConnectionError.invalidFrame }
+        return response
+    }
+
+    func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let state = lock.withLock { () -> ((any Error)?, StoryAdviceSubmitViewDTO?) in
+            textV2Requests.append(request)
+            recordObservedBeforeSend = try? journal.load()
+            return (submitFailure, response)
+        }
+        if let error = state.0 { throw error }
+        guard let response = state.1 else { throw EngineConnectionError.invalidFrame }
+        return response
+    }
+
+    func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let state = lock.withLock { () -> ((any Error)?, StoryAdviceSubmitViewDTO?) in
+            voiceV2Requests.append(request)
+            recordObservedBeforeSend = try? journal.load()
+            return (submitFailure, response)
         }
         if let error = state.0 { throw error }
         guard let response = state.1 else { throw EngineConnectionError.invalidFrame }
@@ -216,6 +299,55 @@ struct StorySubmissionCoordinatorTests {
         #expect(client.savedRecordAtSend?.submissionMethod == (
             mode == .voice ? .storyTurnSubmit : .storyAdviceSubmit
         ))
+    }
+
+    @Test("Advertised v2 submit is selected and journaled before IPC", arguments: [
+        StoryInputMode.text, StoryInputMode.voice,
+    ])
+    func advertisedV2SubmitIsFrozenBeforeSend(mode: StoryInputMode) async throws {
+        let journal = CoordinatorJournal()
+        let client = CoordinatorSubmissionClient(journal: journal)
+        client.setCapabilities([
+            mode == .voice ? .turnSubmitV2 : .adviceSubmitV2
+        ])
+        client.setResponse(try StorySessionModelTests.submitResult())
+        let coordinator = makeCoordinator(mode: mode, journal: journal, client: client)
+
+        await submit(coordinator, mode: mode)
+
+        let expectedMethod = mode == .voice
+            ? "story.turn.submit.v2"
+            : "story.advice.submit.v2"
+        #expect(client.savedRecordAtSend?.recordVersion == StoryRequestRecord.currentRecordVersion)
+        #expect(client.savedRecordAtSend?.submissionMethod.rawValue == expectedMethod)
+        #expect(try journal.load()?.submissionMethod.rawValue == expectedMethod)
+        #expect(client.textSubmissionRequests.isEmpty)
+        #expect(client.voiceSubmissionRequests.isEmpty)
+        #expect(client.textV2SubmissionRequests.count + client.voiceV2SubmissionRequests.count == 1)
+    }
+
+    @Test("A frozen v2 method is retained after capability changes before retry")
+    func retryNeverSwitchesFromFrozenV2Method() async throws {
+        let journal = CoordinatorJournal()
+        let client = CoordinatorSubmissionClient(journal: journal)
+        client.setCapabilities([.turnSubmitV2])
+        client.setSubmitFailure(EngineConnectionError.timedOut)
+        client.setAdvice(try notFound())
+        client.setResponse(try StorySessionModelTests.submitResult())
+        let coordinator = makeCoordinator(mode: .voice, journal: journal, client: client)
+
+        await submit(coordinator, mode: .voice)
+        #expect(coordinator.state == .notFound)
+        #expect(client.voiceV2SubmissionRequests.count == 1)
+
+        client.setCapabilities([])
+        client.setSubmitFailure(nil)
+        await coordinator.continuePendingRequest()
+
+        #expect(coordinator.state == .committed)
+        #expect(try journal.load()?.submissionMethod.rawValue == "story.turn.submit.v2")
+        #expect(client.voiceV2SubmissionRequests.count == 2)
+        #expect(client.voiceSubmissionRequests.isEmpty)
     }
 
     @Test("A missing receipt only retries after explicit continuation", arguments: [
@@ -300,6 +432,60 @@ struct StorySubmissionCoordinatorTests {
         #expect(client.textSubmissionRequests.count == 1)
         #expect(client.voiceSubmissionRequests.isEmpty)
         #expect(coordinator.state == .committed)
+    }
+
+    @Test("Capability lookup reserves the single submission slot before awaiting")
+    func capabilityLookupPreventsConcurrentSubmissions() async throws {
+        let journal = CoordinatorJournal()
+        let client = CoordinatorSubmissionClient(journal: journal)
+        client.setResponse(try StorySessionModelTests.submitResult())
+        let coordinator = makeCoordinator(mode: .text, journal: journal, client: client)
+        let started = client.holdNextCapabilityLookup()
+
+        let first = Task { @MainActor in
+            await submit(coordinator, mode: .text)
+        }
+        for await _ in started { break }
+        await submit(coordinator, mode: .voice)
+
+        #expect(!coordinator.canAcceptNewInput)
+        #expect(client.textSubmissionRequests.isEmpty)
+        #expect(client.voiceSubmissionRequests.isEmpty)
+        #expect(try journal.load() == nil)
+
+        client.releaseCapabilityLookup()
+        await first.value
+
+        #expect(coordinator.state == .committed)
+        #expect(client.textSubmissionRequests.count == 1)
+        #expect(client.voiceSubmissionRequests.isEmpty)
+    }
+
+    @Test("Disconnect during method selection preserves the previously committed record")
+    func disconnectDuringCapabilityLookupPreservesCommittedState() async throws {
+        let journal = CoordinatorJournal()
+        let client = CoordinatorSubmissionClient(journal: journal)
+        client.setResponse(try StorySessionModelTests.submitResult())
+        let coordinator = makeCoordinator(mode: .text, journal: journal, client: client)
+
+        await submit(coordinator, mode: .text)
+        #expect(coordinator.state == .committed)
+        let committedRecord = try #require(try journal.load())
+        #expect(committedRecord.phase == .committed)
+
+        let started = client.holdNextCapabilityLookup()
+        let pending = Task { @MainActor in
+            await submit(coordinator, mode: .text)
+        }
+        for await _ in started { break }
+
+        coordinator.detachForConnectionChange()
+        client.releaseCapabilityLookup()
+        await pending.value
+
+        #expect(coordinator.state == .committed)
+        #expect(try journal.load() == committedRecord)
+        #expect(client.textSubmissionRequests.count == 1)
     }
 
     @Test("A connection change preserves the frozen request for recovery")

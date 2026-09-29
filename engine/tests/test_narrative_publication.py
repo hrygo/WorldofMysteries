@@ -141,7 +141,80 @@ def _committed_source(*, state_delta: StateDelta | None = None):
         scene_id="scene-1",
         protagonist_id="protagonist-1",
         disclosed_facts="已提交结果：预约簿缺少一页。",
+        input_turn_id="input-1",
+        source_store_revision=8,
     )
+
+
+def _live_narrative_worker(payload, source):
+    from ai.authorized_live_execution import AuthorizedLiveExecution
+    from ai.live_turn_workers import LiveNarrativeCompiler
+    from ai.openai_compatible import (
+        ModelEndpointConfig,
+        OpenAICompatibleChatTransport,
+    )
+    from ai.prompt_renderer import PromptRenderer
+    from application.gameplay_context import GameplayContextCoordinator
+    from application.turn_context_binding import AuthorizedTurnContextBinding
+
+    transport = OpenAICompatibleChatTransport(
+        ModelEndpointConfig(
+            base_url="http://127.0.0.1:1",
+            api_key="test-only",
+            model="test-model",
+        )
+    )
+    execution = AuthorizedLiveExecution(
+        coordinator=GameplayContextCoordinator(
+            snapshot=object(),
+            authorization=object(),
+            profiles=object(),
+        ),
+        renderer=PromptRenderer(b"r" * 32),
+        transport=transport,
+        validate_proposal=lambda _proposal, _request: True,
+    )
+    binding = AuthorizedTurnContextBinding(
+        turn_id=source.turn_id,
+        stage="narrative",
+        input_turn_id=source.input_turn_id,
+        source_store_revision=source.source_store_revision,
+        source_story_revision=source.story_revision,
+        policy_revision="policy-v1",
+        content_digest="a" * 64,
+        lineage_digest="lineage-v1",
+        manifest=(),
+    )
+
+    async def return_proposal(
+        _call,
+        _budget,
+        *,
+        binding_identity,
+        expected_binding,
+        schema_overrides=None,
+    ):
+        assert binding_identity.stage == "narrative"
+        assert binding_identity.turn_id == source.turn_id
+        # The narrative compiler must state the non-empty speech bound to the
+        # provider, otherwise the model answers with narration only and the turn
+        # can never be delivered as audio.
+        assert schema_overrides == {"properties.speech": {"minLength": 1}}
+        return SimpleNamespace(
+            proposal=lambda: dict(payload),
+            context_binding=binding,
+        )
+
+    execution.execute = return_proposal
+    bootstrap = SimpleNamespace(
+        content_digest="a" * 64,
+        initial_session=SimpleNamespace(
+            protagonist_id=source.protagonist_id,
+            world_id="world-1",
+            worldline_id="line-1",
+        ),
+    )
+    return LiveNarrativeCompiler(execution, bootstrap), binding, transport
 
 
 class CountingCompiler:
@@ -221,6 +294,7 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
     from application.narrative_publication import (
         CommittedNarrativeService,
         NarrativeCandidate,
+        NarrativePublicationError,
     )
 
     class BlockingCompiler:
@@ -367,23 +441,31 @@ async def test_publish_failure_without_durable_winner_is_not_swallowed():
 
 @pytest.mark.asyncio
 async def test_model_cannot_bind_a_narrative_to_an_arbitrary_speaker():
-    from ai.live_turn_workers import LiveNarrativeCompiler, LiveWorkerError
-    from application.narrative_publication import NarrativeCandidate
+    from application.narrative_publication import (
+        NarrativeCandidate,
+        NarrativePublicationError,
+    )
 
-    class ModelReplyWithSpeaker:
-        _brief = SimpleNamespace(prompt=lambda: "fixture context")
-
-        async def _ask(self, _system, _user):
-            return {
-                "narration": "雨落在诊所的窗外。",
-                "speech": "我先看看预约簿。",
-                "speaker_id": "hidden-character-0",
-            }
-
-    with pytest.raises(LiveWorkerError, match="narrative_model_invalid"):
-        await LiveNarrativeCompiler.compile(
-            ModelReplyWithSpeaker(), committed="已提交结果"
-        )
+    source = _committed_source()
+    compiler, _binding, transport = _live_narrative_worker(
+        {
+            "narration": "雨落在诊所的窗外。",
+            "speech": "我先看看预约簿。",
+            "speaker_id": "hidden-character-0",
+        },
+        source,
+    )
+    try:
+        with pytest.raises(
+            NarrativePublicationError,
+            match="narrative_model_invalid",
+        ):
+            await compiler.compile(
+                committed=source.disclosed_facts,
+                source=source,
+            )
+    finally:
+        await transport.aclose()
 
     with pytest.raises(TypeError):
         NarrativeCandidate(
@@ -394,26 +476,42 @@ async def test_model_cannot_bind_a_narrative_to_an_arbitrary_speaker():
 
 
 @pytest.mark.asyncio
-async def test_live_candidate_allows_narration_without_fabricating_speech():
-    from ai.live_turn_workers import LiveNarrativeCompiler
+async def test_live_candidate_requires_character_speech():
     from application.narrative_publication import (
         CommittedNarrativeService,
         NarrativeCandidate,
+        NarrativePublicationError,
     )
 
     repository = MemoryNarrativeRepository()
-
-    class ModelReplyWithoutSpeech:
-        _brief = SimpleNamespace(prompt=lambda: "fixture context")
-
-        async def _ask(self, _system, _user):
-            return {"narration": "雨落在诊所的窗外。"}
-
-    candidate = await LiveNarrativeCompiler.compile(
-        ModelReplyWithoutSpeech(), committed="已提交结果"
+    source = _committed_source()
+    # A committed turn must be speakable: the delivery stage refuses a block with
+    # no character segment, so a narration-only result is a dead end rather than
+    # a valid outcome. The model must say what the character actually says.
+    silent, _, silent_transport = _live_narrative_worker(
+        {"narration": "雨落在诊所的窗外。"}, source
     )
+    try:
+        with pytest.raises(NarrativePublicationError, match="missing_character_speech"):
+            await silent.compile(committed=source.disclosed_facts, source=source)
+    finally:
+        await silent_transport.aclose()
+
+    compiler, binding, transport = _live_narrative_worker(
+        {"narration": "雨落在诊所的窗外。", "speech": "你还没问，我先不说。"},
+        source,
+    )
+    try:
+        candidate = await compiler.compile(
+            committed=source.disclosed_facts,
+            source=source,
+        )
+    finally:
+        await transport.aclose()
     assert candidate == NarrativeCandidate(
-        narration="雨落在诊所的窗外。", speech=""
+        narration="雨落在诊所的窗外。",
+        speech="你还没问，我先不说。",
+        context_binding=binding,
     )
     compiler = CountingCompiler(candidate=candidate)
     service = CommittedNarrativeService(
@@ -425,9 +523,9 @@ async def test_live_candidate_allows_narration_without_fabricating_speech():
     block = await service.ensure(turn_id="turn-1", source=_committed_source())
 
     assert [(segment.type, segment.text) for segment in block.segments] == [
-        ("narration", "雨落在诊所的窗外。")
+        ("narration", "雨落在诊所的窗外。"),
+        ("character", "你还没问，我先不说。"),
     ]
-    assert all(segment.type != "character" for segment in block.segments)
 
 
 class MemoryPublicIdentityReader:

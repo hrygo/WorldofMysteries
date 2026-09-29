@@ -1,10 +1,19 @@
 """SQLite adapter for the Application StoryCommitPort."""
 from __future__ import annotations
 
-import json
 import hashlib
+import inspect
+import json
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Protocol
 
+from application.post_commit_work import (
+    PostCommitJobState,
+    PostCommitKind,
+    RequiredPostCommitJob,
+)
 from application.story_turn_commit import StoryCommitPort, StoryTurnCommitResult
 from contracts import StateDelta, StorySession, StoryState, TurnTransaction
 
@@ -15,6 +24,11 @@ from .database_manager import (
     RevisionConflict,
     StorageError,
     StoredEvent,
+)
+from .post_commit_job_repository import (
+    PostCommitJobRegistration,
+    PostCommitJobSpec,
+    SQLitePostCommitJobRepository,
 )
 
 
@@ -174,9 +188,98 @@ def _decode_story_session_row(row) -> StorySession:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class PlannedPostCommitJob:
+    """Validated job intent supplied by scenario/runtime assembly."""
+
+    job_id: str
+    kind: PostCommitKind
+    recipe_revision: str
+    input_digest: str
+    initial_state: PostCommitJobState
+    initial_reason_code: str | None = None
+
+
+class PostCommitJobPlanner(Protocol):
+    """Pure policy port; persistence remains owned by the domain transaction."""
+
+    def plan_jobs(
+        self,
+        *,
+        session: StorySession,
+        delta: StateDelta,
+        turn: TurnTransaction,
+    ) -> Iterable[PlannedPostCommitJob]: ...
+
+
+def _plan_post_commit_jobs(
+    planner: PostCommitJobPlanner,
+    tx: DomainTransaction,
+    *,
+    session: StorySession,
+    delta: StateDelta,
+    turn: TurnTransaction,
+) -> tuple[PostCommitJobRegistration, ...]:
+    planned = planner.plan_jobs(session=session, delta=delta, turn=turn)
+    if inspect.isawaitable(planned):
+        if inspect.iscoroutine(planned):
+            planned.close()
+        raise StorageError("Post-COMMIT job planner must not suspend")
+    try:
+        frozen_jobs = tuple(planned)
+    except TypeError:
+        raise StorageError("Post-COMMIT job planner must return an iterable") from None
+
+    registrations: list[PostCommitJobRegistration] = []
+    for job in frozen_jobs:
+        if not isinstance(job, PlannedPostCommitJob):
+            raise StorageError("Post-COMMIT job planner returned an invalid job")
+        try:
+            RequiredPostCommitJob(
+                kind=job.kind,
+                initial_state=job.initial_state,
+                initial_reason_code=job.initial_reason_code,
+            )
+        except (TypeError, ValueError):
+            raise StorageError("Post-COMMIT job planner returned invalid policy") from None
+        if (
+            not isinstance(job.input_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", job.input_digest) is None
+        ):
+            raise StorageError("Post-COMMIT job planner returned an invalid digest")
+
+        spec = PostCommitJobSpec(
+            job_id=job.job_id,
+            turn_id=turn.id,
+            session_id=session.id,
+            kind=job.kind.value,
+            recipe_revision=job.recipe_revision,
+            source_story_revision=turn.committed_story_revision,
+            source_world_revision=tx.revision,
+            input_digest=job.input_digest,
+        )
+        registrations.append(
+            PostCommitJobRegistration(
+                spec=spec,
+                initial_state=job.initial_state.value,
+                initial_reason_code=job.initial_reason_code,
+            )
+        )
+    return tuple(registrations)
+
+
 class SQLiteStorySessionCommitPort(StoryCommitPort):
-    def __init__(self, database: DatabaseManager):
+    def __init__(
+        self,
+        database: DatabaseManager,
+        *,
+        planner: PostCommitJobPlanner | None = None,
+    ):
+        if planner is not None and not callable(getattr(planner, "plan_jobs", None)):
+            raise StorageError("Post-COMMIT job planner must implement plan_jobs")
         self.database = database
+        self._planner = planner
+        self._post_commit_jobs = SQLitePostCommitJobRepository(database)
 
     async def load_session(self, session_id: str) -> StorySession:
         rows = await self.database.read_world(
@@ -432,6 +535,16 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
                 ):
                     raise StorageError("Turn intake was not atomically promoted at COMMIT")
 
+            if self._planner is not None:
+                registrations = _plan_post_commit_jobs(
+                    self._planner,
+                    tx,
+                    session=session,
+                    delta=delta,
+                    turn=turn,
+                )
+                self._post_commit_jobs.register(tx, registrations)
+
             return {
                 "session_id": session.id,
                 "turn_id": turn.id,
@@ -448,6 +561,17 @@ class SQLiteStorySessionCommitPort(StoryCommitPort):
         }
         if committed.value != expected:
             raise StorageError("Idempotent Story commit result does not match request")
+
+        if not committed.replayed:
+            # Acceptance checkpoint "immediately after commit": the turn is
+            # durable and no post-COMMIT work has started. It is announced here,
+            # on the commit itself, because that is the only boundary both
+            # wirings share — the durable worker commits through this port
+            # directly, while the synchronous story methods wrap it in a
+            # settling decorator. A replay is the same commit, not a new
+            # boundary, so it must not announce one: a fault here must recover
+            # to the same committed turn, never a second commit.
+            self.database.checkpoint("after_turn_commit")
 
         # Re-read authoritative rows even on the first commit. This proves the
         # result exposed to Application is exactly what survived SQLite COMMIT.

@@ -1,0 +1,152 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-A1A-CONTEXT-VISIBILITY",
+  "capsule_revision": 1,
+  "task_id": "AO-05-A1A-CONTEXT-VISIBILITY",
+  "title": "AO-05 A1a: Domain 可见性纯策略",
+  "assigned_role": "AGT-DOM",
+  "status": "CREATED",
+  "created_at": "2026-09-28T14:11:55.477482+00:00",
+  "risk_class": "medium",
+  "base": {
+    "target_ref": "main",
+    "base_sha": "c12a8c02b5096c2ea9ead1fabf2b020b60c78d91",
+    "target_sha": "c12a8c02b5096c2ea9ead1fabf2b020b60c78d91",
+    "context_snapshot": "sha256:d63c1b0bd3af199e73a1cf227e6de5a060569b71774f751a30d7d021d68c897f"
+  },
+  "scope": {
+    "read": [
+      "engine/domain/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/domain/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ContextVisibilityError@engine/domain/context_visibility.py:17",
+      "symbol:ContextConsumer@engine/domain/context_visibility.py:25",
+      "symbol:_identifier@engine/domain/context_visibility.py:31",
+      "symbol:_natural@engine/domain/context_visibility.py:38",
+      "symbol:_reject_duplicate_keys@engine/domain/context_visibility.py:43",
+      "symbol:_reject_nonfinite@engine/domain/context_visibility.py:52",
+      "symbol:_canonical_json@engine/domain/context_visibility.py:56",
+      "symbol:ContextIdentity@engine/domain/context_visibility.py:77",
+      "symbol:ContextFact@engine/domain/context_visibility.py:118",
+      "symbol:AuthorizedSource@engine/domain/context_visibility.py:192",
+      "symbol:ContextEligibility@engine/domain/context_visibility.py:199",
+      "symbol:ContextAuthorization@engine/domain/context_visibility.py:211",
+      "symbol:_fact_is_eligible@engine/domain/context_visibility.py:226",
+      "symbol:issue_eligibility@engine/domain/context_visibility.py:251",
+      "symbol:authorize_candidates@engine/domain/context_visibility.py:280",
+      "symbol:__init__@engine/domain/context_visibility.py:20",
+      "symbol:__post_init__@engine/domain/context_visibility.py:90",
+      "symbol:__post_init__@engine/domain/context_visibility.py:141",
+      "symbol:fingerprint@engine/domain/context_visibility.py:163",
+      "symbol:source_ids@engine/domain/context_visibility.py:206",
+      "symbol:source_ids@engine/domain/context_visibility.py:218",
+      "symbol:grants@engine/domain/context_visibility.py:222",
+      "symbol:test_ai_gateway_reauthorization_after_awaiting_count@engine/tests/test_ai_gateway.py:97",
+      "symbol:test_realtime_tts_sends_no_authorization_header_without_a_key@engine/tests/test_audio_adapter.py:1380",
+      "symbol:test_uncommitted_or_revoked_prefetch_authorization_denies_before_synthesis@engine/tests/test_audio_prefetch.py:171",
+      "symbol:test_equivalent_dry_units_can_share_render_without_merging_unit_authorization@engine/tests/test_audio_prefetch.py:258",
+      "symbol:authorization_log@engine/tests/test_audio_take_coordinator.py:82",
+      "symbol:test_cache_hit_checks_authorization_before_lookup_and_before_delivery@engine/tests/test_audio_take_coordinator.py:94",
+      "symbol:test_two_domain_subscribers_share_only_render_not_authorization@engine/tests/test_audio_take_coordinator.py:228",
+      "symbol:test_denied_authorization_happens_before_any_cache_lookup@engine/tests/test_audio_take_coordinator.py:330"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 785,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ContextVisibilityError",
+      "ContextConsumer",
+      "_identifier",
+      "_natural",
+      "_reject_duplicate_keys",
+      "_reject_nonfinite",
+      "_canonical_json",
+      "ContextIdentity",
+      "ContextFact",
+      "AuthorizedSource",
+      "ContextEligibility",
+      "ContextAuthorization",
+      "_fact_is_eligible",
+      "issue_eligibility",
+      "authorize_candidates",
+      "__init__",
+      "__post_init__",
+      "__post_init__",
+      "fingerprint",
+      "source_ids",
+      "source_ids",
+      "grants",
+      "test_ai_gateway_reauthorization_after_awaiting_count",
+      "test_realtime_tts_sends_no_authorization_header_without_a_key",
+      "test_uncommitted_or_revoked_prefetch_authorization_denies_before_synthesis",
+      "test_equivalent_dry_units_can_share_render_without_merging_unit_authorization",
+      "authorization_log",
+      "test_cache_hit_checks_authorization_before_lookup_and_before_delivery",
+      "test_two_domain_subscribers_share_only_render_not_authorization",
+      "test_denied_authorization_happens_before_any_cache_lookup"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DOMAIN_P0",
+    "profile_digest": "sha256:773c50b2f8205aa483c9f7c9573755fa3603e180e0cd2a8f8ecde1ad0ad22dd0",
+    "profile_file": ".hacf/gates/domain_p0.json",
+    "risk_class": "medium"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      8,
+      9
+    ],
+    "instructions": "恪守纯领域零外部依赖原则。禁止引用数据库或 AI SDK，状态提交保持确定性。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-08",
+      "INV-09"
+    ]
+  }
+}

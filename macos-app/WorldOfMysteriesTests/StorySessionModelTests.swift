@@ -57,6 +57,12 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     private var expressionAvailable = false
     private var expressionResponse: StoryExpressionGetResponseDTO?
     private var expressionError: (any Error)?
+    private var postCommitCapabilities: Set<StoryPostCommitMethodCapability> = []
+    private var postCommitWorkResponse: StoryTurnWorkGetResponseDTO?
+    private var postCommitWorkScript: [StoryTurnWorkGetResponseDTO] = []
+    private var postCommitWorkStates: [String] = []
+    private var postCommitWorkQueries: [(String, String)] = []
+    private var postCommitWorkRetries: [(String, String, StoryTurnWorkKind, String)] = []
     private var gateStream: AsyncStream<Void>?
     private var gateContinuation: AsyncStream<Void>.Continuation?
     private var expressionGateStream: AsyncStream<Void>?
@@ -84,6 +90,17 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     }
     func setExpressionError(_ error: (any Error)?) {
         lock.withLock { expressionError = error }
+    }
+    func setPostCommitCapabilities(_ capabilities: Set<StoryPostCommitMethodCapability>) {
+        lock.withLock { postCommitCapabilities = capabilities }
+    }
+    func setPostCommitWorkResponse(_ response: StoryTurnWorkGetResponseDTO?) {
+        lock.withLock { postCommitWorkResponse = response }
+    }
+    /// Queued projections model the Engine's own progression: the first read
+    /// lands on a genuinely in-flight state, later reads on its successors.
+    func setPostCommitWorkScript(_ responses: [StoryTurnWorkGetResponseDTO]) {
+        lock.withLock { postCommitWorkScript = responses }
     }
     /// Queued results model the Engine's per-turn views: each fixed turn
     /// commits its own revision and advertises the next advice.
@@ -129,6 +146,12 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     func supportsStoryExpression() async -> Bool {
         lock.withLock { expressionAvailable }
+    }
+
+    func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool {
+        lock.withLock { postCommitCapabilities.contains(capability) }
     }
 
     var submittedCount: Int { log.values.filter { $0 == "client.submit" }.count }
@@ -210,6 +233,63 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
         if let error = state.1 { throw error }
         guard let response = state.2 else { throw EngineConnectionError.invalidFrame }
         return response
+    }
+
+    func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryTurnWorkGetResponseDTO {
+        log.append("client.work_get")
+        let response = lock.withLock { () -> StoryTurnWorkGetResponseDTO? in
+            postCommitWorkQueries.append((sessionId, turnId))
+            if !postCommitWorkScript.isEmpty {
+                let next = postCommitWorkScript.removeFirst()
+                postCommitWorkStates.append(Self.describe(next))
+                return next
+            }
+            if let response = postCommitWorkResponse {
+                postCommitWorkStates.append(Self.describe(response))
+            }
+            return postCommitWorkResponse
+        }
+        guard let response else { throw EngineConnectionError.invalidFrame }
+        return response
+    }
+
+    private static func describe(_ work: StoryTurnWorkGetResponseDTO) -> String {
+        "\(work.settlementState.rawValue)/\(work.narrativeState.rawValue)/\(work.audioState.rawValue)"
+    }
+
+    func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String
+    ) async throws -> StoryTurnWorkRetryResponseDTO {
+        log.append("client.work_retry")
+        lock.withLock {
+            postCommitWorkRetries.append((sessionId, turnId, kind, retryRequestId))
+        }
+        return try StoryTurnWorkRetryResponseDTO(
+            sessionId: sessionId,
+            turnId: turnId,
+            kind: kind,
+            retryRequestId: retryRequestId,
+            replayed: false
+        )
+    }
+
+    var postCommitWorkQueryIdentities: [(String, String)] {
+        lock.withLock { postCommitWorkQueries }
+    }
+
+    /// One entry per read, in order: the exact public state the client saw.
+    var postCommitWorkObservedStates: [String] {
+        lock.withLock { postCommitWorkStates }
+    }
+
+    var postCommitWorkRetryIdentities: [(String, String, StoryTurnWorkKind, String)] {
+        lock.withLock { postCommitWorkRetries }
     }
 
     private static func submitResponse(
@@ -386,6 +466,44 @@ struct StorySessionModelTests {
         )
     }
 
+    static func postCommitWorkWithReadyRecipe() throws -> StoryTurnWorkGetResponseDTO {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "session_id": "session_1",
+          "turn_id": "turn_first_001",
+          "settlement_state": "succeeded",
+          "narrative_state": "ready",
+          "narrative_segments": [{"type": "narration", "text": "雨停了。"}],
+          "audio_state": "ready",
+          "delivery": {
+            "state": "ready",
+            "narrative_block_id": "block_1",
+            "speech_unit_id": "speech_1",
+            "spoken_text": "雨停了。",
+            "render_recipe": {
+              "speech_unit_id": "speech_1",
+              "turn_id": "turn_first_001",
+              "story_revision": 1,
+              "narrative_block_id": "block_1",
+              "segment_index": 0,
+              "performance_plan_id": "performance_1",
+              "spoken_text": "雨停了。",
+              "voice_id": "voice_1",
+              "expected_voice_revision": "voice_revision_1",
+              "expected_model_revision": "model_revision_1",
+              "speed": 1.0,
+              "language": "zh-CN"
+            }
+          }
+        }
+        """
+        return try JSONDecoder().decode(
+            StoryTurnWorkGetResponseDTO.self,
+            from: Data(json.utf8)
+        )
+    }
+
     static func sessionJSON(turn: Int, storeRevision: Int, canSubmit: Bool) -> String {
         let clues = turn > 0
             ? #"[{"id": "clue_doctor_pause", "display_name": "医生的停顿"}]"#
@@ -441,14 +559,18 @@ struct StorySessionModelTests {
         log: StoryCallLog, journal: MemoryStoryJournal,
         entryView: StoryEntryViewDTO, openView: StoryOpenViewDTO,
         submitView: StoryAdviceSubmitViewDTO?, adviceView: StoryAdviceGetViewDTO,
-        ids: [String] = ["open_1", "input_turn_1"]
+        ids: [String] = ["open_1", "input_turn_1"],
+        postCommitPollInterval: Duration = .milliseconds(10),
+        postCommitPollHorizon: Duration = .seconds(90)
     ) -> (StorySessionModel, FakeStoryClient) {
         let client = FakeStoryClient(log: log, journal: journal, entryView: entryView,
                                      openView: openView, submitView: submitView,
                                      adviceView: adviceView)
         let box = IDBox(values: ids)
         let model = StorySessionModel(client: client, journal: journal,
-                                      idFactory: { box.next() })
+                                      idFactory: { box.next() },
+                                      postCommitPollInterval: postCommitPollInterval,
+                                      postCommitPollHorizon: postCommitPollHorizon)
         return (model, client)
     }
 
@@ -895,6 +1017,46 @@ struct StorySessionModelTests {
         #expect(model.expression?.narrativeState == .ready)
         #expect(log.values.filter { $0 == "client.submit" }.isEmpty)
         #expect(log.values.filter { $0 == "client.expression" }.count == 1)
+    }
+
+    @Test("Restoring a committed v2 turn reads its full delivery recipe without retry")
+    func restoredTurnReadsPostCommitWorkReadOnly() async throws {
+        let log = StoryCallLog()
+        let journal = MemoryStoryJournal()
+        let session = try Self.view(turn: 1, storyRevision: 1, storeRevision: 2)
+        let (model, client) = Self.makeModel(
+            log: log,
+            journal: journal,
+            entryView: try Self.entry(
+                session: session,
+                storeRevision: 2,
+                advice: [Self.advice(forTurn: 2)]
+            ),
+            openView: StoryOpenViewDTO(
+                session: session,
+                openedStoreRevision: 2,
+                replayed: false
+            ),
+            submitView: nil,
+            adviceView: try Self.adviceFound()
+        )
+        client.setPostCommitCapabilities([.turnWorkGet])
+        let work = try Self.postCommitWorkWithReadyRecipe()
+        client.setPostCommitWorkResponse(work)
+
+        await model.refreshEntry()
+
+        #expect(model.postCommitWork == work)
+        #expect(model.postCommitWork?.delivery?.renderRecipe?.voiceId == "voice_1")
+        #expect(!model.postCommitWorkReadFailed)
+        #expect(!model.postCommitWorkLoading)
+        #expect(client.postCommitWorkQueryIdentities.count == 1)
+        #expect(client.postCommitWorkQueryIdentities.first?.0 == "session_1")
+        #expect(client.postCommitWorkQueryIdentities.first?.1 == "turn_first_001")
+        #expect(client.postCommitWorkRetryIdentities.isEmpty)
+        #expect(log.values.filter { $0 == "client.work_get" }.count == 1)
+        #expect(!log.values.contains("client.work_retry"))
+        #expect(!log.values.contains("client.expression"))
     }
 
     @Test("Expression query is skipped when the Engine did not advertise its capability")

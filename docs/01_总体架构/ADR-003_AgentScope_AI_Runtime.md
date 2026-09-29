@@ -3,6 +3,13 @@
 > **决策**：AgentScope 2.0.8 是首发 AI execution framework。  
 > **状态**：Accepted  
 
+> **当前实现状态（2026-09-28 核对）**：本 ADR 决策为**目标**，当前生产实现**尚未接入 AgentScope SDK**。两者此前混称，现予分离：
+> - `engine/pyproject.toml` 已固定 `agentscope==2.0.8` 版本，但 Engine 源码**无任何 `import agentscope`**；
+> - `engine/ai/agentscope_adapter.py` 是**预留 seam**（`PreparedAgentScopeAdapter`）：不创建 Agent、memory、tool 或 provider session，且**无生产调用方**（仅自身与 `test_ai_gateway.py` 引用）；
+> - 生产 live 路径使用 `OpenAICompatibleChatTransport`（见 `engine/ai/openai_compatible.py`），经 AO-05 的授权执行边界调用。
+>
+> 接入真实 SDK 需另行交付：固定版本 wire-capture 集成测试、bounded tool 边界验收与运行内存隔离验收。在这些证据到位前，**不得宣称生产 AgentScope 已接入**。本节不改变本 ADR 的决策与状态。
+
 ## Decision
 
 AgentScope 负责：

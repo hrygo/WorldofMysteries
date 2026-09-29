@@ -1,0 +1,90 @@
+{
+  "receipt_id": "RCP-WORK-AO-05-A1B-STATE-LAYER-75f1d40f05f1",
+  "receipt_type": "work",
+  "task_id": "AO-05-A1B-STATE-LAYER",
+  "capsule_id": "CAP-AO-05-A1B-STATE-LAYER",
+  "capsule_revision": 2,
+  "capsule_digest": "sha256:0d7495526e784dc5711ef81045be5d1ae1e99f89b46cb0e63194068c3952f54c",
+  "diff_digest": "sha256:9f38038fa51e67b3d2addb54946be42256a2b638e5d9d2837a6f5196cd3bb3cc",
+  "assigned_role": "AGT-DATA",
+  "risk_class": "high",
+  "base_commit": "d6e81c06d61bca24b4338f8f154693f068148292",
+  "head_commit": "75f1d40f05f1cc43bda6792ad61a121f73adc1ac",
+  "target_ref": "origin/main",
+  "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+  "stale_context": false,
+  "gate_profile_id": "DATA_KERNEL_P0",
+  "gate_profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-ao-05-a1b-state-layer",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T23:48:30.756884+00:00",
+      "finished_at": "2026-09-28T23:48:30.792652+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Data Kernel Unit Tests",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "database or outbox or migration"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-ao-05-a1b-state-layer/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-28T23:48:30.792726+00:00",
+      "finished_at": "2026-09-28T23:48:33.633715+00:00",
+      "raw_log_digest": "sha256:618193bc13d0f5d1b9a5da4581ddcd0240f0791245627a1e9dfe1e2e017b3580",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/infrastructure/gameplay_context_repository.py",
+      "engine/tests/test_gameplay_context_state_layer.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DATA",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-ao-05-a1b-state-layer"
+  },
+  "started_at": "2026-09-28T23:48:30.723216+00:00",
+  "finished_at": "2026-09-28T23:48:33.746788+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

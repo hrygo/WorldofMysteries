@@ -1,30 +1,18 @@
 """Public trusted first-turn facade composed from existing durable services."""
 from __future__ import annotations
 
-import asyncio
-import hashlib
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from contracts import InputMode, StorySession, StorySessionStatus
-from domain.resolver import DeterministicOutcomeResolver
+from contracts import StorySession
 
-from .advice_action import AdviceActionIntentService
-from .advice_commit import AdviceCommitService
-from .advice_interpretation import (
-    DurableAdvicePort,
-    PlayerAdviceInterpretationService,
-)
 from .scenario_policy import (
-    ActionSignature,
     ScenarioIdentity,
     ScenarioPolicyError,
     ScenarioPolicyPort,
     TurnPolicyDecision,
-    TurnWorkerFactory,
 )
 from .story_initialization import (
     StoryInitializationService,
@@ -39,13 +27,16 @@ from .story_session_open import (
     OpenStorySessionCommand,
     StorySessionOpenService,
 )
-from .story_turn_commit import StoryTurnCommitResult
-from .turn_input import (
-    DurableTurnIntakePort,
-    FinalizedStoryInput,
-    StoryTurnInputService,
-    TurnInputReceipt,
-    TurnInputStatus,
+from .turn_input import TurnInputStatus
+from .turn_orchestrator import (
+    CommittedTurnResult,
+    StoredInputRecord,
+    StorySessionQueryPort,
+    StorySessionSnapshotRecord,
+    SubmissionPolicy,
+    SubmitAdviceCommand,
+    TurnOrchestrationError,
+    TurnOrchestrator,
 )
 
 
@@ -136,64 +127,11 @@ class AdviceGetView(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
-class SubmitAdviceCommand:
-    session_id: str
-    input_turn_id: str
-    raw_input: str
-    expected_story_revision: int
-    expected_store_revision: int
-    request_id: str
-    trace_id: str
-    # ``text`` is the historical default.  ``voice`` marks a SpeechRail
-    # transcript; the durable receipt records the mode so a replayed turn can
-    # never be reinterpreted as typed text.
-    input_mode: InputMode = InputMode.TEXT
-
-
-@dataclass(frozen=True, slots=True)
-class StorySessionSnapshotRecord:
-    session: StorySession
-    bootstrap: StorySessionBootstrap
-    observed_store_revision: int
-    pending_input_turn_id: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class StoredInputRecord:
-    receipt: TurnInputReceipt
-    committed_story_revision: int | None
-
-
-@dataclass(frozen=True, slots=True)
 class StoryEntrySnapshot:
     supported_advice: tuple[str, ...]
     observed_store_revision: int
     session: StorySessionSnapshotRecord | None = None
     pending_input_turn_id: str | None = None
-
-
-class StorySessionQueryPort(Protocol):
-    async def entry(self, scenario_id: str) -> StoryEntrySnapshot: ...
-
-    async def session(self, session_id: str) -> StorySessionSnapshotRecord: ...
-
-    async def input(
-        self, session_id: str, input_turn_id: str
-    ) -> StoredInputRecord | None: ...
-
-
-AfterCommitHook = Callable[
-    [SubmitAdviceCommand, StoryTurnCommitResult, PublicStorySessionView],
-    Awaitable[TurnDeliveryView],
-]
-
-
-class _SessionReadAdapter:
-    def __init__(self, query: StorySessionQueryPort) -> None:
-        self._query = query
-
-    async def load_session(self, session_id: str) -> StorySession:
-        return (await self._query.session(session_id)).session
 
 
 class StorySessionFacade:
@@ -203,26 +141,16 @@ class StorySessionFacade:
         initialization: StoryInitializationService,
         open_sessions: StorySessionOpenService,
         query: StorySessionQueryPort,
-        intake: DurableTurnIntakePort,
-        advice: DurableAdvicePort,
-        story: object,
         scenario: ScenarioPolicyPort,
-        workers: TurnWorkerFactory,
+        turns: TurnOrchestrator,
         projector: StoryPublicViewProjector | None = None,
-        after_commit: AfterCommitHook | None = None,
     ) -> None:
         self._initialization = initialization
         self._open_sessions = open_sessions
         self._query = query
-        self._intake = intake
-        self._advice = advice
-        self._story = story
         self._scenario = scenario
-        self._workers = workers
+        self._turns = turns
         self._projector = projector or StoryPublicViewProjector()
-        self._after_commit = after_commit
-        self._session_read = _SessionReadAdapter(query)
-        self._locks: dict[str, asyncio.Lock] = {}
 
     async def entry(self, scenario_id: str) -> StoryEntryView:
         snapshot = await self._query.entry(scenario_id)
@@ -303,7 +231,7 @@ class StorySessionFacade:
 
     async def submit(self, command: SubmitAdviceCommand) -> AdviceSubmitView:
         """Submit only the exact fixed input authorized by the scenario."""
-        return await self._submit_turn(command, input_method="fixed")
+        return await self._submit_turn(command, SubmissionPolicy.FIXED)
 
     async def submit_live(self, command: SubmitAdviceCommand) -> AdviceSubmitView:
         """Submit whatever the player actually said, typed or spoken.
@@ -312,128 +240,47 @@ class StorySessionFacade:
         declares a live-input capability. Scenario resolution and validation
         remain the same as for a fixed-input turn.
         """
-        return await self._submit_turn(command, input_method="live")
+        return await self._submit_turn(command, SubmissionPolicy.LIVE)
 
     async def _submit_turn(
         self,
         command: SubmitAdviceCommand,
-        *,
-        input_method: Literal["fixed", "live"],
+        submission_policy: SubmissionPolicy,
     ) -> AdviceSubmitView:
         _submit(command)
-        async with self._lock(command.session_id):
-            existing = await self._query.input(
-                command.session_id,
-                command.input_turn_id,
-            )
-            if existing is not None:
-                self._validate_existing(command, existing)
-                if existing.receipt.status is TurnInputStatus.COMMITTED:
-                    if existing.committed_story_revision is None:
-                        raise StoryFacadeError("committed_turn_missing_story_revision")
-                    snapshot = await self._query.session(command.session_id)
-                    return AdviceSubmitView(
-                        receipt=_receipt_from_record(existing),
-                        session=self._project_record(snapshot, pending=False),
-                        replayed=True,
-                    )
-                if existing.receipt.status is TurnInputStatus.CANCELLED:
-                    raise StoryFacadeError("input_turn_cancelled")
-                snapshot = await self._query.session(command.session_id)
-                if (
-                    existing.receipt.base_revisions.story
-                    != command.expected_story_revision
-                ):
-                    raise StoryFacadeError("revision_conflict")
-                turn_number = snapshot.session.story_state.turn + 1
-                self._validate_new(
-                    command,
-                    snapshot,
-                    turn_number,
-                    input_method=input_method,
-                    resuming_input=True,
-                )
-            else:
-                snapshot = await self._query.session(command.session_id)
-                turn_number = snapshot.session.story_state.turn + 1
-                self._validate_new(
-                    command, snapshot, turn_number, input_method=input_method
-                )
-                receipt = await StoryTurnInputService(
-                    sessions=self._session_read,
-                    intake=self._intake,
-                ).receive(
-                    FinalizedStoryInput(
-                        input_turn_id=command.input_turn_id,
-                        session_id=command.session_id,
-                        input_mode=command.input_mode,
-                        raw_input=command.raw_input,
-                        public_expected_store_revision=command.expected_store_revision,
-                    )
-                )
-                if receipt.status is TurnInputStatus.CANCELLED:
-                    raise StoryFacadeError("input_turn_cancelled")
+        try:
+            result = await self._turns.execute(command, submission_policy)
+        except TurnOrchestrationError as exc:
+            raise StoryFacadeError(exc.code) from exc
+        return self._project_committed_result(result)
 
-            turn_number = snapshot.session.story_state.turn + 1
-            policy = self._scenario.resolution_policy(
-                snapshot.bootstrap, snapshot.session
+    def _project_committed_result(
+        self,
+        result: CommittedTurnResult,
+    ) -> AdviceSubmitView:
+        try:
+            session = self._projector.project_from_facts(
+                session=result.session,
+                facts=result.projection_facts,
+                observed_store_revision=result.observed_store_revision,
+                policy_decision=result.policy_decision,
+                has_pending_input=False,
             )
-            validation_context = self._scenario.validation_context(
-                snapshot.bootstrap, snapshot.session
-            )
-            allowed_signatures: tuple[ActionSignature, ...] = tuple(
-                rule.signature for rule in policy.rules
-            )
-            interpretation = PlayerAdviceInterpretationService(
-                durable=self._advice,
-                interpreter=self._workers.interpreter_for(
-                    snapshot.bootstrap, turn_number
-                ),
-            )
-            proposal = AdviceActionIntentService(
-                durable=self._advice,
-                sessions=self._session_read,
-                proposer=self._workers.proposer_for(
-                    snapshot.bootstrap, turn_number, allowed_signatures
-                ),
-            )
-            commit = AdviceCommitService(
-                durable=self._advice,
-                proposal=proposal,
-                story=self._story,
-                resolver=DeterministicOutcomeResolver(),
-                domain_context=lambda _number: validation_context,
-            )
-            await interpretation.interpret(command.input_turn_id)
-            result = await commit.commit(
-                command.input_turn_id,
-                policy=policy,
-                store_expected_revision=command.expected_store_revision,
-                request_id=command.request_id,
-                trace_id=command.trace_id,
-            )
-            if result.turn.committed_story_revision is None:
-                raise StoryFacadeError("committed_turn_missing_story_revision")
-            snapshot = await self._query.session(command.session_id)
-            view = AdviceSubmitView(
-                receipt=AdviceReceiptView(
-                    input_turn_id=command.input_turn_id,
-                    session_id=command.session_id,
-                    turn_id=result.turn.id,
-                    status="committed",
-                    committed_store_revision=result.store_revision,
-                    committed_story_revision=result.turn.committed_story_revision,
-                ),
-                session=self._project_record(snapshot, pending=False),
-                replayed=result.replayed,
-            )
-            if self._after_commit is not None and not result.replayed:
-                view = view.model_copy(
-                    update={
-                        "delivery": await self._after_commit(command, result, view.session)
-                    }
-                )
-            return view
+        except StoryPublicViewError as exc:
+            raise StoryFacadeError(exc.code) from None
+        return AdviceSubmitView(
+            receipt=AdviceReceiptView(
+                input_turn_id=result.input_turn_id,
+                session_id=result.session_id,
+                turn_id=result.turn_id,
+                status="committed",
+                committed_store_revision=result.committed_store_revision,
+                committed_story_revision=result.committed_story_revision,
+            ),
+            session=session,
+            replayed=result.replayed,
+            delivery=result.delivery,
+        )
 
     async def get_advice(
         self, session_id: str, input_turn_id: str
@@ -479,70 +326,6 @@ class StorySessionFacade:
         except StoryPublicViewError as exc:
             raise StoryFacadeError(exc.code) from None
 
-    @staticmethod
-    def _validate_existing(
-        command: SubmitAdviceCommand, record: StoredInputRecord
-    ) -> None:
-        receipt = record.receipt
-        if receipt.session_id != command.session_id:
-            raise StoryFacadeError("authorization_denied")
-        if (
-            receipt.input_sha256
-            != hashlib.sha256(command.raw_input.encode("utf-8")).hexdigest()
-            or receipt.input_mode is not command.input_mode
-            or receipt.public_expected_store_revision
-            != command.expected_store_revision
-            or receipt.base_revisions.story != command.expected_story_revision
-        ):
-            raise StoryFacadeError("input_turn_identity_conflict")
-
-    def _validate_new(
-        self,
-        command: SubmitAdviceCommand,
-        snapshot: StorySessionSnapshotRecord,
-        turn_number: int,
-        *,
-        input_method: Literal["fixed", "live"],
-        resuming_input: bool = False,
-    ) -> None:
-        session = snapshot.session
-        self._ensure_scenario_identity(snapshot.bootstrap)
-        if session.id != command.session_id:
-            raise StoryFacadeError("authorization_denied")
-        if session.status is not StorySessionStatus.ACTIVE:
-            raise StoryFacadeError("story_session_not_active")
-        if snapshot.pending_input_turn_id is not None and not (
-            resuming_input
-            and snapshot.pending_input_turn_id == command.input_turn_id
-        ):
-            raise StoryFacadeError("pending_turn_exists")
-        if (
-            turn_number != session.story_state.turn + 1
-            or session.story_state.revision != turn_number - 1
-        ):
-            raise StoryFacadeError("iteration_limit_reached")
-        if (
-            command.expected_story_revision != session.story_state.revision
-            or command.expected_store_revision != snapshot.observed_store_revision
-        ):
-            raise StoryFacadeError("revision_conflict")
-        decision = self._decision(session)
-        if not decision.allowed_to_submit:
-            raise StoryFacadeError(
-                decision.reason or "scenario_submission_not_allowed"
-            )
-        if input_method == "live":
-            if not self._workers.supports_live_input:
-                raise StoryFacadeError("live_worker_unavailable")
-            return
-        supported = self._scenario.expected_input(
-            snapshot.bootstrap, session
-        )
-        if supported is None:
-            raise StoryFacadeError("fixed_input_unsupported")
-        if command.raw_input != supported:
-            raise StoryFacadeError("deterministic_input_unsupported")
-
     def _decision(self, session: StorySession) -> TurnPolicyDecision:
         committed_evidence = frozenset(
             session.story_state.discovered_clue_ids or ()
@@ -560,10 +343,6 @@ class StorySessionFacade:
             rules_revision=bootstrap.policy_version,
         ):
             raise StoryFacadeError("scenario_identity_mismatch")
-
-    def _lock(self, session_id: str) -> asyncio.Lock:
-        return self._locks.setdefault(session_id, asyncio.Lock())
-
 
 def _receipt_from_record(record: StoredInputRecord) -> AdviceReceiptView:
     receipt = record.receipt

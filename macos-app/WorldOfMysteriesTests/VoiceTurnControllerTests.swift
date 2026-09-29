@@ -211,4 +211,148 @@ struct VoiceTurnControllerTests {
         #expect(client.voiceRequestCount == 0)
         #expect(try journal.load() == nil)
     }
+
+    @Test("A committed delivery speaks as soon as it is ready")
+    func deliverySpeaksWithoutResubmitting() async throws {
+        let client = VoiceSubmissionClient(result: nil)
+        let rendered = RenderLog()
+        let (controller, coordinator) = makeController(
+            client: client,
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in rendered.append(recipe) }
+        )
+        let recipe = try #require(try readyDelivery().renderRecipe)
+
+        await controller.speakDelivery(recipe)
+
+        #expect(rendered.recipes.map(\.speechUnitId) == ["speech_1"])
+        #expect(controller.lastSpokenText == "雨停了。")
+        #expect(controller.phase == .idle)
+        // Speaking audio projects an already committed turn: it must never
+        // create, query or replay a domain submission.
+        #expect(coordinator.state == .idle)
+        #expect(client.voiceRequestCount == 0)
+        #expect(client.textRequestCount == 0)
+        #expect(client.queryCount == 0)
+    }
+
+    @Test("Re-reading the same delivery does not speak it twice")
+    func deliverySpeaksOnce() async throws {
+        let client = VoiceSubmissionClient(result: nil)
+        let rendered = RenderLog()
+        let (controller, _) = makeController(
+            client: client,
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in rendered.append(recipe) }
+        )
+        let recipe = try #require(try readyDelivery().renderRecipe)
+
+        // The App re-reads the projection until the work settles, so the same
+        // ready delivery is offered many times over.
+        for _ in 0..<5 {
+            await controller.speakDelivery(recipe)
+        }
+
+        #expect(rendered.recipes.count == 1)
+    }
+
+    @Test("A later turn's own delivery still speaks")
+    func eachDeliverySpeaksOnce() async throws {
+        let client = VoiceSubmissionClient(result: nil)
+        let rendered = RenderLog()
+        let (controller, _) = makeController(
+            client: client,
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in rendered.append(recipe) }
+        )
+        let first = try #require(try readyDelivery().renderRecipe)
+        let second = try Self.recipe(speechUnitId: "speech_2", turnId: "turn_first_002")
+
+        await controller.speakDelivery(first)
+        await controller.speakDelivery(second)
+        await controller.speakDelivery(first)
+
+        #expect(rendered.recipes.map(\.speechUnitId) == ["speech_1", "speech_2"])
+    }
+
+    @Test("A failed render is reported once and not retried on every re-read")
+    func deliveryFailureIsBoundedAndHonest() async throws {
+        let client = VoiceSubmissionClient(result: nil)
+        let attempts = RenderLog()
+        let (controller, coordinator) = makeController(
+            client: client,
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in
+                attempts.append(recipe)
+                throw EngineConnectionError.timedOut
+            }
+        )
+        let recipe = try #require(try readyDelivery().renderRecipe)
+
+        for _ in 0..<4 {
+            await controller.speakDelivery(recipe)
+        }
+
+        #expect(attempts.recipes.count == 1)
+        #expect(controller.phase == .unavailable(reason: "render_failed"))
+        #expect(coordinator.state == .idle)
+        #expect(client.voiceRequestCount == 0)
+    }
+
+    @Test("The panel starts a sealed delivery as soon as the work reports it ready")
+    func panelStartsDeliveryWhenAudioIsReady() throws {
+        let panel = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("macos-app/WorldOfMysteries/StorySessionPanel.swift"),
+            encoding: .utf8
+        )
+
+        // Without this the sealed recipe is rendered by nobody and the player
+        // only ever reads the turn.
+        #expect(panel.contains("work.audioState == .ready"))
+        #expect(panel.contains("voice.speakDelivery(recipe)"))
+    }
+
+    private static func recipe(
+        speechUnitId: String,
+        turnId: String
+    ) throws -> VoiceRenderRecipeDTO {
+        try JSONDecoder().decode(
+            VoiceRenderRecipeDTO.self,
+            from: Data(
+                """
+                {
+                  "speech_unit_id": "\(speechUnitId)",
+                  "turn_id": "\(turnId)",
+                  "story_revision": 1,
+                  "narrative_block_id": "narrative_1",
+                  "segment_index": 0,
+                  "performance_plan_id": "performance_1",
+                  "spoken_text": "雨停了。",
+                  "voice_id": "voice_1",
+                  "expected_voice_revision": "voice_revision_1",
+                  "expected_model_revision": "model_revision_1",
+                  "speed": 1.0,
+                  "language": "zh-CN"
+                }
+                """.utf8
+            )
+        )
+    }
+}
+
+private final class RenderLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [VoiceRenderRecipeDTO] = []
+
+    func append(_ recipe: VoiceRenderRecipeDTO) {
+        lock.withLock { storage.append(recipe) }
+    }
+
+    var recipes: [VoiceRenderRecipeDTO] {
+        lock.withLock { storage }
+    }
 }

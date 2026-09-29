@@ -1,0 +1,175 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-ARB-COLLAB-LEASE-TASK-ID",
+  "capsule_revision": 1,
+  "task_id": "ARB-COLLAB-LEASE-TASK-ID",
+  "title": "Implement ARB-COLLAB-LEASE-TASK-ID",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-09-28T13:27:47.085532+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "439cf9dbeb5e1485f4d1fbfb88eec9b3647a559c",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:57c9275e5c233ce22640d8e7df3c0335361dc4c1d409613032bdb98cd38c5213"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py",
+      "engine/tests/test_bundle_engine.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:artifact_tasks@docs/05_UI/artwork/tools/capture_artifact_runtime_evidence.py:190",
+      "symbol:test_slot_order_is_a_permutation_of_the_manifest_tasks@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:108",
+      "symbol:test_every_task_gets_its_own_file_and_own_identity_asset@docs/05_UI/artwork/tools/tests/test_capture_artifact_runtime_evidence.py:478",
+      "symbol:test_retry_kind_is_exactly_the_post_commit_work_task_vocabulary@contracts/tests/test_story_post_commit_control.py:258",
+      "symbol:release_app_probe@scripts/build_macos_package.py:212",
+      "symbol:_git_env@scripts/collab_pipeline.py:55",
+      "symbol:run_cmd@scripts/collab_pipeline.py:62",
+      "symbol:get_worktree_dir@scripts/collab_pipeline.py:73",
+      "symbol:_workspace_id@scripts/collab_pipeline.py:77",
+      "symbol:short_runtime_root@scripts/collab_pipeline.py:81",
+      "symbol:_assert_af_unix_paths_fit@scripts/collab_pipeline.py:94",
+      "symbol:_lease_for@scripts/collab_pipeline.py:113",
+      "symbol:_cleanup_short_runtime@scripts/collab_pipeline.py:137",
+      "symbol:_provision_workspace@scripts/collab_pipeline.py:148",
+      "symbol:start_pipeline@scripts/collab_pipeline.py:196",
+      "symbol:_resolve_task_id@scripts/collab_pipeline.py:233",
+      "symbol:_changed_paths@scripts/collab_pipeline.py:255",
+      "symbol:integrate_pipeline@scripts/collab_pipeline.py:260",
+      "symbol:submit_pipeline@scripts/collab_pipeline.py:415",
+      "symbol:abort_pipeline@scripts/collab_pipeline.py:468",
+      "symbol:list_worktrees@scripts/collab_pipeline.py:480",
+      "symbol:main@scripts/collab_pipeline.py:493",
+      "symbol:load_workspace_lease_defaults@scripts/gate_profile.py:137",
+      "symbol:_task_id@scripts/generate_pr_report.py:126",
+      "symbol:load_task_receipts@scripts/generate_pr_report.py:215",
+      "symbol:load_workspace_lease@scripts/hacf_policy.py:491",
+      "symbol:env_overrides_from_lease@scripts/hacf_policy.py:502",
+      "symbol:test_workspace_lease_keeps_af_unix_paths_short@engine/tests/test_hacf_governance.py:837",
+      "symbol:test_workspace_lease_rejects_unusably_long_short_base@engine/tests/test_hacf_governance.py:868",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 725,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "artifact_tasks",
+      "test_slot_order_is_a_permutation_of_the_manifest_tasks",
+      "test_every_task_gets_its_own_file_and_own_identity_asset",
+      "test_retry_kind_is_exactly_the_post_commit_work_task_vocabulary",
+      "release_app_probe",
+      "_git_env",
+      "run_cmd",
+      "get_worktree_dir",
+      "_workspace_id",
+      "short_runtime_root",
+      "_assert_af_unix_paths_fit",
+      "_lease_for",
+      "_cleanup_short_runtime",
+      "_provision_workspace",
+      "start_pipeline",
+      "_resolve_task_id",
+      "_changed_paths",
+      "integrate_pipeline",
+      "submit_pipeline",
+      "abort_pipeline",
+      "list_worktrees",
+      "main",
+      "load_workspace_lease_defaults",
+      "_task_id",
+      "load_task_receipts",
+      "load_workspace_lease",
+      "env_overrides_from_lease",
+      "test_workspace_lease_keeps_af_unix_paths_short",
+      "test_workspace_lease_rejects_unusably_long_short_base",
+      "require"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

@@ -37,6 +37,10 @@ from .story_turn_commit import (
     StoryTurnCommitResult,
     StoryTurnCommitService,
 )
+from .turn_context_binding import (
+    TurnContextBindingError,
+    TurnContextBindingPort,
+)
 from .turn_input import TurnInputStatus
 
 
@@ -82,12 +86,14 @@ class AdviceCommitService:
         story: StoryTurnCommitPort,
         resolver: OutcomeResolverProtocol,
         domain_context: Callable[[int], DomainValidationContext] | None = None,
+        context_bindings: TurnContextBindingPort | None = None,
     ) -> None:
         self._durable = durable
         self._proposal = proposal
         self._story = story
         self._resolver = resolver
         self._domain_context = domain_context
+        self._context_bindings = context_bindings
 
     async def commit(
         self,
@@ -123,6 +129,32 @@ class AdviceCommitService:
         session = await self._story.load_session(frozen.session_id)
         self._validate_session(frozen, session)
         self._validate_action_intent(frozen, proposal.action_intent, proposal.advice)
+        context_binding = proposal.context_binding
+        if self._context_bindings is not None:
+            if context_binding is None:
+                raise AdviceCommitError("legacy_context_unbound")
+            if (
+                context_binding.stage != "action"
+                or context_binding.turn_id != frozen.turn_id
+                or context_binding.input_turn_id != frozen.input_turn_id
+                or context_binding.source_store_revision != store_expected_revision
+                or context_binding.source_story_revision
+                != frozen.base_revisions.story
+            ):
+                raise AdviceCommitError("context_stale")
+            if not proposal.action_intent.evidence_ids or not set(
+                proposal.action_intent.evidence_ids
+            ).issubset(context_binding.authorized_source_ids | {proposal.advice.id}):
+                raise AdviceCommitError("context_stale")
+            try:
+                persisted_binding = await self._context_bindings.load(
+                    turn_id=frozen.turn_id,
+                    stage="action",
+                )
+            except TurnContextBindingError as exc:
+                raise AdviceCommitError(exc.code) from None
+            if persisted_binding != context_binding:
+                raise AdviceCommitError("context_stale")
 
         delta = self._resolver.resolve(
             proposal.action_intent,
@@ -139,6 +171,11 @@ class AdviceCommitService:
                 ).with_runtime_identities(
                     proposal.advice.id,
                     proposal.action_intent.id,
+                    *(
+                        context_binding.authorized_source_ids
+                        if context_binding is not None
+                        else ()
+                    ),
                 )
                 validate_resolved_state_delta(
                     proposal.action_intent,

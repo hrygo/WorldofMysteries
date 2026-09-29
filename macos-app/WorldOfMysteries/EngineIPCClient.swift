@@ -6,12 +6,24 @@ public actor EngineIPCClient {
     private var generation: UInt64 = 0
     private var handshaking = false
     public private(set) var handshake: EngineHandshake?
-    private let requestTimeout: TimeInterval
+    /// A story turn is up to three sequential authorized model calls, each
+    /// bounded by the Engine's own 45s stage budget, plus commit and publish.
+    /// Anything shorter makes the *client* the layer that gives up on a turn
+    /// the Engine would still have completed.
+    ///
+    /// This is a patience ceiling, not a latency budget: a reply that arrives
+    /// early returns immediately, so a generous ceiling costs nothing on the
+    /// fast path and protects the slow one.
+    public static let defaultRequestTimeout: TimeInterval = 180
+    /// Immutable after construction, so it carries no actor-isolated state.
+    nonisolated let requestTimeout: TimeInterval
     public var isConnected: Bool { transport?.isConnected == true && handshake != nil }
     public nonisolated var isScaffoldOnly: Bool { false }
 
-    public init(requestTimeout: TimeInterval = 5) {
-        self.requestTimeout = requestTimeout.isFinite && requestTimeout > 0 ? requestTimeout : 5
+    public init(requestTimeout: TimeInterval = EngineIPCClient.defaultRequestTimeout) {
+        self.requestTimeout = requestTimeout.isFinite && requestTimeout > 0
+            ? requestTimeout
+            : Self.defaultRequestTimeout
     }
 
     public func connect(socketPath: String) async throws {
@@ -83,7 +95,13 @@ public actor EngineIPCClient {
 
     /// True when the Engine can commit an arbitrary player turn, typed or spoken.
     public var liveTurnAvailable: Bool {
-        handshake?.capabilities.contains("story.turn.submit") ?? false
+        handshake?.liveTurnAvailable ?? false
+    }
+
+    public func supportsStoryPostCommitMethod(
+        _ capability: StoryPostCommitMethodCapability
+    ) async -> Bool {
+        handshake?.capabilities.contains(capability.rawValue) ?? false
     }
 
     /// Capabilities are negotiated by `system.handshake`; health only reports
@@ -308,6 +326,38 @@ public actor EngineIPCClient {
         )
     }
 
+    public func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let method = StoryPostCommitMethodCapability.adviceSubmitV2.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        return try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
+    public func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        let method = StoryPostCommitMethodCapability.turnSubmitV2.rawValue
+        guard handshake?.capabilities.contains(method) == true else {
+            throw EngineConnectionError.methodUnavailable
+        }
+        return try await storyRequest(
+            method: method,
+            payload: request,
+            traceId: traceId,
+            idempotencyKey: request.inputTurnId
+        )
+    }
+
     public func storyAdvice(
         sessionId: String,
         inputTurnId: String,
@@ -481,6 +531,18 @@ extension EngineIPCClient: StoryEngineClient {
         try await storyTurnSubmit(request, traceId: UUID().uuidString)
     }
 
+    public func storyAdviceSubmitV2(
+        _ request: StoryAdviceSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyAdviceSubmitV2(request, traceId: UUID().uuidString)
+    }
+
+    public func storyTurnSubmitV2(
+        _ request: StoryTurnSubmitRequestDTO
+    ) async throws -> StoryAdviceSubmitViewDTO {
+        try await storyTurnSubmitV2(request, traceId: UUID().uuidString)
+    }
+
     public func storyAdvice(
         sessionId: String,
         inputTurnId: String
@@ -488,6 +550,32 @@ extension EngineIPCClient: StoryEngineClient {
         try await storyAdvice(
             sessionId: sessionId,
             inputTurnId: inputTurnId,
+            traceId: UUID().uuidString
+        )
+    }
+
+    public func storyTurnWorkGet(
+        sessionId: String,
+        turnId: String
+    ) async throws -> StoryTurnWorkGetResponseDTO {
+        try await storyTurnWorkGet(
+            sessionId: sessionId,
+            turnId: turnId,
+            traceId: UUID().uuidString
+        )
+    }
+
+    public func storyTurnWorkRetry(
+        sessionId: String,
+        turnId: String,
+        kind: StoryTurnWorkKind,
+        retryRequestId: String
+    ) async throws -> StoryTurnWorkRetryResponseDTO {
+        try await storyTurnWorkRetry(
+            sessionId: sessionId,
+            turnId: turnId,
+            kind: kind,
+            retryRequestId: retryRequestId,
             traceId: UUID().uuidString
         )
     }

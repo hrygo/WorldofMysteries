@@ -1,0 +1,138 @@
+{
+  "receipt_id": "RCP-INTEGRATION-FLASH-03D-E2E-LIVENESS-496bf9cbd3bf",
+  "receipt_type": "integration",
+  "task_id": "FLASH-03D-E2E-LIVENESS",
+  "capsule_id": "CAP-FLASH-03D-E2E-LIVENESS",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:ed60e4bd80eb0bb4afcd49dd9246914710c8682d5426a2a10721e8e0ef398fc2",
+  "diff_digest": "sha256:f027c18a4df938c9d14f27de7187ae4fe69de38fde33173c976663dc4b341436",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "cba478c084d5329c28c278c9c57f4589a23154a3",
+  "head_commit": "496bf9cbd3bf40c8d1cfbd8659b839ced991f69b",
+  "target_ref": "main",
+  "target_sha": "496bf9cbd3bf40c8d1cfbd8659b839ced991f69b",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03d-e2e-liveness",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T09:39:49.576881+00:00",
+      "finished_at": "2026-09-29T09:39:49.614492+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03d-e2e-liveness/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T09:39:49.614589+00:00",
+      "finished_at": "2026-09-29T09:41:46.493770+00:00",
+      "raw_log_digest": "sha256:42242a64c3b651384737fb3e0fec11735bbf8db83025b1a06212a94944d7ea53",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-flash-03d-e2e-liveness/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03d-e2e-liveness/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T09:41:46.493875+00:00",
+      "finished_at": "2026-09-29T09:42:12.982090+00:00",
+      "raw_log_digest": "sha256:ed7384a50598eb596d1fa746ea6eabc1946e44e9fedca34ff522fda9037f5ed6",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-flash-03d-e2e-liveness/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T09:42:12.982195+00:00",
+      "finished_at": "2026-09-29T09:42:15.299335+00:00",
+      "raw_log_digest": "sha256:985d94f3bf022ce1fcfc91945808e76b51810218e38948bca3da2d784dfe5c9e",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      ".agents/receipts/FLASH-03D-E2E-LIVENESS/ba81557a77bb.json",
+      "engine/tests/fixtures/voice_turn_e2e_driver.swift",
+      "engine/tests/test_voice_turn_e2e.py",
+      "macos-app/WorldOfMysteries/AppState.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/WorldofMysteries"
+  },
+  "started_at": "2026-09-29T09:39:49.576691+00:00",
+  "finished_at": "2026-09-29T09:44:51.909228+00:00",
+  "verdict": "passed",
+  "merge_authorizing": true,
+  "merge": {
+    "strategy": "fast-forward",
+    "expected_main_sha": "cba478c084d5329c28c278c9c57f4589a23154a3",
+    "merged_sha": "496bf9cbd3bf40c8d1cfbd8659b839ced991f69b",
+    "cas_verified": true,
+    "post_merge_smoke": "passed"
+  },
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

@@ -63,6 +63,40 @@ def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_test
     )["verdict"] == "out_of_scope"
 
 
+def test_agt_mac_owns_the_cross_process_app_driver_it_must_keep_alive():
+    """The Swift driver that launches the real Engine is App harness, not QA assertion.
+
+    ``engine/tests/fixtures/app_engine_driver.swift`` compiles the production
+    App sources and drives them against a real child Engine. When the App's
+    launch or session contract changes, only the App owner can keep that driver
+    in step; leaving it under a role that may not touch App sources makes the
+    FULL_P0 acceptance suite impossible to keep green, which is how a real
+    behaviour change gets silently reverted instead of accepted.
+    """
+    role = agent_capsule.ROLE_DEFAULTS["AGT-MAC"]
+    capsule = {
+        "assigned_role": "AGT-MAC",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    for path in (
+        "engine/tests/fixtures/app_engine_driver.swift",
+        "engine/tests/fixtures/voice_turn_e2e_driver.swift",
+        "engine/tests/test_app_engine_session.py",
+        "engine/tests/test_voice_turn_e2e.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized", path
+
+    # Narrowing must not leak: the rest of engine/tests/ stays out of reach.
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_outbox.py"
+    )["verdict"] == "out_of_scope"
+
+
 def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
     """AI may update the narrow composition roots and the AO-04 scenario adapters.
 
@@ -870,6 +904,161 @@ def test_workspace_lease_rejects_unusably_long_short_base(monkeypatch):
     monkeypatch.setenv("WOM_WORKSPACE_RUNTIME_BASE", "/tmp/" + "x" * 120)
     with pytest.raises(RuntimeError, match="AF_UNIX"):
         collab_pipeline._lease_for("fix/whatever", Path("/tmp/any-worktree"))
+
+
+def test_start_persists_task_id_in_workspace_lease(tmp_path, monkeypatch):
+    branch = "feat/arb-collab-lease-task-id"
+    task_id = "ARB-COLLAB-LEASE-TASK-ID"
+    worktree_base = tmp_path / "worktrees"
+    worktree = worktree_base / branch.replace("/", "-")
+    runtime_base = Path("/tmp") / f"wom-test-{os.getpid()}-{tmp_path.name[-4:]}"
+    monkeypatch.setattr(collab_pipeline, "WORKTREE_BASE", worktree_base)
+    monkeypatch.setattr(collab_pipeline, "REPO_ROOT", tmp_path / "repo")
+    monkeypatch.setenv("WOM_WORKSPACE_RUNTIME_BASE", str(runtime_base))
+
+    def fake_run_cmd(cmd, cwd=collab_pipeline.REPO_ROOT, check=True):
+        if cmd.startswith("git rev-parse --verify "):
+            return subprocess.CompletedProcess(cmd, 1, "", "")
+        if cmd.startswith("git worktree add -b "):
+            worktree.mkdir(parents=True)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(collab_pipeline, "run_cmd", fake_run_cmd)
+
+    try:
+        collab_pipeline.start_pipeline(
+            branch, role="AGT-ARB", task_id=task_id, skip_venv=True
+        )
+
+        lease = json.loads(
+            (worktree / ".hacf" / "workspace.json").read_text(encoding="utf-8")
+        )
+        assert lease["task_id"] == task_id
+    finally:
+        collab_pipeline._cleanup_short_runtime(branch)
+        if runtime_base.exists():
+            runtime_base.rmdir()
+
+
+@pytest.mark.parametrize(
+    ("branch", "task_id"),
+    [
+        ("feat/mac-art-runtime-repack-r1", "MAC-ART-RUNTIME-REPACK-R1"),
+        ("feat/arb-asset-lesson-r1", "ARB-ASSET-LESSON-R1"),
+        (
+            "feat/arb-asset-storage-encoding-r1",
+            "ARB-ASSET-STORAGE-ENCODING-R1",
+        ),
+    ],
+)
+def test_old_workspace_lease_keeps_historical_branch_guess(
+    tmp_path, monkeypatch, branch, task_id
+):
+    workspace = tmp_path / "workspace"
+    capsules_dir = workspace / ".agents" / "capsules"
+    capsules_dir.mkdir(parents=True)
+    (workspace / ".hacf").mkdir()
+    (workspace / ".hacf" / "workspace.json").write_text(
+        json.dumps({"branch": branch}), encoding="utf-8"
+    )
+    (capsules_dir / f"{task_id}.json").write_text("{}", encoding="utf-8")
+    (capsules_dir / "UNRELATED-TASK.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        hacf_policy,
+        "run_git",
+        lambda args, cwd=None: branch
+        if args == ["rev-parse", "--abbrev-ref", "HEAD"]
+        else pytest.fail(f"unexpected git query: {args}"),
+    )
+
+    assert collab_pipeline._resolve_task_id(workspace, None) == task_id
+
+
+@pytest.mark.parametrize(
+    ("explicit_task_id", "expected_task_id"),
+    [
+        (None, "ARB-COLLAB-LEASE-TASK-ID"),
+        ("EXPLICIT-INTEGRATE-TASK", "EXPLICIT-INTEGRATE-TASK"),
+    ],
+)
+def test_integrate_uses_workspace_task_id_unless_explicitly_overridden(
+    tmp_path, monkeypatch, explicit_task_id, expected_task_id
+):
+    branch = "feat/ao-03-retire-store-protocol"
+    lease_task_id = "ARB-COLLAB-LEASE-TASK-ID"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    worktree = tmp_path / "worktree"
+    capsules_dir = worktree / ".agents" / "capsules"
+    capsules_dir.mkdir(parents=True)
+    (worktree / ".hacf").mkdir()
+    (worktree / ".hacf" / "workspace.json").write_text(
+        json.dumps({"task_id": lease_task_id}), encoding="utf-8"
+    )
+    for task_id in (lease_task_id, "EXPLICIT-INTEGRATE-TASK"):
+        (capsules_dir / f"{task_id}.json").write_text(
+            json.dumps(
+                {
+                    "capsule_id": f"CAP-{task_id}",
+                    "task_id": task_id,
+                    "assigned_role": "AGT-ARB",
+                    "risk_class": "privileged",
+                    "scope": {},
+                    "gates": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+    (capsules_dir / "UNRELATED-TASK.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(collab_pipeline, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(collab_pipeline, "get_worktree_dir", lambda _: worktree)
+
+    def fake_run_git(args, cwd=None):
+        if args == ["rev-parse", "HEAD"] and Path(cwd) == worktree:
+            return "worktree-head"
+        if args == ["rev-parse", "main"]:
+            return "main-head"
+        if args == ["rev-parse", "HEAD"] and Path(cwd) == repo_root:
+            return "merged-head"
+        raise AssertionError(f"unexpected git query: {args} cwd={cwd}")
+
+    monkeypatch.setattr(hacf_policy, "run_git", fake_run_git)
+    monkeypatch.setattr(
+        collab_pipeline,
+        "run_cmd",
+        lambda cmd, cwd=repo_root, check=True: subprocess.CompletedProcess(
+            cmd, 0, "", ""
+        ),
+    )
+    monkeypatch.setattr(
+        gate_profile,
+        "run_profile",
+        lambda *args, **kwargs: {
+            "result": "passed",
+            "gate_profile_id": "FULL_P0",
+            "gate_profile_digest": "test-digest",
+            "started_at": "2026-09-28T00:00:00+08:00",
+            "coverage_gaps": [],
+        },
+    )
+    monkeypatch.setattr(gate_profile, "collect_toolchain", lambda _: {})
+    monkeypatch.setattr(hacf_policy, "changes_digest", lambda *args, **kwargs: "digest")
+    captured_receipts = []
+    monkeypatch.setattr(
+        hacf_policy,
+        "write_receipt",
+        lambda root, receipt, head: captured_receipts.append(receipt)
+        or (tmp_path / "receipt.json"),
+    )
+
+    collab_pipeline.integrate_pipeline(
+        branch, task_id=explicit_task_id, skip_smoke=True
+    )
+
+    assert len(captured_receipts) == 1
+    assert captured_receipts[0]["task_id"] == expected_task_id
+    assert captured_receipts[0]["capsule_id"] == f"CAP-{expected_task_id}"
 
 
 def test_capsule_target_ref_prefers_integration_base_branch(tmp_path, monkeypatch):

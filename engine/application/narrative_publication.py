@@ -16,6 +16,12 @@ from typing import Protocol
 from contracts import NarrativeBlock, StateDelta, TurnStatus, TurnTransaction
 from contracts.models import NarrativeSegment
 
+from .turn_context_binding import (
+    AuthorizedTurnContextBinding,
+    TurnContextBindingError,
+    TurnContextBindingPort,
+)
+
 _MAX_NARRATIVE_CHARS = 1200
 _MAX_COMMITTED_SOURCE_CHARS = 32_768
 _MAX_SINGLE_FLIGHT_TURNS = 64
@@ -65,6 +71,7 @@ class NarrativeCandidate:
 
     narration: str
     speech: str
+    context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -86,6 +93,10 @@ class NarrativeCandidate:
                 allow_empty=True,
             ),
         )
+        if self.context_binding is not None and not isinstance(
+            self.context_binding, AuthorizedTurnContextBinding
+        ):
+            raise NarrativePublicationError("invalid_context_binding")
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +116,8 @@ class CommittedNarrativeSource:
     scene_id: str | None
     protagonist_id: str
     disclosed_facts: str
+    input_turn_id: str | None = None
+    source_store_revision: int | None = None
 
     def __post_init__(self) -> None:
         for field in ("turn_id", "session_id", "state_delta_id", "protagonist_id"):
@@ -134,6 +147,21 @@ class CommittedNarrativeSource:
                 "scene_id",
                 _bounded_text(self.scene_id, field="scene_id", limit=256),
             )
+        if self.input_turn_id is not None:
+            object.__setattr__(
+                self,
+                "input_turn_id",
+                _bounded_text(
+                    self.input_turn_id,
+                    field="input_turn_id",
+                    limit=256,
+                ),
+            )
+        if self.source_store_revision is not None and (
+            type(self.source_store_revision) is not int
+            or self.source_store_revision < 0
+        ):
+            raise NarrativePublicationError("invalid_source_store_revision")
         object.__setattr__(
             self,
             "disclosed_facts",
@@ -146,7 +174,13 @@ class CommittedNarrativeSource:
 
 
 class NarrativeCompilerPort(Protocol):
-    async def compile(self, *, committed: str) -> NarrativeCandidate: ...
+    async def compile(
+        self,
+        *,
+        committed: str,
+        source: CommittedNarrativeSource | None = None,
+        expected_context_binding: AuthorizedTurnContextBinding | None = None,
+    ) -> NarrativeCandidate: ...
 
 
 class NarrativeReadPort(Protocol):
@@ -180,6 +214,8 @@ def _source_key(source: CommittedNarrativeSource | None) -> str | None:
             "scene_id": source.scene_id,
             "protagonist_id": source.protagonist_id,
             "disclosed_facts": source.disclosed_facts,
+            "input_turn_id": source.input_turn_id,
+            "source_store_revision": source.source_store_revision,
         },
         ensure_ascii=False,
         sort_keys=True,
@@ -203,6 +239,7 @@ class CommittedNarrativeService:
         reads: NarrativeReadPort,
         publisher: NarrativePublishPort,
         compiler: NarrativeCompilerPort,
+        context_bindings: TurnContextBindingPort | None = None,
         max_single_flight_turns: int = _MAX_SINGLE_FLIGHT_TURNS,
     ) -> None:
         if (
@@ -213,6 +250,7 @@ class CommittedNarrativeService:
         self._reads = reads
         self._publisher = publisher
         self._compiler = compiler
+        self._context_bindings = context_bindings
         self._max_single_flight_turns = max_single_flight_turns
         self._flight_guard = asyncio.Lock()
         self._flights: dict[
@@ -386,9 +424,54 @@ class CommittedNarrativeService:
             raise NarrativePublicationError("committed_source_required")
         self._validate_source(turn_id=turn_id, turn=turn, source=source)
 
-        candidate = await self._compiler.compile(
-            committed=source.disclosed_facts
-        )
+        expected_binding = None
+        if self._context_bindings is not None:
+            if source.input_turn_id is None or source.source_store_revision is None:
+                raise NarrativePublicationError("committed_source_binding_mismatch")
+            try:
+                expected_binding = await self._context_bindings.load(
+                    turn_id=source.turn_id,
+                    stage="narrative",
+                )
+            except TurnContextBindingError as exc:
+                raise NarrativePublicationError(exc.code) from None
+            if expected_binding is not None and (
+                expected_binding.stage != "narrative"
+                or expected_binding.turn_id != source.turn_id
+                or expected_binding.input_turn_id != source.input_turn_id
+                or expected_binding.source_store_revision
+                != source.source_store_revision
+                or expected_binding.source_story_revision != source.story_revision
+            ):
+                raise NarrativePublicationError("context_stale")
+
+        if self._context_bindings is None:
+            candidate = await self._compiler.compile(
+                committed=source.disclosed_facts
+            )
+        else:
+            candidate = await self._compiler.compile(
+                committed=source.disclosed_facts,
+                source=source,
+                expected_context_binding=expected_binding,
+            )
+            binding = candidate.context_binding
+            if binding is None:
+                raise NarrativePublicationError("context_binding_required")
+            if (
+                binding.stage != "narrative"
+                or binding.turn_id != source.turn_id
+                or binding.input_turn_id != source.input_turn_id
+                or binding.source_store_revision != source.source_store_revision
+                or binding.source_story_revision != source.story_revision
+            ):
+                raise NarrativePublicationError("context_stale")
+            if expected_binding is not None and binding != expected_binding:
+                raise NarrativePublicationError("context_stale")
+            try:
+                await self._context_bindings.save(binding)
+            except TurnContextBindingError as exc:
+                raise NarrativePublicationError(exc.code) from None
         block = self._block(
             turn=turn,
             source=source,

@@ -88,6 +88,49 @@ struct StoryRequestJournalTests {
         #expect(saved["rawInput"] as? String == "  原样保留的 ASR 转写  ")
     }
 
+    @Test("Version 2 journal decodes both v2 submit identities without upgrading")
+    func v2SubmitRecordsDecodeAsCurrentVersion() throws {
+        let records = [
+            (
+                mode: "text",
+                method: "story.advice.submit.v2",
+                expected: "story.advice.submit.v2"
+            ),
+            (
+                mode: "voice",
+                method: "story.turn.submit.v2",
+                expected: "story.turn.submit.v2"
+            ),
+        ]
+
+        for item in records {
+            let json = """
+            {
+              "recordVersion": 2,
+              "inputMode": "\(item.mode)",
+              "submissionMethod": "\(item.method)",
+              "phase": "submitting",
+              "scenarioId": "golden_001",
+              "sessionId": "session_1",
+              "inputTurnId": "input_turn_1",
+              "rawInput": "原样保存",
+              "storyRevision": 0,
+              "storeRevision": 1
+            }
+            """
+            let record = try JSONDecoder().decode(
+                StoryRequestRecord.self,
+                from: Data(json.utf8)
+            )
+
+            #expect(record.recordVersion == 2)
+            #expect(record.inputMode.rawValue == item.mode)
+            #expect(record.submissionMethod.rawValue == item.expected)
+            #expect(record.frozenSubmission?.rawInput == "原样保存")
+        }
+        #expect(StoryRequestRecord.currentRecordVersion == 2)
+    }
+
     @Test("Corrupt and unknown-version journals throw instead of looking absent")
     func corruptAndUnknownVersionJournalsFailClosed() throws {
         let (journal, root) = try makeJournal()

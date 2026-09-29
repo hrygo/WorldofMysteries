@@ -1,15 +1,21 @@
 """Trusted first-turn facade integration on the real durable chain."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import sqlite3 as stdlib_sqlite3
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from ai.golden_first_turn import GoldenFirstTurnFactory
-from application.advice_interpretation import AdviceInterpretationCandidate
+from application.advice_interpretation import (
+    AdviceInterpretationCandidate,
+    AdviceInterpretationError,
+    FrozenTurnInput,
+)
 from application.scenario_policy import (
     ScenarioIdentity,
     TurnPolicyDecision,
@@ -27,18 +33,30 @@ from application.story_session_facade import (
     StorySessionFacade,
     StorySessionSnapshotRecord,
     SubmitAdviceCommand,
+    TurnDeliveryView,
 )
 from application.story_session_open import StorySessionOpenService
 from application.story_turn_commit import DomainValidationContext
-from application.turn_input import TurnInputStatus
+from application.turn_context_binding import AuthorizedTurnContextBinding
+from application.turn_input import (
+    TurnInputReceipt,
+    TurnInputStatus,
+)
+from application.turn_orchestrator import TurnOrchestrator
 from domain.resolution_policy import ResolutionPolicy
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
 from infrastructure.scenarios.golden_policy import GoldenScenarioPolicy
 from infrastructure.sqlite_runtime import sqlite3
 from infrastructure.story_bootstrap_repository import SQLiteStoryBootstrapRepository
+from infrastructure.story_control import story_control_handlers
+from infrastructure.story_runtime import (
+    _BoundSQLitePlayerAdviceRepository,
+    _SQLiteTurnContextBindingPort,
+)
 from infrastructure.story_session_open_repository import SQLiteStorySessionOpenPort
 from infrastructure.story_session_repository import SQLiteStorySessionCommitPort
+from infrastructure.turn_context_repository import SQLiteTurnContextRepository
 from infrastructure.turn_intake_repository import SQLiteTurnInputCommandPort
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -200,6 +218,125 @@ class LiveCapableTestWorkers(CountingWorkers):
         return _FreeTextInterpreter(self)
 
 
+class _BlockingFreeTextInterpreter:
+    def __init__(self, workers) -> None:
+        self._workers = workers
+
+    async def interpret(self, value):
+        self._workers.interpreted_inputs.append(value.raw_input)
+        self._workers.interpreter_started.set()
+        await self._workers.release_interpreter.wait()
+        return AdviceInterpretationCandidate(
+            interpreter_revision="test-live-interpreter-v1",
+            primary_intent="observe_subject",
+            secondary_intents=(),
+            proposed_actions=("continue_conversation",),
+            risk_preference=None,
+            confidence=0.9,
+        )
+
+
+class BlockingLiveWorkers(LiveCapableTestWorkers):
+    def __init__(self) -> None:
+        super().__init__()
+        self.interpreter_started = asyncio.Event()
+        self.release_interpreter = asyncio.Event()
+
+    def interpreter_for(self, bootstrap, turn_number=1):
+        del bootstrap, turn_number
+        self.interpreter_calls += 1
+        return _BlockingFreeTextInterpreter(self)
+
+
+class _ConcurrentAdmissionInterpreter:
+    def __init__(self, workers) -> None:
+        self._workers = workers
+
+    async def interpret(self, value):
+        self._workers.started[value.input_turn_id].set()
+        await self._workers.release[value.input_turn_id].wait()
+        raise AdviceInterpretationError("controlled_model_failure")
+
+
+class _ConcurrentAdmissionWorkers:
+    supports_live_input = True
+
+    def __init__(self, input_turn_ids: tuple[str, ...]) -> None:
+        self.started = {value: asyncio.Event() for value in input_turn_ids}
+        self.release = {value: asyncio.Event() for value in input_turn_ids}
+
+    def interpreter_for(self, bootstrap, turn_number=1):
+        del bootstrap, turn_number
+        return _ConcurrentAdmissionInterpreter(self)
+
+    def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+        del bootstrap, turn_number, allowed_signatures
+        return object()
+
+    def narrative_compiler(self, bootstrap):
+        del bootstrap
+
+    async def aclose(self):
+        return None
+
+
+class _ContextBoundFreeTextInterpreter:
+    def __init__(self, bootstrap) -> None:
+        self._bootstrap = bootstrap
+
+    async def interpret(self, value):
+        binding = AuthorizedTurnContextBinding(
+            turn_id=value.turn_id,
+            stage="interpretation",
+            input_turn_id=value.input_turn_id,
+            source_store_revision=value.public_expected_store_revision,
+            source_story_revision=value.base_revisions.story,
+            policy_revision=self._bootstrap.policy_version,
+            content_digest=self._bootstrap.content_digest,
+            lineage_digest="test-lineage",
+            manifest=(),
+        )
+        return AdviceInterpretationCandidate(
+            interpreter_revision="test-bound-interpreter-v1",
+            primary_intent="observe_subject",
+            secondary_intents=(),
+            proposed_actions=("continue_conversation",),
+            risk_preference=None,
+            confidence=0.9,
+            context_binding=binding,
+        )
+
+
+class _StaleActionBindingProposer:
+    def __init__(self, delegate) -> None:
+        self._delegate = delegate
+
+    async def propose(self, **kwargs):
+        expected = kwargs.pop("expected_context_binding")
+        assert isinstance(expected, AuthorizedTurnContextBinding)
+        candidate = await self._delegate.propose(**kwargs)
+        stale_action_binding = replace(
+            expected,
+            stage="action",
+            source_store_revision=expected.source_store_revision + 1,
+        )
+        return replace(candidate, context_binding=stale_action_binding)
+
+
+class StaleContextLiveWorkers(LiveCapableTestWorkers):
+    def interpreter_for(self, bootstrap, turn_number=1):
+        del turn_number
+        self.interpreter_calls += 1
+        return _ContextBoundFreeTextInterpreter(bootstrap)
+
+    def proposer_for(self, bootstrap, turn_number, allowed_signatures):
+        self.proposer_calls += 1
+        self.allowed_signatures = allowed_signatures
+        return _StaleActionBindingProposer(
+            self._golden.proposer_for(bootstrap, turn_number)
+        )
+
+
 class Query:
     def __init__(self, database: DatabaseManager, source: Source) -> None:
         self._database = database
@@ -292,16 +429,32 @@ def _facade(
     source: Source,
     scenario: GoldenTestScenarioPolicy,
     workers: CountingWorkers,
+    *,
+    advice=None,
+    context_bindings=None,
+    after_commit=None,
 ):
+    query = Query(database, source)
+    advice_port = (
+        SQLitePlayerAdviceRepository(database)
+        if advice is None
+        else advice
+    )
     return StorySessionFacade(
         initialization=StoryInitializationService(source),
         open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
-        query=Query(database, source),
-        intake=SQLiteTurnInputCommandPort(database),
-        advice=SQLitePlayerAdviceRepository(database),
-        story=SQLiteStorySessionCommitPort(database),
+        query=query,
         scenario=scenario,
-        workers=workers,
+        turns=TurnOrchestrator(
+            sessions=query,
+            intake=SQLiteTurnInputCommandPort(database),
+            advice=advice_port,
+            story=SQLiteStorySessionCommitPort(database),
+            scenario=scenario,
+            workers=workers,
+            context=context_bindings,
+            work=after_commit,
+        ),
     )
 
 
@@ -311,7 +464,19 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
     source = Source()
     scenario = GoldenTestScenarioPolicy()
     workers = CountingWorkers()
-    facade = _facade(database, source, scenario, workers)
+    delivery_calls = []
+
+    async def after_commit(command, result, session):
+        delivery_calls.append((command.input_turn_id, result.turn.id, session))
+        return TurnDeliveryView(state="ready")
+
+    facade = _facade(
+        database,
+        source,
+        scenario,
+        workers,
+        after_commit=after_commit,
+    )
     try:
         opened = await facade.open(
             scenario_id=GOLDEN_SCENARIO_ID,
@@ -355,6 +520,9 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         assert workers.interpreter_calls == 1
         assert workers.proposer_calls == 1
         assert workers.allowed_signatures == expected_signatures
+        assert submitted.delivery is not None
+        assert submitted.delivery.state == "ready"
+        assert len(delivery_calls) == 1
 
         loaded = await facade.get_advice(
             opened.session.session_id,
@@ -367,6 +535,8 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         replayed = await facade.submit(command)
         assert replayed.replayed
         assert replayed.receipt == submitted.receipt
+        assert replayed.delivery is None
+        assert len(delivery_calls) == 1
         assert workers.interpreter_calls == 1
         assert workers.proposer_calls == 1
 
@@ -383,6 +553,306 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
         assert "secret_" not in serialized
         assert "hidden_truth" not in serialized
     finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_same_session_submission_admission_stays_serial_during_model_work(
+    tmp_path,
+):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = BlockingLiveWorkers()
+    facade = _facade(database, source, scenario, workers)
+    assert not hasattr(facade, "_locks")
+    assert isinstance(facade._turns, TurnOrchestrator)
+    try:
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_serial_admission_001",
+            expected_store_revision=0,
+            request_id="request_open_serial_admission",
+            trace_id="trace_open_serial_admission",
+        )
+        first_command = SubmitAdviceCommand(
+            session_id=opened.session.session_id,
+            input_turn_id="input_serial_first_001",
+            raw_input="先观察医生的反应。",
+            expected_story_revision=0,
+            expected_store_revision=1,
+            request_id="request_serial_first",
+            trace_id="trace_serial_first",
+        )
+        second_command = SubmitAdviceCommand(
+            session_id=opened.session.session_id,
+            input_turn_id="input_serial_second_001",
+            raw_input="然后再记录医生的反应。",
+            expected_story_revision=0,
+            expected_store_revision=1,
+            request_id="request_serial_second",
+            trace_id="trace_serial_second",
+        )
+
+        first = asyncio.create_task(facade.submit_live(first_command))
+        await asyncio.wait_for(workers.interpreter_started.wait(), timeout=2)
+        second = asyncio.create_task(facade.submit_live(second_command))
+        await asyncio.sleep(0)
+
+        assert not second.done()
+        assert workers.interpreter_calls == 1
+
+        workers.release_interpreter.set()
+        committed = await first
+        with pytest.raises(StoryFacadeError, match="revision_conflict"):
+            await second
+
+        assert committed.receipt.status == "committed"
+        assert workers.interpreter_calls == 1
+        assert workers.interpreted_inputs == ["先观察医生的反应。"]
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM turn_intake_commands"
+        ) == [{"count": 1}]
+    finally:
+        workers.release_interpreter.set()
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_different_sessions_do_not_block_each_other_during_model_work():
+    source = Source()
+    first_bootstrap = (
+        await StoryInitializationService(source).initialize(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_cross_session_first",
+        )
+    ).bootstrap
+    second_bootstrap = (
+        await StoryInitializationService(source).initialize(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_cross_session_second",
+        )
+    ).bootstrap
+    input_ids = ("input_cross_session_first", "input_cross_session_second")
+    workers = _ConcurrentAdmissionWorkers(input_ids)
+    records: dict[str, TurnInputReceipt] = {}
+    snapshots = {
+        bootstrap.initial_session.id: StorySessionSnapshotRecord(
+            session=bootstrap.initial_session,
+            bootstrap=bootstrap,
+            observed_store_revision=4,
+        )
+        for bootstrap in (first_bootstrap, second_bootstrap)
+    }
+
+    class Sessions:
+        async def session(self, session_id):
+            return snapshots[session_id]
+
+        async def input(self, _session_id, input_turn_id):
+            receipt = records.get(input_turn_id)
+            if receipt is None:
+                return None
+            return StoredInputRecord(
+                receipt=receipt,
+                committed_story_revision=None,
+            )
+
+    class Intake:
+        async def load(self, input_turn_id):
+            return records.get(input_turn_id)
+
+        async def receive(self, command):
+            receipt = TurnInputReceipt(
+                input_turn_id=command.input_turn_id,
+                session_id=command.session_id,
+                turn_id=command.turn_id,
+                idempotency_key=command.idempotency_key,
+                input_mode=command.input_mode,
+                input_sha256=command.input_sha256,
+                base_revisions=command.base_revisions,
+                status=TurnInputStatus.RECEIVED,
+                committed_world_revision=None,
+                public_expected_store_revision=(
+                    command.public_expected_store_revision
+                ),
+            )
+            records[receipt.input_turn_id] = receipt
+            return receipt
+
+        async def cancel(self, input_turn_id):
+            return records[input_turn_id]
+
+    intake = Intake()
+
+    class Advice:
+        async def load_advice(self, _input_turn_id):
+            return None
+
+        async def load_input(self, input_turn_id):
+            receipt = records[input_turn_id]
+            return FrozenTurnInput(
+                input_turn_id=receipt.input_turn_id,
+                session_id=receipt.session_id,
+                turn_id=receipt.turn_id,
+                idempotency_key=receipt.idempotency_key,
+                input_mode=receipt.input_mode,
+                raw_input=raw_inputs[input_turn_id],
+                input_sha256=receipt.input_sha256,
+                base_revisions=receipt.base_revisions,
+                status=receipt.status,
+                committed_world_revision=receipt.committed_world_revision,
+                public_expected_store_revision=(
+                    receipt.public_expected_store_revision
+                ),
+            )
+
+        async def publish(self, *args, **kwargs):
+            del args, kwargs
+            raise AssertionError("controlled interpreter failure must not publish")
+
+    raw_inputs = {
+        input_ids[0]: "先观察医生的反应。",
+        input_ids[1]: "记录病历里的日期。",
+    }
+    query = Sessions()
+    scenario = GoldenTestScenarioPolicy()
+    turns = TurnOrchestrator(
+        sessions=query,
+        intake=intake,
+        advice=Advice(),
+        story=None,
+        scenario=scenario,
+        workers=workers,
+    )
+    facade = StorySessionFacade(
+        initialization=None,
+        open_sessions=None,
+        query=query,
+        scenario=scenario,
+        turns=turns,
+    )
+
+    async def submit(session_id: str, input_turn_id: str, index: int):
+        return await facade.submit_live(
+            SubmitAdviceCommand(
+                session_id=session_id,
+                input_turn_id=input_turn_id,
+                raw_input=raw_inputs[input_turn_id],
+                expected_story_revision=0,
+                expected_store_revision=4,
+                request_id=f"request_cross_session_{index}",
+                trace_id=f"trace_cross_session_{index}",
+            )
+        )
+
+    first = asyncio.create_task(
+        submit(first_bootstrap.initial_session.id, input_ids[0], 1)
+    )
+    second = None
+    try:
+        try:
+            await asyncio.wait_for(
+                workers.started[input_ids[0]].wait(),
+                timeout=2,
+            )
+        except TimeoutError:
+            if first.done():
+                first.result()
+            raise
+        second = asyncio.create_task(
+            submit(second_bootstrap.initial_session.id, input_ids[1], 2)
+        )
+        await asyncio.wait_for(workers.started[input_ids[1]].wait(), timeout=2)
+        assert not first.done()
+        assert not second.done()
+    finally:
+        for release in workers.release.values():
+            release.set()
+        tasks = [first]
+        if second is not None:
+            tasks.append(second)
+        outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+
+    assert len(outcomes) == 2
+    assert all(
+        isinstance(outcome, AdviceInterpretationError)
+        and outcome.code == "controlled_model_failure"
+        for outcome in outcomes
+    )
+
+
+@pytest.mark.asyncio
+async def test_same_session_admission_is_not_held_by_post_commit_delivery(tmp_path):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = CountingWorkers()
+    delivery_started = asyncio.Event()
+    release_delivery = asyncio.Event()
+
+    async def after_commit(command, result, session):
+        del command, result, session
+        delivery_started.set()
+        await release_delivery.wait()
+        return TurnDeliveryView(state="ready")
+
+    facade = _facade(
+        database,
+        source,
+        scenario,
+        workers,
+        after_commit=after_commit,
+    )
+    try:
+        opened = await facade.open(
+            scenario_id=GOLDEN_SCENARIO_ID,
+            open_request_id="open_post_commit_lock_001",
+            expected_store_revision=0,
+            request_id="request_open_post_commit_lock",
+            trace_id="trace_open_post_commit_lock",
+        )
+        first = asyncio.create_task(
+            facade.submit(
+                SubmitAdviceCommand(
+                    session_id=opened.session.session_id,
+                    input_turn_id="input_post_commit_lock_001",
+                    raw_input=SUPPORTED_ADVICE,
+                    expected_story_revision=0,
+                    expected_store_revision=1,
+                    request_id="request_post_commit_lock_first",
+                    trace_id="trace_post_commit_lock_first",
+                )
+            )
+        )
+        await asyncio.wait_for(delivery_started.wait(), timeout=2)
+        second = asyncio.create_task(
+            facade.submit(
+                SubmitAdviceCommand(
+                    session_id=opened.session.session_id,
+                    input_turn_id="input_post_commit_lock_002",
+                    raw_input=SUPPORTED_ADVICE,
+                    expected_story_revision=1,
+                    expected_store_revision=2,
+                    request_id="request_post_commit_lock_second",
+                    trace_id="trace_post_commit_lock_second",
+                )
+            )
+        )
+
+        try:
+            with pytest.raises(StoryFacadeError, match="iteration_limit_reached"):
+                await asyncio.wait_for(second, timeout=1)
+        finally:
+            release_delivery.set()
+
+        submitted = await first
+        assert submitted.receipt.committed_story_revision == 1
+        assert submitted.delivery is not None
+        assert submitted.delivery.state == "ready"
+        assert workers.interpreter_calls == 1
+    finally:
+        release_delivery.set()
         await database.close()
 
 
@@ -541,6 +1011,90 @@ async def test_live_method_accepts_free_text_with_live_worker_using_same_policy(
 
 
 @pytest.mark.asyncio
+async def test_story_control_maps_stale_live_context_and_keeps_input_pending(
+    tmp_path,
+):
+    database, _ = await _database(tmp_path)
+    source = Source()
+    scenario = GoldenTestScenarioPolicy()
+    workers = StaleContextLiveWorkers()
+    context_bindings = _SQLiteTurnContextBindingPort(
+        SQLiteTurnContextRepository(database)
+    )
+    advice = _BoundSQLitePlayerAdviceRepository(
+        SQLitePlayerAdviceRepository(database),
+        context_bindings,
+    )
+    facade = _facade(
+        database,
+        source,
+        scenario,
+        workers,
+        advice=advice,
+        context_bindings=context_bindings,
+    )
+    handlers = story_control_handlers(facade)
+    try:
+        opened, error, retryable = await handlers["story.session.open"](
+            {
+                "request_id": "request_open_stale_context",
+                "trace_id": "trace_open_stale_context",
+                "idempotency_key": "open_stale_context",
+            },
+            {
+                "schema_version": "1.0",
+                "scenario_id": GOLDEN_SCENARIO_ID,
+                "open_request_id": "open_stale_context",
+                "expected_store_revision": 0,
+            },
+        )
+        assert error is None
+        assert not retryable
+        assert opened is not None
+        session_id = opened["session"]["session_id"]
+
+        result, error, retryable = await handlers["story.turn.submit"](
+            {
+                "request_id": "request_submit_stale_context",
+                "trace_id": "trace_submit_stale_context",
+                "idempotency_key": "input_stale_context",
+            },
+            {
+                "schema_version": "1.0",
+                "session_id": session_id,
+                "input_turn_id": "input_stale_context",
+                "raw_input": "请先观察医生的反应。",
+                "input_mode": "text",
+                "expected_story_revision": 0,
+                "expected_store_revision": 1,
+            },
+        )
+
+        assert result is None
+        assert error == "revision_conflict"
+        assert not retryable
+        assert await database.read_world(
+            "SELECT status FROM turn_intake_commands "
+            "WHERE input_turn_id=?",
+            ("input_stale_context",),
+        ) == [{"status": "received"}]
+        turn_rows = await database.read_world(
+            "SELECT turn_id FROM turn_intake_commands WHERE input_turn_id=?",
+            ("input_stale_context",),
+        )
+        assert len(turn_rows) == 1
+        assert await database.read_world(
+            "SELECT stage FROM turn_context_bindings WHERE turn_id=? "
+            "ORDER BY stage",
+            (turn_rows[0]["turn_id"],),
+        ) == [{"stage": "interpretation"}]
+        assert workers.interpreter_calls == 1
+        assert workers.proposer_calls == 1
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
 async def test_injected_conditional_exit_policy_controls_service_public_view():
     from test_scenario_policy import ConditionalExitTestPolicy
 
@@ -587,15 +1141,21 @@ async def test_injected_conditional_exit_policy_controls_service_public_view():
         async def input(self, _session_id, _input_turn_id):
             return None
 
+    query = SnapshotQuery()
+    policy = ConditionalExitTestPolicy()
     facade = StorySessionFacade(
         initialization=None,
         open_sessions=None,
-        query=SnapshotQuery(),
-        intake=None,
-        advice=None,
-        story=None,
-        scenario=ConditionalExitTestPolicy(),
-        workers=CountingWorkers(),
+        query=query,
+        scenario=policy,
+        turns=TurnOrchestrator(
+            sessions=query,
+            intake=None,
+            advice=None,
+            story=None,
+            scenario=policy,
+            workers=CountingWorkers(),
+        ),
     )
 
     view = await facade.get(session.id)
@@ -638,15 +1198,21 @@ async def test_get_fails_closed_for_unknown_frozen_scenario_identity():
                 observed_store_revision=1,
             )
 
+    query = SnapshotQuery()
+    scenario = GoldenScenarioPolicy(object())
     facade = StorySessionFacade(
         initialization=None,
         open_sessions=None,
-        query=SnapshotQuery(),
-        intake=None,
-        advice=None,
-        story=None,
-        scenario=GoldenScenarioPolicy(object()),
-        workers=CountingWorkers(),
+        query=query,
+        scenario=scenario,
+        turns=TurnOrchestrator(
+            sessions=query,
+            intake=None,
+            advice=None,
+            story=None,
+            scenario=scenario,
+            workers=CountingWorkers(),
+        ),
     )
 
     with pytest.raises(StoryFacadeError, match="unknown_scenario_identity"):

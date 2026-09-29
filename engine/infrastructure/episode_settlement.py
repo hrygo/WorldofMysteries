@@ -22,17 +22,42 @@ from application.scenario_policy import ScenarioPolicyPort
 from application.story_turn_commit import StoryTurnCommitResult
 from contracts import BeatPlan, Episode, TurnStatus
 
-from .database_manager import DatabaseManager
+from .database_manager import DatabaseManager, RevisionConflict, StorageError
 from .episode_finalization_repository import (
     EpisodeFinalizationArtifacts,
     EpisodeFinalizationRequest,
     SQLiteEpisodeFinalizationRepository,
 )
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
+from .story_session_repository import SQLiteStorySessionCommitPort
 
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+class ScenarioSettlementFailure(RuntimeError):
+    """Structured post-COMMIT failure that leaves the committed turn intact."""
+
+    def __init__(self, *, stage: str, code: str) -> None:
+        super().__init__(code)
+        self.stage = stage
+        self.code = code
+
+
+def _failure_code(error: Exception, fallback: str) -> str:
+    if isinstance(error, RevisionConflict):
+        return "revision_conflict"
+    code = getattr(error, "code", None)
+    if (
+        isinstance(code, str)
+        and code
+        and len(code) <= 128
+        and code.isascii()
+        and all(char.islower() or char.isdigit() or char == "_" for char in code)
+    ):
+        return code
+    return fallback
 
 
 class ScenarioSettlement:
@@ -52,6 +77,7 @@ class ScenarioSettlement:
         self._content_path = Path(content_path)
         self._scenario = scenario
         self._bootstraps = SQLiteStoryBootstrapRepository(database)
+        self._story = SQLiteStorySessionCommitPort(database)
         # A live turn narrates through the delivery pipeline, which publishes a
         # character segment the speech contract can authorize. The frozen
         # templates emit speakerless narration, so publishing both for one turn
@@ -63,21 +89,52 @@ class ScenarioSettlement:
     def episodes(self) -> SQLiteEpisodeFinalizationRepository:
         return self._episodes
 
-    def database_checkpoint(self, stage: str) -> None:
-        """Forward a named durability boundary to the injected fault hook."""
-        self._database.checkpoint(stage)
-
     async def settle(self, result: StoryTurnCommitResult) -> None:
-        """Idempotently settle one committed turn. Never raises."""
+        """Idempotently settle one committed turn and report post-COMMIT failures."""
+        await self._settle(result, publish_expression=True)
+
+    async def finalize_only(self, result: StoryTurnCommitResult) -> None:
+        """Finalize a terminal scenario without re-publishing its expression."""
+        await self._settle(result, publish_expression=False)
+
+    async def _settle(
+        self,
+        result: StoryTurnCommitResult,
+        *,
+        publish_expression: bool,
+    ) -> None:
         try:
-            if self._frozen_expression:
+            finalization = await self._finalization_context(result)
+            if finalization is not None and await self._episode_is_finalized(
+                result.session.id
+            ):
+                return
+        except ScenarioSettlementFailure:
+            raise
+        except Exception as exc:  # noqa: BLE001 - classify post-COMMIT lookup failures
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code=_failure_code(exc, "episode_preflight_failed"),
+            ) from exc
+
+        try:
+            if publish_expression and self._frozen_expression:
                 await self._publish_expression(result)
-            await self._finalize_terminal_scenario(result)
-        except Exception:  # noqa: BLE001 - settlement runs after the durable commit
-            # "Facts saved" and "expression pending" are distinct states: a
-            # settlement failure must never roll back a committed turn, and the
-            # repositories replay idempotently on the next attempt.
-            return
+        except Exception as exc:  # noqa: BLE001 - the turn is already durable
+            raise ScenarioSettlementFailure(
+                stage="expression_publish",
+                code=_failure_code(exc, "expression_publish_failed"),
+            ) from exc
+
+        try:
+            await self._finalize_terminal_scenario(result, finalization)
+        except ScenarioSettlementFailure:
+            raise
+        except Exception as exc:  # noqa: BLE001 - report, never disguise, failure
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code=_failure_code(exc, "episode_finalize_failed"),
+            ) from exc
 
     async def _publish_expression(self, result: StoryTurnCommitResult) -> None:
         turn = result.turn
@@ -95,30 +152,73 @@ class ScenarioSettlement:
         )
 
     async def _finalize_terminal_scenario(
-        self, result: StoryTurnCommitResult
+        self,
+        result: StoryTurnCommitResult,
+        finalization: tuple[object, object] | None,
     ) -> None:
+        if finalization is None:
+            return
         session = result.session
-        state = session.story_state
-        committed_evidence = frozenset(state.discovered_clue_ids or ())
-        decision = self._scenario.decision(session, committed_evidence)
-        if not decision.terminal:
+        bootstrap, recipe = finalization
+        if await self._episode_is_finalized(session.id):
             return
-        bootstrap = await self._bootstraps.require(session.id)
-        recipe = self._scenario.finalization_recipe(bootstrap, session)
-        if recipe is None:
-            return
+
+        target_revision = result.turn.committed_story_revision
+        target_state = session.story_state
+        current_session = await self._story.load_session(session.id)
+        if (
+            target_revision is None
+            or target_state.revision != target_revision
+            or current_session.story_state.revision != target_revision
+            or current_session.story_state != target_state
+        ):
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="session_advanced",
+            )
+        if current_session.status.value not in {"active", "closing"}:
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="session_not_finalizable",
+            )
+
+        committed_evidence = frozenset(
+            current_session.story_state.discovered_clue_ids or ()
+        )
+        decision = self._scenario.decision(current_session, committed_evidence)
+        current_recipe = self._scenario.finalization_recipe(
+            bootstrap, current_session
+        )
+        if not decision.terminal or current_recipe != recipe:
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="session_advanced",
+            )
+
         authored = _read_json(self._content_path.parent / recipe.episode_filename)
         memory_template = _read_json(
             self._content_path.parent / recipe.memory_filename
         )
-        artifacts = await self._build_artifacts(session, memory_template)
-        episode = self._build_episode(session, authored, artifacts)
+        artifacts = await self._build_artifacts(current_session, memory_template)
+        episode = self._build_episode(current_session, authored, artifacts)
+        revision_rows = await self._database.read_world(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        )
+        if (
+            len(revision_rows) != 1
+            or type(revision_rows[0]["revision"]) is not int
+            or revision_rows[0]["revision"] < 0
+        ):
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="world_revision_unavailable",
+            )
         await self._episodes.finalize(
             EpisodeFinalizationRequest(
-                session_id=session.id,
-                expected_story_revision=state.revision,
-                world_time=state.world_time or "",
-                expected_store_revision=result.store_revision,
+                session_id=current_session.id,
+                expected_story_revision=current_session.story_state.revision,
+                world_time=current_session.story_state.world_time or "",
+                expected_store_revision=revision_rows[0]["revision"],
                 idempotency_key=f"finalize-episode-{session.id}",
                 request_id=f"request_finalize_{session.id}",
                 trace_id=f"trace_finalize_{session.id}",
@@ -126,6 +226,50 @@ class ScenarioSettlement:
                 artifacts=artifacts,
             )
         )
+
+    async def _finalization_context(
+        self, result: StoryTurnCommitResult
+    ) -> tuple[object, object] | None:
+        session = result.session
+        if session.id != result.turn.session_id or result.delta.turn_id != result.turn.id:
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="episode_source_identity_mismatch",
+            )
+        committed_evidence = frozenset(
+            session.story_state.discovered_clue_ids or ()
+        )
+        decision = self._scenario.decision(session, committed_evidence)
+        if not decision.terminal:
+            return None
+        if (
+            result.turn.committed_story_revision is None
+            or session.story_state.revision != result.turn.committed_story_revision
+        ):
+            raise ScenarioSettlementFailure(
+                stage="episode_finalize",
+                code="session_advanced",
+            )
+        bootstrap = await self._bootstraps.require(session.id)
+        recipe = self._scenario.finalization_recipe(bootstrap, session)
+        if recipe is None:
+            return None
+        return bootstrap, recipe
+
+    async def _episode_is_finalized(self, session_id: str) -> bool:
+        try:
+            await self._episodes.load_by_session(session_id)
+        except StorageError as exc:
+            rows = await self._database.read_world(
+                "SELECT id FROM episodes WHERE session_id=?", (session_id,)
+            )
+            if not rows:
+                return False
+            raise ScenarioSettlementFailure(
+                stage="episode_lookup",
+                code="episode_bundle_unavailable",
+            ) from exc
+        return True
 
     async def _build_artifacts(
         self, session, memory_template: dict
@@ -320,9 +464,9 @@ class SettlingCommitPort:
             request_id=request_id,
             trace_id=trace_id,
         )
-        # Acceptance checkpoint "immediately after commit": the turn is durable
-        # but no frozen expression or Episode settlement exists yet. A fault here
-        # must recover to the same committed turn, never a second commit.
-        self._settlement.database_checkpoint("after_turn_commit")
+        # The "immediately after commit" acceptance checkpoint is announced by
+        # the commit port itself, which both wirings share. It used to be
+        # announced here, where the durable path never reaches: a boundary only
+        # the synchronous methods cross is not a boundary the run is judged on.
         await self._settlement.settle(result)
         return result

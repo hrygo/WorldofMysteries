@@ -19,14 +19,24 @@ Two capabilities are optional and are reported honestly in ``system.health``:
 """
 from __future__ import annotations
 
+import asyncio
+import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
+from ai.authorized_live_execution import AuthorizedLiveExecution
 from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
-from ai.live_turn_workers import LiveFirstTurnFactory
-from ai.openai_compatible import ModelEndpointConfig, ModelTransportError
+from ai.live_turn_workers import LiveFirstTurnFactory, LiveTurnWorkerProfiles
+from ai.openai_compatible import (
+    ModelEndpointConfig,
+    ModelTransportError,
+    OpenAICompatibleChatTransport,
+)
+from ai.prompt_renderer import PromptRenderer
 from application.audio_disclosure import AudioDisclosureAuthorizer
+from application.gameplay_context import GameplayContextCoordinator
 from application.narrative_publication import (
     CommittedNarrativeService,
     CommittedNarrativeSource,
@@ -50,6 +60,14 @@ from application.story_session_facade import (
 )
 from application.story_session_open import StorySessionOpenService
 from application.story_turn_commit import StoryTurnCommitResult
+from application.turn_context_binding import (
+    AuthorizedContextSource,
+    AuthorizedTurnContextBinding,
+    TurnContextBindingError,
+    TurnContextBindingPort,
+    TurnContextStage,
+)
+from application.turn_orchestrator import TurnOrchestrator
 
 from .audio.config import AudioProviderConfig
 from .audio.voice_delivery import (
@@ -57,7 +75,7 @@ from .audio.voice_delivery import (
     TurnDeliveryOutcome,
     TurnDeliveryPipeline,
 )
-from .audio.voice_runtime import VoiceRenderRuntime
+from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
@@ -66,10 +84,24 @@ from .episode_settlement import (
     SettlingCommitPort,
     _SettlementBeatPlanPort,
 )
+from .gameplay_context_repository import SQLiteGameplayContextRepository
 from .narrative_block_repository import SQLiteNarrativeBlockRepository
 from .outbox import OutboxProjector
 from .player_advice_repository import SQLitePlayerAdviceRepository
+from .post_commit_control import (
+    PostCommitControlError,
+    PostCommitControlService,
+)
+from .post_commit_job_repository import SQLitePostCommitJobRepository
+from .post_commit_reconciliation import PostCommitReconciler
+from .post_commit_worker import PostCommitWorker
 from .scenarios.golden_policy import GoldenScenarioPolicy, GoldenScenarioWorkers
+from .scenarios.post_commit_handlers import (
+    ScenarioAudioPrepareHandler,
+    ScenarioEpisodeFinalizeHandler,
+    ScenarioNarrativePublishHandler,
+)
+from .scenarios.post_commit_planning import ScenarioPostCommitJobPlanner
 from .story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from .story_content_repository import SQLiteStoryContentRepository
 from .story_control import StoryRequestHandler, story_control_handlers
@@ -80,6 +112,11 @@ from .story_expression_control import (
 from .story_session_open_repository import SQLiteStorySessionOpenPort
 from .story_session_query import SQLiteStorySessionQuery
 from .story_session_repository import SQLiteStorySessionCommitPort
+from .turn_context_repository import (
+    SQLiteTurnContextRepository,
+    TurnContextBinding,
+    TurnContextStorageConflict,
+)
 from .turn_intake_repository import SQLiteTurnInputCommandPort
 from .voice_binding_repository import SQLiteVoiceBindingRepository
 from .voice_binding_resolver import (
@@ -111,6 +148,202 @@ def load_five_turn_catalog(
     return GoldenFiveTurnCatalog.from_directory(
         base / "turns", base / "mock", seed=seed
     )
+
+
+class _SQLiteTurnContextBindingPort(TurnContextBindingPort):
+    """Adapt the application-only binding DTO to the frozen SQLite model."""
+
+    def __init__(self, repository: SQLiteTurnContextRepository) -> None:
+        self._repository = repository
+
+    @staticmethod
+    def _storage_binding(
+        binding: AuthorizedTurnContextBinding,
+    ) -> TurnContextBinding:
+        stored = TurnContextBinding.from_manifest(
+            turn_id=binding.turn_id,
+            stage=binding.stage,
+            input_turn_id=binding.input_turn_id,
+            source_store_revision=binding.source_store_revision,
+            source_story_revision=binding.source_story_revision,
+            policy_revision=binding.policy_revision,
+            content_digest=binding.content_digest,
+            lineage_digest=binding.lineage_digest,
+            manifest=[
+                {
+                    "source_id": source.source_id,
+                    "source_revision": source.source_revision,
+                    "fingerprint": source.fingerprint,
+                }
+                for source in binding.manifest
+            ],
+        )
+        if (
+            stored.context_revision != binding.context_revision
+            or stored.manifest_digest != binding.manifest_digest
+        ):
+            raise TurnContextBindingError("revision_conflict")
+        return stored
+
+    @staticmethod
+    def _application_binding(
+        binding: TurnContextBinding,
+    ) -> AuthorizedTurnContextBinding:
+        value = AuthorizedTurnContextBinding(
+            turn_id=binding.turn_id,
+            stage=binding.stage,  # type: ignore[arg-type]
+            input_turn_id=binding.input_turn_id,
+            source_store_revision=binding.source_store_revision,
+            source_story_revision=binding.source_story_revision,
+            policy_revision=binding.policy_revision,
+            content_digest=binding.content_digest,
+            lineage_digest=binding.lineage_digest,
+            manifest=tuple(
+                AuthorizedContextSource(
+                    source_id=source.source_id,
+                    source_revision=source.source_revision,
+                    fingerprint=source.fingerprint,
+                )
+                for source in binding.manifest
+            ),
+        )
+        if (
+            value.context_revision != binding.context_revision
+            or value.manifest_digest != binding.manifest_digest
+        ):
+            raise TurnContextBindingError("revision_conflict")
+        return value
+
+    async def save(
+        self,
+        binding: AuthorizedTurnContextBinding,
+    ) -> AuthorizedTurnContextBinding:
+        if not isinstance(binding, AuthorizedTurnContextBinding):
+            raise TurnContextBindingError("turn_identity_conflict")
+        try:
+            stored = await self._repository.save(self._storage_binding(binding))
+        except TurnContextStorageConflict as exc:
+            raise TurnContextBindingError(exc.code) from None
+        return self._application_binding(stored)
+
+    async def load(
+        self,
+        *,
+        turn_id: str,
+        stage: TurnContextStage,
+    ) -> AuthorizedTurnContextBinding | None:
+        try:
+            stored = await self._repository.load(turn_id=turn_id, stage=stage)
+        except TurnContextStorageConflict as exc:
+            raise TurnContextBindingError(exc.code) from None
+        return None if stored is None else self._application_binding(stored)
+
+
+class _BoundSQLitePlayerAdviceRepository:
+    """Keep infrastructure binding types behind this runtime adapter."""
+
+    def __init__(
+        self,
+        repository: SQLitePlayerAdviceRepository,
+        contexts: _SQLiteTurnContextBindingPort,
+    ) -> None:
+        self._repository = repository
+        self._contexts = contexts
+
+    async def load_input(self, input_turn_id: str):
+        return await self._repository.load_input(input_turn_id)
+
+    async def load_advice(self, input_turn_id: str):
+        return await self._repository.load_advice(input_turn_id)
+
+    async def publish(
+        self,
+        input_turn_id: str,
+        advice,
+        *,
+        interpreter_revision: str,
+        context_binding: AuthorizedTurnContextBinding | None = None,
+    ):
+        storage_binding = (
+            None
+            if context_binding is None
+            else self._contexts._storage_binding(context_binding)
+        )
+        try:
+            return await self._repository.publish(
+                input_turn_id,
+                advice,
+                interpreter_revision=interpreter_revision,
+                context_binding=storage_binding,
+            )
+        except TurnContextStorageConflict as exc:
+            raise TurnContextBindingError(exc.code) from None
+
+
+async def _live_worker_factory(
+    database: DatabaseManager,
+    endpoint: ModelEndpointConfig,
+) -> LiveFirstTurnFactory:
+    repository = SQLiteGameplayContextRepository(database)
+    coordinator = GameplayContextCoordinator(
+        snapshot=repository,
+        authorization=repository,
+        profiles=LiveTurnWorkerProfiles(),
+        lore=repository.lore_port,
+        world=repository.world_port,
+        character=repository.character_port,
+        story=repository.story_port,
+        memory=repository.memory_port,
+    )
+    transport = OpenAICompatibleChatTransport(endpoint)
+    try:
+        execution = AuthorizedLiveExecution(
+            coordinator=coordinator,
+            renderer=PromptRenderer(secrets.token_bytes(32)),
+            transport=transport,
+            validate_proposal=lambda proposal, _request: isinstance(proposal, dict),
+        )
+    except BaseException:
+        await transport.aclose()
+        raise
+    return LiveFirstTurnFactory(execution)
+
+
+def _post_commit_control_handlers(
+    service: PostCommitControlService,
+) -> dict[str, StoryRequestHandler]:
+    """Expose the durable work projection and explicit retry at the IPC edge."""
+
+    async def get_work(
+        _context: Mapping[str, object], payload: Mapping[str, object]
+    ) -> tuple[dict[str, object] | None, str | None, bool]:
+        try:
+            result = await service.get_work(
+                session_id=cast(str, payload.get("session_id")),
+                turn_id=cast(str, payload.get("turn_id")),
+            )
+        except PostCommitControlError as exc:
+            return None, exc.code, False
+        return result.to_payload(), None, False
+
+    async def retry_work(
+        _context: Mapping[str, object], payload: Mapping[str, object]
+    ) -> tuple[dict[str, object] | None, str | None, bool]:
+        try:
+            result = await service.retry_work(
+                session_id=cast(str, payload.get("session_id")),
+                turn_id=cast(str, payload.get("turn_id")),
+                kind=cast(str, payload.get("kind")),
+                retry_request_id=cast(str, payload.get("retry_request_id")),
+            )
+        except PostCommitControlError as exc:
+            return None, exc.code, False
+        return result.to_payload(), None, False
+
+    return {
+        "story.turn.work.get": get_work,
+        "story.turn.work.retry": retry_work,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +383,72 @@ class StoryRuntimeConfig:
         )
 
 
+async def _close_runtime_resources(
+    *,
+    post_commit_worker: PostCommitWorker | None,
+    workers: TurnWorkerFactory | None,
+    voice: VoiceRenderRuntime | None,
+    database: DatabaseManager,
+) -> None:
+    """Release runtime resources once, continuing after independent failures."""
+
+    errors: list[BaseException] = []
+    if post_commit_worker is not None:
+        try:
+            await post_commit_worker.stop()
+        except asyncio.CancelledError as error:
+            if post_commit_worker.is_running:
+                errors.append(error)
+                try:
+                    post_commit_worker.request_stop()
+                    await post_commit_worker.stop()
+                except BaseException as retry_error:  # noqa: BLE001 - keep releasing independent resources.
+                    errors.append(retry_error)
+                if post_commit_worker.is_running:
+                    _raise_cleanup_errors(errors)
+        except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
+            errors.append(error)
+            # Closing the model or database while an in-flight worker can still
+            # use them is unsafe. Retry the worker's idempotent stop once, then
+            # stop cleanup only if it remains active.
+            if post_commit_worker.is_running:
+                try:
+                    post_commit_worker.request_stop()
+                    await post_commit_worker.stop()
+                except BaseException as retry_error:  # noqa: BLE001 - keep releasing independent resources.
+                    errors.append(retry_error)
+                if post_commit_worker.is_running:
+                    _raise_cleanup_errors(errors)
+
+    close_workers = getattr(workers, "aclose", None)
+    if callable(close_workers):
+        try:
+            await close_workers()
+        except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
+            errors.append(error)
+
+    if voice is not None:
+        try:
+            await voice.aclose()
+        except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
+            errors.append(error)
+
+    try:
+        await database.close()
+    except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
+        errors.append(error)
+
+    if errors:
+        _raise_cleanup_errors(errors)
+
+
+def _raise_cleanup_errors(errors: list[BaseException]) -> None:
+    primary = errors[0]
+    for extra in errors[1:]:
+        primary.add_note(f"additional shutdown failure: {extra!r}")
+    raise primary
+
+
 class StoryRuntime:
     """Owns the story database handle and the public handler registry."""
 
@@ -161,31 +460,25 @@ class StoryRuntime:
         content: TrustedScenarioBundle,
         model_ready: bool,
         voice: VoiceRenderRuntime | None,
+        post_commit_worker: PostCommitWorker | None,
+        workers: TurnWorkerFactory,
+        beat_plans: SQLiteBeatPlanRepository,
+        episodes: SQLiteEpisodeFinalizationRepository,
+        projector: OutboxProjector,
+        handlers: dict[str, StoryRequestHandler],
     ) -> None:
         self._database = database
         self._facade = facade
         self._content = content
-        # Durable capabilities reachable from the composition root. Frozen
-        # expression (BeatPlan), Story Book restart reads and the rebuildable
-        # retrieval projection. The five-turn catalog is resolved from the
-        # module-relative packaged content, so the App can run all five turns.
-        self._beat_plans = SQLiteBeatPlanRepository(database)
-        self._episodes = SQLiteEpisodeFinalizationRepository(database)
-        self._projector = OutboxProjector(database)
         self._model_ready = model_ready
         self._voice = voice
-        narrative_port = SQLiteNarrativeBlockRepository(database)
-        expression = StoryExpressionQueryService(
-            reads=narrative_port,
-            disclosure=AudioDisclosureAuthorizer(narrative_port),
-            identities=SQLiteNarrativePublicIdentityReader(
-                SQLiteStoryBootstrapRepository(database)
-            ),
-        )
-        self._handlers = {
-            **story_control_handlers(facade),
-            **story_expression_control_handlers(expression),
-        }
+        self._post_commit_worker = post_commit_worker
+        self._workers = workers
+        self._beat_plans = beat_plans
+        self._episodes = episodes
+        self._projector = projector
+        self._handlers = dict(handlers)
+        self._close_task: asyncio.Task[None] | None = None
 
     @classmethod
     async def open(
@@ -197,7 +490,10 @@ class StoryRuntime:
         model_endpoint: ModelEndpointConfig | None = None,
         audio_config: AudioProviderConfig | None = None,
         fetch_json=None,
+        durable_post_commit: bool = False,
     ) -> StoryRuntime:
+        if type(durable_post_commit) is not bool:
+            raise ValueError("durable_post_commit_must_be_boolean")
         content_repository = SQLiteStoryContentRepository(config.content_path)
         content = await content_repository.load(GOLDEN_SCENARIO_ID)
         catalog = load_five_turn_catalog(config.content_path, content.seed)
@@ -206,9 +502,17 @@ class StoryRuntime:
             expected_sqlite_version=expected_sqlite_version,
             fault_hook=fault_hook,
         )
+        voice = None
+        workers: TurnWorkerFactory | None = None
+        runtime: StoryRuntime | None = None
         try:
             voice = cls._open_voice(audio_config)
-            facade = await cls._build_facade(
+            workers = (
+                await _live_worker_factory(database, model_endpoint)
+                if model_endpoint is not None
+                else GoldenScenarioWorkers(GoldenFiveTurnFactory(catalog))
+            )
+            runtime = cls._compose_runtime(
                 database,
                 content_repository,
                 content,
@@ -218,20 +522,31 @@ class StoryRuntime:
                 model_endpoint=model_endpoint,
                 voice=voice,
                 audio_config=audio_config,
+                workers=workers,
                 fetch_json=fetch_json,
+                durable_post_commit=durable_post_commit,
             )
-        except BaseException:
-            if voice is not None:
-                await voice.aclose()
-            await database.close()
+            if durable_post_commit:
+                await PostCommitReconciler(database).reconcile()
+            if runtime._post_commit_worker is not None:
+                await runtime._post_commit_worker.start()
+            return runtime
+        except BaseException as failure:
+            try:
+                if runtime is not None:
+                    await runtime.close()
+                else:
+                    await _close_runtime_resources(
+                        post_commit_worker=None,
+                        workers=workers,
+                        voice=voice,
+                        database=database,
+                    )
+            except BaseException as cleanup_error:  # noqa: BLE001 - preserve startup failure after cleanup.
+                failure.add_note(
+                    f"runtime cleanup also failed: {cleanup_error!r}"
+                )
             raise
-        return cls(
-            database=database,
-            facade=facade,
-            content=content,
-            model_ready=model_endpoint is not None,
-            voice=voice,
-        )
 
     @staticmethod
     def _open_voice(audio_config: AudioProviderConfig | None) -> VoiceRenderRuntime | None:
@@ -243,7 +558,7 @@ class StoryRuntime:
         return VoiceRenderRuntime(provider_instance=audio_config.provider_name)
 
     @classmethod
-    async def _build_facade(
+    def _compose_runtime(
         cls,
         database: DatabaseManager,
         content_repository: SQLiteStoryContentRepository,
@@ -255,28 +570,57 @@ class StoryRuntime:
         model_endpoint: ModelEndpointConfig | None,
         voice: VoiceRenderRuntime | None,
         audio_config: AudioProviderConfig | None,
+        workers: TurnWorkerFactory,
         fetch_json,
-    ) -> StorySessionFacade:
+        durable_post_commit: bool = False,
+    ) -> StoryRuntime:
         golden = GoldenFiveTurnFactory(catalog)
         scenario = GoldenScenarioPolicy(golden)
         # Validate the packaged bundle before exposing a runtime. Persisted
         # sessions repeat this check against their frozen bootstrap on reads.
-        scenario.identity(content)
-        workers = (
-            LiveFirstTurnFactory.from_config(model_endpoint)
+        identity = scenario.identity(content)
+        # AO-03: the committed turn registers its own post-COMMIT intents in the
+        # same transaction, so the minimal job graph is decided by the same
+        # frozen scenario the turn was played under. A voice runtime without
+        # provider configuration still counts as "voice not configured": the
+        # audio job starts blocked and never holds back text or the Episode.
+        planner = (
+            ScenarioPostCommitJobPlanner(
+                scenario=scenario,
+                identity=identity,
+                story_seed_id=str(content.seed["id"]),
+                max_turn=golden.max_turn,
+                voice_configured=voice is not None and audio_config is not None,
+            )
+            if durable_post_commit
+            else None
+        )
+        context_bindings = _SQLiteTurnContextBindingPort(
+            SQLiteTurnContextRepository(database)
+        )
+        live_context_bindings = (
+            context_bindings if model_endpoint is not None else None
+        )
+        advice_repository = SQLitePlayerAdviceRepository(database)
+        advice = (
+            _BoundSQLitePlayerAdviceRepository(
+                advice_repository,
+                context_bindings,
+            )
             if model_endpoint is not None
-            else GoldenScenarioWorkers(golden)
+            else advice_repository
+        )
+        expression = PostCommitExpressionService(
+            templates=golden.expression_templates,
+            beats=_SettlementBeatPlanPort(
+                SQLiteBeatPlanRepository(database), database
+            ),
+            narratives=SQLiteNarrativeBlockRepository(database),
         )
         settlement = ScenarioSettlement(
             database=database,
             scenario=scenario,
-            expression=PostCommitExpressionService(
-                templates=golden.expression_templates,
-                beats=_SettlementBeatPlanPort(
-                    SQLiteBeatPlanRepository(database), database
-                ),
-                narratives=SQLiteNarrativeBlockRepository(database),
-            ),
+            expression=expression,
             content_path=content_path,
             # With a live model the post-COMMIT narrative service publishes its
             # disclosed model expression; frozen templates would be a second
@@ -298,20 +642,128 @@ class StoryRuntime:
             audio_config=audio_config,
             voice_id=config.voice_id,
             workers=workers,
+            context_bindings=live_context_bindings,
             fetch_json=fetch_json,
         )
-        return StorySessionFacade(
-            initialization=StoryInitializationService(content_repository),
-            open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
-            query=query,
-            intake=SQLiteTurnInputCommandPort(database),
-            advice=SQLitePlayerAdviceRepository(database),
-            story=SettlingCommitPort(
-                SQLiteStorySessionCommitPort(database), settlement
-            ),
+        story_port = SQLiteStorySessionCommitPort(database, planner=planner)
+        story = (
+            story_port
+            if durable_post_commit
+            else SettlingCommitPort(story_port, settlement)
+        )
+        initialization = StoryInitializationService(content_repository)
+        open_sessions = StorySessionOpenService(
+            SQLiteStorySessionOpenPort(database)
+        )
+        intake = SQLiteTurnInputCommandPort(database)
+        turns = TurnOrchestrator(
+            sessions=query,
+            intake=intake,
+            advice=advice,
+            story=story,
             scenario=scenario,
             workers=workers,
-            after_commit=delivery.after_commit,
+            context=live_context_bindings,
+            work=None if durable_post_commit else delivery.after_commit,
+        )
+        facade = StorySessionFacade(
+            initialization=initialization,
+            open_sessions=open_sessions,
+            query=query,
+            scenario=scenario,
+            turns=turns,
+        )
+        post_commit_worker = None
+        if durable_post_commit:
+            assert planner is not None
+            read_story = SQLiteStorySessionCommitPort(database)
+            bootstraps = SQLiteStoryBootstrapRepository(database)
+            narratives = SQLiteNarrativeBlockRepository(database)
+            bindings = SQLiteVoiceBindingRepository(database)
+            post_commit_worker = PostCommitWorker(
+                database=database,
+                repository=SQLitePostCommitJobRepository(database),
+                narrative_handler=ScenarioNarrativePublishHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    advice=advice_repository,
+                    narratives=narratives,
+                    beat_plans=SQLiteBeatPlanRepository(database),
+                    expression=expression,
+                    workers=workers,
+                    frozen_expression=model_endpoint is None,
+                    context_bindings=live_context_bindings,
+                ),
+                episode_finalize_handler=ScenarioEpisodeFinalizeHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    settlement=settlement,
+                ),
+                audio_prepare_handler=ScenarioAudioPrepareHandler(
+                    database=database,
+                    story=read_story,
+                    bootstraps=bootstraps,
+                    narratives=narratives,
+                    bindings=bindings,
+                    voice=voice,
+                    audio_config=audio_config,
+                    voice_id=config.voice_id,
+                    dictionary_revision=DICTIONARY_REVISION,
+                    fetch_json=fetch_json,
+                ),
+                supported_recipes=planner.supported_recipes,
+            )
+
+        beat_plans = SQLiteBeatPlanRepository(database)
+        episodes = SQLiteEpisodeFinalizationRepository(database)
+        projector = OutboxProjector(database)
+        public_narratives = SQLiteNarrativeBlockRepository(database)
+        expression_query = StoryExpressionQueryService(
+            reads=public_narratives,
+            disclosure=AudioDisclosureAuthorizer(public_narratives),
+            identities=SQLiteNarrativePublicIdentityReader(
+                SQLiteStoryBootstrapRepository(database)
+            ),
+        )
+        story_handlers = story_control_handlers(facade)
+        if durable_post_commit:
+            story_handlers["story.advice.submit.v2"] = story_handlers.pop(
+                "story.advice.submit"
+            )
+            story_handlers["story.turn.submit.v2"] = story_handlers.pop(
+                "story.turn.submit"
+            )
+            post_commit_control = PostCommitControlService(
+                database=database,
+                jobs=SQLitePostCommitJobRepository(database),
+                expression=expression_query,
+                registry=(
+                    voice.sealed_units
+                    if voice is not None
+                    else SealedSpeechUnitRegistry()
+                ),
+            )
+            story_handlers.update(
+                _post_commit_control_handlers(post_commit_control)
+            )
+        handlers = {
+            **story_handlers,
+            **story_expression_control_handlers(expression_query),
+        }
+        return cls(
+            database=database,
+            facade=facade,
+            content=content,
+            model_ready=model_endpoint is not None,
+            voice=voice,
+            post_commit_worker=post_commit_worker,
+            workers=workers,
+            beat_plans=beat_plans,
+            episodes=episodes,
+            projector=projector,
+            handlers=handlers,
         )
 
     @property
@@ -360,9 +812,19 @@ class StoryRuntime:
         }
 
     async def close(self) -> None:
-        if self._voice is not None:
-            await self._voice.aclose()
-        await self._database.close()
+        task = self._close_task
+        if task is None:
+            task = asyncio.create_task(
+                _close_runtime_resources(
+                    post_commit_worker=self._post_commit_worker,
+                    workers=self._workers,
+                    voice=self._voice,
+                    database=self._database,
+                ),
+                name="story-runtime-close",
+            )
+            self._close_task = task
+        await asyncio.shield(task)
 
 
 class _DeliveryCoordinator:
@@ -378,6 +840,7 @@ class _DeliveryCoordinator:
         audio_config: AudioProviderConfig | None,
         voice_id: str | None,
         workers: TurnWorkerFactory,
+        context_bindings: TurnContextBindingPort | None,
         fetch_json,
     ) -> None:
         self._query = query
@@ -387,15 +850,17 @@ class _DeliveryCoordinator:
         self._audio = audio_config
         self._voice_id = voice_id
         self._workers = workers
+        self._context_bindings = context_bindings
         self._fetch_json = fetch_json
 
     async def after_commit(
         self,
         command: SubmitAdviceCommand,
         result: StoryTurnCommitResult,
-        view: PublicStorySessionView,
+        view: PublicStorySessionView | None = None,
     ) -> TurnDeliveryView:
         """Post-COMMIT expression.  A failure here never touches Domain state."""
+        del view
         try:
             snapshot = await self._query.session(command.session_id)
         except Exception:  # noqa: BLE001 - a read failure cannot unwind COMMIT
@@ -418,10 +883,9 @@ class _DeliveryCoordinator:
                     state_delta=result.delta,
                     scene_id=result.delta.story_delta.scene_id,
                     protagonist_id=result.session.protagonist_id,
-                    disclosed_facts=(
-                        f"{_outcome_summary(result, snapshot.bootstrap)}\n"
-                        f"玩家原话：{command.raw_input}"
-                    ),
+                    disclosed_facts=_outcome_summary(result, snapshot.bootstrap),
+                    input_turn_id=command.input_turn_id,
+                    source_store_revision=result.store_revision,
                 )
             else:
                 # Frozen turns publish their authored NarrativeBlock during
@@ -438,6 +902,7 @@ class _DeliveryCoordinator:
             reads=self._narratives,
             publisher=self._narratives,
             compiler=compiler,
+            context_bindings=self._context_bindings,
         )
         try:
             narrative = await publication.ensure(
@@ -567,7 +1032,14 @@ def _outcome_summary(result: StoryTurnCommitResult, bootstrap) -> str:
     """
     names = bootstrap.presentation.clue_display_names
     delta = result.delta
-    added = [names.get(cid, cid) for cid in (delta.story_delta.clue_ids_add or ())]
+    # COMMIT has already happened. Omit a clue whose public display label is
+    # absent instead of leaking its canonical identifier into the expression
+    # request or failing the committed turn.
+    added = [
+        name
+        for clue_id in delta.story_delta.clue_ids_add or ()
+        if (name := names.get(clue_id)) is not None
+    ]
     parts = [f"结果判定：{delta.outcome}"]
     if added:
         parts.append("玩家发现了：" + "、".join(added))

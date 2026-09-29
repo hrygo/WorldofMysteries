@@ -13,7 +13,13 @@ import pytest
 
 from engine.infrastructure.outbox import OutboxProjector
 from engine.infrastructure.database_manager import StorageError
+from engine.infrastructure.post_commit_job_repository import (
+    PostCommitJobSpec,
+    SQLitePostCommitJobRepository,
+)
 from test_database_manager import paths, database, request, increment, open_database, ROOT
+
+from datetime import UTC, datetime
 
 
 def rows(path, sql):
@@ -259,3 +265,183 @@ async def test_outbox_missing_identity_is_not_silently_adopted(database):
         conn.execute('DELETE FROM projection_meta')
     with pytest.raises(StorageError, match='identity is missing'):
         await OutboxProjector(database).run_once()
+
+
+# ---------------------------------------------------------------------------
+# AO-03: the durable post-COMMIT work queue and the retrieval projection are
+# two independent ACKs over the same authoritative world.
+#
+# README common decision 2 forbids reusing ``projection_outbox`` as the
+# expression task queue, and AO-03 guide section 7 requires this file to prove
+# the runtime consequence: running a complete post-COMMIT work lifecycle must
+# leave every projection_outbox row byte-identical, and the projection must
+# still rebuild in full afterwards. The authorizer test in
+# ``test_post_commit_jobs.py`` only proves that a hand-written outbox statement
+# is rejected; it does not prove the production work path never issues one, nor
+# that the two subsystems coexist on one world database.
+# ---------------------------------------------------------------------------
+
+_WORK_CLOCK = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
+
+
+def _outbox_snapshot(database):
+    with closing(sqlite3.connect(database.paths.world)) as conn:
+        conn.row_factory = sqlite3.Row
+        return [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM projection_outbox ORDER BY revision"
+            )
+        ]
+
+
+def _job_snapshot(database):
+    with closing(sqlite3.connect(database.paths.world)) as conn:
+        conn.row_factory = sqlite3.Row
+        return [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM post_commit_jobs ORDER BY job_id"
+            )
+        ]
+
+
+def _world_revision_of(database):
+    with closing(sqlite3.connect(database.paths.world)) as conn:
+        return conn.execute(
+            "SELECT revision FROM world_meta WHERE singleton=1"
+        ).fetchone()[0]
+
+
+def _seed_story_turn(tx):
+    """Insert a committed Story turn so post-COMMIT jobs have a real FK source."""
+    tx.execute(
+        "INSERT INTO story_sessions("
+        "id,world_id,worldline_id,protagonist_id,story_seed_id,"
+        "base_world_revision,base_character_revision,base_story_revision,"
+        "story_revision,status,story_state_json,committed_world_revision"
+        ") VALUES ('session-1','world.test','line.one','player-test','seed-test',"
+        "0,0,0,1,'active','{}',?)",
+        (tx.revision,),
+    )
+    tx.execute(
+        "INSERT INTO story_state_deltas("
+        "id,session_id,turn_id,story_revision,payload_json,committed_world_revision"
+        ") VALUES ('delta-turn-1','session-1','turn-1',1,'{}',?)",
+        (tx.revision,),
+    )
+    tx.execute(
+        "INSERT INTO turn_transactions("
+        "id,session_id,idempotency_key,status,base_world_revision,"
+        "base_character_revision,base_story_revision,state_delta_id,"
+        "committed_story_revision,transaction_json,committed_world_revision"
+        ") VALUES ('turn-1','session-1','turn-idem-1','committed',"
+        "0,0,0,'delta-turn-1',1,'{}',?)",
+        (tx.revision,),
+    )
+
+
+def _spec(job_id, kind, recipe):
+    return PostCommitJobSpec(
+        job_id=job_id,
+        turn_id="turn-1",
+        session_id="session-1",
+        kind=kind,
+        recipe_revision=recipe,
+        source_story_revision=1,
+        source_world_revision=2,
+        input_digest="sha256:" + "a" * 64,
+    )
+
+
+async def test_post_commit_work_ack_never_touches_projection_outbox(database):
+    await database.commit_resolved(request(), increment)
+    await database.commit_resolved(request(2), _seed_story_turn)
+    repository = SQLitePostCommitJobRepository(database)
+
+    outbox_before = _outbox_snapshot(database)
+    jobs_before = _job_snapshot(database)
+    revision_before = _world_revision_of(database)
+    assert len(outbox_before) == 2
+    assert jobs_before == []
+
+    # A complete work lifecycle: register three kinds, succeed one, drive one
+    # through the automatic-retry schedule, and explicitly retry it.
+    await database.post_commit_job_write(
+        lambda tx: repository.register(
+            tx,
+            (
+                _spec("work-narrative", "narrative_publish", "narrative-v1"),
+                _spec("work-episode", "episode_finalize", "episode-v1"),
+                _spec("work-audio", "audio_prepare", "audio-v1"),
+            ),
+        )
+    )
+    narrative = await repository.claim(
+        session_id="session-1",
+        lease_owner="qa-worker",
+        supported_recipes={"narrative_publish": {"narrative-v1"}},
+        now=_WORK_CLOCK,
+    )
+    assert narrative is not None and narrative.job_id == "work-narrative"
+    await repository.complete(
+        narrative.job_id,
+        lease_owner=narrative.lease_owner,
+        lease_generation=narrative.lease_generation,
+        result_ref="narrative-result",
+    )
+    episode = await repository.claim(
+        session_id="session-1",
+        lease_owner="qa-worker",
+        supported_recipes={"episode_finalize": {"episode-v1"}},
+        now=_WORK_CLOCK,
+    )
+    assert episode is not None and episode.job_id == "work-episode"
+    await repository.fail(
+        episode.job_id,
+        lease_owner=episode.lease_owner,
+        lease_generation=episode.lease_generation,
+        error_code="temporary_network_failure",
+        retryable=True,
+        now=_WORK_CLOCK,
+    )
+    await repository.retry(episode.job_id, request_id="qa-retry-1")
+
+    # The work ACK changed only the job table. The projection queue is
+    # byte-identical and the authoritative world revision did not move.
+    assert _outbox_snapshot(database) == outbox_before
+    assert _world_revision_of(database) == revision_before
+    assert {
+        job["job_id"]: job["state"] for job in _job_snapshot(database)
+    } == {
+        # Succeeded by the worker's own artifact-first completion.
+        "work-narrative": "succeeded",
+        # Back to pending by the explicit, idempotent retry request.
+        "work-episode": "pending",
+        # Still waiting: its narrative dependency has not published a
+        # narrative_blocks row yet, so no claim was ever offered.
+        "work-audio": "pending",
+    }
+
+    # Reverse direction: the projection ACK must not disturb durable work.
+    jobs_before_projection = _job_snapshot(database)
+    revision_before_projection = _world_revision_of(database)
+    projector = OutboxProjector(database)
+    result = await projector.run_once()
+
+    assert (result.indexed_revision, result.applied_events) == (2, 2)
+    assert await pending(database) == 0
+    projected = rows(database.paths.retrieval, "SELECT * FROM projected_events")
+    assert len(projected) == 2
+    assert _job_snapshot(database) == jobs_before_projection
+    assert _world_revision_of(database) == revision_before_projection
+
+    # And the retrieval projection is still rebuildable from scratch after the
+    # work lifecycle ran: deleting it changes no authoritative fact and no job.
+    with closing(sqlite3.connect(database.paths.retrieval)) as conn:
+        conn.execute("DELETE FROM projected_events")
+        conn.execute("DELETE FROM projection_meta")
+    rebuilt = await OutboxProjector(database).run_once()
+    assert rebuilt.applied_events == 0
+    assert _job_snapshot(database) == jobs_before_projection
+    assert _world_revision_of(database) == revision_before_projection

@@ -1,30 +1,40 @@
 """Post-COMMIT job schema and scoped writer boundary tests."""
 from __future__ import annotations
 
+import sqlite3 as stdlib_sqlite3
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import sqlite3 as stdlib_sqlite3
 
 import pytest
-
-from engine.infrastructure import database_manager, database_schema
+from engine.contracts import StateDelta, StorySession, StoryState, TurnTransaction
+from engine.infrastructure import (
+    database_manager,
+    database_schema,
+)
 from engine.infrastructure.database_manager import DatabaseManager, DatabasePaths
 from engine.infrastructure.database_schema import (
     APPLICATION_IDS,
+    StorageError,
     connect,
     initialize,
     integrity,
     statements,
 )
-from engine.infrastructure.sqlite_runtime import sqlite3
 from engine.infrastructure.post_commit_job_repository import (
     PostCommitJobConflict,
+    PostCommitJobRegistration,
     PostCommitJobSpec,
     PostCommitLeaseConflict,
     SQLitePostCommitJobRepository,
 )
+from engine.infrastructure.sqlite_runtime import sqlite3
+from engine.infrastructure.story_session_repository import (
+    PlannedPostCommitJob,
+    SQLiteStorySessionCommitPort,
+)
 
+from application.post_commit_work import PostCommitJobState, PostCommitKind
 
 _JOB_COLUMNS = (
     "job_id",
@@ -221,7 +231,7 @@ def test_v12_upgrade_creates_empty_post_commit_tables_with_constraints_and_backu
     with closing(connect(path)) as connection:
         initialize(connection, "world", path=path)
 
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 13
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
         assert {
             "post_commit_jobs",
             "post_commit_retry_requests",
@@ -321,7 +331,7 @@ def test_v12_upgrade_creates_empty_post_commit_tables_with_constraints_and_backu
             )
         integrity(connection)
 
-    backup = path.with_name("world.db.pre-migration-v12-to-v13.bak")
+    backup = path.with_name("world.db.pre-migration-v12-to-v14.bak")
     assert backup.is_file()
     with closing(connect(backup, readonly=True)) as snapshot:
         assert snapshot.execute("PRAGMA user_version").fetchone()[0] == 12
@@ -630,6 +640,477 @@ async def _world_revision(database: DatabaseManager) -> int:
         "SELECT revision FROM world_meta WHERE singleton=1"
     )
     return rows[0]["revision"]
+
+
+def _story_commit_inputs(
+    *,
+    session_id: str = "planned-session",
+    turn_id: str = "planned-turn",
+) -> tuple[StorySession, StateDelta, TurnTransaction]:
+    delta_id = f"delta-{turn_id}"
+    state = StoryState.model_validate(
+        {
+            "schema_version": "1.0",
+            "story_session_id": session_id,
+            "revision": 1,
+            "turn": 1,
+            "phase": "discovery",
+            "scene": {
+                "id": "scene-1",
+                "location_id": "room-1",
+                "active_character_ids": ["player-1"],
+            },
+            "world_time": "1349-06-12T21:40:00",
+            "protagonist_goal": "investigate",
+            "active_conflicts": [],
+            "discovered_clue_ids": [],
+            "secret_states": {},
+            "commitments": {"hard_ids": [], "soft_ids": []},
+            "local_state": {},
+            "pressure": {},
+            "last_state_delta_id": delta_id,
+        }
+    )
+    session = StorySession.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": session_id,
+            "world_id": "world-test",
+            "worldline_id": "line-test",
+            "protagonist_id": "player-1",
+            "story_seed_id": "seed-test",
+            "base_revisions": {"world": 0, "character": 0, "story": 0},
+            "story_state": state.model_dump(mode="json", exclude_none=True),
+            "status": "active",
+        }
+    )
+    delta = StateDelta.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": delta_id,
+            "turn_id": turn_id,
+            "outcome": "clean_success",
+            "story_delta": {},
+            "character_deltas": [],
+            "world_event_candidates": [],
+            "evidence_ids": [],
+        }
+    )
+    turn = TurnTransaction.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": turn_id,
+            "session_id": session_id,
+            "idempotency_key": f"idempotency-{turn_id}",
+            "status": "committed",
+            "base_revisions": {"world": 0, "character": 0, "story": 0},
+            "state_delta_id": delta_id,
+            "committed_story_revision": 1,
+            "narrative_block_id": None,
+        }
+    )
+    return session, delta, turn
+
+
+def _planned_job(
+    *,
+    job_id: str = "planned-job",
+    kind: PostCommitKind | str = PostCommitKind.NARRATIVE_PUBLISH,
+    recipe_revision: str = "narrative-v1",
+    input_digest: str = "a" * 64,
+    initial_state: PostCommitJobState | str = PostCommitJobState.PENDING,
+    initial_reason_code: str | None = None,
+) -> PlannedPostCommitJob:
+    return PlannedPostCommitJob(
+        job_id=job_id,
+        kind=kind,
+        recipe_revision=recipe_revision,
+        input_digest=input_digest,
+        initial_state=initial_state,
+        initial_reason_code=initial_reason_code,
+    )
+
+
+class _FixedPostCommitPlanner:
+    def __init__(self, jobs):
+        self.jobs = tuple(jobs)
+        self.calls = 0
+
+    def plan_jobs(self, *, session, delta, turn):
+        self.calls += 1
+        assert session.id == turn.session_id
+        assert delta.id == turn.state_delta_id
+        return self.jobs
+
+
+async def _commit_planned_story_turn(
+    database: DatabaseManager,
+    *,
+    planner=None,
+    turn_id: str = "planned-turn",
+    session_id: str = "planned-session",
+):
+    session, delta, turn = _story_commit_inputs(
+        session_id=session_id,
+        turn_id=turn_id,
+    )
+    return await SQLiteStorySessionCommitPort(
+        database, planner=planner
+    ).commit_turn(
+        session,
+        delta,
+        turn,
+        store_expected_revision=0,
+        request_id=f"request-{turn_id}",
+        trace_id=f"trace-{turn_id}",
+    )
+
+
+async def _assert_story_commit_absent(
+    database: DatabaseManager,
+    turn_id: str,
+) -> None:
+    assert await _world_revision(database) == 0
+    for table in (
+        "story_sessions",
+        "story_state_deltas",
+        "turn_transactions",
+        "domain_commits",
+        "domain_events",
+        "post_commit_jobs",
+    ):
+        assert await database.read_world(
+            f"SELECT count(*) AS count FROM {table}"
+        ) == [{"count": 0}]
+    assert await database.read_world(
+        "SELECT count(*) AS count FROM post_commit_jobs AS j "
+        "LEFT JOIN turn_transactions AS t ON t.id=j.turn_id "
+        "WHERE t.id IS NULL OR j.turn_id=?",
+        (turn_id,),
+    ) == [{"count": 0}]
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_registers_jobs_atomically_and_persists_blocked_voice_state(
+    tmp_path,
+):
+    database = await _open_database(tmp_path)
+    planner = _FixedPostCommitPlanner(
+        (
+            _planned_job(
+                job_id="planned-narrative",
+                recipe_revision="narrative-v1",
+                input_digest="b" * 64,
+            ),
+            _planned_job(
+                job_id="planned-audio",
+                kind=PostCommitKind.AUDIO_PREPARE,
+                recipe_revision="audio-v1",
+                input_digest="c" * 64,
+                initial_state=PostCommitJobState.BLOCKED,
+                initial_reason_code="voice_not_configured",
+            ),
+        )
+    )
+    observations: dict[str, tuple[int, ...]] = {}
+
+    def counts(connection):
+        return tuple(
+            connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            for table in (
+                "turn_transactions",
+                "story_state_deltas",
+                "domain_events",
+                "post_commit_jobs",
+            )
+        )
+
+    def observe_transaction_visibility(stage: str):
+        if stage != "before_commit":
+            return
+        observations["inside"] = counts(database._connection)
+        with stdlib_sqlite3.connect(database.paths.world) as external:
+            observations["outside"] = counts(external)
+
+    database._fault_hook = observe_transaction_visibility
+    try:
+        committed = await _commit_planned_story_turn(database, planner=planner)
+        assert committed.store_revision == 1
+        assert planner.calls == 1
+        assert observations == {
+            "inside": (1, 1, 1, 2),
+            "outside": (0, 0, 0, 0),
+        }
+        assert await database.read_world(
+            "SELECT kind,state,last_error_code FROM post_commit_jobs "
+            "ORDER BY kind"
+        ) == [
+            {
+                "kind": "audio_prepare",
+                "state": "blocked",
+                "last_error_code": "voice_not_configured",
+            },
+            {
+                "kind": "narrative_publish",
+                "state": "pending",
+                "last_error_code": None,
+            },
+        ]
+        assert await _world_revision(database) == 1
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_without_planner_preserves_no_job_behavior(tmp_path):
+    database = await _open_database(tmp_path)
+    try:
+        result = await _commit_planned_story_turn(database)
+        assert result.store_revision == 1
+        assert await _world_revision(database) == 1
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM post_commit_jobs"
+        ) == [{"count": 0}]
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_rollback_leaves_no_jobs_or_orphan_turn(tmp_path):
+    database = await _open_database(tmp_path)
+    planner = _FixedPostCommitPlanner(
+        (
+            _planned_job(
+                job_id="rollback-job",
+                input_digest="d" * 64,
+            ),
+        )
+    )
+
+    def fail_before_commit(stage: str):
+        if stage == "before_commit":
+            raise RuntimeError("injected domain rollback")
+
+    database._fault_hook = fail_before_commit
+    try:
+        with pytest.raises(RuntimeError, match="injected domain rollback"):
+            await _commit_planned_story_turn(database, planner=planner)
+        await _assert_story_commit_absent(database, "planned-turn")
+        assert planner.calls == 1
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_planner_error_rolls_back_the_domain_transaction(tmp_path):
+    database = await _open_database(tmp_path)
+
+    class RaisingPlanner:
+        def plan_jobs(self, *, session, delta, turn):
+            raise RuntimeError("planner failed")
+
+    try:
+        with pytest.raises(RuntimeError, match="planner failed"):
+            await _commit_planned_story_turn(database, planner=RaisingPlanner())
+        await _assert_story_commit_absent(database, "planned-turn")
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "job",
+    [
+        _planned_job(kind="unknown_kind"),
+        _planned_job(recipe_revision=""),
+        _planned_job(input_digest="sha256:" + "e" * 64),
+        _planned_job(initial_state="running"),
+        _planned_job(initial_state="succeeded"),
+        _planned_job(initial_state="pending", initial_reason_code="unavailable"),
+    ],
+)
+async def test_commit_turn_rejects_invalid_planned_job_and_rolls_back(tmp_path, job):
+    database = await _open_database(tmp_path)
+    try:
+        with pytest.raises(StorageError):
+            await _commit_planned_story_turn(
+                database,
+                planner=_FixedPostCommitPlanner((job,)),
+            )
+        await _assert_story_commit_absent(database, "planned-turn")
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_reuses_duplicate_planner_identity_without_duplicate_rows(
+    tmp_path,
+):
+    database = await _open_database(tmp_path)
+    planned = _planned_job(
+        job_id="duplicate-job",
+        recipe_revision="narrative-v1",
+        input_digest="f" * 64,
+    )
+    try:
+        await _commit_planned_story_turn(
+            database,
+            planner=_FixedPostCommitPlanner((planned, planned)),
+        )
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM post_commit_jobs"
+        ) == [{"count": 1}]
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_rejects_duplicate_identity_with_conflicting_digest(tmp_path):
+    database = await _open_database(tmp_path)
+    first = _planned_job(
+        job_id="conflicting-job",
+        recipe_revision="narrative-v1",
+        input_digest="1" * 64,
+    )
+    second = _planned_job(
+        job_id="conflicting-job",
+        recipe_revision="narrative-v1",
+        input_digest="2" * 64,
+    )
+    try:
+        with pytest.raises(PostCommitJobConflict):
+            await _commit_planned_story_turn(
+                database,
+                planner=_FixedPostCommitPlanner((first, second)),
+            )
+        await _assert_story_commit_absent(database, "planned-turn")
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_commit_turn_rejects_duplicate_job_id_across_identities(tmp_path):
+    database = await _open_database(tmp_path)
+    first = _planned_job(
+        job_id="shared-job-id",
+        kind=PostCommitKind.NARRATIVE_PUBLISH,
+        recipe_revision="narrative-v1",
+        input_digest="3" * 64,
+    )
+    second = _planned_job(
+        job_id="shared-job-id",
+        kind=PostCommitKind.AUDIO_PREPARE,
+        recipe_revision="audio-v1",
+        input_digest="4" * 64,
+    )
+    try:
+        with pytest.raises(PostCommitJobConflict):
+            await _commit_planned_story_turn(
+                database,
+                planner=_FixedPostCommitPlanner((first, second)),
+            )
+        await _assert_story_commit_absent(database, "planned-turn")
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_registration_preserves_initial_state_and_never_resets_existing_state(
+    tmp_path,
+):
+    database = await _open_database(tmp_path)
+    repository = SQLitePostCommitJobRepository(database)
+    try:
+        await _seed_repository_turn(database)
+        spec = _repository_job()
+        blocked = PostCommitJobRegistration(
+            spec=spec,
+            initial_state="blocked",
+            initial_reason_code="voice_not_configured",
+        )
+        first = await database.post_commit_job_write(
+            lambda tx: repository.register(tx, (blocked,))
+        )
+        assert first[0].state == "blocked"
+        assert first[0].last_error_code == "voice_not_configured"
+
+        await database.post_commit_job_write(
+            lambda tx: tx.execute(
+                "UPDATE post_commit_jobs SET state='succeeded',"
+                "last_error_code=NULL WHERE job_id='repo-job-1'"
+            )
+        )
+        retry_registration = PostCommitJobRegistration(
+            spec=spec,
+            initial_state="pending",
+            initial_reason_code=None,
+        )
+        second = await database.post_commit_job_write(
+            lambda tx: repository.register(tx, (retry_registration,))
+        )
+        assert second[0].state == "succeeded"
+        assert second[0].last_error_code is None
+        assert await database.read_world(
+            "SELECT state,last_error_code FROM post_commit_jobs "
+            "WHERE job_id='repo-job-1'"
+        ) == [{"state": "succeeded", "last_error_code": None}]
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "initial_state,initial_reason_code",
+    [
+        ("running", None),
+        ("succeeded", None),
+        ("pending", "voice_not_configured"),
+        ("blocked", None),
+        ("blocked", "Uppercase"),
+        ("blocked", "x" * 129),
+    ],
+)
+async def test_registration_rejects_invalid_initial_state_or_reason(
+    tmp_path,
+    initial_state,
+    initial_reason_code,
+):
+    database = await _open_database(tmp_path)
+    repository = SQLitePostCommitJobRepository(database)
+    try:
+        await _seed_repository_turn(database)
+        registration = PostCommitJobRegistration(
+            spec=_repository_job(),
+            initial_state=initial_state,
+            initial_reason_code=initial_reason_code,
+        )
+        with pytest.raises(StorageError):
+            await database.post_commit_job_write(
+                lambda tx: repository.register(tx, (registration,))
+            )
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM post_commit_jobs"
+        ) == [{"count": 0}]
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_registration_rejects_source_pointer_mismatch(tmp_path):
+    database = await _open_database(tmp_path)
+    repository = SQLitePostCommitJobRepository(database)
+    try:
+        await _seed_repository_turn(database)
+        mismatched = _repository_job(source_world_revision=2)
+        with pytest.raises(PostCommitJobConflict):
+            await database.post_commit_job_write(
+                lambda tx: repository.register(tx, (mismatched,))
+            )
+        assert await database.read_world(
+            "SELECT count(*) AS count FROM post_commit_jobs"
+        ) == [{"count": 0}]
+    finally:
+        await database.close()
 
 
 @pytest.mark.asyncio

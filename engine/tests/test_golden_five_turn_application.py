@@ -22,6 +22,7 @@ from application.post_commit_expression import (
 )
 from application.scenario_policy import (
     ActionSignature,
+    FinalizationRecipe,
     ScenarioIdentity,
     TurnPolicyDecision,
 )
@@ -39,10 +40,20 @@ from application.story_session_facade import (
     SubmitAdviceCommand,
 )
 from application.story_session_open import StorySessionOpenService
-from application.story_turn_commit import DomainValidationContext
+from application.story_turn_commit import (
+    DomainValidationContext,
+    StoryTurnCommitResult,
+)
 from application.turn_input import TurnInputStatus
+from application.turn_orchestrator import TurnOrchestrator
 from contracts import StorySession, StorySessionStatus, TurnStatus
-from infrastructure.database_manager import DatabaseManager, DatabasePaths
+from infrastructure.database_manager import (
+    CommitRequest,
+    DatabaseManager,
+    DatabasePaths,
+    RevisionConflict,
+    StoredEvent,
+)
 from infrastructure.episode_finalization_repository import (
     EpisodeFinalizationArtifacts as InfrastructureArtifacts,
 )
@@ -52,6 +63,7 @@ from infrastructure.episode_finalization_repository import (
 from infrastructure.episode_finalization_repository import (
     SQLiteEpisodeFinalizationRepository,
 )
+from infrastructure.episode_settlement import ScenarioSettlement
 from infrastructure.narrative_block_repository import SQLiteNarrativeBlockRepository
 from infrastructure.player_advice_repository import SQLitePlayerAdviceRepository
 from infrastructure.sqlite_runtime import sqlite3
@@ -224,15 +236,24 @@ def _facade(
     *,
     story=None,
 ):
+    query = Query(database, source)
+    scenario = _GoldenFiveTurnScenario(factory)
+    workers = _GoldenFiveTurnWorkers(factory)
+    advice = SQLitePlayerAdviceRepository(database)
+    story_port = story or SQLiteStorySessionCommitPort(database)
     return StorySessionFacade(
         initialization=StoryInitializationService(source),
         open_sessions=StorySessionOpenService(SQLiteStorySessionOpenPort(database)),
-        query=Query(database, source),
-        intake=SQLiteTurnInputCommandPort(database),
-        advice=SQLitePlayerAdviceRepository(database),
-        story=story or SQLiteStorySessionCommitPort(database),
-        scenario=_GoldenFiveTurnScenario(factory),
-        workers=_GoldenFiveTurnWorkers(factory),
+        query=query,
+        scenario=scenario,
+        turns=TurnOrchestrator(
+            sessions=query,
+            intake=SQLiteTurnInputCommandPort(database),
+            advice=advice,
+            story=story_port,
+            scenario=scenario,
+            workers=workers,
+        ),
     )
 
 
@@ -282,7 +303,6 @@ class _GoldenFiveTurnScenario:
 
     def finalization_recipe(self, bootstrap, committed_session):
         del bootstrap, committed_session
-        return None
 
 
 class _GoldenFiveTurnWorkers:
@@ -1013,3 +1033,255 @@ def _memory(source_ids: list[str]) -> dict:
         "source_ids": source_ids,
         "retention": "long",
     }
+
+
+class _EpisodeFinalizingScenario(_GoldenFiveTurnScenario):
+    def finalization_recipe(self, bootstrap, committed_session):
+        del bootstrap, committed_session
+        return FinalizationRecipe(
+            episode_filename="episode.json",
+            memory_filename="episode_memory.json",
+        )
+
+
+async def _episode_settlement_case(tmp_path: Path):
+    database, _paths, facade, factory, opened = await _open_five_turn_facade(
+        tmp_path
+    )
+    try:
+        submitted, _sessions = await _submit_five_turns(database, facade, opened)
+        session_id = opened.session.session_id
+        story = SQLiteStorySessionCommitPort(database)
+        turn = await story.load_turn(submitted[-1].receipt.turn_id)
+        delta = await story.load_delta(turn.state_delta_id)
+        session = await story.load_session(session_id)
+        revision_rows = await database.read_world(
+            "SELECT committed_world_revision FROM turn_transactions WHERE id=?",
+            (turn.id,),
+        )
+        result = StoryTurnCommitResult(
+            store_revision=revision_rows[0]["committed_world_revision"],
+            session=session,
+            turn=turn,
+            delta=delta,
+            replayed=False,
+        )
+
+        content_dir = tmp_path / "episode-content"
+        content_dir.mkdir()
+        content_path = content_dir / "canon.db"
+        for filename in ("episode.json", "episode_memory.json"):
+            (content_dir / filename).write_text(
+                (FIXTURES / filename).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+        settlement = ScenarioSettlement(
+            database=database,
+            expression=object(),
+            content_path=content_path,
+            scenario=_EpisodeFinalizingScenario(factory),
+            frozen_expression=False,
+        )
+        return database, settlement, result
+    except BaseException:
+        await database.close()
+        raise
+
+
+async def _episode_row_counts(database: DatabaseManager) -> dict[str, int]:
+    rows = await database.read_world(
+        "SELECT "
+        "(SELECT count(*) FROM episodes) AS episodes,"
+        "(SELECT count(*) FROM episode_finalizations) AS finalizations,"
+        "(SELECT count(*) FROM character_episode_memories) AS memories"
+    )
+    return rows[0]
+
+
+async def _store_revision(database: DatabaseManager) -> int:
+    rows = await database.read_world(
+        "SELECT revision FROM world_meta WHERE singleton=1"
+    )
+    return rows[0]["revision"]
+
+
+async def _commit_unrelated_world_change(
+    database: DatabaseManager, session: StorySession, *, advance_session: bool = False
+) -> None:
+    current_revision = await _store_revision(database)
+    event_id = (
+        "test-session-advance"
+        if advance_session
+        else "test-unrelated-world-commit"
+    )
+    request = CommitRequest(
+        worldline_id=session.worldline_id,
+        world_time=session.story_state.world_time or "",
+        expected_revision=current_revision,
+        idempotency_key=event_id,
+        request_id=f"request-{event_id}",
+        trace_id=f"trace-{event_id}",
+        operation={"kind": "test.unrelated_world_change"},
+        events=(
+            StoredEvent(
+                event_id=event_id,
+                aggregate_id=session.id if advance_session else "unrelated-session",
+                event_type="test.unrelated_world_change",
+                payload={},
+            ),
+        ),
+    )
+    if advance_session:
+        advanced_state = session.story_state.model_copy(
+            update={
+                "revision": session.story_state.revision + 1,
+                "turn": session.story_state.turn + 1,
+            }
+        )
+        advanced_json = json.dumps(
+            advanced_state.model_dump(mode="json", exclude_none=True),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+
+        def apply(tx):
+            tx.execute(
+                "UPDATE story_sessions SET story_revision=?,story_state_json=?,"
+                "committed_world_revision=? WHERE id=?",
+                (
+                    advanced_state.revision,
+                    advanced_json,
+                    tx.revision,
+                    session.id,
+                ),
+            )
+            return {"session_id": session.id, "story_revision": advanced_state.revision}
+
+        await database.commit_resolved(request, apply)
+        return
+    await database.commit_resolved(request, lambda _tx: {"unrelated": True})
+
+
+@pytest.mark.asyncio
+async def test_episode_settlement_returns_early_for_completed_episode(tmp_path):
+    database, settlement, result = await _episode_settlement_case(tmp_path)
+    try:
+        await settlement.settle(result)
+        before = await _episode_row_counts(database)
+
+        load_calls = 0
+        finalize_calls = 0
+        original_load = settlement.episodes.load_by_session
+        original_finalize = settlement.episodes.finalize
+
+        async def record_load(session_id: str):
+            nonlocal load_calls
+            load_calls += 1
+            return await original_load(session_id)
+
+        async def record_finalize(request):
+            nonlocal finalize_calls
+            finalize_calls += 1
+            return await original_finalize(request)
+
+        settlement.episodes.load_by_session = record_load
+        settlement.episodes.finalize = record_finalize
+        await settlement.settle(result)
+        await settlement.settle(result)
+
+        assert load_calls == 2
+        assert finalize_calls == 0
+        assert await _episode_row_counts(database) == before
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_episode_settlement_reads_current_revision_after_unrelated_commit(
+    tmp_path,
+):
+    database, settlement, result = await _episode_settlement_case(tmp_path)
+    try:
+        old_turn_revision = result.store_revision
+        await _commit_unrelated_world_change(database, result.session)
+        current_revision = await _store_revision(database)
+        assert current_revision == old_turn_revision + 1
+
+        attempted_revisions = []
+        conflicted_revisions = []
+        original_finalize = settlement.episodes.finalize
+
+        async def record_finalize(request):
+            attempted_revisions.append(request.expected_store_revision)
+            try:
+                return await original_finalize(request)
+            except RevisionConflict:
+                conflicted_revisions.append(request.expected_store_revision)
+                raise
+
+        settlement.episodes.finalize = record_finalize
+        await settlement.settle(result)
+        await settlement.settle(result)
+
+        counts = await _episode_row_counts(database)
+        assert counts["finalizations"] == 1, (
+            "episode did not recover after an unrelated world commit: "
+            f"turn_revision={old_turn_revision}, current_revision={current_revision}, "
+            f"attempted_revisions={attempted_revisions}, "
+            f"revision_conflicts={conflicted_revisions}"
+        )
+        assert attempted_revisions == [current_revision]
+        assert conflicted_revisions == []
+        assert await _store_revision(database) == current_revision + 1
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_episode_settlement_reports_when_session_left_terminal_turn(tmp_path):
+    database, settlement, result = await _episode_settlement_case(tmp_path)
+    try:
+        await _commit_unrelated_world_change(
+            database, result.session, advance_session=True
+        )
+        current_revision = await _store_revision(database)
+
+        with pytest.raises(RuntimeError) as failure:
+            await settlement.settle(result)
+
+        assert failure.value.stage == "episode_finalize"
+        assert failure.value.code == "session_advanced"
+        assert await _episode_row_counts(database) == {
+            "episodes": 0,
+            "finalizations": 0,
+            "memories": 0,
+        }
+        assert await _store_revision(database) == current_revision
+    finally:
+        await database.close()
+
+
+@pytest.mark.asyncio
+async def test_episode_settlement_surfaces_finalize_failure_without_revision_change(
+    tmp_path,
+):
+    database, settlement, result = await _episode_settlement_case(tmp_path)
+    try:
+        before_revision = await _store_revision(database)
+        before_counts = await _episode_row_counts(database)
+
+        async def fail_finalize(_request):
+            raise RuntimeError("injected finalization failure")
+
+        settlement.episodes.finalize = fail_finalize
+        with pytest.raises(RuntimeError) as failure:
+            await settlement.settle(result)
+
+        assert failure.value.stage == "episode_finalize"
+        assert failure.value.code == "episode_finalize_failed"
+        assert await _episode_row_counts(database) == before_counts
+        assert await _store_revision(database) == before_revision
+    finally:
+        await database.close()

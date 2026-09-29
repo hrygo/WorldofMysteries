@@ -11,15 +11,25 @@ private nonisolated struct IPCWireKey: CodingKey {
 public nonisolated enum IPCContractError: Error { case invalidEnvelope }
 
 nonisolated func checkWireKeys(
-    _ decoder: any Decoder, allowed: Set<String>, required: Set<String>
+    _ decoder: any Decoder,
+    allowed: Set<String>,
+    required: Set<String>,
+    allowNull: Set<String> = []
 ) throws {
     let values = try decoder.container(keyedBy: IPCWireKey.self)
     let keys = Set(values.allKeys.map(\.stringValue))
     guard required.isSubset(of: keys), keys.isSubset(of: allowed) else {
         throw IPCContractError.invalidEnvelope
     }
-    for key in values.allKeys where try values.decodeNil(forKey: key) {
-        throw IPCContractError.invalidEnvelope
+    // A required key may still be explicitly `null` when the canonical schema
+    // declares its type as ["string","null"]. Only the keys named in
+    // `allowNull` may carry one; every other null stays a contract violation,
+    // and a missing key is still caught by the `required` subset check above.
+    for key in values.allKeys {
+        if allowNull.contains(key.stringValue) { continue }
+        if try values.decodeNil(forKey: key) {
+            throw IPCContractError.invalidEnvelope
+        }
     }
 }
 

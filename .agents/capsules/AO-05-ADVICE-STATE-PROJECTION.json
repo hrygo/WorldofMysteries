@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-ADVICE-STATE-PROJECTION",
+  "capsule_revision": 1,
+  "task_id": "AO-05-ADVICE-STATE-PROJECTION",
+  "title": "Implement AO-05-ADVICE-STATE-PROJECTION",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-29T01:07:47.709257+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "d7749181542a75bca22899b9f3c4b0d83d81296c",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:6f9b5f976ce345ff02803c1416c740c1ef5bd0b7389f7a28b4b49cda1655c611"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:MediaReceiveState@engine/infrastructure/audio/media_protocol.py:461",
+      "symbol:statements@engine/infrastructure/database_schema.py:60",
+      "symbol:_InvocationState@engine/infrastructure/gameplay_context_repository.py:88",
+      "symbol:_project_story_state@engine/infrastructure/gameplay_context_repository.py:714",
+      "symbol:_projection@engine/infrastructure/gameplay_context_repository.py:792",
+      "symbol:ProjectionResult@engine/infrastructure/outbox.py:28",
+      "symbol:PlayerAdviceStorageConflict@engine/infrastructure/player_advice_repository.py:27",
+      "symbol:_canonical_advice@engine/infrastructure/player_advice_repository.py:31",
+      "symbol:_stored@engine/infrastructure/player_advice_repository.py:44",
+      "symbol:_frozen@engine/infrastructure/player_advice_repository.py:61",
+      "symbol:SQLitePlayerAdviceRepository@engine/infrastructure/player_advice_repository.py:81",
+      "symbol:__init__@engine/infrastructure/player_advice_repository.py:82",
+      "symbol:load_input@engine/infrastructure/player_advice_repository.py:91",
+      "symbol:load_advice@engine/infrastructure/player_advice_repository.py:102",
+      "symbol:publish@engine/infrastructure/player_advice_repository.py:113",
+      "symbol:apply@engine/infrastructure/player_advice_repository.py:140",
+      "symbol:SettlementPublicState@engine/infrastructure/post_commit_job_repository.py:56",
+      "symbol:NarrativePublicState@engine/infrastructure/post_commit_job_repository.py:64",
+      "symbol:AudioPublicState@engine/infrastructure/post_commit_job_repository.py:71",
+      "symbol:_public_group_state@engine/infrastructure/post_commit_job_repository.py:811",
+      "symbol:_get_advice@engine/infrastructure/story_control.py:298",
+      "symbol:_BoundSQLitePlayerAdviceRepository@engine/infrastructure/story_runtime.py:242",
+      "symbol:load_advice@engine/infrastructure/story_runtime.py:256",
+      "symbol:rebuild_retrieval_projection@engine/infrastructure/story_runtime.py:795",
+      "symbol:_advice@engine/tests/test_action_intent_proposal.py:47",
+      "symbol:test_player_advice_binding_mismatch_is_rejected_before_model_call@engine/tests/test_action_intent_proposal.py:205",
+      "symbol:load_advice@engine/tests/test_action_intent_proposal.py:117",
+      "symbol:_frozen@engine/tests/test_advice_commit_proposal.py:39",
+      "symbol:_advice@engine/tests/test_advice_commit_proposal.py:58",
+      "symbol:_session@engine/tests/test_advice_commit_proposal.py:73"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 782,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "MediaReceiveState",
+      "statements",
+      "_InvocationState",
+      "_project_story_state",
+      "_projection",
+      "ProjectionResult",
+      "PlayerAdviceStorageConflict",
+      "_canonical_advice",
+      "_stored",
+      "_frozen",
+      "SQLitePlayerAdviceRepository",
+      "__init__",
+      "load_input",
+      "load_advice",
+      "publish",
+      "apply",
+      "SettlementPublicState",
+      "NarrativePublicState",
+      "AudioPublicState",
+      "_public_group_state",
+      "_get_advice",
+      "_BoundSQLitePlayerAdviceRepository",
+      "load_advice",
+      "rebuild_retrieval_projection",
+      "_advice",
+      "test_player_advice_binding_mismatch_is_rejected_before_model_call",
+      "load_advice",
+      "_frozen",
+      "_advice",
+      "_session"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
