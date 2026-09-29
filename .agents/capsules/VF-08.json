@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VF-08",
+  "capsule_revision": 1,
+  "task_id": "VF-08",
+  "title": "供给仓储补按 scope 列任务与按任务列候选两个读取动词",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-29T20:14:07.859875+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "d189390f6260302646fb149329950f6e3a3b1817",
+    "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+    "context_snapshot": "sha256:7995f89e0a7e9f9c5bd737c606a5d838a380ae2a4d76f8c4cc0b61dbd5857f6b"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:VoiceFoundryConflict@engine/infrastructure/voice_foundry_repository.py:16",
+      "symbol:VoiceFoundryCancelled@engine/infrastructure/voice_foundry_repository.py:20",
+      "symbol:VoiceFoundryStage@engine/infrastructure/voice_foundry_repository.py:24",
+      "symbol:_require_forward_state@engine/infrastructure/voice_foundry_repository.py:57",
+      "symbol:_identifier@engine/infrastructure/voice_foundry_repository.py:78",
+      "symbol:_digest@engine/infrastructure/voice_foundry_repository.py:89",
+      "symbol:_revision@engine/infrastructure/voice_foundry_repository.py:99",
+      "symbol:_text@engine/infrastructure/voice_foundry_repository.py:105",
+      "symbol:_json@engine/infrastructure/voice_foundry_repository.py:112",
+      "symbol:_now@engine/infrastructure/voice_foundry_repository.py:124",
+      "symbol:_validate_scope@engine/infrastructure/voice_foundry_repository.py:128",
+      "symbol:VoiceFoundryTaskSpec@engine/infrastructure/voice_foundry_repository.py:135",
+      "symbol:VoiceFoundryTaskRecord@engine/infrastructure/voice_foundry_repository.py:206",
+      "symbol:VoiceCandidateRecord@engine/infrastructure/voice_foundry_repository.py:233",
+      "symbol:VoiceFoundryOperationIntent@engine/infrastructure/voice_foundry_repository.py:250",
+      "symbol:VoiceFoundryOperationRecord@engine/infrastructure/voice_foundry_repository.py:261",
+      "symbol:VoiceCommandAck@engine/infrastructure/voice_foundry_repository.py:276",
+      "symbol:VoiceEvidenceSnapshot@engine/infrastructure/voice_foundry_repository.py:284",
+      "symbol:VoiceBindingRevisionRecord@engine/infrastructure/voice_foundry_repository.py:294",
+      "symbol:_task_from_row@engine/infrastructure/voice_foundry_repository.py:312",
+      "symbol:_candidate_from_row@engine/infrastructure/voice_foundry_repository.py:347",
+      "symbol:_operation_from_row@engine/infrastructure/voice_foundry_repository.py:365",
+      "symbol:_binding_from_row@engine/infrastructure/voice_foundry_repository.py:381",
+      "symbol:_task_values@engine/infrastructure/voice_foundry_repository.py:408",
+      "symbol:SQLiteVoiceFoundryRepository@engine/infrastructure/voice_foundry_repository.py:442",
+      "symbol:validated@engine/infrastructure/voice_foundry_repository.py:152",
+      "symbol:__init__@engine/infrastructure/voice_foundry_repository.py:445",
+      "symbol:register_task@engine/infrastructure/voice_foundry_repository.py:448",
+      "symbol:load_task@engine/infrastructure/voice_foundry_repository.py:514",
+      "symbol:set_stage@engine/infrastructure/voice_foundry_repository.py:523"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 806,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "VoiceFoundryConflict",
+      "VoiceFoundryCancelled",
+      "VoiceFoundryStage",
+      "_require_forward_state",
+      "_identifier",
+      "_digest",
+      "_revision",
+      "_text",
+      "_json",
+      "_now",
+      "_validate_scope",
+      "VoiceFoundryTaskSpec",
+      "VoiceFoundryTaskRecord",
+      "VoiceCandidateRecord",
+      "VoiceFoundryOperationIntent",
+      "VoiceFoundryOperationRecord",
+      "VoiceCommandAck",
+      "VoiceEvidenceSnapshot",
+      "VoiceBindingRevisionRecord",
+      "_task_from_row",
+      "_candidate_from_row",
+      "_operation_from_row",
+      "_binding_from_row",
+      "_task_values",
+      "SQLiteVoiceFoundryRepository",
+      "validated",
+      "__init__",
+      "register_task",
+      "load_task",
+      "set_stage"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
