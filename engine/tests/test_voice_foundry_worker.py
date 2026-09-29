@@ -26,6 +26,7 @@ from application.voice_foundry_ports import (
     CreateRequest,
     EvidenceBundle,
     FoundryOperation,
+    FoundryReviewVerdict,
     PreviewRequest,
     PreviewResult,
     ProviderLocaleMap,
@@ -104,13 +105,16 @@ class RecordingPort:
         *,
         preview_error: Exception | None = None,
         validation_passes: bool = True,
+        review_error: Exception | None = None,
     ):
         self.calls: list[str] = []
         self.preview_error = preview_error
         self.validation_passes = validation_passes
+        self.review_error = review_error
         self.create_error: Exception | None = None
         self.create_keys: list[str] = []
         self.created_identities: list[str] = []
+        self.review_arguments: dict[str, object] = {}
         self.capabilities = VoiceFoundryCapabilities(
             operations=frozenset(FoundryOperation),
             accepted_game_locales=frozenset({"zh-CN"}),
@@ -184,9 +188,36 @@ class RecordingPort:
             passed=self.validation_passes,
         )
 
-    async def review(self, candidate_id, **kwargs) -> EvidenceBundle:
+    async def review(
+        self,
+        candidate_id,
+        *,
+        validation_id,
+        identity,
+        naturalness,
+    ) -> EvidenceBundle:
         self.calls.append("review")
-        raise NotImplementedError
+        if self.review_error is not None:
+            raise self.review_error
+        self.review_arguments = {
+            "candidate_id": candidate_id,
+            "validation_id": validation_id,
+            "identity": identity,
+            "naturalness": naturalness,
+        }
+        return EvidenceBundle(
+            evidence_id="ev_review",
+            evidence_digest="a" * 64,
+            execution={"model_artifact_revision": "art-1"},
+            reference={"audio_sha256": "9" * 64},
+            output={"audio_sha256": "d" * 64},
+            human={
+                "identity_status": identity.value,
+                "naturalness_status": naturalness.value,
+            },
+            publication={"published": False},
+            rights={"cleared": True},
+        )
 
     async def publish(self, candidate_id, *, expected_candidate_revision):
         self.calls.append("publish")
@@ -222,6 +253,11 @@ class RecordingPort:
 
 CANDIDATE_ID = "vd_" + "a" * 24
 REVISION = "vr_" + "b" * 32
+#: What the recording port hands back for the cross-text pass, and the digests
+#: the audition assets actually carry. A review may only speak about these.
+VALIDATION_ID = "vv_" + "e" * 24
+REFERENCE_AUDIO_DIGEST = "9" * 64
+VALIDATION_AUDIO_DIGEST = "d" * 64
 
 
 def make_worker(repository, port, **kwargs):
@@ -520,3 +556,187 @@ async def test_publishing_a_task_that_is_not_published_is_refused(repository):
     assert step.record.stage is VoiceFoundryStage.REQUESTED
     assert step.slot_consumed is False
     assert port.calls == []
+
+
+async def _drive_to_awaiting_review(repository, worker, port):
+    step = await _drive_to_validating(repository, worker, port)
+    assert step.record.stage is VoiceFoundryStage.VALIDATING
+    step = await worker.advance("task-1")
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+    return step
+
+
+def _verdict(identity=FoundryReviewVerdict.PASS, naturalness=FoundryReviewVerdict.PASS):
+    return {
+        "task_id": "task-1",
+        "candidate_id": "task-1:candidate:0",
+        "validation_id": VALIDATION_ID,
+        "reference_audio_digest": REFERENCE_AUDIO_DIGEST,
+        "validation_audio_digest": VALIDATION_AUDIO_DIGEST,
+        "identity": identity,
+        "naturalness": naturalness,
+    }
+
+
+async def test_a_listener_verdict_reaches_the_provider_before_it_is_recorded(
+    repository,
+):
+    """A review that never leaves this process is not a review.
+
+    The provider only lets a voice be published once a human verdict has
+    reached *it*. Recording the verdict locally first would mark the task
+    published while the provider still refuses the publication, so the whole
+    cast would end in a voice nobody is allowed to use.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    step = await worker.submit_review(**_verdict())
+
+    assert "review" in port.calls
+    assert port.review_arguments["validation_id"] == VALIDATION_ID
+    assert port.review_arguments["identity"] is FoundryReviewVerdict.PASS
+    assert port.review_arguments["naturalness"] is FoundryReviewVerdict.PASS
+    assert step.record.stage is VoiceFoundryStage.PUBLISHED
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "published"
+
+
+async def test_a_rejected_verdict_ends_the_task_and_says_why(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    step = await worker.submit_review(
+        **_verdict(naturalness=FoundryReviewVerdict.REJECT)
+    )
+
+    # The provider still hears the rejection: "a person heard this and said
+    # no" is itself a fact worth having on record.
+    assert "review" in port.calls
+    assert step.record.stage is VoiceFoundryStage.FAILED
+    assert step.record.reason_code == "human_review_rejected"
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "failed"
+
+
+async def test_one_reject_out_of_two_questions_is_a_rejection(repository):
+    """Identity yes, naturalness no is still a no.
+
+    A voice the listener would not sit through a scene with is not a casting
+    they approved, and averaging the two questions into a score is exactly how
+    an unheard voice ends up behind a player's ear.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    step = await worker.submit_review(
+        **_verdict(identity=FoundryReviewVerdict.PASS, naturalness=FoundryReviewVerdict.REJECT)
+    )
+
+    assert step.record.stage is VoiceFoundryStage.FAILED
+
+
+async def test_a_verdict_about_regenerated_audio_is_refused(repository):
+    """The old audition does not prove the new reference.
+
+    If the reference or the cross-text audio was regenerated after somebody
+    listened, their verdict describes audio that no longer exists. Carrying it
+    forward would put an unheard voice behind their signature.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    before = await repository.load_task("task-1")
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.submit_review(**{**_verdict(), "reference_audio_digest": "b" * 64})
+
+    assert caught.value.code == "review_asset_mismatch"
+    assert "review" not in port.calls
+    after = await repository.load_task("task-1")
+    assert after.stage is VoiceFoundryStage.AWAITING_REVIEW
+    assert after.task_revision == before.task_revision
+
+
+async def test_a_verdict_about_a_validation_we_never_ran_is_refused(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.submit_review(**{**_verdict(), "validation_id": "vv_" + "9" * 24})
+
+    assert caught.value.code == "foundry_outcome_unknown"
+    assert "review" not in port.calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "verdict,expected",
+    [
+        (FoundryReviewVerdict.WARN, "review_verdict_requires_explicit_handling"),
+        (FoundryReviewVerdict.NOT_REVIEWED, "review_verdict_absent"),
+    ],
+)
+async def test_a_verdict_that_is_not_a_decision_never_reaches_the_provider(
+    repository, verdict, expected
+):
+    """A warning is not a pass, and the absence of a review is not a pass.
+
+    Both are refused before the call rather than mapped onto an outcome: the
+    only thing worse than publishing unreviewed audio is publishing it by
+    accident through a lenient default.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    before = await repository.load_task("task-1")
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.submit_review(**_verdict(identity=verdict))
+
+    assert caught.value.code == expected
+    assert "review" not in port.calls
+    after = await repository.load_task("task-1")
+    assert after.stage is VoiceFoundryStage.AWAITING_REVIEW
+    assert after.task_revision == before.task_revision
+
+
+async def test_an_unknown_review_outcome_leaves_the_task_reviewable(repository):
+    """A timed-out review must not be mistaken for a completed one.
+
+    The verdict may or may not have landed upstream. Marking the task
+    published on a guess is how an unreviewed voice gets released; leaving the
+    honest record lets a resume settle it under the same operation identity.
+    """
+    port = RecordingPort(review_error=VoiceFoundryPortError("foundry_transient"))
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError):
+        await worker.submit_review(**_verdict())
+
+    operation = await repository.load_operation("review:task-1:0")
+    assert operation.status == "unknown"
+    task = await repository.load_task("task-1")
+    assert task.stage is VoiceFoundryStage.AWAITING_REVIEW
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "reviewing"
+
+
+async def test_a_review_is_not_repeated_once_it_is_confirmed(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    await worker.submit_review(**_verdict())
+
+    # A client that never saw the answer retries. The task has left
+    # ``awaiting_review``, so the retry is a no-op rather than a second
+    # upstream review of a voice that is already published.
+    step = await worker.submit_review(**_verdict())
+
+    assert step.slot_consumed is False
+    assert port.calls.count("review") == 1

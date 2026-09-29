@@ -10,7 +10,6 @@ from application.voice_foundry_commands import (
     VoiceFoundryCommandError,
     VoiceFoundryCommandService,
 )
-from application.voice_foundry_ports import FoundryReviewVerdict
 from application.voice_foundry import WorkerStep
 from application.voice_foundry_service import (
     VoiceSupplyOutcome,
@@ -302,79 +301,6 @@ async def test_one_command_id_cannot_be_reused_for_another_decision(
     assert (
         await repository.load_candidate("task-1", "candidate-2")
     ).state == "ready"
-
-
-@pytest.mark.asyncio
-async def test_an_accepted_review_publishes_the_candidate(repository, commands):
-    service, _, _ = commands
-    await _at_review(repository)
-
-    result = await service.submit_review(
-        command_id="command-1",
-        task_id="task-1",
-        candidate_id="candidate-1",
-        verdict=FoundryReviewVerdict.PASS,
-    )
-
-    assert result.state.stage == VoiceFoundryStage.PUBLISHED.value
-    assert (
-        await repository.load_candidate("task-1", "candidate-1")
-    ).state == "published"
-
-
-@pytest.mark.asyncio
-async def test_a_rejected_review_ends_the_task_and_says_why(repository, commands):
-    service, _, _ = commands
-    await _at_review(repository)
-
-    result = await service.submit_review(
-        command_id="command-1",
-        task_id="task-1",
-        candidate_id="candidate-1",
-        verdict=FoundryReviewVerdict.REJECT,
-    )
-
-    assert result.outcome is VoiceSupplyOutcome.FAILED
-    assert result.state.stage == VoiceFoundryStage.FAILED.value
-    assert result.state.reason_code == "human_review_rejected"
-    assert (
-        await repository.load_candidate("task-1", "candidate-1")
-    ).state == "failed"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "verdict,expected",
-    [
-        (FoundryReviewVerdict.WARN, "review_verdict_requires_explicit_handling"),
-        (FoundryReviewVerdict.NOT_REVIEWED, "review_verdict_absent"),
-    ],
-)
-async def test_a_verdict_that_is_not_a_decision_changes_nothing(
-    repository, commands, verdict, expected
-):
-    """A warning is not a pass, and an absent review is not a pass.
-
-    Both are refused outright rather than mapped onto an outcome, because the
-    only thing worse than publishing unreviewed audio is publishing it by
-    accident through a lenient default.
-    """
-    service, _, _ = commands
-    task = await _at_review(repository)
-
-    with pytest.raises(VoiceFoundryCommandError) as caught:
-        await service.submit_review(
-            command_id="command-1",
-            task_id="task-1",
-            candidate_id="candidate-1",
-            verdict=verdict,
-        )
-
-    assert caught.value.code == expected
-    assert (await repository.load_task("task-1")).stage is (
-        VoiceFoundryStage.AWAITING_REVIEW
-    )
-    assert (await repository.load_task("task-1")).task_revision == task.task_revision
 
 
 @pytest.mark.asyncio

@@ -41,7 +41,9 @@ from application.voice_foundry_ports import (
     AssetRequest,
     ConfirmRequest,
     CreateRequest,
+    FoundryReviewVerdict,
     PreviewRequest,
+    review_verdict_is_accepted,
     VoiceFoundryPortError,
 )
 
@@ -96,6 +98,17 @@ class WorkerStep:
 
 def _candidate_key(task_id: str, index: int) -> str:
     return f"{task_id}:candidate:{index}"
+
+
+def _operation_id(stage: str, task_id: str, discriminator: int) -> str:
+    """The one place an operation's identity is spelled.
+
+    ``_perform`` writes under this name and the client-triggered steps read
+    it back. Building the string in both places is how a resume ends up
+    looking for an operation that was filed under a slightly different name
+    and silently minting a second one.
+    """
+    return f"{stage}:{task_id}:{discriminator}"
 
 
 def _discriminator_of(operation_id: str) -> int:
@@ -215,6 +228,135 @@ class VoiceFoundryWorker:
             )
             settled += 1
         return settled
+
+    async def submit_review(
+        self,
+        task_id: str,
+        *,
+        candidate_id: str,
+        validation_id: str,
+        reference_audio_digest: str,
+        validation_audio_digest: str,
+        identity: FoundryReviewVerdict,
+        naturalness: FoundryReviewVerdict,
+    ) -> WorkerStep:
+        """Send one listener's verdict upstream, then record it locally.
+
+        The provider only lets a voice be published once a human review has
+        reached *it*. A verdict that stayed in this process would mark the
+        task published while the provider still refuses the publication, so
+        this is a worker step and not a local state edit: the port call and
+        the state change sit in the same persist-call-confirm bracket, and a
+        crash between them resumes rather than publishing an unheard voice.
+
+        The digests are checked against what this engine durably read back
+        from the provider, never taken on trust. A verdict attaches to the
+        exact assets a person heard; if the reference or the cross-text audio
+        was regenerated since they listened, their verdict describes audio
+        that no longer exists and is refused rather than carried forward.
+        """
+        task = await self._repository.load_task(task_id)
+        if task.stage != "awaiting_review":
+            return WorkerStep(record=task, slot_consumed=False)
+        candidate = await self._repository.load_candidate(task_id, candidate_id)
+        if candidate.state != "reviewing":
+            raise VoiceFoundryPortError("candidate_not_awaiting_review")
+        if candidate.provider_candidate_id is None:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+
+        # Refuse before spending the call. WARN has no lossless
+        # representation in our evidence contract and NOT_REVIEWED is the
+        # absence of a person, so neither may reach the provider and then be
+        # dropped on the way back.
+        for verdict in (identity, naturalness):
+            if verdict is FoundryReviewVerdict.WARN:
+                raise VoiceFoundryPortError(
+                    "review_verdict_requires_explicit_handling"
+                )
+            if verdict is FoundryReviewVerdict.NOT_REVIEWED:
+                raise VoiceFoundryPortError("review_verdict_absent")
+
+        await self._require_auditioned_assets(
+            task_id,
+            candidate,
+            validation_id=validation_id,
+            reference_audio_digest=reference_audio_digest,
+            validation_audio_digest=validation_audio_digest,
+        )
+
+        await self._perform(
+            task,
+            stage="review",
+            discriminator=0,
+            payload={
+                "candidate_id": candidate.provider_candidate_id,
+                "validation_id": validation_id,
+                "reference_audio_digest": reference_audio_digest,
+                "validation_audio_digest": validation_audio_digest,
+                "identity": identity.value,
+                "naturalness": naturalness.value,
+            },
+            call=lambda: self._port.review(
+                candidate.provider_candidate_id,
+                validation_id=validation_id,
+                identity=identity,
+                naturalness=naturalness,
+            ),
+            result_ref=lambda outcome: outcome.evidence_id,
+            deadline_at=self._clock() + self._policy.deadline_seconds,
+        )
+
+        # Acceptance is both questions answered yes. One "reject" is a
+        # rejection: a voice the listener could not place, or would not sit
+        # through a scene with, is not a casting they signed off on.
+        accepted = review_verdict_is_accepted(
+            identity
+        ) and review_verdict_is_accepted(naturalness)
+        task = await self._repository.load_task(task_id)
+        await self._repository.update_candidate(
+            task_id,
+            expected_revision=task.task_revision,
+            candidate_id=candidate_id,
+            state="published" if accepted else "failed",
+        )
+        # Recording the candidate's fate advanced the task revision, so the
+        # stage move has to speak for the revision that now exists.
+        task = await self._repository.load_task(task_id)
+        task = await self._repository.set_stage(
+            task_id,
+            expected_revision=task.task_revision,
+            stage="published" if accepted else "failed",
+            operation_status="confirmed",
+            required_actions=(),
+            reason_code=None if accepted else "human_review_rejected",
+        )
+        return WorkerStep(record=task, slot_consumed=True)
+
+    async def _require_auditioned_assets(
+        self,
+        task_id: str,
+        candidate: VoiceCandidateRecord,
+        *,
+        validation_id: str,
+        reference_audio_digest: str,
+        validation_audio_digest: str,
+    ) -> None:
+        """Refuse a verdict that is not about the audio that exists now.
+
+        The validation id is read back from the operation journal rather than
+        from the candidate row, because it is the provider's answer to the
+        validate call and that is where it is durably recorded.
+        """
+        record = await self._repository.load_operation(
+            _operation_id("validate", task_id, 0)
+        )
+        if record.status != "confirmed" or record.provider_result_ref != validation_id:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+        if (
+            candidate.reference_audio_digest != reference_audio_digest
+            or candidate.validation_audio_digest != validation_audio_digest
+        ):
+            raise VoiceFoundryPortError("review_asset_mismatch")
 
     async def publish_and_bind(self, task_id: str, *, binding_id: str) -> WorkerStep:
         """Publish the reviewed voice and bind it, in one client-triggered step.
@@ -529,7 +671,7 @@ class VoiceFoundryWorker:
         )
 
         intent = VoiceFoundryOperationIntent(
-            operation_id=f"{stage}:{task.task_id}:{discriminator}",
+            operation_id=_operation_id(stage, task.task_id, discriminator),
             task_id=task.task_id,
             stage=stage,
             # One attempt identity per logical operation: retries and resumes

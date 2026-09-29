@@ -27,9 +27,7 @@ import json
 from collections.abc import Mapping
 
 from application.voice_foundry_ports import (
-    FoundryReviewVerdict,
     VoiceSupplyDriver,
-    review_verdict_is_accepted,
 )
 from application.voice_foundry_service import (
     VoiceSupplyResult,
@@ -135,64 +133,6 @@ class VoiceFoundryCommandService:
         )
         return await self._record(
             command_id, task_id, payload, {"candidate_id": candidate_id}
-        )
-
-    async def submit_review(
-        self,
-        *,
-        command_id: str,
-        task_id: str,
-        candidate_id: str,
-        verdict: FoundryReviewVerdict,
-    ) -> VoiceSupplyResult:
-        """Record what the listener decided about the selected candidate.
-
-        Acceptance publishes; rejection ends the task. A rejection is terminal
-        for this candidate, because re-running the audition is a new decision
-        with a new command id — not a retry of this one.
-        """
-        payload = {
-            "verb": "submit_review",
-            "task_id": task_id,
-            "candidate_id": candidate_id,
-            "verdict": str(verdict),
-        }
-        if await self._replayed(command_id, task_id, payload):
-            return await self._supply.get(task_id)
-        if verdict is FoundryReviewVerdict.WARN:
-            raise VoiceFoundryCommandError("review_verdict_requires_explicit_handling")
-        if verdict is FoundryReviewVerdict.NOT_REVIEWED:
-            raise VoiceFoundryCommandError("review_verdict_absent")
-
-        task = await self._require_stage(task_id, "awaiting_review")
-        candidate = await self._repository.load_candidate(task_id, candidate_id)
-        if candidate.state != "reviewing":
-            raise VoiceFoundryCommandError("candidate_not_awaiting_review")
-
-        accepted = review_verdict_is_accepted(verdict)
-        await self._repository.update_candidate(
-            task_id,
-            expected_revision=task.task_revision,
-            candidate_id=candidate_id,
-            state="published" if accepted else "failed",
-        )
-        await self._repository.set_stage(
-            task_id,
-            expected_revision=task.task_revision + 1,
-            stage=(
-                VoiceFoundryStage.PUBLISHED
-                if accepted
-                else VoiceFoundryStage.FAILED
-            ),
-            operation_status="confirmed",
-            required_actions=(),
-            reason_code=None if accepted else "human_review_rejected",
-        )
-        return await self._record(
-            command_id,
-            task_id,
-            payload,
-            {"accepted": accepted, "candidate_id": candidate_id},
         )
 
     async def bind(
