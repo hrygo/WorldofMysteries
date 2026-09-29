@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-FLASH-02C-INPUT-LOOKUP",
+  "capsule_revision": 1,
+  "task_id": "FLASH-02C-INPUT-LOOKUP",
+  "title": "按回合身份解析冻结输入,修复提交后叙事永久阻塞",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-29T06:30:37.794846+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "2c006c69ab624969d0f8d6fc8d4469710b17d8e6",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:2981b92193da0c8078ddc2d00dcf043384e430cff5a636e299a28d0a7226aae3"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:PlayerAdviceStorageConflict@engine/infrastructure/player_advice_repository.py:27",
+      "symbol:_canonical_advice@engine/infrastructure/player_advice_repository.py:31",
+      "symbol:_stored@engine/infrastructure/player_advice_repository.py:44",
+      "symbol:_frozen@engine/infrastructure/player_advice_repository.py:61",
+      "symbol:SQLitePlayerAdviceRepository@engine/infrastructure/player_advice_repository.py:81",
+      "symbol:__init__@engine/infrastructure/player_advice_repository.py:82",
+      "symbol:load_input@engine/infrastructure/player_advice_repository.py:91",
+      "symbol:load_advice@engine/infrastructure/player_advice_repository.py:102",
+      "symbol:publish@engine/infrastructure/player_advice_repository.py:113",
+      "symbol:apply@engine/infrastructure/player_advice_repository.py:140",
+      "symbol:expected_input@engine/infrastructure/scenarios/golden_policy.py:75",
+      "symbol:_raw_input@engine/infrastructure/story_control.py:179",
+      "symbol:load_input@engine/infrastructure/story_runtime.py:253",
+      "symbol:input@engine/infrastructure/story_session_query.py:165",
+      "symbol:SQLiteTurnInputCommandPort@engine/infrastructure/turn_intake_repository.py:375",
+      "symbol:input_sha256@engine/infrastructure/turn_intake_repository.py:91",
+      "symbol:test_terminal_or_cancelled_input_never_calls_proposer@engine/tests/test_action_intent_proposal.py:194",
+      "symbol:load_input@engine/tests/test_action_intent_proposal.py:114",
+      "symbol:test_committed_input_replays_without_second_proposal_or_commit@engine/tests/test_advice_commit_proposal.py:422",
+      "symbol:test_cancelled_input_never_commits@engine/tests/test_advice_commit_proposal.py:472",
+      "symbol:load_input@engine/tests/test_advice_commit_proposal.py:144",
+      "symbol:test_interpretation_freezes_identity_from_durable_input@engine/tests/test_advice_interpretation.py:118",
+      "symbol:test_cancelled_or_committed_input_never_starts_new_interpretation@engine/tests/test_advice_interpretation.py:166",
+      "symbol:load_input@engine/tests/test_advice_interpretation.py:77",
+      "symbol:test_real_story_unsupported_input_keeps_draft_and_writes_nothing@engine/tests/test_app_engine_session.py:598",
+      "symbol:test_unverified_model_or_unsealed_input_is_rejected_before_render@engine/tests/test_audio_prefetch.py:129",
+      "symbol:test_cache_hit_checks_authorization_before_lookup_and_before_delivery@engine/tests/test_audio_take_coordinator.py:94",
+      "symbol:test_revocation_after_cache_lookup_denies_delivery_without_render@engine/tests/test_audio_take_coordinator.py:119",
+      "symbol:test_denied_authorization_happens_before_any_cache_lookup@engine/tests/test_audio_take_coordinator.py:330",
+      "symbol:test_authorization_service_failure_is_fail_closed_before_cache_lookup@engine/tests/test_audio_take_coordinator.py:355"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 877,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "PlayerAdviceStorageConflict",
+      "_canonical_advice",
+      "_stored",
+      "_frozen",
+      "SQLitePlayerAdviceRepository",
+      "__init__",
+      "load_input",
+      "load_advice",
+      "publish",
+      "apply",
+      "expected_input",
+      "_raw_input",
+      "load_input",
+      "input",
+      "SQLiteTurnInputCommandPort",
+      "input_sha256",
+      "test_terminal_or_cancelled_input_never_calls_proposer",
+      "load_input",
+      "test_committed_input_replays_without_second_proposal_or_commit",
+      "test_cancelled_input_never_commits",
+      "load_input",
+      "test_interpretation_freezes_identity_from_durable_input",
+      "test_cancelled_or_committed_input_never_starts_new_interpretation",
+      "load_input",
+      "test_real_story_unsupported_input_keeps_draft_and_writes_nothing",
+      "test_unverified_model_or_unsealed_input_is_rejected_before_render",
+      "test_cache_hit_checks_authorization_before_lookup_and_before_delivery",
+      "test_revocation_after_cache_lookup_denies_delivery_without_render",
+      "test_denied_authorization_happens_before_any_cache_lookup",
+      "test_authorization_service_failure_is_fail_closed_before_cache_lookup"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
