@@ -52,7 +52,13 @@ class _StreamingRefused(Exception):
 _MAX_REPLY_BYTES = 262_144
 _MAX_MESSAGES = 64
 _MAX_MESSAGE_CHARS = 32_768
-_DEFAULT_TIMEOUT_SECONDS = 60.0
+# The HTTP call is the *inner* bound: it has to sit inside the
+# ``AuthorizedExecutionBudget`` that wraps a whole stage, or it can never fire
+# and a slow endpoint is reported as a generic stage timeout rather than as
+# the transport verdict that names the real cause. Measured local turns land
+# near 3.5s with peaks under 10s, so this keeps roughly a 3x margin while
+# staying inside the 45s stage budget. An operator can still widen it.
+_DEFAULT_TIMEOUT_SECONDS = 30.0
 _MAX_TIMEOUT_SECONDS = 600.0
 
 
