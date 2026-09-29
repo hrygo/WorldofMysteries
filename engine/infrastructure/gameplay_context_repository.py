@@ -779,7 +779,12 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
             model_content=content,
             known_by=(protagonist_id,),
             public=False,
-            disclosed_to_owner=False,
+            # The committed scene is a result the owner is already entitled to
+            # see, so it rides the player-disclosure axis that AO-05 defines for
+            # the advice interpreter and the narrative compiler. It stays
+            # non-public, and `subject_id` still scopes it to this session's
+            # protagonist, so no unrelated consumer gains it for free.
+            disclosed_to_owner=True,
             hidden=self._hidden_flag(state),
             facets=frozenset({ContextFacet.STORY}),
         )

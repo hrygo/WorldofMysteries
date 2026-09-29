@@ -24,6 +24,18 @@ WORLDLINE_ID = "line.state-test"
 SESSION_ID = "session.state-test"
 PROTAGONIST_ID = "char.state-test"
 
+# Values planted in the committed state that must never reach any model prompt.
+CANARIES = (
+    "actor.hidden-canary",
+    "bootstrap.hidden-canary",
+    "commitment.hidden-canary",
+    "conflict.hidden-canary",
+    "goal.hidden-canary",
+    "local.hidden-canary",
+    "secret.hidden-canary",
+    "secret.revealed-canary",
+)
+
 
 def _story_state() -> dict[str, object]:
     return {
@@ -235,7 +247,10 @@ async def test_committed_state_flows_through_domain_policy_and_compiler_without_
     )
     assert projected.fact.known_by_subject_ids == (PROTAGONIST_ID,)
     assert projected.fact.public is False
-    assert projected.fact.disclosed_to_owner is False
+    # The current scene is a *committed result the owner is entitled to see*, so
+    # it rides the player-disclosure axis. It stays non-public: unrelated
+    # consumers must still go through eligibility, not read it for free.
+    assert projected.fact.disclosed_to_owner is True
     assert projected.fact.hidden is False
 
     authorization = await repository.authorize(prepared.request, prepared.recipe)
@@ -256,19 +271,7 @@ async def test_committed_state_flows_through_domain_policy_and_compiler_without_
     ]
     assert len(state_messages) == 1
     assert state_messages[0]["evidence"] == evidence.model_value()
-    assert all(
-        canary not in rendered.messages_json
-        for canary in (
-            "actor.hidden-canary",
-            "bootstrap.hidden-canary",
-            "commitment.hidden-canary",
-            "conflict.hidden-canary",
-            "goal.hidden-canary",
-            "local.hidden-canary",
-            "secret.hidden-canary",
-            "secret.revealed-canary",
-        )
-    )
+    assert all(canary not in rendered.messages_json for canary in CANARIES)
 
     other_character = await coordinator.prepare(
         _call(
@@ -284,10 +287,72 @@ async def test_committed_state_flows_through_domain_policy_and_compiler_without_
         item.layer == Layer.STATE for item in other_character.request.evidence
     )
 
+    # The narrative compiler is a player-disclosure scope, and the compiler
+    # rejects any non-state-optional consumer that arrives without current state.
+    # It must therefore reach the model with the committed scene -- through the
+    # disclosure axis, while the character-knowledge axis stays exclusive to the
+    # character reasoner.
+    for mode, tag in ((GameplayMode.NARRATIVE_COMPILATION, "narrative"),):
+        player = await coordinator.prepare(
+            _call(mode=mode, request_id=f"request.{tag}")
+        )
+        player_state = [
+            item for item in player.request.evidence if item.layer == Layer.STATE
+        ]
+        assert len(player_state) == 1, tag
+
+        player_authorization = await repository.authorize(
+            player.request, player.recipe
+        )
+        player_plan = CacheAwareContextCompiler().compile(
+            player.request, player_authorization, player.profile
+        )
+        assert [
+            item for item in player_plan.ordered_evidence if item.layer == Layer.STATE
+        ] == player_state, tag
+
+        player_rendered = PromptRenderer(b"p" * 32).render(player_plan)
+        assert all(
+            canary not in player_rendered.messages_json for canary in CANARIES
+        ), tag
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "AO-05: the advice interpreter has no producer for the evidence kinds it"
+        " is allowed; it needs a purpose-built current-state projection"
+    ),
+)
+@pytest.mark.asyncio
+async def test_advice_interpreter_has_no_producer_for_its_allowed_evidence_kinds(
+    committed_story_database,
+) -> None:
+    """The live advice path must reach the model with a current-state view.
+
+    `_ALLOWED_KINDS["advice_interpreter"]` is
+    {observation, available_target, current_goal, pressure}, but no producer in
+    the repository emits any of them, so the interpreter cannot yet assemble one.
+    Handing it the narrative `checkpoint` instead would widen a deliberately
+    narrow vocabulary, so the fix is a purpose-built advice projection.
+
+    strict xfail: this currently fails on `consumer_kind_forbidden`. When the
+    advice projection lands it XPASSes, and strict mode then forces whoever
+    lands it to drop the marker and keep the assertion.
+    """
+    repository = SQLiteGameplayContextRepository(committed_story_database)
+    coordinator = _coordinator(repository)
     advice = await coordinator.prepare(
         _call(
             mode=GameplayMode.ADVICE_INTERPRETATION,
-            request_id="request.advice",
+            request_id="request.advice-gap",
         )
     )
-    assert not any(item.layer == Layer.STATE for item in advice.request.evidence)
+    authorization = await repository.authorize(advice.request, advice.recipe)
+    plan = CacheAwareContextCompiler().compile(
+        advice.request, authorization, advice.profile
+    )
+
+    assert any(item.layer == Layer.STATE for item in plan.ordered_evidence)
+    rendered = PromptRenderer(b"a" * 32).render(plan)
+    assert all(canary not in rendered.messages_json for canary in CANARIES)
