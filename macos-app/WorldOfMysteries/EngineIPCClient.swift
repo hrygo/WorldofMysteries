@@ -6,12 +6,24 @@ public actor EngineIPCClient {
     private var generation: UInt64 = 0
     private var handshaking = false
     public private(set) var handshake: EngineHandshake?
-    private let requestTimeout: TimeInterval
+    /// A story turn is up to three sequential authorized model calls, each
+    /// bounded by the Engine's own 45s stage budget, plus commit and publish.
+    /// Anything shorter makes the *client* the layer that gives up on a turn
+    /// the Engine would still have completed.
+    ///
+    /// This is a patience ceiling, not a latency budget: a reply that arrives
+    /// early returns immediately, so a generous ceiling costs nothing on the
+    /// fast path and protects the slow one.
+    public static let defaultRequestTimeout: TimeInterval = 180
+    /// Immutable after construction, so it carries no actor-isolated state.
+    nonisolated let requestTimeout: TimeInterval
     public var isConnected: Bool { transport?.isConnected == true && handshake != nil }
     public nonisolated var isScaffoldOnly: Bool { false }
 
-    public init(requestTimeout: TimeInterval = 5) {
-        self.requestTimeout = requestTimeout.isFinite && requestTimeout > 0 ? requestTimeout : 5
+    public init(requestTimeout: TimeInterval = EngineIPCClient.defaultRequestTimeout) {
+        self.requestTimeout = requestTimeout.isFinite && requestTimeout > 0
+            ? requestTimeout
+            : Self.defaultRequestTimeout
     }
 
     public func connect(socketPath: String) async throws {
