@@ -304,6 +304,7 @@ class AuthorizedLiveExecution:
                 json_mode=True,
                 repair_hint=_REPAIR_HINT if attempt else None,
                 response_schema=response_schema,
+                stream=self.transport.config.stream,
             )
             if len(wire.body_json.encode("utf-8")) > budget.max_request_bytes:
                 raise ContextError("model_request_too_large")

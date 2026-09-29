@@ -64,6 +64,11 @@ class LocalChatEndpoint:
             if self.after_request is not None:
                 self.after_request(index)
             content = self.replies.pop(0)
+            if request_body.get("stream") is True:
+                # Honour what was asked, the way a real endpoint does: the
+                # transport's aggregate is what these tests then assert on.
+                await self._write_stream(writer, content)
+                return
             response_body = json.dumps({
                 "id": "chatcmpl-local-test",
                 "object": "chat.completion",
@@ -87,6 +92,38 @@ class LocalChatEndpoint:
         finally:
             writer.close()
             await writer.wait_closed()
+
+    async def _write_stream(self, writer, content: str) -> None:
+        def frame(payload: dict) -> bytes:
+            return f"data: {json.dumps(payload)}\n\n".encode()
+
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n")
+        head, _, tail = content.partition(" ")
+        for index, piece in enumerate((head, " " + tail if tail else "")):
+            if not piece:
+                continue
+            writer.write(frame({
+                "id": "chatcmpl-local-test",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "test-model",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": piece},
+                    "finish_reason": "stop" if index else None,
+                }],
+            }))
+            await writer.drain()
+        writer.write(frame({
+            "id": "chatcmpl-local-test",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "test-model",
+            "choices": [],
+            "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+        }))
+        writer.write(b"data: [DONE]\n\n")
+        await writer.drain()
 
 
 class SnapshotPort:
