@@ -998,6 +998,31 @@ class SQLiteVoiceFoundryRepository:
 
         return await self.database.voice_foundry_write(apply)
 
+    async def load_command(self, command_id: str) -> VoiceCommandAck | None:
+        """The receipt for one command id, or ``None`` if it never ran.
+
+        A command id is the caller's idempotency key. Recording a receipt
+        without ever reading one back makes a replay indistinguishable from a
+        first attempt, so the caller could only answer a repeat by colliding
+        with the revision its own first attempt already moved. This is what
+        lets a repeated command return its original answer instead.
+        """
+        rows = await self.database.read_world(
+            "SELECT command_id,task_id,payload_digest,accepted_result_json "
+            "FROM voice_foundry_commands WHERE command_id=?",
+            (_identifier(command_id, "command id"),),
+        )
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise StorageError("Voice Foundry command receipt is duplicated")
+        return VoiceCommandAck(
+            command_id=rows[0]["command_id"],
+            task_id=rows[0]["task_id"],
+            payload_digest=rows[0]["payload_digest"],
+            accepted_result=json.loads(rows[0]["accepted_result_json"]),
+        )
+
     async def load_evidence(
         self, provider_instance: str, evidence_id: str
     ) -> VoiceEvidenceSnapshot:

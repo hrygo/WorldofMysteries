@@ -296,6 +296,70 @@ async def test_command_acceptance_replays_only_identical_payload(database):
         )
 
 
+async def test_an_unseen_command_has_no_receipt(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    await repo.register_task(task_spec())
+    assert await repo.load_command("command-never-ran") is None
+
+
+async def test_a_command_receipt_reads_back_what_it_accepted(database):
+    """The receipt is what a replayed command answers from.
+
+    If it came back lossy — a tuple where a list was stored, an int turned into
+    a float, a nested map flattened — the replay would tell the caller
+    something different from what its first attempt was told.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    accepted = {
+        "stage": "awaiting_review",
+        "required_actions": ["listen_reference", "review"],
+        "binding_revision": 2,
+        "cancelled": False,
+        "nested": {"candidate_id": "candidate-1", "slots": [1, 2]},
+    }
+    written = await repo.accept_command(
+        VoiceCommandAck(
+            command_id="command-1",
+            task_id=task.task_id,
+            payload_digest="1" * 64,
+            accepted_result=accepted,
+        )
+    )
+
+    read_back = await repo.load_command("command-1")
+    assert read_back == written
+    assert read_back.accepted_result == accepted
+
+
+async def test_a_command_receipt_survives_restart(database, paths):
+    """A command id stays spent across a restart.
+
+    Otherwise a client that retried after a crash would look like a first
+    attempt, and the supply task would be driven twice for one decision.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await repo.register_task(task_spec())
+    await repo.accept_command(
+        VoiceCommandAck(
+            command_id="command-1",
+            task_id=task.task_id,
+            payload_digest="1" * 64,
+            accepted_result={"stage": "provisioning"},
+        )
+    )
+
+    await database.close()
+    reopened = await open_database(paths)
+    try:
+        restored = await SQLiteVoiceFoundryRepository(reopened).load_command("command-1")
+        assert restored is not None
+        assert restored.payload_digest == "1" * 64
+        assert restored.accepted_result == {"stage": "provisioning"}
+    finally:
+        await reopened.close()
+
+
 async def test_ready_binding_atomically_records_evidence_history_and_task(database):
     repo = SQLiteVoiceFoundryRepository(database)
     task = await repo.register_task(task_spec())
