@@ -64,6 +64,7 @@ from application.voice_foundry_ports import (
     AssetRequest,
     ConfirmRequest,
     CreateRequest,
+    FoundryReviewVerdict,
     PreviewRequest,
     ProviderLocaleMap,
     VoiceFoundryPortError,
@@ -2671,3 +2672,129 @@ async def test_validation_audio_is_read_from_its_own_route():
     assert transport.calls[0]["url"].endswith(
         "/voice-designs/vd_" + "a" * 24 + "/validations/vv_" + "e" * 24 + "/audio"
     )
+
+
+async def test_review_attaches_the_verdict_to_the_validation_that_was_heard():
+    """There is no review route, and that shapes what a review may send.
+
+    SpeechRail records the human verdict through the same validate endpoint
+    that produced the validation, so the request must carry ``human_review``
+    and nothing else. Adding ``test_text`` — or ``capability_key`` — would run
+    a *new* cross-text validation instead of reviewing the one the listener
+    actually heard, leaving the auditioned result unrecorded. Publication then
+    refuses, because the pass it requires belongs to a validation no human
+    judged. The failure is silent at the call site, so the body is pinned.
+    """
+    transport = _RecordingTransport(
+        (200, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    evidence = await adapter.review(
+        "vd_" + "a" * 24,
+        validation_id="vv_" + "e" * 24,
+        identity=FoundryReviewVerdict.PASS,
+        naturalness=FoundryReviewVerdict.PASS,
+    )
+
+    call = transport.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"].endswith("/voice-designs/vd_" + "a" * 24 + "/validate")
+    body = json.loads(call["body"])
+    assert set(body) == {"human_review"}
+    assert body["human_review"] == {
+        "validation_id": "vv_" + "e" * 24,
+        "identity": "pass",
+        "naturalness": "pass",
+    }
+    assert evidence.human["identity_status"] == "pass"
+    assert evidence.human["naturalness_status"] == "pass"
+
+
+async def test_validate_requests_new_text_and_records_no_verdict():
+    """The machine pass and the human verdict travel as separate calls."""
+    projection = dict(VOICE_DESIGN_CANDIDATE["validations"][0])
+    transport = _RecordingTransport(
+        (200, json.dumps({"validation": projection}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    result = await adapter.validate(
+        "vd_" + "a" * 24,
+        test_text="这是用于跨文本复验的另一句完整文本，不能与参考文本相同。",
+        capability_key="quality.render",
+    )
+
+    body = json.loads(transport.calls[0]["body"])
+    assert set(body) == {"test_text", "capability_key"}
+    assert "human_review" not in body
+    assert result.validation_id == "vv_" + "e" * 24
+
+
+async def test_a_verdict_we_cannot_record_never_reaches_the_provider():
+    """A warning has no lossless place in our evidence contract.
+
+    It is refused here, before the request, rather than sent upstream and
+    dropped on the way back — otherwise the provider records a human pass for
+    an audition whose verdict we could not store, and publication would go on
+    to treat that as reviewed.
+    """
+    transport = _RecordingTransport()
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.review(
+            "vd_" + "a" * 24,
+            validation_id="vv_" + "e" * 24,
+            identity=FoundryReviewVerdict.WARN,
+            naturalness=FoundryReviewVerdict.PASS,
+        )
+
+    assert excinfo.value.code == "provider_contract_unsupported"
+    assert transport.calls == []
+
+
+async def test_preview_auditions_without_registering_a_production_voice():
+    """Preview is for choosing between candidates; it registers nothing.
+
+    A preview that carried a voice id would create a production identity for
+    every recipe the operator auditioned and rejected, which is the repeated
+    casting the supply chain exists to avoid.
+    """
+    audio = b"RIFF----WAVEpreview"
+    transport = _RecordingTransport(
+        (
+            200,
+            json.dumps(
+                {
+                    "audio_base64": base64.b64encode(audio).decode(),
+                    "duration_seconds": 4.5,
+                }
+            ).encode(),
+        )
+    )
+    adapter = _adapter(transport)
+
+    preview = await adapter.preview(
+        PreviewRequest(
+            game_locale="zh-CN",
+            voice_description="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+        )
+    )
+
+    call = transport.calls[0]
+    assert call["url"].endswith("/voices/previews")
+    body = json.loads(call["body"])
+    assert "voice_id" not in body
+    assert set(body) == {
+        "model",
+        "input",
+        "instruction",
+        "response_format",
+        "language",
+        "seed",
+    }
+    assert preview.audio_digest == hashlib.sha256(audio).hexdigest()
+    assert preview.audio_bytes == len(audio)
