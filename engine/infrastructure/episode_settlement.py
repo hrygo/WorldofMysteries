@@ -89,10 +89,6 @@ class ScenarioSettlement:
     def episodes(self) -> SQLiteEpisodeFinalizationRepository:
         return self._episodes
 
-    def database_checkpoint(self, stage: str) -> None:
-        """Forward a named durability boundary to the injected fault hook."""
-        self._database.checkpoint(stage)
-
     async def settle(self, result: StoryTurnCommitResult) -> None:
         """Idempotently settle one committed turn and report post-COMMIT failures."""
         await self._settle(result, publish_expression=True)
@@ -468,9 +464,9 @@ class SettlingCommitPort:
             request_id=request_id,
             trace_id=trace_id,
         )
-        # Acceptance checkpoint "immediately after commit": the turn is durable
-        # but no frozen expression or Episode settlement exists yet. A fault here
-        # must recover to the same committed turn, never a second commit.
-        self._settlement.database_checkpoint("after_turn_commit")
+        # The "immediately after commit" acceptance checkpoint is announced by
+        # the commit port itself, which both wirings share. It used to be
+        # announced here, where the durable path never reaches: a boundary only
+        # the synchronous methods cross is not a boundary the run is judged on.
         await self._settlement.settle(result)
         return result
