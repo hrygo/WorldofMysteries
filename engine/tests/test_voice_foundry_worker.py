@@ -10,6 +10,7 @@ for a human never holds a slot, and cancellation stops before binding.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import sqlite3
 
 import pytest
@@ -28,6 +29,7 @@ from application.voice_foundry_ports import (
     PreviewRequest,
     PreviewResult,
     ProviderLocaleMap,
+    PublishResult,
     ValidationResult,
     VoiceFoundryCapabilities,
     VoiceFoundryPortError,
@@ -97,9 +99,15 @@ def task_spec(**overrides) -> VoiceFoundryTaskSpec:
 class RecordingPort:
     """A port double that records how many times each side effect ran."""
 
-    def __init__(self, *, preview_error: Exception | None = None):
+    def __init__(
+        self,
+        *,
+        preview_error: Exception | None = None,
+        validation_passes: bool = True,
+    ):
         self.calls: list[str] = []
         self.preview_error = preview_error
+        self.validation_passes = validation_passes
         self.create_error: Exception | None = None
         self.create_keys: list[str] = []
         self.created_identities: list[str] = []
@@ -173,7 +181,7 @@ class RecordingPort:
             capability_key=capability_key,
             audio_digest="d" * 64,
             text_digest="e" * 64,
-            passed=True,
+            passed=self.validation_passes,
         )
 
     async def review(self, candidate_id, **kwargs) -> EvidenceBundle:
@@ -182,11 +190,34 @@ class RecordingPort:
 
     async def publish(self, candidate_id, *, expected_candidate_revision):
         self.calls.append("publish")
-        raise NotImplementedError
+        self.published_revision = expected_candidate_revision
+        return PublishResult(
+            candidate_id=candidate_id,
+            candidate_revision=expected_candidate_revision,
+            voice_id="klein_visible",
+            voice_revision="wvr_" + "9" * 24,
+            evidence=EvidenceBundle(
+                evidence_id="ev_1",
+                evidence_digest="7" * 64,
+                execution={
+                    "model_id": "qwen3-tts",
+                    "model_artifact_revision": "art-1",
+                    "variant": "custom_voice",
+                    "locale": "zh",
+                    "validation_policy_revision": "policy-1",
+                    "processing_fingerprint": "8" * 64,
+                },
+                reference={"audio_sha256": "c" * 64},
+                output={"audio_sha256": "d" * 64},
+                human={"identity_status": "pass", "naturalness_status": "pass"},
+                publication={"published": True},
+                rights={"cleared": True},
+            ),
+        )
 
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         self.calls.append("read_asset")
-        raise NotImplementedError
+        return AssetResult(audio_digest="9" * 64, audio_bytes=16, duration_seconds=1.0)
 
 
 CANDIDATE_ID = "vd_" + "a" * 24
@@ -350,3 +381,142 @@ async def test_cancellation_stops_before_any_further_side_effect(repository):
     # can retire it cleanly, and it consumed no slot doing so.
     assert step.record.stage is VoiceFoundryStage.CANCELLED
     assert step.slot_consumed is False
+
+
+async def _drive_to_validating(repository, worker, port):
+    """Walk a fresh task the way production would, up to the deadlock."""
+    task = await repository.register_task(task_spec())
+    await worker.advance(task.task_id)
+    task = await repository.load_task(task.task_id)
+    assert task.stage is VoiceFoundryStage.AWAITING_SELECTION
+
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="selected",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="provisioning",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    return await worker.advance(task.task_id)
+
+
+async def test_a_selected_candidate_is_proved_on_text_it_has_not_heard(repository):
+    """Selection used to be a one-way door into nowhere.
+
+    Provisioning left the task ``validating`` and nothing advanced it, so a
+    chosen candidate waited there forever and no voice could ever be reviewed.
+    The step confirms the reference, proves the voice on text it has not been
+    read, and only then hands it to a person.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+
+    parked = await _drive_to_validating(repository, worker, port)
+    assert parked.record.stage is VoiceFoundryStage.VALIDATING
+
+    step = await worker.advance("task-1")
+
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+    assert step.slot_consumed is True
+    # The actions are the record's, so the App renders exactly what the task
+    # is actually waiting on.
+    assert step.record.required_actions == (
+        "listen_reference",
+        "listen_validation",
+        "review",
+    )
+
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "reviewing"
+    # The audition a listener judges is hashed from the asset the provider
+    # actually served, not from the call that promised it.
+    assert candidate.reference_audio_digest == "9" * 64
+    assert candidate.reference_text_digest == hashlib.sha256(
+        task_spec().reference_text.encode("utf-8")
+    ).hexdigest()
+    assert candidate.validation_audio_digest == "d" * 64
+    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+
+
+async def test_a_failed_cross_text_check_never_reaches_a_listener(repository):
+    """A machine failure is not something to spend a human's attention on.
+
+    Handing an unproven voice to the audition step would ask someone to approve
+    a voice that already failed cross-text — and their approval would then be
+    the only thing standing between it and a player.
+    """
+    port = RecordingPort(validation_passes=False)
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    step = await worker.advance("task-1")
+
+    assert step.record.stage is VoiceFoundryStage.FAILED
+    assert step.record.reason_code == "machine_validation_failed"
+    assert step.record.required_actions == ()
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "failed"
+    assert "review" not in step.record.required_actions
+
+
+async def test_publishing_and_binding_land_together(repository):
+    """The evidence and the binding are one outcome, not two steps.
+
+    Publishing first would leave a published voice nothing can render; binding
+    first would bind a voice nobody published. The binding also has to be
+    readable afterwards — an evidence triple that cannot be loaded strands the
+    voice at exactly the moment it was supposed to go live.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    await worker.advance("task-1")
+
+    # Stand in for the accepted human review the command layer records.
+    task = await repository.load_task("task-1")
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="task-1:candidate:0",
+        state="published",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="published",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+
+    step = await worker.publish_and_bind("task-1", binding_id="vb_klein")
+
+    assert step.record.stage is VoiceFoundryStage.READY
+    # Publishing is guarded on the exact candidate revision that was reviewed.
+    assert port.published_revision == REVISION
+    history = await repository.load_binding_history("vb_klein")
+    assert [(item.binding_revision, item.status) for item in history] == [
+        (1, "reserved"),
+        (2, "active"),
+    ]
+    assert all(item.evidence_id == "ev_1" for item in history)
+
+
+async def test_publishing_a_task_that_is_not_published_is_refused(repository):
+    """The worker will not improvise the step that needs a listener."""
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await repository.register_task(task_spec())
+
+    step = await worker.publish_and_bind("task-1", binding_id="vb_klein")
+
+    assert step.record.stage is VoiceFoundryStage.REQUESTED
+    assert step.slot_consumed is False
+    assert port.calls == []

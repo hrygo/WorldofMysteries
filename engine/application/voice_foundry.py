@@ -33,8 +33,13 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from infrastructure.voice_foundry_repository import VoiceCandidateRecord
+from infrastructure.voice_foundry_repository import (
+    VoiceCandidateRecord,
+    VoiceEvidenceSnapshot,
+)
 from application.voice_foundry_ports import (
+    AssetRequest,
+    ConfirmRequest,
     CreateRequest,
     PreviewRequest,
     VoiceFoundryPortError,
@@ -50,6 +55,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 #: Candidate slots minted per task. The provider runs one at a time; a failing
 #: candidate never overwrites its siblings.
 MAX_CANDIDATES = 4
+
+#: The tier a published voice must be proven at. Previews may be rendered
+#: cheaply, but the evidence we bind to a voice has to cover the tier the game
+#: will actually render at, or publication would vouch for a configuration
+#: nobody ever heard.
+PRODUCTION_CAPABILITY_KEY = "quality.render"
 
 #: The only failure worth retrying: the call may or may not have landed.
 INDETERMINATE_CODES = frozenset({"foundry_transient"})
@@ -148,6 +159,8 @@ class VoiceFoundryWorker:
             task = await self._preview_one(task, deadline_at)
         elif task.stage == "provisioning":
             task = await self._provision_one(task, deadline_at)
+        elif task.stage == "validating":
+            task = await self._validate_one(task, deadline_at)
         else:
             # ready / published / failed need an explicit human or client
             # action; the worker must not improvise one.
@@ -202,6 +215,66 @@ class VoiceFoundryWorker:
             )
             settled += 1
         return settled
+
+    async def publish_and_bind(self, task_id: str, *, binding_id: str) -> WorkerStep:
+        """Publish the reviewed voice and bind it, in one client-triggered step.
+
+        Publication and binding belong together because the binding is what
+        carries the evidence forward. Publishing first and binding later would
+        leave a published voice with no binding, and binding first would bind a
+        voice nobody ever published.
+
+        Still a client action rather than something the worker improvises: a
+        listener approved this exact candidate revision, and only the client
+        knows that approval is what it is waiting on.
+        """
+        task = await self._repository.load_task(task_id)
+        if task.stage != "published":
+            return WorkerStep(record=task, slot_consumed=False)
+        candidate = await self._repository.load_candidate(
+            task_id, _candidate_key(task_id, 0)
+        )
+        if candidate.provider_candidate_revision is None:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+
+        deadline_at = self._clock() + self._policy.deadline_seconds
+        result = await self._perform(
+            task,
+            stage="publish",
+            discriminator=0,
+            payload={
+                "candidate_id": candidate.provider_candidate_id,
+                "candidate_revision": candidate.provider_candidate_revision,
+            },
+            call=lambda: self._port.publish(
+                candidate.provider_candidate_id,
+                expected_candidate_revision=candidate.provider_candidate_revision,
+            ),
+            result_ref=lambda outcome: outcome.candidate_revision,
+            deadline_at=deadline_at,
+        )
+        task = await self._repository.load_task(task_id)
+        committed = await self._repository.commit_ready_binding(
+            task_id,
+            expected_task_revision=task.task_revision,
+            evidence=VoiceEvidenceSnapshot(
+                provider_instance=task.provider_instance,
+                evidence_id=result.evidence.evidence_id,
+                evidence_digest=result.evidence.evidence_digest,
+                voice_id=result.voice_id,
+                voice_revision=result.voice_revision,
+                snapshot={
+                    "execution": dict(result.evidence.execution),
+                    "reference": dict(result.evidence.reference),
+                    "output": dict(result.evidence.output),
+                    "human": dict(result.evidence.human),
+                    "publication": dict(result.evidence.publication),
+                    "rights": dict(result.evidence.rights),
+                },
+            ),
+            binding_id=binding_id,
+        )
+        return WorkerStep(record=committed, slot_consumed=True)
 
     # -- steps -----------------------------------------------------------
 
@@ -303,6 +376,12 @@ class VoiceFoundryWorker:
                 provider_candidate_id=state.candidate_id,
                 provider_candidate_revision=state.candidate_revision,
             )
+            # Recording the provider identity advanced the task revision, so the
+            # stage move below has to speak for the revision that now exists.
+            # Carrying the pre-write revision made every first-time creation
+            # fail its way out of provisioning, and a task that failed here
+            # could never be resumed into validation.
+            task = await self._repository.load_task(task.task_id)
         return await self._repository.set_stage(
             task.task_id,
             expected_revision=task.task_revision,
@@ -317,6 +396,118 @@ class VoiceFoundryWorker:
             expected_revision=task.task_revision,
             candidate_id=candidate_id,
             state=state,
+        )
+
+    async def _validate_one(
+        self, task: "VoiceFoundryTaskRecord", deadline_at: float
+    ) -> "VoiceFoundryTaskRecord":
+        """Bind the reference, then prove the voice on text it has not heard.
+
+        This is the half of supply that runs without a person. It used to have
+        no driver at all: provisioning left the task ``validating`` and nothing
+        advanced it, so a task that had been selected waited there forever.
+
+        Both provider calls sit inside the same persist-call-confirm bracket as
+        creation. A crash between them leaves an ``unknown`` operation that a
+        resume reconciles, instead of a voice confirmed or validated twice.
+        """
+        candidate = await self._repository.load_candidate(
+            task.task_id, _candidate_key(task.task_id, 0)
+        )
+        provider_candidate_id = candidate.provider_candidate_id
+        if provider_candidate_id is None:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+
+        reference_text_digest = hashlib.sha256(
+            task.reference_text.encode("utf-8")
+        ).hexdigest()
+        await self._perform(
+            task,
+            stage="confirm",
+            discriminator=0,
+            payload={
+                "candidate_id": provider_candidate_id,
+                "reference_text_digest": reference_text_digest,
+            },
+            call=lambda: self._port.confirm(
+                provider_candidate_id,
+                ConfirmRequest(reference_text=task.reference_text),
+            ),
+            result_ref=lambda outcome: outcome.candidate_revision,
+            deadline_at=deadline_at,
+        )
+
+        # The audition the listener will judge is a real asset, so its digest is
+        # read back from the provider rather than assumed from the call that
+        # produced it. A promise of an audio file is not evidence of one.
+        reference_asset = await self._port.read_asset(
+            AssetRequest(candidate_id=provider_candidate_id)
+        )
+        await self._repository.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=candidate.candidate_id,
+            state="validating",
+            reference_audio_digest=reference_asset.audio_digest,
+            reference_text_digest=reference_text_digest,
+        )
+        task = await self._repository.load_task(task.task_id)
+
+        validation = await self._perform(
+            task,
+            stage="validate",
+            discriminator=0,
+            payload={
+                "candidate_id": provider_candidate_id,
+                "capability_key": PRODUCTION_CAPABILITY_KEY,
+                "test_text_digest": hashlib.sha256(
+                    task.validation_text.encode("utf-8")
+                ).hexdigest(),
+            },
+            call=lambda: self._port.validate(
+                provider_candidate_id,
+                test_text=task.validation_text,
+                capability_key=PRODUCTION_CAPABILITY_KEY,
+            ),
+            result_ref=lambda outcome: outcome.validation_id,
+            deadline_at=deadline_at,
+        )
+
+        if not validation.passed:
+            # A cross-text failure is not a candidate a listener should be asked
+            # to judge. Ending here keeps an unproven voice away from a human's
+            # signature instead of spending their attention on it.
+            await self._repository.update_candidate(
+                task.task_id,
+                expected_revision=task.task_revision,
+                candidate_id=candidate.candidate_id,
+                state="failed",
+            )
+            task = await self._repository.load_task(task.task_id)
+            return await self._repository.set_stage(
+                task.task_id,
+                expected_revision=task.task_revision,
+                stage="failed",
+                operation_status="rejected",
+                required_actions=(),
+                reason_code="machine_validation_failed",
+            )
+
+        await self._repository.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=candidate.candidate_id,
+            state="reviewing",
+            validation_audio_digest=validation.audio_digest,
+            validation_text_digest=validation.text_digest,
+        )
+        task = await self._repository.load_task(task.task_id)
+        return await self._repository.set_stage(
+            task.task_id,
+            expected_revision=task.task_revision,
+            stage="awaiting_review",
+            operation_status="confirmed",
+            required_actions=("listen_reference", "listen_validation", "review"),
         )
 
     # -- the side-effect bracket -----------------------------------------
