@@ -63,6 +63,40 @@ def test_agt_mac_scope_allows_only_the_app_engine_driver_manifest_in_engine_test
     )["verdict"] == "out_of_scope"
 
 
+def test_agt_mac_owns_the_cross_process_app_driver_it_must_keep_alive():
+    """The Swift driver that launches the real Engine is App harness, not QA assertion.
+
+    ``engine/tests/fixtures/app_engine_driver.swift`` compiles the production
+    App sources and drives them against a real child Engine. When the App's
+    launch or session contract changes, only the App owner can keep that driver
+    in step; leaving it under a role that may not touch App sources makes the
+    FULL_P0 acceptance suite impossible to keep green, which is how a real
+    behaviour change gets silently reverted instead of accepted.
+    """
+    role = agent_capsule.ROLE_DEFAULTS["AGT-MAC"]
+    capsule = {
+        "assigned_role": "AGT-MAC",
+        "scope": {
+            "write": role["write"],
+            "forbidden": role["forbidden"],
+            "privileged_grants": [],
+        },
+    }
+
+    for path in (
+        "engine/tests/fixtures/app_engine_driver.swift",
+        "engine/tests/fixtures/voice_turn_e2e_driver.swift",
+        "engine/tests/test_app_engine_session.py",
+        "engine/tests/test_voice_turn_e2e.py",
+    ):
+        assert hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized", path
+
+    # Narrowing must not leak: the rest of engine/tests/ stays out of reach.
+    assert hacf_policy.path_verdict(
+        capsule, "engine/tests/test_outbox.py"
+    )["verdict"] == "out_of_scope"
+
+
 def test_agt_ai_scope_allows_only_story_composition_root_files_in_infrastructure():
     """AI may update the narrow composition roots and the AO-04 scenario adapters.
 
