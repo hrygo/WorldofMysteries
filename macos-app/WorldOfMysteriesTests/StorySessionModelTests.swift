@@ -59,6 +59,8 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     private var expressionError: (any Error)?
     private var postCommitCapabilities: Set<StoryPostCommitMethodCapability> = []
     private var postCommitWorkResponse: StoryTurnWorkGetResponseDTO?
+    private var postCommitWorkScript: [StoryTurnWorkGetResponseDTO] = []
+    private var postCommitWorkStates: [String] = []
     private var postCommitWorkQueries: [(String, String)] = []
     private var postCommitWorkRetries: [(String, String, StoryTurnWorkKind, String)] = []
     private var gateStream: AsyncStream<Void>?
@@ -94,6 +96,11 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
     }
     func setPostCommitWorkResponse(_ response: StoryTurnWorkGetResponseDTO?) {
         lock.withLock { postCommitWorkResponse = response }
+    }
+    /// Queued projections model the Engine's own progression: the first read
+    /// lands on a genuinely in-flight state, later reads on its successors.
+    func setPostCommitWorkScript(_ responses: [StoryTurnWorkGetResponseDTO]) {
+        lock.withLock { postCommitWorkScript = responses }
     }
     /// Queued results model the Engine's per-turn views: each fixed turn
     /// commits its own revision and advertises the next advice.
@@ -235,10 +242,22 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
         log.append("client.work_get")
         let response = lock.withLock { () -> StoryTurnWorkGetResponseDTO? in
             postCommitWorkQueries.append((sessionId, turnId))
+            if !postCommitWorkScript.isEmpty {
+                let next = postCommitWorkScript.removeFirst()
+                postCommitWorkStates.append(Self.describe(next))
+                return next
+            }
+            if let response = postCommitWorkResponse {
+                postCommitWorkStates.append(Self.describe(response))
+            }
             return postCommitWorkResponse
         }
         guard let response else { throw EngineConnectionError.invalidFrame }
         return response
+    }
+
+    private static func describe(_ work: StoryTurnWorkGetResponseDTO) -> String {
+        "\(work.settlementState.rawValue)/\(work.narrativeState.rawValue)/\(work.audioState.rawValue)"
     }
 
     func storyTurnWorkRetry(
@@ -262,6 +281,11 @@ final class FakeStoryClient: StoryEngineClient, @unchecked Sendable {
 
     var postCommitWorkQueryIdentities: [(String, String)] {
         lock.withLock { postCommitWorkQueries }
+    }
+
+    /// One entry per read, in order: the exact public state the client saw.
+    var postCommitWorkObservedStates: [String] {
+        lock.withLock { postCommitWorkStates }
     }
 
     var postCommitWorkRetryIdentities: [(String, String, StoryTurnWorkKind, String)] {
@@ -535,14 +559,18 @@ struct StorySessionModelTests {
         log: StoryCallLog, journal: MemoryStoryJournal,
         entryView: StoryEntryViewDTO, openView: StoryOpenViewDTO,
         submitView: StoryAdviceSubmitViewDTO?, adviceView: StoryAdviceGetViewDTO,
-        ids: [String] = ["open_1", "input_turn_1"]
+        ids: [String] = ["open_1", "input_turn_1"],
+        postCommitPollInterval: Duration = .milliseconds(10),
+        postCommitPollHorizon: Duration = .seconds(90)
     ) -> (StorySessionModel, FakeStoryClient) {
         let client = FakeStoryClient(log: log, journal: journal, entryView: entryView,
                                      openView: openView, submitView: submitView,
                                      adviceView: adviceView)
         let box = IDBox(values: ids)
         let model = StorySessionModel(client: client, journal: journal,
-                                      idFactory: { box.next() })
+                                      idFactory: { box.next() },
+                                      postCommitPollInterval: postCommitPollInterval,
+                                      postCommitPollHorizon: postCommitPollHorizon)
         return (model, client)
     }
 

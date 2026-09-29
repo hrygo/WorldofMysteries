@@ -21,6 +21,14 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
     /// audio plane; the Engine then reports `voice_ready: false` instead of
     /// pretending it can speak.
     public let voiceId: String?
+    /// Opt in to durable v2 post-COMMIT work.
+    ///
+    /// Without it the Engine keeps serving the synchronous v1 story methods,
+    /// blocks the caller until narrative and audio are already sealed, and
+    /// never exposes the `pending`/`running` states the App is built to show.
+    /// Production launches therefore request it; only tests that deliberately
+    /// exercise the legacy projection turn it off.
+    public let durablePostCommit: Bool
     /// Narrow overlay merged into the child environment.
     ///
     /// Only the keys the caller names are added, and nothing is removed: the
@@ -35,6 +43,7 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
         runtimeRoot: URL? = nil,
         dataRoot: URL? = nil,
         voiceId: String? = nil,
+        durablePostCommit: Bool = true,
         environment: [String: String] = [:]
     ) {
         self.executableURL = executableURL
@@ -42,7 +51,30 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
         self.runtimeRoot = runtimeRoot
         self.dataRoot = dataRoot
         self.voiceId = voiceId
+        self.durablePostCommit = durablePostCommit
         self.environment = environment
+    }
+
+    /// The exact argv handed to the bundled interpreter.
+    ///
+    /// Kept pure and public so the launch contract is testable without
+    /// spawning a process: the transport identity (`-E -s -B -X utf8`, the
+    /// module entrypoint, the socket, the token FD and the parent PID) must
+    /// stay byte-identical while product flags are added.
+    public static func engineArguments(
+        socketPath: String,
+        parentProcessIdentifier: Int32,
+        dataRoot: String?,
+        voiceId: String?,
+        durablePostCommit: Bool
+    ) -> [String] {
+        ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server",
+         "--socket", socketPath,
+         "--token-fd", "0",
+         "--parent-pid", String(parentProcessIdentifier)]
+            + (dataRoot.map { ["--data-root", $0] } ?? [])
+            + (voiceId.map { ["--voice-id", $0] } ?? [])
+            + (durablePostCommit ? ["--durable-post-commit"] : [])
     }
 
     public static func bundled(in bundle: Bundle = .main) throws -> Self {
@@ -250,10 +282,13 @@ public actor EngineProcessManager {
             try input.fileHandleForWriting.close()
             child.executableURL = config.executableURL
             child.currentDirectoryURL = config.moduleDirectory
-            child.arguments = ["-E", "-s", "-B", "-X", "utf8", "-m", "infrastructure.ipc_server", "--socket", runtime.socketPath,
-                               "--token-fd", "0", "--parent-pid", String(ProcessInfo.processInfo.processIdentifier)]
-                + (config.dataRoot.map { ["--data-root", $0.path] } ?? [])
-                + (config.voiceId.map { ["--voice-id", $0] } ?? [])
+            child.arguments = EngineLaunchConfiguration.engineArguments(
+                socketPath: runtime.socketPath,
+                parentProcessIdentifier: ProcessInfo.processInfo.processIdentifier,
+                dataRoot: config.dataRoot?.path,
+                voiceId: config.voiceId,
+                durablePostCommit: config.durablePostCommit
+            )
             var childEnvironment = ProcessInfo.processInfo.environment.filter {
                 !$0.key.hasPrefix("PYTHON") && !$0.key.hasPrefix("DYLD_") && !$0.key.hasPrefix("LD_") && $0.key != "VIRTUAL_ENV"
             }

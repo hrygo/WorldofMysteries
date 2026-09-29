@@ -100,6 +100,10 @@ public final class StorySessionModel {
     public private(set) var postCommitWork: StoryTurnWorkGetResponseDTO?
     public private(set) var postCommitWorkReadFailed = false
     public private(set) var postCommitWorkLoading = false
+    /// True when bounded re-read gave up before the work reached a terminal
+    /// state. It never rewrites a committed fact: the player keeps whatever
+    /// projection was last read and may ask for it again.
+    public private(set) var postCommitWorkPollGaveUp = false
     public private(set) var audioUnavailableReason: String?
     public private(set) var pendingInputTurnId: String?
     public private(set) var generation: UInt64 = 0
@@ -114,22 +118,37 @@ public final class StorySessionModel {
     @ObservationIgnored private var expressionRequestGeneration: UInt64 = 0
     @ObservationIgnored private var postCommitWorkRequestGeneration: UInt64 = 0
     @ObservationIgnored private var currentCommittedTurnId: String?
+    @ObservationIgnored private var postCommitPollTask: Task<Void, Never>?
+    @ObservationIgnored private let postCommitPollInterval: Duration
+    @ObservationIgnored private let postCommitPollHorizon: Duration
 
     public init(
         client: any StoryEngineClient,
         journal: any StoryJournalWriting = StoryRequestJournal(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
-        submissionCoordinator: StorySubmissionCoordinator? = nil
+        submissionCoordinator: StorySubmissionCoordinator? = nil,
+        postCommitPollInterval: Duration = StorySessionModel.defaultPostCommitPollInterval,
+        postCommitPollHorizon: Duration = StorySessionModel.defaultPostCommitPollHorizon
     ) {
         self.client = client
         self.journal = journal
         self.idFactory = idFactory
+        self.postCommitPollInterval = postCommitPollInterval
+        self.postCommitPollHorizon = postCommitPollHorizon
         self.submissionCoordinator = submissionCoordinator ?? StorySubmissionCoordinator(
             client: client,
             journal: journal,
             idFactory: idFactory
         )
     }
+
+    /// Matches the Engine's own post-COMMIT poll cadence, so a client re-read
+    /// lands on the same tick the worker publishes on.
+    public static let defaultPostCommitPollInterval = Duration.seconds(1)
+    /// A patience ceiling, not a latency budget: measured commit-to-ready
+    /// intervals run well under half of it, and exceeding it stops the re-read
+    /// instead of polling forever.
+    public static let defaultPostCommitPollHorizon = Duration.seconds(90)
 
     // MARK: - Public UI inputs
 
@@ -468,11 +487,13 @@ public final class StorySessionModel {
         }
         postCommitWorkRequestGeneration &+= 1
         let queryAttempt = postCommitWorkRequestGeneration
+        stopPostCommitPolling()
         postCommitWork = nil
         postCommitWorkReadFailed = false
+        postCommitWorkPollGaveUp = false
         postCommitWorkLoading = true
         defer {
-            if queryAttempt == postCommitWorkRequestGeneration {
+            if queryAttempt == postCommitWorkRequestGeneration, postCommitPollTask == nil {
                 postCommitWorkLoading = false
             }
         }
@@ -501,6 +522,7 @@ public final class StorySessionModel {
                 return true
             }
             postCommitWork = response
+            schedulePostCommitPolling(sessionId: sessionId, turnId: turnId, attempt: attempt)
         } catch {
             guard attempt == generation,
                   queryAttempt == postCommitWorkRequestGeneration,
@@ -511,6 +533,125 @@ public final class StorySessionModel {
             postCommitWorkReadFailed = true
         }
         return true
+    }
+
+    /// A turn is only finished for the player when nothing about it is still
+    /// moving. `blocked` and `unavailable` are outcomes, not in-flight states,
+    /// so a failed or refused item stops the re-read instead of retrying it.
+    static func isTerminalPostCommitWork(_ work: StoryTurnWorkGetResponseDTO) -> Bool {
+        let settlement: Bool = switch work.settlementState {
+        case .notRequired, .succeeded, .blocked: true
+        case .pending, .running: false
+        }
+        let narrative: Bool = switch work.narrativeState {
+        case .ready, .blocked: true
+        case .pending, .running: false
+        }
+        let audio: Bool = switch work.audioState {
+        case .ready, .unavailable: true
+        case .pending, .running: false
+        }
+        return settlement && narrative && audio
+    }
+
+    /// Bounded re-read of a projection that is still in flight.
+    ///
+    /// `work.get` is a pure read of committed facts, so re-reading it neither
+    /// claims a job nor rewrites anything: the loop can only make the finished
+    /// state visible, never invent one. It stops on the first terminal read,
+    /// when the panel moves to another session or turn, and at the horizon.
+    private func schedulePostCommitPolling(sessionId: String, turnId: String, attempt: UInt64) {
+        guard let work = postCommitWork, !Self.isTerminalPostCommitWork(work) else {
+            stopPostCommitPolling()
+            return
+        }
+        stopPostCommitPolling()
+        let queryAttempt = postCommitWorkRequestGeneration
+        let interval = postCommitPollInterval
+        let horizon = postCommitPollHorizon
+        postCommitWorkLoading = true
+        postCommitPollTask = Task { [weak self] in
+            let deadline = ContinuousClock.now.advanced(by: horizon)
+            while ContinuousClock.now < deadline {
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    return
+                }
+                guard let self,
+                      attempt == self.generation,
+                      queryAttempt == self.postCommitWorkRequestGeneration,
+                      self.view?.sessionId == sessionId,
+                      self.currentCommittedTurnId == turnId else {
+                    return
+                }
+                if await self.pollPostCommitWorkOnce(
+                    sessionId: sessionId,
+                    turnId: turnId,
+                    attempt: attempt
+                ) {
+                    return
+                }
+            }
+            guard let self,
+                  attempt == self.generation,
+                  queryAttempt == self.postCommitWorkRequestGeneration,
+                  self.view?.sessionId == sessionId,
+                  self.currentCommittedTurnId == turnId else {
+                return
+            }
+            self.postCommitWorkPollGaveUp = true
+            self.stopPostCommitPolling()
+        }
+    }
+
+    /// One re-read. Returns true when the loop must stop.
+    private func pollPostCommitWorkOnce(
+        sessionId: String,
+        turnId: String,
+        attempt: UInt64
+    ) async -> Bool {
+        let queryAttempt = postCommitWorkRequestGeneration
+        do {
+            let response = try await client.storyTurnWorkGet(
+                sessionId: sessionId,
+                turnId: turnId
+            )
+            guard attempt == generation,
+                  queryAttempt == postCommitWorkRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return true
+            }
+            guard response.sessionId == sessionId, response.turnId == turnId else {
+                postCommitWorkReadFailed = true
+                return false
+            }
+            postCommitWork = response
+            postCommitWorkReadFailed = false
+            guard !Self.isTerminalPostCommitWork(response) else {
+                stopPostCommitPolling()
+                return true
+            }
+            return false
+        } catch {
+            guard attempt == generation,
+                  queryAttempt == postCommitWorkRequestGeneration,
+                  view?.sessionId == sessionId,
+                  currentCommittedTurnId == turnId else {
+                return true
+            }
+            // A dropped connection is not a lost fact: keep the last projection
+            // and let the next tick, or the horizon, decide.
+            postCommitWorkReadFailed = true
+            return false
+        }
+    }
+
+    private func stopPostCommitPolling() {
+        postCommitPollTask?.cancel()
+        postCommitPollTask = nil
+        postCommitWorkLoading = false
     }
 
     /// Reads the legacy disclosed-text projection without resubmitting a turn.
@@ -732,11 +873,12 @@ public final class StorySessionModel {
             currentCommittedTurnId = nil
             expressionRequestGeneration &+= 1
             postCommitWorkRequestGeneration &+= 1
+            stopPostCommitPolling()
             expression = nil
             expressionReadFailed = false
             postCommitWork = nil
             postCommitWorkReadFailed = false
-            postCommitWorkLoading = false
+            postCommitWorkPollGaveUp = false
             audioUnavailableReason = nil
             return
         }
@@ -754,11 +896,12 @@ public final class StorySessionModel {
         if changedSessionOrTurn {
             expressionRequestGeneration &+= 1
             postCommitWorkRequestGeneration &+= 1
+            stopPostCommitPolling()
             expression = nil
             expressionReadFailed = false
             postCommitWork = nil
             postCommitWorkReadFailed = false
-            postCommitWorkLoading = false
+            postCommitWorkPollGaveUp = false
             audioUnavailableReason = nil
         }
         currentCommittedTurnId = nextCommittedTurnId

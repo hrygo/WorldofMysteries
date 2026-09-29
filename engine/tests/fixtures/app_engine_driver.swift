@@ -178,10 +178,11 @@ struct AppEngineDriver {
                 fatalError("Story engine never reported world readiness")
             }
             let model = app.storyModel
-            try await performStoryAction(mode: mode, model: model)
+            try await performStoryAction(mode: mode, model: model, manager: manager)
             guard await waitForStory(mode: mode, model: model, seconds: 25) else {
                 fatalError("Story mode \(mode) never reached its expected outcome: \(stateName(model.state))")
             }
+            await waitForPostCommitDelivery(model: model, manager: manager, seconds: 60)
             try emitStoryFacts(mode: mode, model: model)
             await app.shutdown()
             print("PASS \(mode)")
@@ -192,7 +193,9 @@ struct AppEngineDriver {
     }
 
     @MainActor
-    private static func performStoryAction(mode: String, model: StorySessionModel) async throws {
+    private static func performStoryAction(
+        mode: String, model: StorySessionModel, manager: EngineProcessManager
+    ) async throws {
         switch mode {
         case "story-open", "story-open-lost-ack":
             guard model.state == .notStarted else {
@@ -230,6 +233,7 @@ struct AppEngineDriver {
                 guard model.view?.turn == expected else {
                     fatalError("Turn \(expected) did not commit; saw \(String(describing: model.view?.turn))")
                 }
+                await waitForPostCommitDelivery(model: model, manager: manager, seconds: 60)
             }
         case "story-five-turn-final-lost":
             // Golden-acceptance driver: the injected fault terminates the Engine
@@ -254,9 +258,31 @@ struct AppEngineDriver {
                         fatalError("Turn \(expected) did not commit; saw \(String(describing: model.view?.turn))")
                     }
                 }
+                await waitForPostCommitDelivery(model: model, manager: manager, seconds: 60)
             }
         default:
             break  // story-reopen / story-recover-open are pure read modes.
+        }
+    }
+
+    /// Stay until the committed turn's post-COMMIT work stops moving.
+    ///
+    /// Narrative and audio are produced by a background worker, so a client
+    /// that walks away the moment a turn commits sees nothing but `pending`.
+    /// Waiting here is what a player does by watching the panel, and it is what
+    /// makes the acceptance checkpoints reachable: the injected faults live
+    /// inside that worker. Once the Engine is gone there is nothing left to
+    /// wait for — the next process resumes the work, which is what recovery means.
+    @MainActor
+    private static func waitForPostCommitDelivery(
+        model: StorySessionModel, manager: EngineProcessManager, seconds: Double
+    ) async {
+        guard (model.view?.turn ?? 0) > 0 else { return }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(seconds))
+        while ContinuousClock.now < deadline {
+            if await !manager.isRunning { return }
+            if model.postCommitWork != nil, !model.postCommitWorkLoading { return }
+            try? await Task.sleep(for: .milliseconds(25))
         }
     }
 
