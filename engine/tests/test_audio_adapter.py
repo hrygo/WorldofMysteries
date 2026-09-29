@@ -2104,7 +2104,7 @@ def test_sealed_unit_codec_round_trips_every_typed_field():
 
     payload = json.loads(payload_json)
     assert set(payload) == {"format_version", "unit"}
-    assert payload["format_version"] == 1
+    assert payload["format_version"] == 2
     assert set(payload["unit"]) == {field.name for field in fields(SealedSpeechUnit)}
     assert "sealed" not in payload["unit"]
     assert decoded == unit
@@ -2167,6 +2167,42 @@ def test_sealed_unit_codec_rejects_unknown_format_version():
 
     with pytest.raises(ValueError, match="format_version"):
         codec.decode(unknown_payload, unknown_digest)
+
+
+def test_sealed_unit_codec_rejects_the_pre_evidence_format_version():
+    """A v1 payload carries no evidence identity. Reading it as if a human had
+    approved the voice would be exactly the substitution the pins exist to
+    prevent, so the version bump must be a hard refusal, not a default."""
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    codec = SealedSpeechUnitCodec()
+    payload_json, _digest = codec.encode(_sealed_unit_codec_fixture())
+    legacy_payload, legacy_digest = _repack_sealed_unit_payload(
+        payload_json,
+        top_level_updates={"format_version": 1},
+    )
+
+    with pytest.raises(ValueError, match="format_version"):
+        codec.decode(legacy_payload, legacy_digest)
+
+
+def test_sealed_unit_codec_rejects_a_partially_pinned_evidence_identity():
+    """Evidence identity is one fact with three parts. Half of it is not a
+    weaker guarantee, it is an unattributable unit."""
+    from infrastructure.audio.sealed_unit_codec import SealedSpeechUnitCodec
+
+    codec = SealedSpeechUnitCodec()
+    payload_json, _digest = codec.encode(_sealed_unit_codec_fixture())
+    partial_payload, partial_digest = _repack_sealed_unit_payload(
+        payload_json,
+        unit_updates={
+            "evidence_id": "ev_codec_1",
+            "evidence_digest": "d" * 64,
+        },
+    )
+
+    with pytest.raises(ValueError, match="incomplete_evidence_pins"):
+        codec.decode(partial_payload, partial_digest)
 
 
 def test_sealed_unit_codec_rejects_pickle_bytes_reduce_and_unknown_keys():

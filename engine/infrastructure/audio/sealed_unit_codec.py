@@ -1,6 +1,7 @@
 """Versioned, typed persistence codec for Engine-owned sealed speech units."""
 from __future__ import annotations
 
+from dataclasses import fields
 import hashlib
 import hmac
 import json
@@ -25,7 +26,12 @@ class SealedSpeechUnitCodecError(ValueError):
         self.code = code
 
 
-_FORMAT_VERSION = 1
+# v2 adds the evidence pins (evidence_id / evidence_digest) and the model
+# artifact revision. The bump is deliberate: a v1 payload carries no evidence
+# identity, so it must be re-sealed rather than silently accepted as if a human
+# had approved it. v2 tolerates their absence only while sealing is being
+# rolled out; the render boundary rejects an unpinned unit.
+_FORMAT_VERSION = 2
 _MAX_PAYLOAD_BYTES = 256 * 1024
 _MAX_PRONUNCIATION_MAPPINGS = 128
 _MAX_EMPHASIS_CUES = 64
@@ -59,6 +65,9 @@ _UNIT_STRING_LIMITS = {
     "voice_revision": 256,
     "model_id": 256,
     "model_revision": 256,
+    "evidence_id": 256,
+    "evidence_digest": 256,
+    "model_artifact_revision": 256,
     "language": 64,
     "performance_plan_id": 128,
     "display_text": 4096,
@@ -121,6 +130,14 @@ _UNIT_KEYS = frozenset(_UNIT_STRING_LIMITS) | frozenset(
         "degradation",
     }
 )
+# Carried by v2 payloads but tolerated as absent until every sealing path
+# populates them. Present means validated; absent means "not yet pinned".
+_OPTIONAL_UNIT_KEYS = frozenset({"evidence_id", "evidence_digest", "model_artifact_revision"})
+_REQUIRED_UNIT_KEYS = _UNIT_KEYS - _OPTIONAL_UNIT_KEYS
+# The codec never invents a field the dataclass does not have. Until sealing
+# grows the evidence pins, a payload that carries them is refused rather than
+# silently dropped on the way back into a unit.
+_UNIT_FIELD_NAMES = frozenset(field.name for field in fields(SealedSpeechUnit))
 _ENVELOPE_KEYS = frozenset({"format_version", "unit"})
 
 
@@ -183,13 +200,14 @@ def _object(
     field: str,
     *,
     keys: frozenset[str],
+    optional: frozenset[str] = frozenset(),
 ) -> dict[str, object]:
     if type(value) is not dict:
         _fail(f"invalid_{field}_object")
     actual = frozenset(value)
-    if actual != keys:
-        if actual - keys:
-            _fail(f"unknown_{field}_field")
+    if actual - keys:
+        _fail(f"unknown_{field}_field")
+    if not keys - optional <= actual:
         _fail(f"missing_{field}_field")
     return value
 
@@ -394,11 +412,7 @@ def _load_backend(value: object) -> EffectiveBackendPerformance:
             "backend_instructions",
             limit=1024,
         ),
-        seed=(
-            None
-            if data["seed"] is None
-            else _integer(data["seed"], "backend_seed")
-        ),
+        seed=(None if data["seed"] is None else _integer(data["seed"], "backend_seed")),
         emotion=_optional_text(data["emotion"], "backend_emotion", limit=128),
         intensity=(
             None
@@ -562,10 +576,7 @@ def _dump_strings(values: object, field: str) -> list[str]:
         _fail(f"invalid_{field}_tuple")
     if len(values) > _MAX_DIAGNOSTICS:
         _fail(f"{field}_limit_exceeded")
-    return [
-        _text(value, field, limit=128)
-        for value in values
-    ]
+    return [_text(value, field, limit=128) for value in values]
 
 
 def _load_strings(value: object, field: str) -> tuple[str, ...]:
@@ -582,7 +593,14 @@ def _dump_unit(unit: SealedSpeechUnit) -> dict[str, object]:
         key: _text(getattr(unit, key), key, limit=limit)
         for key, limit in _UNIT_STRING_LIMITS.items()
         if key not in {"model_revision", "display_text", "spoken_text"}
+        and key not in _OPTIONAL_UNIT_KEYS
     }
+    # A unit sealed before the evidence pins existed simply has no attribute to
+    # write; a unit that does have them is written in full, never truncated.
+    for key in sorted(_OPTIONAL_UNIT_KEYS):
+        value = getattr(unit, key, None)
+        if value is not None:
+            values[key] = _text(value, key, limit=_UNIT_STRING_LIMITS[key])
     values["model_revision"] = _optional_text(
         unit.model_revision,
         "model_revision",
@@ -619,10 +637,12 @@ def _dump_unit(unit: SealedSpeechUnit) -> dict[str, object]:
         for item in unit.pronunciation_mappings
     ]
     anchor_ids = [
-        item["anchor_id"] for item in values["pronunciation_mappings"]  # type: ignore[index]
+        item["anchor_id"]
+        for item in values["pronunciation_mappings"]  # type: ignore[index]
     ]
     rule_ids = [
-        item["rule_id"] for item in values["pronunciation_mappings"]  # type: ignore[index]
+        item["rule_id"]
+        for item in values["pronunciation_mappings"]  # type: ignore[index]
     ]
     if len(set(anchor_ids)) != len(anchor_ids) or len(set(rule_ids)) != len(rule_ids):
         _fail("duplicate_pronunciation_mapping_identity")
@@ -639,18 +659,31 @@ def _dump_unit(unit: SealedSpeechUnit) -> dict[str, object]:
     }
     values["unsupported"] = _dump_strings(unit.unsupported, "unsupported")
     values["degradation"] = _dump_strings(unit.degradation, "degradation")
-    if frozenset(values) != _UNIT_KEYS:
+    if not _REQUIRED_UNIT_KEYS <= frozenset(values) <= _UNIT_KEYS:
         _fail("sealed_unit_codec_internal_field_mismatch")
     return values
 
 
 def _load_unit(value: object) -> SealedSpeechUnit:
-    data = _object(value, "sealed_unit", keys=_UNIT_KEYS)
+    data = _object(value, "sealed_unit", keys=_UNIT_KEYS, optional=_OPTIONAL_UNIT_KEYS)
     strings = {
         key: _text(data[key], key, limit=limit)
         for key, limit in _UNIT_STRING_LIMITS.items()
         if key not in {"model_revision", "display_text", "spoken_text"}
+        and key not in _OPTIONAL_UNIT_KEYS
     }
+    # Validate every pin that is present, then hand the dataclass only the ones
+    # it actually declares. A v2 payload written before the dataclass grew the
+    # fields still decodes; one written after must carry all three or fail.
+    evidence_pins = {
+        key: _text(data[key], key, limit=_UNIT_STRING_LIMITS[key])
+        for key in sorted(_OPTIONAL_UNIT_KEYS)
+        if key in data
+    }
+    if evidence_pins and frozenset(evidence_pins) != _OPTIONAL_UNIT_KEYS:
+        _fail("incomplete_evidence_pins")
+    if evidence_pins and not _OPTIONAL_UNIT_KEYS <= _UNIT_FIELD_NAMES:
+        _fail("unsupported_evidence_pins")
     model_revision = _optional_text(
         data["model_revision"],
         "model_revision",
@@ -681,10 +714,9 @@ def _load_unit(value: object) -> SealedSpeechUnit:
         )
         for item in mapping_values
     )
-    if (
-        len({item.anchor_id for item in mappings}) != len(mappings)
-        or len({item.rule_id for item in mappings}) != len(mappings)
-    ):
+    if len({item.anchor_id for item in mappings}) != len(mappings) or len(
+        {item.rule_id for item in mappings}
+    ) != len(mappings):
         _fail("duplicate_pronunciation_mapping_identity")
 
     playback_data = _object(data["playback"], "playback_performance", keys=_PLAYBACK_KEYS)
@@ -726,6 +758,7 @@ def _load_unit(value: object) -> SealedSpeechUnit:
         ),
         unsupported=_load_strings(data["unsupported"], "unsupported"),
         degradation=_load_strings(data["degradation"], "degradation"),
+        **evidence_pins,
     )
 
 
@@ -751,7 +784,7 @@ def _canonical_json(value: object) -> str:
             separators=(",", ":"),
             allow_nan=False,
         )
-    except (TypeError, ValueError, UnicodeEncodeError):
+    except TypeError, ValueError, UnicodeEncodeError:
         _fail("invalid_payload_value")
 
 
@@ -806,7 +839,7 @@ class SealedSpeechUnitCodec:
             )
         except SealedSpeechUnitCodecError:
             raise
-        except (json.JSONDecodeError, TypeError, ValueError, RecursionError):
+        except json.JSONDecodeError, TypeError, ValueError, RecursionError:
             _fail("invalid_payload_json")
 
         if _canonical_json(envelope) != payload_json:
