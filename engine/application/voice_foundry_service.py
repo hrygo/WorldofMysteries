@@ -28,6 +28,8 @@ for a scope and treats "asked and abandoned" differently from "never asked".
 """
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
@@ -159,6 +161,20 @@ class VoiceBindingLookup(Protocol):
     async def load_scope(self, scope: VoiceBindingScope) -> VoiceBinding | None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class VoiceSupplyPage:
+    """One page of supply tasks, plus the token that continues it.
+
+    ``next_page_token`` is ``None`` on the last page. It names the last task
+    this page returned rather than an offset, so a task registered or
+    cancelled while a caller is paging cannot shift a row into or out of the
+    window it is reading.
+    """
+
+    tasks: tuple[VoiceSupplyResult, ...]
+    next_page_token: str | None = None
+
+
 def _outcome_of(stage: VoiceFoundryStage) -> VoiceSupplyOutcome:
     """Map the durable stage onto the answer a caller acts on.
 
@@ -178,6 +194,41 @@ def _stage_value(stage: object) -> str:
     miss. Value comparison is what the worker already relies on.
     """
     return str(getattr(stage, "value", stage))
+
+
+def _encode_page_token(created_at: str, task_id: str) -> str:
+    """Pack a keyset cursor into one opaque, length-bounded token.
+
+    Base64url keeps the cursor a single identifier inside the contract's
+    256-character ceiling, and it keeps the storage timestamp out of a value
+    clients are invited to construct.
+    """
+    raw = json.dumps([created_at, task_id], separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _decode_page_token(token: str) -> tuple[str, str]:
+    """Reject anything that is not a cursor this module issued.
+
+    A client handing back a forged or truncated cursor gets an error instead
+    of a silently different page: a paging bug that reads as "there is nothing
+    here" is worse than one that announces itself.
+    """
+    if not isinstance(token, str) or not token or len(token) > 256:
+        raise ValueError("invalid page token")
+    try:
+        decoded = json.loads(
+            base64.urlsafe_b64decode(token + "=" * (-len(token) % 4))
+        )
+    except (ValueError, UnicodeEncodeError) as exc:
+        raise ValueError("invalid page token") from exc
+    if (
+        not isinstance(decoded, list)
+        or len(decoded) != 2
+        or not all(isinstance(part, str) and part for part in decoded)
+    ):
+        raise ValueError("invalid page token")
+    return decoded[0], decoded[1]
 
 
 class VoiceSupplyService:
@@ -211,6 +262,46 @@ class VoiceSupplyService:
     async def get(self, task_id: str) -> VoiceSupplyResult:
         task = await self._repository.load_task(task_id)
         return await self._result_of(task)
+
+    async def list(
+        self,
+        *,
+        page_size: int,
+        page_token: str | None = None,
+        stage: str | None = None,
+    ) -> VoiceSupplyPage:
+        """Read authorized supply tasks, oldest first, one page at a time.
+
+        "Authorized" here means *this world's*: the engine process opens one
+        ``world.db`` and serves one world, so every task in it is already the
+        caller's. That is why the read takes no owner or scope — there is no
+        second world for it to reach. A future multi-world host has to carry
+        the scope on the request before this stays true.
+
+        The page is keyset-paged on ``(created_at, task_id)`` and the token
+        carries the last row of the previous page, so a task registered while
+        a caller is paging cannot shift a row into or out of the window it is
+        reading. Reading is not asking: this method writes nothing, calls no
+        provider, and never starts a cast.
+        """
+        if type(page_size) is not int or not 1 <= page_size <= 100:
+            raise ValueError("page_size must be between 1 and 100")
+        after = _decode_page_token(page_token) if page_token is not None else None
+        rows = await self._repository.load_tasks_page(
+            page_size=page_size,
+            after_created_at=None if after is None else after[0],
+            after_task_id=None if after is None else after[1],
+            stage=stage,
+        )
+        results = tuple([await self._result_of(row) for row in rows])
+        # Only a full page can have more behind it. Saying "there is a next
+        # page" for a short one would send the caller back for an empty read.
+        token = (
+            _encode_page_token(rows[-1].created_at, rows[-1].task_id)
+            if rows and len(rows) == page_size
+            else None
+        )
+        return VoiceSupplyPage(tasks=results, next_page_token=token)
 
     async def precheck(self, scope: VoiceBindingScope) -> VoiceSupplyResult:
         """Report one identity's readiness without asking for anything.
@@ -302,6 +393,7 @@ __all__ = [
     "VoiceCandidateProjection",
     "VoiceFoundryProjection",
     "VoiceSupplyOutcome",
+    "VoiceSupplyPage",
     "VoiceSupplyResult",
     "VoiceSupplyService",
 ]

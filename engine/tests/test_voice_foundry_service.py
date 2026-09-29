@@ -365,3 +365,122 @@ async def test_the_projection_carries_no_action_the_record_does_not_claim(reposi
 
     assert result.state.required_actions == ()
     assert_matches_contract(result.state)
+
+
+class _PagedRepository:
+    """A repository whose only job here is to record the cursor it was given.
+
+    The keyset query itself belongs to the data layer, so this fake proves the
+    part the service owns: that a page token is decoded into the right
+    ``(created_at, task_id)`` cursor, that a short page ends the walk, and that
+    a full page hands back a token naming its own last row.
+    """
+
+    def __init__(self, pages):
+        self._pages = pages
+        self.calls = []
+
+    async def load_candidates(self, _task_id):
+        return ()
+
+    async def load_tasks_page(
+        self, *, page_size, after_created_at, after_task_id, stage
+    ):
+        self.calls.append((page_size, after_created_at, after_task_id, stage))
+        return self._pages.pop(0) if self._pages else ()
+
+
+def _paged_task(task_id: str, created_at: str):
+    from engine.infrastructure.voice_foundry_repository import (
+        VoiceFoundryTaskRecord,
+    )
+
+    return VoiceFoundryTaskRecord(
+        task_id=task_id,
+        request_id=f"request-{task_id}",
+        request_digest="a" * 64,
+        authorization_ref="authz-1",
+        scope=scope(),
+        persona_revision="persona-1",
+        usage="dialogue",
+        provider_instance="speechrail-local",
+        public_traits=("低沉",),
+        voice_description="克制而警觉的年轻男性声音。",
+        reference_text="这是用于确认音色参考的完整句子，必须足够长以通过校验。",
+        validation_text="这是用于跨文本复验的另一句完整文本，不能与参考文本相同。",
+        origin_kind="content",
+        origin_ref="content:main-cast",
+        origin_revision=1,
+        stage=VoiceFoundryStage.AWAITING_SELECTION,
+        task_revision=2,
+        cancel_requested=False,
+        operation_status="confirmed",
+        required_actions=("select_candidate",),
+        reason_code=None,
+        created_at=created_at,
+        updated_at=created_at,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_full_page_hands_back_a_token_naming_its_own_last_row():
+    rows = (_paged_task("task-1", "2026-09-29T00:00:00Z"),)
+    repository = _PagedRepository([rows, ()])
+    service = VoiceSupplyService(repository=repository, bindings=_Bindings())
+
+    page = await service.list(page_size=1)
+
+    assert [item.state.task_id for item in page.tasks] == ["task-1"]
+    assert page.next_page_token is not None
+    assert repository.calls[0] == (1, None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_a_short_page_ends_the_walk_with_no_token():
+    repository = _PagedRepository([(_paged_task("task-1", "2026-09-29T00:00:00Z"),)])
+    service = VoiceSupplyService(repository=repository, bindings=_Bindings())
+
+    page = await service.list(page_size=50)
+
+    assert page.next_page_token is None
+
+
+@pytest.mark.asyncio
+async def test_a_page_token_resumes_exactly_where_the_last_page_stopped():
+    first = _PagedRepository(
+        [(_paged_task("task-1", "2026-09-29T00:00:00Z"),), ()]
+    )
+    service = VoiceSupplyService(repository=first, bindings=_Bindings())
+    token = (await service.list(page_size=1)).next_page_token
+
+    second = _PagedRepository(
+        [(_paged_task("task-2", "2026-09-29T00:00:01Z"),)]
+    )
+    resumed = VoiceSupplyService(repository=second, bindings=_Bindings())
+    await resumed.list(page_size=1, page_token=token)
+
+    assert second.calls[0][1] == "2026-09-29T00:00:00Z"
+    assert second.calls[0][2] == "task-1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("page_size", [0, 101, -1, True])
+async def test_an_out_of_range_page_size_is_refused(page_size):
+    service = VoiceSupplyService(
+        repository=_PagedRepository([]), bindings=_Bindings()
+    )
+
+    with pytest.raises(ValueError):
+        await service.list(page_size=page_size)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("token", ["", "not-base64!!", "YWJj", "x" * 300])
+async def test_a_forged_page_token_is_refused_rather_than_repagated(token):
+    repository = _PagedRepository([])
+    service = VoiceSupplyService(repository=repository, bindings=_Bindings())
+
+    with pytest.raises(ValueError):
+        await service.list(page_size=10, page_token=token)
+
+    assert repository.calls == []

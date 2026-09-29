@@ -28,6 +28,7 @@ from collections.abc import Mapping
 
 from application.voice_foundry_ports import (
     FoundryReviewVerdict,
+    VoiceSupplyDriver,
     review_verdict_is_accepted,
 )
 from application.voice_foundry_service import (
@@ -67,6 +68,20 @@ def _digest(payload: Mapping[str, object]) -> str:
     ).hexdigest()
 
 
+#: Past the point where a provider voice exists. A cancel here would be a
+#: claim that something was withdrawn that in fact was published, so these
+#: stages are refused instead.
+_PUBLISHED_STAGES = frozenset({"published", "binding", "ready"})
+
+#: Stages where a person, not the machine, owes the next move. Mirrors
+#: ``HUMAN_STAGES`` in the worker: a retry here would race the very decision
+#: the task is waiting on.
+_HUMAN_STAGES = frozenset({"awaiting_selection", "awaiting_review"})
+
+#: Stages with nothing left for the machine half to drive.
+_SETTLED_STAGES = frozenset({"published", "binding", "ready", "failed"})
+
+
 class VoiceFoundryCommandService:
     """Apply one caller-named decision to one supply task, at most once."""
 
@@ -75,9 +90,11 @@ class VoiceFoundryCommandService:
         *,
         repository: SQLiteVoiceFoundryRepository,
         supply: VoiceSupplyService,
+        driver: VoiceSupplyDriver,
     ) -> None:
         self._repository = repository
         self._supply = supply
+        self._driver = driver
 
     # -- public surface --------------------------------------------------
 
@@ -210,6 +227,92 @@ class VoiceFoundryCommandService:
         )
         return await self._record(
             command_id, task_id, payload, {"binding_id": binding_id}
+        )
+
+    async def cancel(
+        self,
+        *,
+        command_id: str,
+        task_id: str,
+        reason_code: str | None = None,
+    ) -> VoiceSupplyResult:
+        """Withdraw a supply task that has not published anything yet.
+
+        Cancellation stops this game's side of the task: the worker refuses to
+        take another step and no binding follows. It does not un-publish a
+        provider voice, and it refuses to pretend it did — once a voice is
+        published the task is a record of a real thing that happened, so the
+        audit trail has to keep it. Revoking a published voice is a different
+        command with different evidence.
+        """
+        payload = {
+            "verb": "cancel",
+            "task_id": task_id,
+            "reason_code": reason_code,
+        }
+        if await self._replayed(command_id, task_id, payload):
+            return await self._supply.get(task_id)
+
+        task = await self._repository.load_task(task_id)
+        stage = _stage_value(task.stage)
+        if stage in _PUBLISHED_STAGES:
+            raise VoiceFoundryCommandError("published_voice_cannot_be_cancelled")
+        if task.cancel_requested or stage == "cancelled":
+            # Already withdrawn. Re-recording the same withdrawal is what
+            # makes a retried cancel converge instead of erroring.
+            return await self._record(command_id, task_id, payload, {})
+
+        await self._repository.request_cancel(
+            task_id,
+            expected_revision=task.task_revision,
+            reason_code=reason_code,
+        )
+        return await self._record(command_id, task_id, payload, {})
+
+    async def retry(
+        self, *, command_id: str, task_id: str
+    ) -> VoiceSupplyResult:
+        """Settle an unknown provider outcome, then resume the same task.
+
+        Retry is deliberately not a state edit. When a call's result is
+        unknown, ADR-005 D9 requires asking the provider under the original
+        idempotency key and resuming the original request — reopening the task
+        instead would leave a half-created voice unaccounted for and mint a
+        second one. So a retry on a task with nothing unknown is refused
+        rather than treated as a fresh start.
+
+        What makes a task retryable is that the machine half still owes it a
+        step: it is not withdrawn, not waiting on a person, and not already
+        finished. The driver reconciles any operation whose outcome is unknown
+        under its original key, then advances at most one durable step.
+        """
+        payload = {"verb": "retry", "task_id": task_id}
+        if await self._replayed(command_id, task_id, payload):
+            return await self._supply.get(task_id)
+
+        task = await self._repository.load_task(task_id)
+        stage = _stage_value(task.stage)
+        if task.cancel_requested or stage == "cancelled":
+            raise VoiceFoundryCommandError("cancelled_task_cannot_be_retried")
+        if stage in _HUMAN_STAGES:
+            # A person is the bottleneck; a background retry would race the
+            # decision they are being asked for, not help it along.
+            raise VoiceFoundryCommandError("task_awaits_a_human_decision")
+        if stage in _SETTLED_STAGES:
+            # ``published`` still owes the publish step, but that is the
+            # publish action's job, driven by a reviewer who approved it.
+            raise VoiceFoundryCommandError("task_is_not_retryable")
+
+        settled = await self._driver.reconcile(task_id)
+        step = await self._driver.advance(task_id)
+        return await self._record(
+            command_id,
+            task_id,
+            payload,
+            {
+                "settled_operations": settled,
+                "slot_consumed": bool(getattr(step, "slot_consumed", False)),
+            },
         )
 
     # -- internals -------------------------------------------------------

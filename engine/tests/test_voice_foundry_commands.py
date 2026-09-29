@@ -11,6 +11,7 @@ from application.voice_foundry_commands import (
     VoiceFoundryCommandService,
 )
 from application.voice_foundry_ports import FoundryReviewVerdict
+from application.voice_foundry import WorkerStep
 from application.voice_foundry_service import (
     VoiceSupplyOutcome,
     VoiceSupplyService,
@@ -69,10 +70,34 @@ class _Bindings:
         return self.binding
 
 
+class _Driver:
+    """A stand-in for the worker that records what it was asked to do."""
+
+    def __init__(self, *, settled: int = 0, slot_consumed: bool = True):
+        self.settled = settled
+        self.slot_consumed = slot_consumed
+        self.calls: list[str] = []
+
+    async def reconcile(self, task_id):
+        self.calls.append(f"reconcile:{task_id}")
+        return self.settled
+
+    async def advance(self, task_id):
+        self.calls.append(f"advance:{task_id}")
+        return WorkerStep(record=None, slot_consumed=self.slot_consumed)
+
+
 @pytest.fixture
 def commands(repository):
     supply = VoiceSupplyService(repository=repository, bindings=_Bindings())
-    return VoiceFoundryCommandService(repository=repository, supply=supply), supply
+    driver = _Driver()
+    return (
+        VoiceFoundryCommandService(
+            repository=repository, supply=supply, driver=driver
+        ),
+        supply,
+        driver,
+    )
 
 
 def scope() -> VoiceBindingScope:
@@ -193,7 +218,7 @@ async def _world_revision(database) -> int:
 
 @pytest.mark.asyncio
 async def test_selecting_a_candidate_starts_provisioning(repository, commands):
-    service, _ = commands
+    service, _, _ = commands
     await _at_selection(repository)
 
     result = await service.select_candidate(
@@ -208,7 +233,7 @@ async def test_selecting_a_candidate_starts_provisioning(repository, commands):
 
 @pytest.mark.asyncio
 async def test_a_failed_candidate_cannot_be_selected(repository, commands):
-    service, _ = commands
+    service, _, _ = commands
     await _at_selection(repository, candidate_state="failed")
 
     with pytest.raises(VoiceFoundryCommandError) as caught:
@@ -221,7 +246,7 @@ async def test_a_failed_candidate_cannot_be_selected(repository, commands):
 
 @pytest.mark.asyncio
 async def test_selecting_before_the_task_asks_for_it_is_refused(repository, commands):
-    service, _ = commands
+    service, _, _ = commands
     await repository.register_task(task_spec())
 
     with pytest.raises(VoiceFoundryCommandError) as caught:
@@ -237,7 +262,7 @@ async def test_replaying_a_selection_does_not_advance_the_task_twice(
     repository, commands, database
 ):
     """A client that retries after a timeout must not provision twice."""
-    service, _ = commands
+    service, _, _ = commands
     await _at_selection(repository)
 
     first = await service.select_candidate(
@@ -257,7 +282,7 @@ async def test_one_command_id_cannot_be_reused_for_another_decision(
     repository, commands
 ):
     """A command id is an idempotency key, not a label."""
-    service, _ = commands
+    service, _, _ = commands
     task = await _at_selection(repository)
     await repository.add_candidate(
         task.task_id,
@@ -281,7 +306,7 @@ async def test_one_command_id_cannot_be_reused_for_another_decision(
 
 @pytest.mark.asyncio
 async def test_an_accepted_review_publishes_the_candidate(repository, commands):
-    service, _ = commands
+    service, _, _ = commands
     await _at_review(repository)
 
     result = await service.submit_review(
@@ -299,7 +324,7 @@ async def test_an_accepted_review_publishes_the_candidate(repository, commands):
 
 @pytest.mark.asyncio
 async def test_a_rejected_review_ends_the_task_and_says_why(repository, commands):
-    service, _ = commands
+    service, _, _ = commands
     await _at_review(repository)
 
     result = await service.submit_review(
@@ -334,7 +359,7 @@ async def test_a_verdict_that_is_not_a_decision_changes_nothing(
     only thing worse than publishing unreviewed audio is publishing it by
     accident through a lenient default.
     """
-    service, _ = commands
+    service, _, _ = commands
     task = await _at_review(repository)
 
     with pytest.raises(VoiceFoundryCommandError) as caught:
@@ -356,7 +381,7 @@ async def test_a_verdict_that_is_not_a_decision_changes_nothing(
 async def test_binding_a_published_voice_yields_one_renderable_binding(
     repository, commands, database
 ):
-    service, _ = commands
+    service, _, _ = commands
     await _at_published(repository)
 
     result = await service.bind(
@@ -378,7 +403,7 @@ async def test_binding_a_published_voice_yields_one_renderable_binding(
 async def test_replaying_a_bind_does_not_mint_a_second_binding(
     repository, commands, database
 ):
-    service, _ = commands
+    service, _, _ = commands
     await _at_published(repository)
 
     await service.bind(
@@ -406,7 +431,7 @@ async def test_binding_a_voice_nobody_reviewed_is_refused(repository, commands, 
     convenient call site would reach around the audition and publish whatever
     the provider last returned. The task has to have been published first.
     """
-    service, _ = commands
+    service, _, _ = commands
     task = await _at_review(repository)
 
     with pytest.raises(VoiceFoundryCommandError) as caught:
@@ -419,3 +444,139 @@ async def test_binding_a_voice_nobody_reviewed_is_refused(repository, commands, 
     assert await _world_revision(database) == 0
     assert (await repository.load_task("task-1")).task_revision == task.task_revision
     assert await database.read_world("SELECT binding_id FROM voice_bindings") == []
+
+
+@pytest.mark.asyncio
+async def test_cancelling_withdraws_the_task_and_stops_the_worker(
+    repository, commands, database
+):
+    service, _, driver = commands
+    await _at_selection(repository)
+
+    result = await service.cancel(
+        command_id="command-cancel", task_id="task-1", reason_code="user_withdrew"
+    )
+
+    task = await repository.load_task("task-1")
+    assert task.cancel_requested is True
+    assert task.stage is VoiceFoundryStage.CANCELLED
+    assert task.reason_code == "user_withdrew"
+    assert result.outcome is VoiceSupplyOutcome.CANCELLED
+    assert driver.calls == []
+    # Withdrawing a cast is presentation bookkeeping; it must not read as a
+    # world fact having happened.
+    assert await _world_revision(database) == 0
+
+
+@pytest.mark.asyncio
+async def test_cancelling_a_withdrawn_task_converges_instead_of_erroring(
+    repository, commands
+):
+    service, _, _ = commands
+    await _at_selection(repository)
+    await service.cancel(command_id="command-cancel", task_id="task-1")
+
+    # A second, differently-identified withdrawal of the same task is the
+    # client retrying a call it never saw the answer to.
+    result = await service.cancel(command_id="command-cancel-2", task_id="task-1")
+
+    assert result.outcome is VoiceSupplyOutcome.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_a_published_voice_cannot_be_cancelled_as_if_it_never_existed(
+    repository, commands
+):
+    service, _, _ = commands
+    await _at_published(repository)
+
+    with pytest.raises(VoiceFoundryCommandError) as excinfo:
+        await service.cancel(command_id="command-cancel", task_id="task-1")
+
+    assert excinfo.value.code == "published_voice_cannot_be_cancelled"
+    task = await repository.load_task("task-1")
+    assert task.stage is VoiceFoundryStage.PUBLISHED
+    assert task.cancel_requested is False
+
+
+@pytest.mark.asyncio
+async def test_retry_settles_the_unknown_outcome_before_advancing(
+    repository, commands
+):
+    service, _, driver = commands
+    driver.settled = 2
+    task = await repository.register_task(task_spec())
+
+    await service.retry(command_id="command-retry", task_id="task-1")
+
+    # Reconcile first: resuming before the unknown outcome is settled is
+    # exactly how a second voice gets minted for one identity.
+    assert driver.calls == ["reconcile:task-1", "advance:task-1"]
+
+
+@pytest.mark.asyncio
+async def test_retry_replays_under_the_same_command_id_without_re_driving(
+    repository, commands
+):
+    service, _, driver = commands
+    await repository.register_task(task_spec())
+    await service.retry(command_id="command-retry", task_id="task-1")
+
+    await service.retry(command_id="command-retry", task_id="task-1")
+
+    assert driver.calls == ["reconcile:task-1", "advance:task-1"]
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_to_race_a_decision_a_person_owes(repository, commands):
+    service, _, driver = commands
+    await _at_selection(repository)
+
+    with pytest.raises(VoiceFoundryCommandError) as excinfo:
+        await service.retry(command_id="command-retry", task_id="task-1")
+
+    assert excinfo.value.code == "task_awaits_a_human_decision"
+    assert driver.calls == []
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_a_task_the_machine_half_has_nothing_left_to_drive(
+    repository, commands
+):
+    service, _, driver = commands
+    await _at_published(repository)
+
+    with pytest.raises(VoiceFoundryCommandError) as excinfo:
+        await service.retry(command_id="command-retry", task_id="task-1")
+
+    assert excinfo.value.code == "task_is_not_retryable"
+    assert driver.calls == []
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_a_withdrawn_task(repository, commands):
+    service, _, driver = commands
+    await _at_selection(repository)
+    await service.cancel(command_id="command-cancel", task_id="task-1")
+
+    with pytest.raises(VoiceFoundryCommandError) as excinfo:
+        await service.retry(command_id="command-retry", task_id="task-1")
+
+    assert excinfo.value.code == "cancelled_task_cannot_be_retried"
+    assert driver.calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_command_id_rebound_to_a_different_task_is_refused(
+    repository, commands
+):
+    service, _, _ = commands
+    await _at_selection(repository)
+    await service.cancel(command_id="command-cancel", task_id="task-1")
+
+    with pytest.raises(VoiceFoundryCommandError) as excinfo:
+        await service.cancel(
+            command_id="command-cancel", task_id="task-1", reason_code="different"
+        )
+
+    assert excinfo.value.code == "command_id_rebound_to_different_input"

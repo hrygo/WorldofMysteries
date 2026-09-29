@@ -363,6 +363,26 @@ class VoiceFoundryPort(Protocol):
         ...
 
 
+class VoiceSupplyDriver(Protocol):
+    """The half of supply that runs without a person deciding anything.
+
+    A retry command is not a state edit. ADR-005 D9 requires an unknown
+    provider outcome to be settled by *asking the provider* under the
+    original idempotency key, and only then resumed — never by reopening the
+    task, which would leave a half-created voice unaccounted for. So the
+    command layer depends on this shape and the worker satisfies it
+    structurally; neither imports the other.
+    """
+
+    async def advance(self, task_id: str) -> object:
+        """Move one task forward by at most one durable step."""
+        ...
+
+    async def reconcile(self, task_id: str) -> int:
+        """Settle every unknown operation on a task; return how many."""
+        ...
+
+
 def admit_foundry_locale(
     capabilities: VoiceFoundryCapabilities,
     locale_map: ProviderLocaleMap,
@@ -435,6 +455,7 @@ __all__ = [
     "PublishResult",
     "StrictRenderingDecision",
     "ValidationResult",
+    "VoiceSupplyDriver",
     "VoiceFoundryCapabilities",
     "VoiceFoundryPort",
     "VoiceFoundryPortError",
