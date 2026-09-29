@@ -259,7 +259,8 @@ _VOICE_FOUNDRY_INSERT_TABLES = frozenset({
 })
 _VOICE_FOUNDRY_UPDATE_COLUMNS = {
     'voice_bindings': frozenset({
-        'binding_revision', 'status', 'evidence_id', 'evidence_digest'
+        'binding_revision', 'status', 'evidence_id', 'evidence_digest',
+        'model_artifact_revision',
     }),
     'voice_foundry_candidates': frozenset({
         'state', 'provider_candidate_id', 'provider_candidate_revision',

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 import sqlite3
 
@@ -14,10 +15,15 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
-from engine.infrastructure.database_manager import DatabaseManager, DatabasePaths
+from engine.infrastructure.database_manager import (
+    DatabaseManager,
+    DatabasePaths,
+    StorageError,
+)
 from engine.infrastructure.voice_binding_repository import SQLiteVoiceBindingRepository
 
 
@@ -254,3 +260,50 @@ async def test_worldline_fork_rejects_parent_revision_drift_before_snapshot(data
     )
     assert await repo.load_scope(child_scope) is None
     assert await world_revision(database) == 0
+
+
+def _evidence():
+    return VoiceEvidenceReference(
+        evidence_id="ev_klein_1",
+        evidence_digest="d" * 64,
+        model_artifact_revision="qwen3-tts-2026-09-29",
+    )
+
+
+async def test_the_review_behind_a_binding_survives_a_restart(database, paths):
+    # A binding that forgets its evidence after a restart silently stops being
+    # attributable, so surviving the round trip is the whole point.
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+
+    await database.close()
+    reopened = await open_database(paths)
+    try:
+        restored = await SQLiteVoiceBindingRepository(reopened).load("binding-1")
+        assert restored.evidence == _evidence()
+        assert restored.evidence.model_artifact_revision == "qwen3-tts-2026-09-29"
+    finally:
+        await reopened.close()
+
+
+async def test_a_binding_predating_the_evidence_rollout_still_loads(database):
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate())
+    assert (await repo.load("binding-1")).evidence is None
+
+
+async def test_a_half_written_evidence_reference_is_refused(database):
+    # Part of the triple cannot be re-checked against the stored snapshot, so
+    # it is refused rather than completed with a blank.
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate())
+
+    def write_partial(tx):
+        tx.execute(
+            "UPDATE voice_bindings SET evidence_id=? WHERE binding_id=?",
+            ("ev_klein_1", "binding-1"),
+        )
+
+    await database.presentation_write(write_partial)
+    with pytest.raises(StorageError, match="evidence reference is incomplete"):
+        await repo.load("binding-1")

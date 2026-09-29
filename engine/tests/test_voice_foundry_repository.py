@@ -118,7 +118,7 @@ async def world_revision(database) -> int:
     )[0]["revision"]
 
 
-async def test_schema_15_creates_durable_foundry_tables(database, paths):
+async def test_current_schema_creates_durable_foundry_tables(database, paths):
     rows = await database.read_world(
         "SELECT name FROM sqlite_schema WHERE type='table' AND name LIKE 'voice_%' "
         "ORDER BY name"
@@ -136,7 +136,19 @@ async def test_schema_15_creates_durable_foundry_tables(database, paths):
     # deliberately rejects it, so schema-version assertions go through a
     # direct read-only connection rather than widening production privileges.
     with sqlite3.connect(f"file:{paths.world}?mode=ro", uri=True) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 15
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 16
+        # v16 completes the evidence triple on voice_bindings. The foundry
+        # tables above must still exist: a schema bump adds to the world, it
+        # never replaces it.
+        columns = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(voice_bindings)").fetchall()
+        }
+        assert {
+            "evidence_id",
+            "evidence_digest",
+            "model_artifact_revision",
+        } <= columns
 
 
 async def test_register_is_idempotent_by_request_and_active_scope(database):
