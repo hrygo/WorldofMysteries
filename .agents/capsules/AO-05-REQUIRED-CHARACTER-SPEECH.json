@@ -1,0 +1,155 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-REQUIRED-CHARACTER-SPEECH",
+  "capsule_revision": 1,
+  "task_id": "AO-05-REQUIRED-CHARACTER-SPEECH",
+  "title": "Implement AO-05-REQUIRED-CHARACTER-SPEECH",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-29T03:05:12.876822+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "647ca1d98893522ed713b91e15f216de1f2c684c",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:bcd5630481aeab57963c8fc2945076e32a140af4adecf4eed0ae55394582d0a1"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/outbox*",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/**/database*",
+      "engine/infrastructure/**/outbox*",
+      "engine/infrastructure/**/migrations/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:CharacterContextPort@engine/application/gameplay_context.py:289",
+      "symbol:RequiredPostCommitJob@engine/application/post_commit_work.py:341",
+      "symbol:required_jobs_for_turn@engine/application/post_commit_work.py:448",
+      "symbol:SpeechUnitSealingError@engine/application/speech_unit.py:37",
+      "symbol:VoiceBindingReadPort@engine/application/speech_unit.py:45",
+      "symbol:_digest@engine/application/speech_unit.py:49",
+      "symbol:_desired_payload@engine/application/speech_unit.py:60",
+      "symbol:_performance_payload@engine/application/speech_unit.py:80",
+      "symbol:SealedSpeechUnit@engine/application/speech_unit.py:94",
+      "symbol:SpeechUnitSealingService@engine/application/speech_unit.py:148",
+      "symbol:__init__@engine/application/speech_unit.py:40",
+      "symbol:load_scope@engine/application/speech_unit.py:46",
+      "symbol:sealed@engine/application/speech_unit.py:124",
+      "symbol:render_recipe@engine/application/speech_unit.py:127",
+      "symbol:__init__@engine/application/speech_unit.py:151",
+      "symbol:seal@engine/application/speech_unit.py:164",
+      "symbol:_required_revision@engine/application/turn_orchestrator.py:433",
+      "symbol:test_audio_provider_config_default_speechrail@engine/tests/test_audio_adapter.py:64",
+      "symbol:test_audio_provider_config_keeps_explicit_speechrail_override@engine/tests/test_audio_adapter.py:95",
+      "symbol:test_speechrail_capability_probe_consumes_one_atomic_safe_snapshot@engine/tests/test_audio_adapter.py:240",
+      "symbol:test_speechrail_capability_probe_uses_etag_304_only_with_verified_cache@engine/tests/test_audio_adapter.py:319",
+      "symbol:test_speechrail_capability_probe_rejects_unknown_or_incomplete_schema@engine/tests/test_audio_adapter.py:350",
+      "symbol:test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence@engine/tests/test_audio_adapter.py:375",
+      "symbol:test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party@engine/tests/test_audio_adapter.py:396",
+      "symbol:test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network@engine/tests/test_audio_adapter.py:418",
+      "symbol:test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable@engine/tests/test_audio_adapter.py:469",
+      "symbol:test_speechrail_capability_probe_reports_partial_discovery_as_degraded@engine/tests/test_audio_adapter.py:484",
+      "symbol:test_request_body_contains_only_domain_authorized_character_evidence@engine/tests/test_authorized_live_execution.py:283",
+      "symbol:test_required_check_name_and_aggregate_contract_are_stable@engine/tests/test_ci_workflow.py:7",
+      "symbol:test_context_current_state_is_required@engine/tests/test_context_compiler.py:115"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 856,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "CharacterContextPort",
+      "RequiredPostCommitJob",
+      "required_jobs_for_turn",
+      "SpeechUnitSealingError",
+      "VoiceBindingReadPort",
+      "_digest",
+      "_desired_payload",
+      "_performance_payload",
+      "SealedSpeechUnit",
+      "SpeechUnitSealingService",
+      "__init__",
+      "load_scope",
+      "sealed",
+      "render_recipe",
+      "__init__",
+      "seal",
+      "_required_revision",
+      "test_audio_provider_config_default_speechrail",
+      "test_audio_provider_config_keeps_explicit_speechrail_override",
+      "test_speechrail_capability_probe_consumes_one_atomic_safe_snapshot",
+      "test_speechrail_capability_probe_uses_etag_304_only_with_verified_cache",
+      "test_speechrail_capability_probe_rejects_unknown_or_incomplete_schema",
+      "test_speechrail_capability_probe_preserves_not_ready_and_transport_evidence",
+      "test_capability_probe_does_not_apply_speechrail_private_contract_to_third_party",
+      "test_speechrail_capability_probe_rejects_ambiguous_base_path_without_network",
+      "test_speechrail_capability_probe_reports_all_transport_failures_as_unreachable",
+      "test_speechrail_capability_probe_reports_partial_discovery_as_degraded",
+      "test_request_body_contains_only_domain_authorized_character_evidence",
+      "test_required_check_name_and_aggregate_contract_are_stable",
+      "test_context_current_state_is_required"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}
