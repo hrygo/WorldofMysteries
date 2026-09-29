@@ -412,40 +412,44 @@ def _table_names(path: Path) -> set[str]:
         }
 
 
-def test_v13_to_v14_migration_failure_rolls_back_and_recovers_from_backup(
+def test_v13_to_latest_migration_failure_rolls_back_and_recovers_from_backup(
     tmp_path, monkeypatch
 ):
     path = tmp_path / "world" / "world.db"
     _build_v13_world(path)
     original = database_schema._apply_migration
+    latest = SCHEMA_VERSIONS["world"]
 
-    def fail_after_partial_v14_ddl(connection, role, version):
-        if role == "world" and version == 14:
+    def fail_after_partial_ddl(connection, role, version):
+        # Inject at the final step so the whole remaining chain (every
+        # migration after v13) must roll back together, not just one hop.
+        if role == "world" and version == latest:
             connection.execute(
-                "CREATE TABLE must_rollback_v14(id INTEGER) STRICT"
+                "CREATE TABLE must_rollback_partial(id INTEGER) STRICT"
             )
-            raise RuntimeError("injected v14 migration failure")
+            raise RuntimeError(f"injected v{latest} migration failure")
         return original(connection, role, version)
 
     monkeypatch.setattr(
-        database_schema, "_apply_migration", fail_after_partial_v14_ddl
+        database_schema, "_apply_migration", fail_after_partial_ddl
     )
     with closing(connect(path)) as connection, pytest.raises(
-        RuntimeError, match="injected v14 migration failure"
+        RuntimeError, match=f"injected v{latest} migration failure"
     ):
         initialize(connection, "world", path=path)
 
     assert _version(path) == 13
-    assert "must_rollback_v14" not in _table_names(path)
-    backup = path.with_name("world.db.pre-migration-v13-to-v14.bak")
+    assert "must_rollback_partial" not in _table_names(path)
+    assert "turn_context_bindings" not in _table_names(path)
+    backup = path.with_name(f"world.db.pre-migration-v13-to-v{latest}.bak")
     assert backup.is_file() and _version(backup) == 13
 
     monkeypatch.setattr(database_schema, "_apply_migration", original)
     with closing(connect(path)) as connection:
         initialize(connection, "world", path=path)
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == latest
         assert connection.execute(
             "SELECT value FROM legacy_context_marker WHERE id='existing'"
         ).fetchone()[0] == "preserve-me"
-    assert SCHEMA_VERSIONS["world"] == 14
     assert "turn_context_bindings" in _table_names(path)
+    assert "voice_foundry_tasks" in _table_names(path)
