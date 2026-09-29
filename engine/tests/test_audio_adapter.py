@@ -48,6 +48,7 @@ from infrastructure.audio import (
     SpeechRailRealtimeTTSAdapter,
     SpeechRailRealtimeTTSError,
     StdlibJSONWebSocketTransport,
+    EVIDENCE_PIN_FIELDS,
     VoiceRenderControlError,
     VoiceRenderControlRequest,
     create_audio_adapter,
@@ -1803,6 +1804,71 @@ def _voice_render_request(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+def _voice_render_request_v2(**overrides):
+    return _voice_render_request(
+        **{
+            "schema_version": "2.0",
+            "evidence_id": "ev_narrator_001",
+            "evidence_digest": "c" * 64,
+            "expected_model_artifact_revision": "qwen3-tts-2026-09-29",
+            "expected_model_catalog_revision": "b" * 40,
+            **overrides,
+        }
+    )
+
+
+def test_voice_render_control_v2_carries_the_evidence_identity():
+    request = VoiceRenderControlRequest.model_validate(_voice_render_request_v2())
+    assert request.evidence_id == "ev_narrator_001"
+    assert request.evidence_digest == "c" * 64
+    assert request.expected_model_artifact_revision == "qwen3-tts-2026-09-29"
+    assert request.expected_model_catalog_revision == "b" * 40
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        "evidence_id",
+        "evidence_digest",
+        "expected_model_artifact_revision",
+        "expected_model_catalog_revision",
+    ],
+)
+def test_voice_render_control_v2_refuses_a_half_pinned_render(pin):
+    """An identifier without a digest is not a checked reference, and a
+    catalogue revision is not the artifact a human heard. Supplying three of
+    the four pins must not be accepted as a 2.0 render."""
+    payload = _voice_render_request_v2()
+    payload[pin] = None
+    with pytest.raises(ValueError, match="requires evidence pins"):
+        VoiceRenderControlRequest.model_validate(payload)
+
+
+def test_voice_render_control_v1_still_replays_without_pins():
+    """v1 exists so a unit sealed before the evidence rollout can still be
+    rendered. It is not a weaker 2.0: it simply carries no evidence claim."""
+    request = VoiceRenderControlRequest.model_validate(_voice_render_request())
+    assert request.schema_version == "1.0"
+    assert request.evidence_id is None
+
+
+def test_voice_render_control_evidence_pins_stay_engine_side():
+    """The pins answer "which review authorised this render". They are not
+    provider fields, and SpeechRail forbids unknown request keys — projecting
+    them would invent a contract that does not exist upstream."""
+    request = VoiceRenderControlRequest.model_validate(_voice_render_request_v2())
+    projected = request.provider_tts_fields()
+    assert set(projected) == {
+        "task",
+        "voice",
+        "voice_revision",
+        "speed",
+        "expected_model_revision",
+    }
+    for pin in EVIDENCE_PIN_FIELDS:
+        assert pin not in projected
 
 
 def test_voice_render_control_provider_projection_is_minimal():
