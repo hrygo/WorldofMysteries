@@ -6,6 +6,9 @@ import SwiftUI
 /// 的示例页面继续保留「示例数据」标记，本面板不把它们改名为真实数据。
 public struct StorySessionPanel: View {
     @Bindable public var model: StorySessionModel
+    /// The turn's narrative is one committed snapshot; this decides how much
+    /// of it the reader has been shown so far. It never changes the content.
+    @State private var reveal = NarrativeSegmentReveal()
     /// Optional so the deterministic-only surfaces keep rendering unchanged.
     private let voice: VoiceTurnController?
     private let turnContext: VoiceTurnController.TurnContext?
@@ -29,6 +32,20 @@ public struct StorySessionPanel: View {
             }
         }
         .accessibilityIdentifier("storySessionPanel")
+        .task { advanceReveal(to: model.postCommitWork) }
+        .onChange(of: model.postCommitWork) { _, work in
+            advanceReveal(to: work)
+        }
+    }
+
+    /// Feed the committed projection to the reveal. An in-flight or blocked turn
+    /// carries no segments, so this is also what hides a previous turn's text.
+    private func advanceReveal(to work: StoryTurnWorkGetResponseDTO?) {
+        guard let work else {
+            reveal.reset()
+            return
+        }
+        reveal.present(turnId: work.turnId, segments: work.narrativeSegments)
     }
 
     private var header: some View {
@@ -173,7 +190,11 @@ public struct StorySessionPanel: View {
                     .font(Font.Mystic.caption)
                     .foregroundStyle(Color.Mystic.textSecondary)
             case .ready:
-                ForEach(Array(work.narrativeSegments.enumerated()), id: \.offset) { item in
+                ForEach(
+                    Array(reveal.visible(from: work.narrativeSegments, turnId: work.turnId)
+                        .enumerated()),
+                    id: \.offset
+                ) { item in
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                         Text(segmentLabel(item.element))
                             .font(Font.Mystic.caption)
@@ -184,6 +205,7 @@ public struct StorySessionPanel: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .accessibilityIdentifier("storyPostCommitNarrativeSegment.\(item.offset)")
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
 
@@ -213,6 +235,7 @@ public struct StorySessionPanel: View {
             }
         }
         .accessibilityIdentifier("storyPostCommitWork")
+        .animation(.easeOut(duration: 0.25), value: work.narrativeSegments)
     }
 
     private var voiceUnavailableReason: String? {
