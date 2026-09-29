@@ -226,9 +226,10 @@ class ScenarioNarrativePublishHandler:
         source: PostCommitWorkSource,
         committed: _CommittedTurn,
     ) -> PostCommitResult:
-        frozen_input = await self._advice.load_input(
-            committed.turn.idempotency_key
-        )
+        # The turn's idempotency_key is a derived ``turn-input:<digest>`` form,
+        # so it can never satisfy a lookup keyed by input_turn_id. Post-COMMIT
+        # work carries the turn, so resolve the pre-COMMIT input from it.
+        frozen_input = await self._advice.load_input_for_turn(source.turn_id)
         if (
             frozen_input is None
             or frozen_input.session_id != source.session_id

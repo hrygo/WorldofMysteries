@@ -64,7 +64,10 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
         committed_story_revision=source.source_story_revision,
         state_delta_id=delta.id,
         narrative_block_id=None,
-        idempotency_key="input-turn-one",
+        # A real turn's key is the derived ``turn-input:<digest>`` form, never
+        # the input id. Using the input id here would let a lookup by the wrong
+        # identity still succeed and hide the defect this test exists to catch.
+        idempotency_key="turn-input:0123456789abcdef",
     )
     bootstrap = SimpleNamespace(
         presentation=SimpleNamespace(
@@ -106,7 +109,16 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
             return bootstrap
 
     class Advice:
-        async def load_input(self, _input_turn_id):
+        """Mirrors the real repository: two distinct lookup routes."""
+
+        async def load_input(self, input_turn_id):
+            if input_turn_id != frozen_input.input_turn_id:
+                return None
+            return frozen_input
+
+        async def load_input_for_turn(self, turn_id):
+            if turn_id != frozen_input.turn_id:
+                return None
             return frozen_input
 
     class Workers:
