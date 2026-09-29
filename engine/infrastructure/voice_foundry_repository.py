@@ -8,7 +8,12 @@ from datetime import UTC, datetime
 from enum import StrEnum
 import json
 
-from domain.voice_identity import VoiceBindingScope
+from domain.voice_identity import (
+    ProviderVoiceRevision,
+    VoiceBindingScope,
+    VoiceIdentityAssurance,
+    VoiceIdentityError,
+)
 
 from .database_manager import DatabaseManager, StorageError, VoiceFoundryTransaction
 
@@ -1063,11 +1068,39 @@ class SQLiteVoiceFoundryRepository:
             snapshot = evidence.snapshot.get("execution")
             if not isinstance(snapshot, Mapping):
                 raise StorageError("Voice Foundry evidence execution scope is missing")
-            model_catalog_revision = snapshot.get("model_catalog_revision")
-            if model_catalog_revision is not None:
-                model_catalog_revision = _identifier(
-                    model_catalog_revision, "model catalog revision"
+            # The artifact revision is required by the evidence contract, and it
+            # is written onto the binding as one third of its review. Leaving it
+            # out produced a binding that could not be read back at all: its
+            # review was an incomplete triple, so loading it raised instead of
+            # rendering. Refusing here keeps a published voice from being
+            # stranded one layer down.
+            model_artifact_revision = _identifier(
+                snapshot.get("model_artifact_revision"), "model artifact revision"
+            )
+            # The catalogue revision is a sealed-render pin, but the evidence
+            # contract does not carry one — a bundle that satisfies the contract
+            # has no such field to give. It stays optional here and is required
+            # where it actually matters: a render without it is refused, and
+            # says so.
+            raw_catalog_revision = snapshot.get("model_catalog_revision")
+            model_catalog_revision = (
+                _identifier(raw_catalog_revision, "model catalog revision")
+                if raw_catalog_revision is not None
+                else None
+            )
+            try:
+                addressable = ProviderVoiceRevision(
+                    provider_instance=provider_instance,
+                    voice_id=voice_id,
+                    assurance=VoiceIdentityAssurance.CONTENT_ADDRESSED,
+                    voice_revision=voice_revision,
+                    model_catalog_revision=model_catalog_revision,
+                    revoked=False,
                 )
+            except VoiceIdentityError as exc:
+                raise StorageError(
+                    "Voice Foundry evidence does not address a renderable voice"
+                ) from exc
 
             existing_evidence = tx.execute(
                 "SELECT snapshot_json FROM voice_evidence_snapshots "
@@ -1132,8 +1165,8 @@ class SQLiteVoiceFoundryRepository:
                 "phase,locale,logical_voice_id,persona_revision,provider_instance,"
                 "provider_voice_id,assurance,voice_revision,model_catalog_revision,"
                 "provider_revoked,binding_revision,status,reserved_at_world_revision,"
-                "evidence_id,evidence_digest"
-                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,'reserved',?,?,?)",
+                "evidence_id,evidence_digest,model_artifact_revision"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,'reserved',?,?,?,?)",
                 (
                     binding_id,
                     scope.owner_id,
@@ -1148,10 +1181,11 @@ class SQLiteVoiceFoundryRepository:
                     voice_id,
                     "content_addressed",
                     voice_revision,
-                    model_catalog_revision,
+                    addressable.model_catalog_revision,
                     world_revision,
                     evidence_id,
                     evidence_digest,
+                    model_artifact_revision,
                 ),
             )
             self._insert_binding_revision(

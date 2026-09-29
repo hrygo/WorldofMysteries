@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+from dataclasses import replace
 
 import pytest
 import pytest_asyncio
 
-from domain.voice_identity import VoiceBindingScope
+from domain.voice_identity import VoiceBindingScope, VoiceBindingStatus
 from engine.infrastructure.database_manager import (
     DatabaseManager,
     DatabasePaths,
@@ -25,6 +26,9 @@ from engine.infrastructure.voice_foundry_repository import (
     VoiceFoundryStage,
     VoiceFoundryTaskSpec,
     SQLiteVoiceFoundryRepository,
+)
+from engine.infrastructure.voice_binding_repository import (
+    SQLiteVoiceBindingRepository,
 )
 
 
@@ -616,3 +620,66 @@ async def test_load_scope_tasks_refuses_an_untyped_scope(database):
                 "locale": "zh-CN",
             }
         )
+
+
+async def _publish_task(repo: SQLiteVoiceFoundryRepository):
+    task = await repo.register_task(task_spec())
+    return await repo.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage=VoiceFoundryStage.PUBLISHED,
+        operation_status="confirmed",
+        required_actions=(),
+    )
+
+
+async def test_a_committed_binding_is_loadable_and_can_actually_render(database):
+    """The whole point of committing a binding is that it can be used.
+
+    Its review is an all-or-nothing triple. Writing only the evidence id and
+    digest produced a row that raised the moment the engine read it back, so a
+    published voice was stranded before anyone heard it — the task said ready
+    and the binding was unreadable.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _publish_task(repo)
+
+    ready = await repo.commit_ready_binding(
+        task.task_id,
+        expected_task_revision=task.task_revision,
+        evidence=evidence(),
+        binding_id="binding-1",
+    )
+    assert ready.stage is VoiceFoundryStage.READY
+
+    bound = await SQLiteVoiceBindingRepository(database).load("binding-1")
+    assert bound.status is VoiceBindingStatus.ACTIVE
+    assert bound.permits_new_render
+    assert bound.evidence is not None
+    assert bound.evidence.evidence_id == "evidence-1"
+    assert bound.evidence.model_artifact_revision == "model-revision-1"
+    assert bound.persona.revision == "persona-1"
+    assert await world_revision(database) == 0
+
+
+async def test_evidence_without_an_artifact_revision_never_becomes_a_binding(database):
+    """Refused at commit, so there is no half-reviewed row to find later."""
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _publish_task(repo)
+    incomplete = replace(
+        evidence(), snapshot={"execution": {"model_id": "qwen3-tts"}}
+    )
+
+    with pytest.raises(StorageError):
+        await repo.commit_ready_binding(
+            task.task_id,
+            expected_task_revision=task.task_revision,
+            evidence=incomplete,
+            binding_id="binding-1",
+        )
+
+    assert await database.read_world(
+        "SELECT binding_id FROM voice_bindings WHERE binding_id='binding-1'"
+    ) == []
+    assert (await repo.load_task(task.task_id)).stage is VoiceFoundryStage.PUBLISHED
+    assert await world_revision(database) == 0
