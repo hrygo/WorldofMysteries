@@ -725,6 +725,41 @@ class SQLiteVoiceFoundryRepository:
         )
         return tuple(_task_from_row(row) for row in rows)
 
+    async def load_tasks_page(
+        self,
+        *,
+        page_size: int,
+        after_created_at: str | None = None,
+        after_task_id: str | None = None,
+        stage: str | None = None,
+    ) -> tuple[VoiceFoundryTaskRecord, ...]:
+        """One keyset page of this world's supply tasks, oldest first.
+
+        The window is anchored on ``(created_at, task_id)`` rather than an
+        offset so a task registered or cancelled while a caller pages cannot
+        slide a row into or out of the page it is reading. ``stage`` filters
+        server-side, and the engine serves a single world, so no owner or
+        world predicate is applied here.
+        """
+        if type(page_size) is not int or not 1 <= page_size <= 100:
+            raise StorageError("Invalid Voice Foundry page size")
+        clauses: list[str] = []
+        params: list[object] = []
+        if stage is not None:
+            clauses.append("stage=?")
+            params.append(_text(stage, "stage", maximum=32))
+        if after_created_at is not None and after_task_id is not None:
+            clauses.append("(created_at>? OR (created_at=? AND task_id>?))")
+            params.extend([after_created_at, after_created_at, after_task_id])
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(page_size)
+        rows = await self.database.read_world(
+            "SELECT * FROM voice_foundry_tasks"
+            f"{where} ORDER BY created_at ASC, task_id ASC LIMIT ?",
+            tuple(params),
+        )
+        return tuple(_task_from_row(row) for row in rows)
+
     async def update_candidate(
         self,
         task_id: str,

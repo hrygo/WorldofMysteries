@@ -747,3 +747,115 @@ async def test_evidence_without_an_artifact_revision_never_becomes_a_binding(dat
     ) == []
     assert (await repo.load_task(task.task_id)).stage is VoiceFoundryStage.PUBLISHED
     assert await world_revision(database) == 0
+
+
+async def test_load_tasks_page_walks_the_whole_list_without_repeating_or_gapping(
+    database,
+):
+    repo = SQLiteVoiceFoundryRepository(database)
+    for index in range(5):
+        await repo.register_task(
+            task_spec(
+                task_id=f"task-{index}",
+                request_id=f"request-{index}",
+                request_digest=f"{index}" * 64,
+            )
+        )
+
+    first = await repo.load_tasks_page(page_size=2)
+    second = await repo.load_tasks_page(
+        page_size=2,
+        after_created_at=first[-1].created_at,
+        after_task_id=first[-1].task_id,
+    )
+    third = await repo.load_tasks_page(
+        page_size=2,
+        after_created_at=second[-1].created_at,
+        after_task_id=second[-1].task_id,
+    )
+
+    walked = [*first, *second, *third]
+    assert [item.task_id for item in walked] == [
+        "task-0",
+        "task-1",
+        "task-2",
+        "task-3",
+        "task-4",
+    ]
+
+
+async def test_a_task_registered_mid_walk_does_not_disturb_the_page_being_read(
+    database,
+):
+    """A keyset page is anchored on the last row, not on an offset.
+
+    An offset would shift every later row by one the moment a new task landed,
+    so a caller paging through supply would silently skip a task. Anchoring on
+    ``(created_at, task_id)`` means the window only ever moves forward.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    await repo.register_task(task_spec())
+    await repo.register_task(
+        task_spec(task_id="task-2", request_id="request-2", request_digest="b" * 64)
+    )
+    first = await repo.load_tasks_page(page_size=1)
+
+    # A pre-warm registers a third identity while the caller is still paging.
+    await repo.register_task(
+        task_spec(task_id="task-3", request_id="request-3", request_digest="c" * 64)
+    )
+
+    second = await repo.load_tasks_page(
+        page_size=5,
+        after_created_at=first[-1].created_at,
+        after_task_id=first[-1].task_id,
+    )
+    assert "task-1" not in [item.task_id for item in second]
+    assert second[0].task_id == "task-2"
+
+
+async def test_load_tasks_page_filters_by_stage(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    first = await repo.register_task(task_spec())
+    await repo.request_cancel(
+        first.task_id, expected_revision=first.task_revision, reason_code="withdrew"
+    )
+    await repo.register_task(
+        task_spec(task_id="task-2", request_id="request-2", request_digest="b" * 64)
+    )
+
+    cancelled = await repo.load_tasks_page(page_size=10, stage="cancelled")
+    live = await repo.load_tasks_page(page_size=10, stage="requested")
+
+    assert [item.task_id for item in cancelled] == ["task-1"]
+    assert [item.task_id for item in live] == ["task-2"]
+
+
+@pytest.mark.parametrize("page_size", [0, 101, -1, True, "10"])
+async def test_load_tasks_page_refuses_a_page_size_it_cannot_serve(database, page_size):
+    repo = SQLiteVoiceFoundryRepository(database)
+    with pytest.raises(StorageError):
+        await repo.load_tasks_page(page_size=page_size)
+
+
+async def test_load_tasks_page_covers_every_task_whatever_the_stage(database):
+    """The list is a status board, not a work queue.
+
+    A caller reading supply state must see the tasks that were withdrawn and
+    failed too; filtering them out is what makes a scope that failed once look
+    like a scope that was never asked.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    await repo.register_task(task_spec())
+    second = await repo.register_task(
+        task_spec(task_id="task-2", request_id="request-2", request_digest="b" * 64)
+    )
+    await repo.request_cancel(
+        second.task_id, expected_revision=second.task_revision, reason_code="withdrew"
+    )
+
+    listed = await repo.load_tasks_page(page_size=10)
+    assert {item.stage for item in listed} == {
+        VoiceFoundryStage.REQUESTED,
+        VoiceFoundryStage.CANCELLED,
+    }
