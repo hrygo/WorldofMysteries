@@ -19,6 +19,7 @@ from domain.voice_identity import (
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
+from application.voice_casting import VoiceCastingService
 from engine.infrastructure.database_manager import (
     DatabaseManager,
     DatabasePaths,
@@ -271,6 +272,85 @@ def _evidence():
         evidence_digest="d" * 64,
         model_artifact_revision="qwen3-tts-2026-09-29",
     )
+
+
+def _replacement_evidence():
+    return VoiceEvidenceReference(
+        evidence_id="ev_klein_2",
+        evidence_digest="e" * 64,
+        model_artifact_revision="qwen3-tts-2026-09-30",
+    )
+
+
+async def test_rebind_persists_the_review_of_the_replacement_voice(database, paths):
+    """The replacement's own review is what has to reach the row.
+
+    The outgoing voice's review is deliberately not carried forward, so if the
+    rebind drops the review it was handed, the binding is left with nothing —
+    and a binding with no review cannot be activated, which is the visible
+    consequence of losing it here.
+    """
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+    await repo.activate("binding-1", expected_binding_revision=1)
+
+    rebound = await repo.rebind(
+        "binding-1",
+        expected_binding_revision=2,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+        evidence=_replacement_evidence(),
+    )
+    assert rebound.evidence == _replacement_evidence()
+    assert rebound.evidence != _evidence()
+    assert rebound.status is VoiceBindingStatus.RESERVED
+
+    activated = await repo.activate(
+        "binding-1", expected_binding_revision=rebound.binding_revision
+    )
+    assert activated.status is VoiceBindingStatus.ACTIVE
+    assert activated.permits_new_render
+
+    await database.close()
+    reopened = await open_database(paths)
+    try:
+        assert (await SQLiteVoiceBindingRepository(reopened).load("binding-1")).evidence == (
+            _replacement_evidence()
+        )
+    finally:
+        await reopened.close()
+
+
+async def test_replacing_a_voice_end_to_end_on_the_real_repository(database):
+    """Guards the whole replace path, not just the repository verb.
+
+    The casting service has always passed the review down to its port, and the
+    in-memory port used by the service's own tests accepts it. Only a run
+    against the SQLite repository proves the two halves agree on the call.
+    """
+    repo = SQLiteVoiceBindingRepository(database)
+    service = VoiceCastingService(repo)
+
+    await service.prepare_render(
+        binding_id="binding-1",
+        scope=scope(),
+        persona=VoicePersonaRevision("voice-klein", "persona-r1"),
+        provider=provider(),
+        world_revision=7,
+        evidence=_evidence(),
+    )
+
+    replaced = await service.replace_for_future_render(
+        binding_id="binding-1",
+        expected_binding_revision=2,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+        evidence=_replacement_evidence(),
+    )
+    assert replaced.status is VoiceBindingStatus.ACTIVE
+    assert replaced.evidence == _replacement_evidence()
+    assert replaced.permits_new_render
+    assert await world_revision(database) == 0
 
 
 async def test_the_review_behind_a_binding_survives_a_restart(database, paths):

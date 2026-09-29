@@ -369,7 +369,16 @@ class SQLiteVoiceBindingRepository:
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference | None = None,
     ) -> VoiceBinding:
+        """Replace a binding's voice identity, carrying its own review.
+
+        ``evidence`` is forwarded verbatim to the domain object rather than
+        inherited from the outgoing binding: a human approved one specific
+        voice, so a replacement only ever carries the review that was made for
+        it. Dropping the argument here would silently leave every replacement
+        unreviewed and therefore unactivatable.
+        """
         return await self._evolve(
             binding_id,
             expected_binding_revision,
@@ -377,6 +386,7 @@ class SQLiteVoiceBindingRepository:
                 expected_binding_revision=expected_binding_revision,
                 persona=persona,
                 provider=provider,
+                evidence=evidence,
             ),
         )
 
