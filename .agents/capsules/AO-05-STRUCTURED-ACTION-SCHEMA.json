@@ -1,0 +1,155 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-STRUCTURED-ACTION-SCHEMA",
+  "capsule_revision": 1,
+  "task_id": "AO-05-STRUCTURED-ACTION-SCHEMA",
+  "title": "Implement AO-05-STRUCTURED-ACTION-SCHEMA",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-09-29T01:39:11.490919+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "aa85ffd79c1bcd3d9efbd733ec39be9585deadd5",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:622853af853e6da85d4200d1aa1d75a052bfcecd110a37cb6b87730b3cb74cdb"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/outbox*",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/**/database*",
+      "engine/infrastructure/**/outbox*",
+      "engine/infrastructure/**/migrations/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_StructuredWorker@engine/ai/live_turn_workers.py:147",
+      "symbol:LiveActionIntentProposer@engine/ai/live_turn_workers.py:434",
+      "symbol:_actions@engine/ai/live_turn_workers.py:543",
+      "symbol:AdviceActionError@engine/application/advice_action.py:37",
+      "symbol:_text@engine/application/advice_action.py:43",
+      "symbol:_finite@engine/application/advice_action.py:54",
+      "symbol:_bounded_json@engine/application/advice_action.py:63",
+      "symbol:ActionIntentCandidate@engine/application/advice_action.py:83",
+      "symbol:ActionIntentScope@engine/application/advice_action.py:142",
+      "symbol:AdviceActionProposal@engine/application/advice_action.py:164",
+      "symbol:DurableAdviceReadPort@engine/application/advice_action.py:172",
+      "symbol:ActionIntentProposerPort@engine/application/advice_action.py:178",
+      "symbol:_action_intent_id@engine/application/advice_action.py:189",
+      "symbol:AdviceActionIntentService@engine/application/advice_action.py:196",
+      "symbol:__init__@engine/application/advice_action.py:38",
+      "symbol:__post_init__@engine/application/advice_action.py:96",
+      "symbol:__post_init__@engine/application/advice_action.py:151",
+      "symbol:load_input@engine/application/advice_action.py:173",
+      "symbol:load_advice@engine/application/advice_action.py:175",
+      "symbol:propose@engine/application/advice_action.py:179",
+      "symbol:__init__@engine/application/advice_action.py:199",
+      "symbol:propose@engine/application/advice_action.py:212",
+      "symbol:_validate_binding@engine/application/advice_action.py:327",
+      "symbol:_validate_action_intent@engine/application/advice_commit.py:265",
+      "symbol:PostCommitLifecycleAction@engine/application/post_commit_work.py:87",
+      "symbol:_frozen@engine/tests/test_action_intent_proposal.py:28",
+      "symbol:_advice@engine/tests/test_action_intent_proposal.py:47",
+      "symbol:_session@engine/tests/test_action_intent_proposal.py:62",
+      "symbol:_candidate@engine/tests/test_action_intent_proposal.py:99",
+      "symbol:_Durable@engine/tests/test_action_intent_proposal.py:109"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 693,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_StructuredWorker",
+      "LiveActionIntentProposer",
+      "_actions",
+      "AdviceActionError",
+      "_text",
+      "_finite",
+      "_bounded_json",
+      "ActionIntentCandidate",
+      "ActionIntentScope",
+      "AdviceActionProposal",
+      "DurableAdviceReadPort",
+      "ActionIntentProposerPort",
+      "_action_intent_id",
+      "AdviceActionIntentService",
+      "__init__",
+      "__post_init__",
+      "__post_init__",
+      "load_input",
+      "load_advice",
+      "propose",
+      "__init__",
+      "propose",
+      "_validate_binding",
+      "_validate_action_intent",
+      "PostCommitLifecycleAction",
+      "_frozen",
+      "_advice",
+      "_session",
+      "_candidate",
+      "_Durable"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}
