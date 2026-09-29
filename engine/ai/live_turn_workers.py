@@ -175,7 +175,7 @@ class _StructuredWorker:
         *,
         binding_identity: TurnContextBindingIdentity,
         expected_binding: AuthorizedTurnContextBinding | None = None,
-        schema_enums: Mapping[str, Sequence[str]] | None = None,
+        schema_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> tuple[dict[str, Any], AuthorizedTurnContextBinding]:
         if call.mode is not self._mode:
             raise LiveWorkerError("gameplay_mode_mismatch")
@@ -185,7 +185,7 @@ class _StructuredWorker:
                 self._budget,
                 binding_identity=binding_identity,
                 expected_binding=expected_binding,
-                schema_enums=schema_enums,
+                schema_overrides=schema_overrides,
             )
         except ContextError as exc:
             stale_codes = {
@@ -288,7 +288,14 @@ _PROFILE_SPECS: dict[
     "narrative_compiler": (
         GameplayMode.NARRATIVE_COMPILATION,
         "wom-live-narrative-v2",
-        "你是《诡秘世界》叙事编译器。只转述已提交且当前授权披露的事实，不得引入新线索、改变结果或替玩家说话。speech 是角色实际说出口的话，narration 是场景与反应的客观描写。",
+        (
+            "你是《诡秘世界》叙事编译器。只转述已提交且当前授权披露的事实，"
+            "不得引入新线索、改变结果或替玩家说话。"
+            "speech 是角色实际说出口的话，narration 是场景与反应的客观描写。"
+            "每个已提交的回合都必须由角色说出一句话，speech 不得为空："
+            "只写角色此刻真的会说的话，"
+            "不要为了凑数编造与已披露事实冲突的台词，也不要用省略号或占位符敷衍。"
+        ),
         {
             "type": "object",
             "properties": {
@@ -297,9 +304,13 @@ _PROFILE_SPECS: dict[
                     "minLength": 1,
                     "maxLength": _MAX_NARRATIVE_CHARS,
                 },
-                "speech": {"type": "string", "maxLength": _MAX_NARRATIVE_CHARS},
+                "speech": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": _MAX_NARRATIVE_CHARS,
+                },
             },
-            "required": ["narration"],
+            "required": ["narration", "speech"],
             "additionalProperties": False,
         },
     ),
@@ -503,15 +514,15 @@ class LiveActionIntentProposer(_StructuredWorker):
                 # model is only *asked* to copy the identifiers, and one that
                 # answers with a prose intent fails the turn despite returning
                 # perfectly valid JSON.
-                schema_enums={
-                    "properties.intent": tuple(
-                        sorted({intent for intent, _ in self._allowed})
-                    ),
-                    "properties.actions.items.properties.type": tuple(
-                        sorted(
+                schema_overrides={
+                    "properties.intent": {
+                        "enum": sorted({intent for intent, _ in self._allowed})
+                    },
+                    "properties.actions.items.properties.type": {
+                        "enum": sorted(
                             {action for _, types in self._allowed for action in types}
                         )
-                    ),
+                    },
                 },
             )
         except LiveWorkerError as exc:
@@ -666,6 +677,11 @@ class LiveNarrativeCompiler(_StructuredWorker):
                     source_story_revision=source.story_revision,
                 ),
                 expected_binding=expected_context_binding,
+                # The profile already requires a non-empty speech, but stating it
+                # to the provider is what actually keeps the model from
+                # answering with narration only. Without a character segment the
+                # delivery stage cannot seal any audio for this turn.
+                schema_overrides={"properties.speech": {"minLength": 1}},
             )
         except LiveWorkerError as exc:
             if exc.code == "context_stale":
@@ -679,7 +695,7 @@ class LiveNarrativeCompiler(_StructuredWorker):
             )
             raw_speech = payload.get("speech")
             if raw_speech is None:
-                speech = ""
+                raise NarrativePublicationError("missing_character_speech")
             elif (
                 not isinstance(raw_speech, str)
                 or "\x00" in raw_speech
@@ -687,17 +703,24 @@ class LiveNarrativeCompiler(_StructuredWorker):
             ):
                 raise LiveWorkerError("invalid_speech")
             else:
-                # Empty dialogue is a valid narration-only result. The durable
-                # block will contain no character segment, so no audio can be
-                # sealed from it.
                 speech = raw_speech.strip()
+                if not speech:
+                    # A committed turn must be speakable. The delivery stage
+                    # refuses a block with no character segment, so accepting
+                    # empty dialogue here would publish a durable block that
+                    # can never be turned into audio.
+                    raise NarrativePublicationError("missing_character_speech")
             assert narration is not None
             return NarrativeCandidate(
                 narration=narration,
                 speech=speech,
                 context_binding=binding,
             )
-        except (LiveWorkerError, NarrativePublicationError):
+        except NarrativePublicationError:
+            # Already a specific, honest publication failure; do not flatten it
+            # into the generic "the model returned nonsense" code.
+            raise
+        except LiveWorkerError:
             raise NarrativePublicationError("narrative_model_invalid") from None
 
 

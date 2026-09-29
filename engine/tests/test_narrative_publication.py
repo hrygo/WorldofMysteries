@@ -192,13 +192,14 @@ def _live_narrative_worker(payload, source):
         *,
         binding_identity,
         expected_binding,
-        schema_enums=None,
+        schema_overrides=None,
     ):
         assert binding_identity.stage == "narrative"
         assert binding_identity.turn_id == source.turn_id
-        # The narrative compiler has no per-call narrowing to declare; only the
-        # action proposer constrains its schema.
-        assert schema_enums is None
+        # The narrative compiler must state the non-empty speech bound to the
+        # provider, otherwise the model answers with narration only and the turn
+        # can never be delivered as audio.
+        assert schema_overrides == {"properties.speech": {"minLength": 1}}
         return SimpleNamespace(
             proposal=lambda: dict(payload),
             context_binding=binding,
@@ -293,6 +294,7 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
     from application.narrative_publication import (
         CommittedNarrativeService,
         NarrativeCandidate,
+        NarrativePublicationError,
     )
 
     class BlockingCompiler:
@@ -474,16 +476,29 @@ async def test_model_cannot_bind_a_narrative_to_an_arbitrary_speaker():
 
 
 @pytest.mark.asyncio
-async def test_live_candidate_allows_narration_without_fabricating_speech():
+async def test_live_candidate_requires_character_speech():
     from application.narrative_publication import (
         CommittedNarrativeService,
         NarrativeCandidate,
+        NarrativePublicationError,
     )
 
     repository = MemoryNarrativeRepository()
     source = _committed_source()
+    # A committed turn must be speakable: the delivery stage refuses a block with
+    # no character segment, so a narration-only result is a dead end rather than
+    # a valid outcome. The model must say what the character actually says.
+    silent, _, silent_transport = _live_narrative_worker(
+        {"narration": "雨落在诊所的窗外。"}, source
+    )
+    try:
+        with pytest.raises(NarrativePublicationError, match="missing_character_speech"):
+            await silent.compile(committed=source.disclosed_facts, source=source)
+    finally:
+        await silent_transport.aclose()
+
     compiler, binding, transport = _live_narrative_worker(
-        {"narration": "雨落在诊所的窗外。"},
+        {"narration": "雨落在诊所的窗外。", "speech": "你还没问，我先不说。"},
         source,
     )
     try:
@@ -495,7 +510,7 @@ async def test_live_candidate_allows_narration_without_fabricating_speech():
         await transport.aclose()
     assert candidate == NarrativeCandidate(
         narration="雨落在诊所的窗外。",
-        speech="",
+        speech="你还没问，我先不说。",
         context_binding=binding,
     )
     compiler = CountingCompiler(candidate=candidate)
@@ -508,9 +523,9 @@ async def test_live_candidate_allows_narration_without_fabricating_speech():
     block = await service.ensure(turn_id="turn-1", source=_committed_source())
 
     assert [(segment.type, segment.text) for segment in block.segments] == [
-        ("narration", "雨落在诊所的窗外。")
+        ("narration", "雨落在诊所的窗外。"),
+        ("character", "你还没问，我先不说。"),
     ]
-    assert all(segment.type != "character" for segment in block.segments)
 
 
 class MemoryPublicIdentityReader:

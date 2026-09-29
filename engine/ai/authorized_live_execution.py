@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import math
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from time import monotonic
@@ -63,15 +63,18 @@ _NARRATIVE_TASK = canonical_json({
 
 def constrain_output_schema(
     schema: Mapping[str, Any],
-    enums: Mapping[str, Sequence[str]],
+    overrides: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Return a copy of ``schema`` with per-call ``enum`` constraints injected.
+    """Return a copy of ``schema`` with per-call constraints merged in.
 
     A profile schema is only validated locally after the model answers, so a
     model that does not feel bound by the prompt still returns well-formed JSON
     that violates the contract. Narrowing the same schema into the provider's
     decode-time constraint moves that contract from an instruction to a
-    guarantee. Paths are dot separated (``"actions.items.type"``).
+    guarantee. ``overrides`` maps a dot-separated path to the schema fragment to
+    merge there -- ``{"properties.intent": {"enum": [...]}}`` for a value set the
+    caller derives at runtime, ``{"properties.speech": {"minLength": 1}}`` for a
+    bound the profile already states but the provider must also enforce.
 
     The profile schema is shared per profile, so the copy is deep and the source
     is never mutated.
@@ -79,12 +82,14 @@ def constrain_output_schema(
     if not isinstance(schema, Mapping):
         raise TypeError("invalid_output_schema")
     narrowed = deepcopy(dict(schema))
-    for path, values in enums.items():
-        if not isinstance(path, str) or not path or not isinstance(values, Sequence):
+    for path, fragment in overrides.items():
+        if (
+            not isinstance(path, str)
+            or not path
+            or not isinstance(fragment, Mapping)
+            or not fragment
+        ):
             raise TypeError("invalid_output_schema")
-        allowed = [str(value) for value in values]
-        if not allowed:
-            raise ValueError("invalid_output_schema")
         cursor: Any = narrowed
         *parents, leaf = path.split(".")
         for step in parents:
@@ -95,7 +100,7 @@ def constrain_output_schema(
             raise ValueError("unknown_schema_path")
         if not isinstance(cursor[leaf], dict):
             raise TypeError("invalid_output_schema")
-        cursor[leaf]["enum"] = allowed
+        cursor[leaf].update(deepcopy(dict(fragment)))
     return narrowed
 
 
@@ -179,7 +184,7 @@ class AuthorizedLiveExecution:
         *,
         binding_identity: TurnContextBindingIdentity | None = None,
         expected_binding: AuthorizedTurnContextBinding | None = None,
-        schema_enums: Mapping[str, Sequence[str]] | None = None,
+        schema_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> AuthorizedProposalResult:
         """Return a proposal or reject it; this method never writes Domain state."""
         started = monotonic()
@@ -191,7 +196,7 @@ class AuthorizedLiveExecution:
                     started,
                     binding_identity=binding_identity,
                     expected_binding=expected_binding,
-                    schema_enums=schema_enums,
+                    schema_overrides=schema_overrides,
                 )
         except TimeoutError:
             raise ContextError("model_stage_timeout") from None
@@ -213,7 +218,7 @@ class AuthorizedLiveExecution:
         *,
         binding_identity: TurnContextBindingIdentity | None,
         expected_binding: AuthorizedTurnContextBinding | None,
-        schema_enums: Mapping[str, Sequence[str]] | None = None,
+        schema_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> AuthorizedProposalResult:
         recipe = gameplay_recipe(call.mode)
         if recipe.model_use is not ModelUse.STRUCTURED:
@@ -279,10 +284,10 @@ class AuthorizedLiveExecution:
         # ignore into a decode-time guarantee; endpoints that cannot honour it
         # degrade inside the transport rather than failing the turn.
         response_schema: dict[str, Any] | None = None
-        if schema_enums:
+        if schema_overrides:
             try:
                 response_schema = constrain_output_schema(
-                    parse_json(prepared.profile.schema_json), schema_enums
+                    parse_json(prepared.profile.schema_json), schema_overrides
                 )
             except (ContextError, TypeError, ValueError):
                 raise ContextError("invalid_output_schema") from None

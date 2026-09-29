@@ -77,8 +77,10 @@ def test_constrain_narrows_the_profile_schema_to_the_allowed_signatures() -> Non
     constrained = constrain_output_schema(
         PROFILE_SCHEMA,
         {
-            "properties.intent": ["observe_subject"],
-            "properties.actions.items.properties.type": ["continue_conversation"],
+            "properties.intent": {"enum": ["observe_subject"]},
+            "properties.actions.items.properties.type": {
+                "enum": ["continue_conversation"]
+            },
         },
     )
 
@@ -89,9 +91,26 @@ def test_constrain_narrows_the_profile_schema_to_the_allowed_signatures() -> Non
     assert "enum" not in PROFILE_SCHEMA["properties"]["intent"]
 
 
+def test_constrain_can_state_a_bound_the_provider_must_also_enforce() -> None:
+    """A bound the profile already states is repeated to the provider."""
+    schema = {
+        "type": "object",
+        "properties": {"speech": {"type": "string", "maxLength": 600}},
+    }
+
+    constrained = constrain_output_schema(
+        schema, {"properties.speech": {"minLength": 1}}
+    )
+
+    assert constrained["properties"]["speech"]["minLength"] == 1
+    # Existing bounds survive the merge.
+    assert constrained["properties"]["speech"]["maxLength"] == 600
+    assert "minLength" not in schema["properties"]["speech"]
+
+
 def test_constrain_rejects_a_path_the_schema_does_not_expose() -> None:
     with pytest.raises(ValueError):
-        constrain_output_schema(PROFILE_SCHEMA, {"nonexistent": ["x"]})
+        constrain_output_schema(PROFILE_SCHEMA, {"nonexistent": {"minLength": 1}})
 
 
 class _FakeCompletions:
