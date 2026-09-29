@@ -220,3 +220,44 @@ async def test_cancelled_input_cannot_publish_first_player_advice(tmp_path):
             )
     finally:
         await database.close()
+
+
+async def test_frozen_input_is_reachable_by_turn_identity(tmp_path):
+    """Post-COMMIT work only holds the turn, not the input id.
+
+    A turn's ``idempotency_key`` is a derived ``turn-input:<digest>`` form, so
+    it can never satisfy a lookup keyed by ``input_turn_id``. Anything that
+    resolves the pre-COMMIT input from a committed turn must go through the
+    turn identity instead.
+    """
+    database, _ = await open_database(tmp_path)
+    intake = SQLiteTurnInputCommandPort(database)
+    stored = await intake.receive(command())
+    repository = SQLitePlayerAdviceRepository(database)
+    try:
+        resolved = await repository.load_input_for_turn(stored.turn_id)
+        assert resolved is not None
+        assert resolved.input_turn_id == command().input_turn_id
+        assert resolved.session_id == command().session_id
+        assert resolved.turn_id == stored.turn_id
+
+        # The derived idempotency key is not an input identity.
+        assert await repository.load_input(stored.idempotency_key) is None
+        assert await repository.load_input_for_turn("turn-does-not-exist") is None
+    finally:
+        await database.close()
+
+
+async def test_turn_lookup_agrees_with_the_input_lookup(tmp_path):
+    """Both routes must resolve the same immutable input."""
+    database, _ = await open_database(tmp_path)
+    intake = SQLiteTurnInputCommandPort(database)
+    stored = await intake.receive(command())
+    repository = SQLitePlayerAdviceRepository(database)
+    try:
+        by_input = await repository.load_input(command().input_turn_id)
+        by_turn = await repository.load_input_for_turn(stored.turn_id)
+        assert by_input is not None and by_turn is not None
+        assert by_input == by_turn
+    finally:
+        await database.close()

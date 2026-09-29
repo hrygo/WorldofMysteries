@@ -99,6 +99,24 @@ class SQLitePlayerAdviceRepository:
             raise StorageError("Turn input identity is ambiguous")
         return _frozen(rows[0])
 
+    async def load_input_for_turn(self, turn_id: str) -> FrozenTurnInput | None:
+        """Resolve the frozen input from a committed turn.
+
+        Post-COMMIT work is handed a turn, never the input id, and a turn's
+        ``idempotency_key`` is a derived ``turn-input:<digest>`` form that can
+        never satisfy the ``input_turn_id`` lookup above. The turn column is
+        UNIQUE, so it is the one identity that actually links the two.
+        """
+        rows = await self._database.read_world(
+            "SELECT * FROM turn_intake_commands WHERE turn_id=?",
+            (turn_id,),
+        )
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise StorageError("Turn input identity is ambiguous")
+        return _frozen(rows[0])
+
     async def load_advice(self, input_turn_id: str) -> StoredPlayerAdvice | None:
         rows = await self._database.read_world(
             "SELECT * FROM turn_advice_interpretations WHERE input_turn_id=?",
