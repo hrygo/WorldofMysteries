@@ -1,0 +1,148 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-AO-05-STATE-DISCLOSURE-AXIS",
+  "capsule_revision": 1,
+  "task_id": "AO-05-STATE-DISCLOSURE-AXIS",
+  "title": "Implement AO-05-STATE-DISCLOSURE-AXIS",
+  "assigned_role": "AGT-DATA",
+  "status": "CREATED",
+  "created_at": "2026-09-29T00:11:23.757204+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "599daaf39da809175c516d01b0d6fab69a39ea91",
+    "target_sha": "c62b41ab8f5308ff50696a3bf9022d44772d39a6",
+    "context_snapshot": "sha256:453cea71f38c00dda4edb5bd6e720916aecefa08725068262bb1bde7a6068956"
+  },
+  "scope": {
+    "read": [
+      "engine/infrastructure/",
+      "engine/tests/",
+      "contracts/",
+      "docs/03_工程规范/"
+    ],
+    "write": [
+      "engine/infrastructure/",
+      "engine/tests/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/ai/**",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/",
+      "engine/infrastructure/audio/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:MediaReceiveState@engine/infrastructure/audio/media_protocol.py:461",
+      "symbol:statements@engine/infrastructure/database_schema.py:60",
+      "symbol:_InvocationState@engine/infrastructure/gameplay_context_repository.py:88",
+      "symbol:_project_story_state@engine/infrastructure/gameplay_context_repository.py:714",
+      "symbol:SettlementPublicState@engine/infrastructure/post_commit_job_repository.py:56",
+      "symbol:NarrativePublicState@engine/infrastructure/post_commit_job_repository.py:64",
+      "symbol:AudioPublicState@engine/infrastructure/post_commit_job_repository.py:71",
+      "symbol:_public_group_state@engine/infrastructure/post_commit_job_repository.py:811",
+      "symbol:test_ai_gateway_rejects_result_after_state_changed@engine/tests/test_ai_gateway.py:106",
+      "symbol:test_media_receive_state_validates_sequence_offsets_totals_and_digest@engine/tests/test_audio_adapter.py:646",
+      "symbol:test_media_receive_state_rejects_late_generation_and_gap@engine/tests/test_audio_adapter.py:697",
+      "symbol:_anchor@engine/tests/test_audio_disclosure.py:23",
+      "symbol:_rule@engine/tests/test_audio_disclosure.py:44",
+      "symbol:test_versioned_name_and_number_pronunciation_keep_semantic_mapping@engine/tests/test_audio_disclosure.py:59",
+      "symbol:test_quantity_and_unit_may_only_use_preapproved_semantic_forms@engine/tests/test_audio_disclosure.py:104",
+      "symbol:test_negation_cannot_be_authorized_to_change_meaning@engine/tests/test_audio_disclosure.py:147",
+      "symbol:test_unanchored_or_stale_pronunciation_rule_fails_closed@engine/tests/test_audio_disclosure.py:180",
+      "symbol:test_anchor_source_drift_is_rejected_before_any_spoken_text_is_built@engine/tests/test_audio_disclosure.py:208",
+      "symbol:test_overlapping_semantic_anchors_are_rejected_as_ambiguous@engine/tests/test_audio_disclosure.py:229",
+      "symbol:test_rule_order_cannot_change_spoken_output@engine/tests/test_audio_disclosure.py:261",
+      "symbol:MemoryDisclosurePort@engine/tests/test_audio_disclosure.py:302",
+      "symbol:_turn@engine/tests/test_audio_disclosure.py:316",
+      "symbol:_block@engine/tests/test_audio_disclosure.py:336",
+      "symbol:test_audio_authorizer_returns_only_exact_committed_narrative_segment@engine/tests/test_audio_disclosure.py:360",
+      "symbol:test_audio_authorizer_rejects_turn_before_narrative_ready@engine/tests/test_audio_disclosure.py:387",
+      "symbol:test_audio_authorizer_binds_exact_committed_story_revision@engine/tests/test_audio_disclosure.py:398",
+      "symbol:test_audio_authorizer_rejects_cross_session_or_delta_narrative@engine/tests/test_audio_disclosure.py:419",
+      "symbol:test_audio_authorizer_fails_closed_without_durable_narrative_link@engine/tests/test_audio_disclosure.py:441",
+      "symbol:test_audio_authorizer_rejects_invalid_or_empty_segment@engine/tests/test_audio_disclosure.py:463",
+      "symbol:__init__@engine/tests/test_audio_disclosure.py:303"
+    ],
+    "related_contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 903,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "MediaReceiveState",
+      "statements",
+      "_InvocationState",
+      "_project_story_state",
+      "SettlementPublicState",
+      "NarrativePublicState",
+      "AudioPublicState",
+      "_public_group_state",
+      "test_ai_gateway_rejects_result_after_state_changed",
+      "test_media_receive_state_validates_sequence_offsets_totals_and_digest",
+      "test_media_receive_state_rejects_late_generation_and_gap",
+      "_anchor",
+      "_rule",
+      "test_versioned_name_and_number_pronunciation_keep_semantic_mapping",
+      "test_quantity_and_unit_may_only_use_preapproved_semantic_forms",
+      "test_negation_cannot_be_authorized_to_change_meaning",
+      "test_unanchored_or_stale_pronunciation_rule_fails_closed",
+      "test_anchor_source_drift_is_rejected_before_any_spoken_text_is_built",
+      "test_overlapping_semantic_anchors_are_rejected_as_ambiguous",
+      "test_rule_order_cannot_change_spoken_output",
+      "MemoryDisclosurePort",
+      "_turn",
+      "_block",
+      "test_audio_authorizer_returns_only_exact_committed_narrative_segment",
+      "test_audio_authorizer_rejects_turn_before_narrative_ready",
+      "test_audio_authorizer_binds_exact_committed_story_revision",
+      "test_audio_authorizer_rejects_cross_session_or_delta_narrative",
+      "test_audio_authorizer_fails_closed_without_durable_narrative_link",
+      "test_audio_authorizer_rejects_invalid_or_empty_segment",
+      "__init__"
+    ],
+    "contracts": [
+      "world_snapshot.schema.json",
+      "state_delta.schema.json",
+      "domain_event.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "DATA_KERNEL_P0",
+    "profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+    "profile_file": ".hacf/gates/data_kernel_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      3,
+      10,
+      11
+    ],
+    "instructions": "落实四库物理隔离：canon.db 只读、world.db 强事务、retrieval.db 幂等可重建。迁移变更需仲裁扩权。",
+    "assertions": [
+      "INV-03",
+      "INV-10",
+      "INV-11"
+    ]
+  }
+}
