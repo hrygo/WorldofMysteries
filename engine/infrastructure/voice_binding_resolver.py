@@ -1,4 +1,4 @@
-"""Resolve a provider voice into a durable, content-addressed VoiceBinding.
+"""Resolve an already-reviewed VoiceBinding against a live provider voice.
 
 W-V03 refuses to render without an immutable provider pin, and SpeechRail only
 publishes a content-addressed ``voice_revision`` for reference-conditioned
@@ -6,18 +6,26 @@ voices.  System voices report ``voice_revision = null`` and legacy assurance, so
 they can never satisfy the sealed-render contract no matter how they are
 configured here.
 
-This resolver therefore never hardcodes a revision.  It reads one
-``effective_capabilities_v1`` generation, selects the voice an operator named,
-and requires all four pins to be present:
+This resolver therefore never hardcodes a revision, and it never chooses a
+voice.  It resolves the binding a human already reviewed for this presentation
+identity, then reads one ``effective_capabilities_v1`` generation, selects the
+voice an operator named, and requires all four pins to be present:
 
 * ``voice_revision``          -- content-addressed voice identity
 * ``voice_identity_assurance`` -- must be ``content_addressed``
 * ``model.source_model``       -- the execution model the receipt will report
 * ``model.catalog_revision``   -- the model catalogue generation
 
-Anything missing fails closed.  A binding is reserved once per scope and reused
+Anything missing fails closed.  A binding is supplied once per scope and reused
 afterwards, so a provider catalogue change never silently rewrites a live
 binding.
+
+Supplying a binding is somebody else's decision (see
+``application.voice_casting``).  Reserving one here would mean putting a voice
+in front of a player that no human had listened to, so a scope without a
+reviewed binding is refused rather than filled in.  The refusal is reported as
+``voice_binding_not_reviewed`` — the truthful reason, and the one the delivery
+surfaces show the player.
 """
 from __future__ import annotations
 
@@ -29,11 +37,8 @@ from application.performance_compiler import (
 )
 from contracts import StorySession
 from domain.voice_identity import (
-    ProviderVoiceRevision,
-    VoiceBinding,
     VoiceBindingScope,
     VoiceIdentityAssurance,
-    VoicePersonaRevision,
 )
 
 from .audio.capabilities import (
@@ -109,9 +114,19 @@ async def resolve_voice_runtime(
     voice_id: str,
     fetch_json=None,
 ) -> ResolvedVoiceRuntime:
-    """Bind one session's protagonist to a verified provider voice."""
+    """Resolve one session's protagonist to its reviewed, verified voice."""
     if not isinstance(voice_id, str) or not voice_id.strip():
         raise VoiceBindingResolutionError("voice_not_configured")
+
+    # The scope is checked before the provider is probed.  With no reviewed
+    # binding there is nothing for a provider generation to be verified
+    # against, and a provider error would name a problem that is not the one
+    # actually stopping this session from being voiced.
+    scope = binding_scope_for(session)
+    existing = await repository.load_scope(scope)
+    if existing is None:
+        raise VoiceBindingResolutionError("voice_binding_not_reviewed")
+
     observation = await probe_audio_capabilities(config, fetch_json=fetch_json)
     voice = _select(observation, voice_id.strip())
 
@@ -126,66 +141,27 @@ async def resolve_voice_runtime(
     if not voice.voice_revision or not voice.model_catalog_revision or not voice.model_source:
         raise VoiceBindingResolutionError("voice_revision_is_not_content_addressed")
 
-    scope = binding_scope_for(session)
-    existing = await repository.load_scope(scope)
-    if existing is not None:
-        if (
-            existing.provider.voice_id != voice.voice_id
-            or existing.provider.voice_revision != voice.voice_revision
-            or not existing.permits_new_render
-        ):
-            # A live binding is immutable presentation state.  Re-binding it would
-            # change the voice a player already heard, so fail closed instead.
-            raise VoiceBindingResolutionError("voice_binding_conflicts_with_provider")
-        binding = existing
-    else:
-        reserved = VoiceBinding.reserve(
-            binding_id=_binding_id(scope),
-            scope=scope,
-            persona=VoicePersonaRevision(
-                logical_voice_id=voice.voice_id,
-                revision=f"persona-{voice.voice_revision}",
-            ),
-            provider=ProviderVoiceRevision(
-                provider_instance=config.provider_name,
-                voice_id=voice.voice_id,
-                assurance=VoiceIdentityAssurance.CONTENT_ADDRESSED,
-                voice_revision=voice.voice_revision,
-                model_catalog_revision=voice.model_catalog_revision,
-                revoked=False,
-            ),
-            world_revision=session.story_state.revision,
-        )
-        binding = await repository.reserve(reserved)
-        binding = await repository.activate(
-            binding.binding_id, expected_binding_revision=binding.binding_revision
-        )
+    if (
+        existing.provider.voice_id != voice.voice_id
+        or existing.provider.voice_revision != voice.voice_revision
+    ):
+        # A live binding is immutable presentation state.  Re-binding it would
+        # change the voice a player already heard, so fail closed instead.
+        raise VoiceBindingResolutionError("voice_binding_conflicts_with_provider")
+    if not existing.permits_new_render:
+        # The binding exists but carries no review a human stood behind, so it
+        # never went live.  That is a missing review, not a provider conflict.
+        raise VoiceBindingResolutionError("voice_binding_not_reviewed")
 
     return ResolvedVoiceRuntime(
         scope=scope,
-        binding=binding,
+        binding=existing,
         provider_instance=config.provider_name,
         execution_model_id=voice.model_source or "",
         model_catalog_revision=voice.model_catalog_revision or "",
         capabilities=_capabilities(voice),
         performance=DesiredPerformance(),
     )
-
-
-def _binding_id(scope: VoiceBindingScope) -> str:
-    import hashlib
-
-    seed = "\x00".join(
-        (
-            scope.owner_id,
-            scope.world_id,
-            scope.worldline_id,
-            scope.presentation_identity,
-            scope.phase,
-            scope.locale,
-        )
-    )
-    return "vb_" + hashlib.sha256(f"wom-voice-binding/v1\x00{seed}".encode()).hexdigest()[:32]
 
 
 __all__ = [
