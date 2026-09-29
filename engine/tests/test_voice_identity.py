@@ -162,7 +162,14 @@ def test_reservation_is_persistable_before_first_output_but_not_renderable_yet()
     assert binding.reserved_at_world_revision == 42
     assert not binding.permits_new_render
 
-    active = binding.activate(expected_binding_revision=1)
+    # A reservation is a claim, not a decision. Without a human review behind
+    # it, the binding must not be promotable into something a player hears.
+    with pytest.raises(VoiceIdentityError, match="without approved evidence"):
+        binding.activate(expected_binding_revision=1)
+
+    active = replace(binding, evidence=_evidence()).activate(
+        expected_binding_revision=1
+    )
     assert active.status is VoiceBindingStatus.ACTIVE
     assert active.binding_revision == 2
     assert active.reserved_at_world_revision == 42
@@ -171,13 +178,7 @@ def test_reservation_is_persistable_before_first_output_but_not_renderable_yet()
 
 
 def test_stale_binding_revision_cannot_change_casting():
-    binding = VoiceBinding.reserve(
-        binding_id="binding-1",
-        scope=_scope(),
-        persona=_persona(),
-        provider=_provider(),
-        world_revision=5,
-    ).activate(expected_binding_revision=1)
+    binding = _reviewed(world_revision=5).activate(expected_binding_revision=1)
 
     with pytest.raises(VoiceBindingConflict):
         binding.rebind(
@@ -191,13 +192,7 @@ def test_stale_binding_revision_cannot_change_casting():
 
 
 def test_rebind_creates_new_presentation_revision_without_mutating_world_revision():
-    active = VoiceBinding.reserve(
-        binding_id="binding-1",
-        scope=_scope(),
-        persona=_persona(),
-        provider=_provider(),
-        world_revision=99,
-    ).activate(expected_binding_revision=1)
+    active = _reviewed(world_revision=99).activate(expected_binding_revision=1)
 
     rebound = active.rebind(
         expected_binding_revision=2,
@@ -251,13 +246,7 @@ def test_rebinding_refuses_a_malformed_review_reference():
 
 
 def test_revocation_blocks_new_render_but_preserves_historical_identity():
-    active = VoiceBinding.reserve(
-        binding_id="binding-1",
-        scope=_scope(),
-        persona=_persona(),
-        provider=_provider(),
-        world_revision=7,
-    ).activate(expected_binding_revision=1)
+    active = _reviewed(world_revision=7).activate(expected_binding_revision=1)
 
     revoked = active.revoke(expected_binding_revision=2)
     assert revoked.status is VoiceBindingStatus.REVOKED

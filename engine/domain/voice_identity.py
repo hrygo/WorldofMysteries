@@ -227,6 +227,13 @@ class VoiceBinding:
             raise VoiceIdentityError("a revoked binding cannot be activated")
         if self.provider.revoked:
             raise VoiceIdentityError("a revoked provider voice cannot be activated")
+        # Reserving a voice is a claim; activating it is the decision to let a
+        # player hear it. Only a human who actually listened can make that
+        # decision, so a binding reaches ACTIVE only with a review behind it.
+        if self.evidence is None:
+            raise VoiceIdentityError(
+                "a voice binding cannot be activated without approved evidence"
+            )
         if self.status is VoiceBindingStatus.ACTIVE:
             return self
         return replace(
@@ -278,6 +285,7 @@ class VoiceBinding:
         return (
             self.status is VoiceBindingStatus.ACTIVE
             and self.provider.permits_new_render
+            and self.evidence is not None
         )
 
     def _require_revision(self, expected: int) -> None:

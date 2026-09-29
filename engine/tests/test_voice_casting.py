@@ -51,12 +51,22 @@ def _reserved(
     persona: VoicePersonaRevision | None = None,
     provider: ProviderVoiceRevision | None = None,
 ) -> VoiceBinding:
-    return VoiceBinding.reserve(
+    reserved = VoiceBinding.reserve(
         binding_id=binding_id,
         scope=_scope(),
         persona=persona or _persona(),
         provider=provider or _provider(),
         world_revision=9,
+    )
+    # A candidate on its way to ACTIVE arrives with the review already
+    # attached; without one the binding is refused rather than promoted.
+    return replace(
+        reserved,
+        evidence=VoiceEvidenceReference(
+            evidence_id="ev_casting_1",
+            evidence_digest="d" * 64,
+            model_artifact_revision="art-1",
+        ),
     )
 
 

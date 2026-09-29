@@ -72,14 +72,17 @@ def provider(revision="voice-" + "a" * 40):
     )
 
 
-def candidate(binding_id="binding-1", revision="voice-" + "a" * 40):
-    return VoiceBinding.reserve(
+def candidate(binding_id="binding-1", revision="voice-" + "a" * 40, evidence=True):
+    reserved = VoiceBinding.reserve(
         binding_id=binding_id,
         scope=scope(),
         persona=VoicePersonaRevision("voice-klein", "persona-r1"),
         provider=provider(revision),
         world_revision=7,
     )
+    # Activation is the decision to let a player hear a voice, so a candidate
+    # on its way to ACTIVE arrives with the review already attached.
+    return replace(reserved, evidence=_evidence()) if evidence else reserved
 
 
 async def world_revision(database):
@@ -185,12 +188,12 @@ async def test_worldline_fork_freezes_exact_binding_revision_and_isolates_parent
         persona=VoicePersonaRevision("voice-klein", "persona-r2"),
         provider=provider("voice-" + "d" * 40),
     )
-    parent_after_fork = await repo.activate(
-        "binding-1", expected_binding_revision=rebound.binding_revision
-    )
-
-    assert parent_after_fork.binding_revision == 4
-    assert parent_after_fork.provider.voice_revision == "voice-" + "d" * 40
+    # The replacement voice has not been heard, so the review that stood behind
+    # the old one does not travel with it. The parent stays reserved until a
+    # new review is attached; the fork is unaffected either way.
+    assert rebound.evidence is None
+    assert rebound.provider.voice_revision == "voice-" + "d" * 40
+    assert not rebound.permits_new_render
     assert await repo.load("binding-line-2") == child
     assert child.provider.voice_revision == "voice-" + "a" * 40
     assert await world_revision(database) == 0
@@ -236,9 +239,9 @@ async def test_worldline_fork_rejects_parent_revision_drift_before_snapshot(data
         persona=VoicePersonaRevision("voice-klein", "persona-r2"),
         provider=provider("voice-" + "d" * 40),
     )
-    await repo.activate(
-        "binding-1", expected_binding_revision=rebound.binding_revision
-    )
+    # The rebind alone already moved the parent off the fork point; driving it
+    # back to ACTIVE would need a fresh review this test has no reason to grant.
+    assert rebound.binding_revision != fork_point.binding_revision
 
     with pytest.raises(
         VoiceBindingConflict, match="moved after fork snapshot authorization"
@@ -288,7 +291,7 @@ async def test_the_review_behind_a_binding_survives_a_restart(database, paths):
 
 async def test_a_binding_predating_the_evidence_rollout_still_loads(database):
     repo = SQLiteVoiceBindingRepository(database)
-    await repo.reserve(candidate())
+    await repo.reserve(candidate(evidence=False))
     assert (await repo.load("binding-1")).evidence is None
 
 
@@ -325,7 +328,7 @@ async def test_a_half_written_evidence_reference_is_refused(database):
     # Part of the triple cannot be re-checked against the stored snapshot, so
     # it is refused rather than completed with a blank.
     repo = SQLiteVoiceBindingRepository(database)
-    await repo.reserve(candidate())
+    await repo.reserve(candidate(evidence=False))
 
     def write_partial(tx):
         tx.execute(

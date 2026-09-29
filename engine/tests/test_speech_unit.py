@@ -24,6 +24,7 @@ from domain.voice_identity import (
     VoiceBinding,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
@@ -64,6 +65,7 @@ def binding(
     *,
     assurance: VoiceIdentityAssurance = VoiceIdentityAssurance.CONTENT_ADDRESSED,
     status: VoiceBindingStatus = VoiceBindingStatus.ACTIVE,
+    evidence: bool = True,
 ) -> VoiceBinding:
     provider = ProviderVoiceRevision(
         provider_instance="speechrail-local",
@@ -84,6 +86,15 @@ def binding(
         binding_revision=2,
         status=status,
         reserved_at_world_revision=7,
+        evidence=(
+            VoiceEvidenceReference(
+                evidence_id="ev_klein_1",
+                evidence_digest="d" * 64,
+                model_artifact_revision="art-1",
+            )
+            if evidence
+            else None
+        ),
     )
 
 

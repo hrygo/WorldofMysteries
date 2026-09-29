@@ -1,6 +1,8 @@
 """W-V05 authorization-first casting policy tests."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from application.voice_casting_policy import (
@@ -17,6 +19,7 @@ from domain.voice_identity import (
     ProviderVoiceRevision,
     VoiceBinding,
     VoiceBindingScope,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
@@ -107,12 +110,21 @@ def _active_binding(
     *,
     scope: VoiceBindingScope | None = None,
 ) -> VoiceBinding:
-    return VoiceBinding.reserve(
+    reserved = VoiceBinding.reserve(
         binding_id="binding-existing",
         scope=scope or _scope(),
         persona=VoicePersonaRevision("voice-masked", "persona-r1"),
         provider=provider,
         world_revision=8,
+    )
+    # An already-audible binding is, by definition, one a human approved.
+    return replace(
+        reserved,
+        evidence=VoiceEvidenceReference(
+            evidence_id="ev_policy_1",
+            evidence_digest="d" * 64,
+            model_artifact_revision="art-1",
+        ),
     ).activate(expected_binding_revision=1)
 
 
