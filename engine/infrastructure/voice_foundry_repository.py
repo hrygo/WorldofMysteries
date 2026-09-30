@@ -137,6 +137,42 @@ def _validate_scope(scope: VoiceBindingScope) -> VoiceBindingScope:
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceExecutionScope:
+    """What the requester asked to be rendered by, when it said.
+
+    ``model_id`` and ``model_artifact_revision`` are nullable because the
+    contract makes them nullable: "whatever this provider serves" is an
+    expressible request, and for a deployment that has not pinned a model it
+    is the honest answer. Recording the absence is what lets a later step
+    tell "unpinned" apart from "pinned to something we have forgotten".
+    """
+
+    variant: str = "default"
+    model_id: str | None = None
+    model_artifact_revision: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VoiceCastBudget:
+    """The limits one casting request set for itself.
+
+    Stored rather than assumed, so a caller is never told a budget was
+    honoured when nothing read it. The defaults are what this engine was
+    already doing unasked, so a row written before the budget existed keeps
+    describing itself truthfully.
+    """
+
+    candidate_count: int = 4
+    timeout_ms: int = 120_000
+    max_audio_bytes: int = 16 * 1024 * 1024
+
+
+#: What an undeclared request looks like once it is durable.
+DEFAULT_EXECUTION_SCOPE = VoiceExecutionScope()
+DEFAULT_CAST_BUDGET = VoiceCastBudget()
+
+
+@dataclass(frozen=True, slots=True)
 class VoiceFoundryTaskSpec:
     task_id: str
     request_id: str
@@ -153,6 +189,8 @@ class VoiceFoundryTaskSpec:
     origin_kind: str
     origin_ref: str
     origin_revision: int
+    execution_scope: VoiceExecutionScope = DEFAULT_EXECUTION_SCOPE
+    budget: VoiceCastBudget = DEFAULT_CAST_BUDGET
 
     def validated(self) -> "VoiceFoundryTaskSpec":
         scope = _validate_scope(self.scope)
@@ -162,6 +200,8 @@ class VoiceFoundryTaskSpec:
             raise StorageError("Invalid Voice Foundry usage")
         if origin_kind not in {"content", "scene"}:
             raise StorageError("Invalid Voice Foundry origin kind")
+        _validate_execution_scope(self.execution_scope)
+        _validate_budget(self.budget)
         traits = tuple(
             _text(item, "public trait", maximum=64) for item in self.public_traits
         )
@@ -204,7 +244,53 @@ class VoiceFoundryTaskSpec:
             origin_kind=origin_kind,
             origin_ref=_identifier(self.origin_ref, "origin reference"),
             origin_revision=origin_revision,
+            execution_scope=_execution_scope_of(self.execution_scope),
+            budget=_budget_of(self.budget),
         )
+
+
+def _execution_scope_of(value: object) -> VoiceExecutionScope:
+    if not isinstance(value, VoiceExecutionScope):
+        raise StorageError("Voice Foundry task requires a typed execution scope")
+    variant = _text(value.variant, "execution variant", maximum=256)
+    return VoiceExecutionScope(
+        variant=variant,
+        model_id=(
+            None
+            if value.model_id is None
+            else _identifier(value.model_id, "execution model id")
+        ),
+        model_artifact_revision=(
+            None
+            if value.model_artifact_revision is None
+            else _identifier(
+                value.model_artifact_revision, "execution model artifact revision"
+            )
+        ),
+    )
+
+
+def _budget_of(value: object) -> VoiceCastBudget:
+    if not isinstance(value, VoiceCastBudget):
+        raise StorageError("Voice Foundry task requires a typed budget")
+    if type(value.candidate_count) is not int or not 1 <= value.candidate_count <= 4:
+        raise StorageError("Invalid Voice Foundry candidate count")
+    if type(value.timeout_ms) is not int or not 1000 <= value.timeout_ms <= 3600000:
+        raise StorageError("Invalid Voice Foundry timeout")
+    if (
+        type(value.max_audio_bytes) is not int
+        or not 1 <= value.max_audio_bytes <= 134217728
+    ):
+        raise StorageError("Invalid Voice Foundry audio budget")
+    return value
+
+
+def _validate_execution_scope(value: object) -> None:
+    _execution_scope_of(value)
+
+
+def _validate_budget(value: object) -> None:
+    _budget_of(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +318,8 @@ class VoiceFoundryTaskRecord:
     reason_code: str | None
     created_at: str
     updated_at: str
+    execution_scope: VoiceExecutionScope = DEFAULT_EXECUTION_SCOPE
+    budget: VoiceCastBudget = DEFAULT_CAST_BUDGET
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,6 +434,16 @@ def _task_from_row(row: dict) -> VoiceFoundryTaskRecord:
         reason_code=row["reason_code"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        execution_scope=VoiceExecutionScope(
+            variant=row["execution_variant"],
+            model_id=row["execution_model_id"],
+            model_artifact_revision=row["execution_model_artifact_revision"],
+        ),
+        budget=VoiceCastBudget(
+            candidate_count=row["budget_candidate_count"],
+            timeout_ms=row["budget_timeout_ms"],
+            max_audio_bytes=row["budget_max_audio_bytes"],
+        ),
     )
 
 
@@ -441,6 +539,12 @@ def _task_values(spec: VoiceFoundryTaskSpec, *, now: str) -> tuple:
         None,
         now,
         now,
+        spec.execution_scope.variant,
+        spec.execution_scope.model_id,
+        spec.execution_scope.model_artifact_revision,
+        spec.budget.candidate_count,
+        spec.budget.timeout_ms,
+        spec.budget.max_audio_bytes,
     )
 
 
@@ -504,8 +608,10 @@ class SQLiteVoiceFoundryRepository:
                 "provider_instance,public_traits_json,voice_description,reference_text,"
                 "validation_text,origin_kind,origin_ref,origin_revision,stage,task_revision,"
                 "cancel_requested,operation_status,required_actions_json,reason_code,"
-                "created_at,updated_at"
-                ") VALUES (" + ",".join("?" * 28) + ")",
+                "created_at,updated_at,execution_variant,execution_model_id,"
+                "execution_model_artifact_revision,budget_candidate_count,"
+                "budget_timeout_ms,budget_max_audio_bytes"
+                ") VALUES (" + ",".join("?" * 34) + ")",
                 _task_values(validated, now=now),
             )
             rows = tx.execute(
@@ -1468,5 +1574,7 @@ __all__ = [
     "VoiceFoundryOperationRecord",
     "VoiceFoundryStage",
     "VoiceFoundryTaskRecord",
+    "VoiceCastBudget",
+    "VoiceExecutionScope",
     "VoiceFoundryTaskSpec",
 ]

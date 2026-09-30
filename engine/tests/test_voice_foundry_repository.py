@@ -17,9 +17,11 @@ from engine.infrastructure.database_manager import (
     StorageError,
 )
 from engine.infrastructure.voice_foundry_repository import (
+    VoiceCastBudget,
     VoiceCandidateRecord,
     VoiceCommandAck,
     VoiceEvidenceSnapshot,
+    VoiceExecutionScope,
     VoiceFoundryCancelled,
     VoiceFoundryConflict,
     VoiceFoundryOperationIntent,
@@ -72,6 +74,8 @@ def task_spec(
     task_id: str = "task-1",
     request_id: str = "request-1",
     request_digest: str = "a" * 64,
+    execution_scope: VoiceExecutionScope | None = None,
+    budget: VoiceCastBudget | None = None,
 ) -> VoiceFoundryTaskSpec:
     return VoiceFoundryTaskSpec(
         task_id=task_id,
@@ -89,6 +93,8 @@ def task_spec(
         origin_kind="content",
         origin_ref="content:main-cast",
         origin_revision=1,
+        **({} if execution_scope is None else {"execution_scope": execution_scope}),
+        **({} if budget is None else {"budget": budget}),
     )
 
 
@@ -144,7 +150,7 @@ async def test_current_schema_creates_durable_foundry_tables(database, paths):
     # deliberately rejects it, so schema-version assertions go through a
     # direct read-only connection rather than widening production privileges.
     with sqlite3.connect(f"file:{paths.world}?mode=ro", uri=True) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 16
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 17
         # v16 completes the evidence triple on voice_bindings. The foundry
         # tables above must still exist: a schema bump adds to the world, it
         # never replaces it.
@@ -157,6 +163,22 @@ async def test_current_schema_creates_durable_foundry_tables(database, paths):
             "evidence_digest",
             "model_artifact_revision",
         } <= columns
+        # v17 is where a declared execution scope and budget stop being
+        # dropped on the floor at intake.
+        task_columns = {
+            row[1]
+            for row in conn.execute(
+                "PRAGMA table_info(voice_foundry_tasks)"
+            ).fetchall()
+        }
+        assert {
+            "execution_variant",
+            "execution_model_id",
+            "execution_model_artifact_revision",
+            "budget_candidate_count",
+            "budget_timeout_ms",
+            "budget_max_audio_bytes",
+        } <= task_columns
 
 
 async def test_register_is_idempotent_by_request_and_active_scope(database):
@@ -177,6 +199,75 @@ async def test_register_is_idempotent_by_request_and_active_scope(database):
     )
     assert same_active_different_request == first
     assert await world_revision(database) == 0
+
+
+async def test_a_declared_execution_scope_and_budget_survive_a_round_trip(database):
+    """A limit nobody reads is not a limit.
+
+    The contract has required an execution scope and a budget on every cast
+    request since it was written, and the task row had nowhere to put them.
+    An intake handler had exactly two options: drop them, or refuse every
+    request. Dropping is the same defect as the empty validation digest — the
+    caller is told a budget was honoured when nothing ever read it.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    recorded = await repo.register_task(
+        task_spec(
+            execution_scope=VoiceExecutionScope(
+                variant="custom_voice",
+                model_id="tts-1.7b-design-bf16",
+                model_artifact_revision="8f4e5ac0d3ab7e8aae213b74029d0af9394c8080",
+            ),
+            budget=VoiceCastBudget(
+                candidate_count=2, timeout_ms=300000, max_audio_bytes=4 * 1024 * 1024
+            ),
+        )
+    )
+
+    assert recorded.execution_scope.variant == "custom_voice"
+    assert recorded.execution_scope.model_id == "tts-1.7b-design-bf16"
+    assert recorded.budget.candidate_count == 2
+    assert recorded.budget.timeout_ms == 300000
+    assert recorded.budget.max_audio_bytes == 4 * 1024 * 1024
+    assert await repo.load_task(recorded.task_id) == recorded
+
+
+async def test_an_unpinned_execution_scope_is_recorded_as_unpinned(database):
+    """Absence is an answer: it is what "whatever this provider serves" means.
+
+    The contract makes the model id and artifact revision nullable, so a
+    deployment that has not pinned a model can say so. Storing that as an
+    empty string would make "unpinned" indistinguishable from "pinned to
+    something we have forgotten".
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    recorded = await repo.register_task(task_spec())
+
+    assert recorded.execution_scope.model_id is None
+    assert recorded.execution_scope.model_artifact_revision is None
+    assert recorded.execution_scope.variant == "default"
+    assert (await repo.load_task(recorded.task_id)).execution_scope == (
+        recorded.execution_scope
+    )
+
+
+@pytest.mark.parametrize(
+    "budget",
+    [
+        VoiceCastBudget(candidate_count=0),
+        VoiceCastBudget(candidate_count=5),
+        VoiceCastBudget(timeout_ms=999),
+        VoiceCastBudget(timeout_ms=3600001),
+        VoiceCastBudget(max_audio_bytes=0),
+        VoiceCastBudget(max_audio_bytes=134217729),
+    ],
+)
+async def test_a_budget_outside_the_contract_is_refused_at_the_edge(
+    database, budget
+):
+    repo = SQLiteVoiceFoundryRepository(database)
+    with pytest.raises(StorageError):
+        await repo.register_task(task_spec(budget=budget))
 
 
 async def test_stage_transition_uses_revision_cas_and_cancel_wins_before_ready(database):
