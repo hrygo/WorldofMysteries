@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-VF-35-90595b03092b",
+  "receipt_type": "work",
+  "task_id": "VF-35",
+  "capsule_id": "CAP-VF-35",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:6a4e3dfc181e3680f064cb7632dc90fa1c30841266c68b9336997a59de0df254",
+  "diff_digest": "sha256:8892040b81d1d3bed173ae40e02ddbff57020c1d2b6eadf0a2bd2a4fb6c3b865",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "98cd40c1f66aa7c8402fb329cb1491eecd9585e8",
+  "head_commit": "90595b03092b956bc477d542c305fb91ffe3a372",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T07:32:48.487866+00:00",
+      "finished_at": "2026-09-30T07:32:48.534071+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T07:32:48.534192+00:00",
+      "finished_at": "2026-09-30T07:34:45.047971+00:00",
+      "raw_log_digest": "sha256:e6267202c78a652a876c73505702bf1ff942b31c50a849deaac11f329f3a0232",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T07:34:45.048080+00:00",
+      "finished_at": "2026-09-30T07:35:09.804410+00:00",
+      "raw_log_digest": "sha256:43a4b6d41d043d5b4aa9cdafd3667f32f3ea0014c04ba27f4861d8d0fbbcfc5d",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T07:35:09.804562+00:00",
+      "finished_at": "2026-09-30T07:35:12.064008+00:00",
+      "raw_log_digest": "sha256:2a8f9a87ab9617b8f2a2a5ad8aa20508dd9c4be3514fe0bd3c28eefe645d77e1",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/06_实施基线/2026-09-30_Tingen_原创角色与音色铸造输入.md"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-tingen-original-cast"
+  },
+  "started_at": "2026-09-30T07:32:48.439221+00:00",
+  "finished_at": "2026-09-30T07:35:12.178945+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
