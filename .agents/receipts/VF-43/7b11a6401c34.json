@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-VF-43-7b11a6401c34",
+  "receipt_type": "work",
+  "task_id": "VF-43",
+  "capsule_id": "CAP-VF-43",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:0186dda72e2db430ecfb3a797201435c2144b7c04ea1b7424f0ea7cd61b94d89",
+  "diff_digest": "sha256:39af0aedae976fb2aa54dae26b6d974c5ee7d14f1ffa139282c3b8eac50dd7bc",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "585f562d1ad3d6e4f67728423499a0bd7e25d524",
+  "head_commit": "7b11a6401c348825a1f1148981910e889d2ab320",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T12:17:20.512902+00:00",
+      "finished_at": "2026-09-30T12:17:20.551412+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T12:17:20.551494+00:00",
+      "finished_at": "2026-09-30T12:19:20.238294+00:00",
+      "raw_log_digest": "sha256:6f96828939e1549595a598906318b4cc971a5393968efa9b2574a6312de8acd3",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T12:19:20.238393+00:00",
+      "finished_at": "2026-09-30T12:19:47.486306+00:00",
+      "raw_log_digest": "sha256:fcc0ed345787cfe77c0145f6cde00176a250244e93f069a80a2d62cf19030bc4",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T12:19:47.486452+00:00",
+      "finished_at": "2026-09-30T12:19:49.489767+00:00",
+      "raw_log_digest": "sha256:f4090bd7dd5b65602fc51ac60c00756c973f68ef92ae2f97fa05252f3b1d3665",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/06_实施基线/2026-09-30_Tingen_原创角色与音色铸造输入.md"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-victor-audition-verdict"
+  },
+  "started_at": "2026-09-30T12:17:20.474327+00:00",
+  "finished_at": "2026-09-30T12:19:49.650293+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
