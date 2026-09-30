@@ -73,6 +73,7 @@
       "required": [
         "model_id",
         "model_artifact_revision",
+        "model_catalog_revision",
         "variant",
         "locale",
         "validation_policy_revision",
@@ -81,6 +82,7 @@
       "properties": {
         "model_id": {"$ref": "#/$defs/identifier"},
         "model_artifact_revision": {"$ref": "#/$defs/identifier"},
+        "model_catalog_revision": {"$ref": "#/$defs/identifier"},
         "variant": {"$ref": "#/$defs/identifier"},
         "locale": {"$ref": "#/$defs/identifier"},
         "validation_policy_revision": {"$ref": "#/$defs/identifier"},

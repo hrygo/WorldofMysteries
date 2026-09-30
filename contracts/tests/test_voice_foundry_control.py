@@ -167,6 +167,7 @@ def _evidence() -> dict:
         "execution": {
             "model_id": "tts-model",
             "model_artifact_revision": "model-rev-1",
+            "model_catalog_revision": "catalog-rev-1",
             "variant": "custom_voice",
             "locale": "zh-CN",
             "validation_policy_revision": "policy-1",
@@ -337,6 +338,52 @@ def test_evidence_binds_voice_model_reference_output_and_human_assets():
     assert wrong_review_asset["human"][
         "validation_audio_digest"
     ] != wrong_review_asset["output"]["audio_digest"]
+
+
+def test_evidence_execution_carries_the_catalogue_revision_the_gate_compares():
+    """The catalogue revision is an execution fact, not an extra.
+
+    ``VoiceEvidenceGate`` refuses a render whose
+    ``model_catalog_revision`` differs from the snapshot's, and
+    ``voice_render_control`` already requires the caller to declare
+    ``expected_model_catalog_revision``. The evidence document was the only
+    one of the three that left it out — and because ``execution`` is closed to
+    additional properties, a bundle carrying it was rejected by the contract
+    written to describe it. A stale catalogue entry silently passing as the
+    current one is exactly what that check exists to prevent, so the field is
+    required rather than permitted.
+    """
+    schema = SCHEMAS["voice_identity_evidence.schema.json"]
+    execution = schema["$defs"]["execution"]
+    assert execution["additionalProperties"] is False
+    assert "model_catalog_revision" in execution["required"]
+    assert execution["properties"]["model_catalog_revision"] == {
+        "$ref": "#/$defs/identifier"
+    }
+
+    validator = Draft202012Validator(
+        schema, registry=_registry(*SCHEMAS.values())
+    )
+    assert validator.is_valid(_evidence())
+
+    missing = copy.deepcopy(_evidence())
+    del missing["execution"]["model_catalog_revision"]
+    assert not validator.is_valid(missing)
+
+    blank = copy.deepcopy(_evidence())
+    blank["execution"]["model_catalog_revision"] = ""
+    assert not validator.is_valid(blank)
+
+    # The two contracts have to be naming the same fact, or a caller could
+    # declare one revision while the evidence is pinned to another.
+    render = json.loads(
+        (ROOT / "contracts/protocol/voice_render_control.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "expected_model_catalog_revision" in render["$defs"]["request_v2"][
+        "required"
+    ]
 
 
 def test_foundry_state_vocabulary_is_single_and_explicit():
