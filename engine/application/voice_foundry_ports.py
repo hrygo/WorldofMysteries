@@ -289,6 +289,13 @@ class AssetResult:
     audio_digest: str
     audio_bytes: int
     duration_seconds: float
+    #: The audio itself. A digest with no bytes beside it cannot be auditioned,
+    #: which is the whole point of reading an asset: the caller has to hear the
+    #: thing before it can judge it or sign anything about it. It defaults empty
+    #: only so that an adapter which has not been taught to return the payload
+    #: fails loudly at the point of use (``audition_asset_empty``) instead of
+    #: quietly handing back a well-formed result that carries nothing.
+    audio: bytes = b""
 
 
 @dataclass(frozen=True, slots=True)

@@ -17,6 +17,7 @@ from dataclasses import replace
 import pytest
 
 from application.voice_foundry import (
+    MAX_AUDITION_ASSET_BYTES,
     FoundryRetryPolicy,
     PRODUCTION_CAPABILITY_KEY,
     VoiceFoundryWorker,
@@ -111,6 +112,13 @@ class RecordingPort:
     ):
         self.calls: list[str] = []
         self.asset_requests: list[AssetRequest] = []
+        #: What the provider serves for an asset read. Kept small and real:
+        #: an audition that returns nothing must be refused, and a stub that
+        #: cannot be refused proves nothing.
+        self.asset_audio: bytes = b"RIFF----WAVEfake"
+        #: Set to make the provider answer with audio that is not what was
+        #: recorded, which is the drift an audition has to catch.
+        self.asset_digest_override: str | None = None
         self.preview_error = preview_error
         self.validation_passes = validation_passes
         self.review_error = review_error
@@ -257,7 +265,19 @@ class RecordingPort:
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         self.calls.append("read_asset")
         self.asset_requests.append(request)
-        return AssetResult(audio_digest="9" * 64, audio_bytes=16, duration_seconds=1.0)
+        # Which asset is being read is decided by the validation id, exactly as
+        # upstream decides it: the reference belongs to no validation.
+        reported = (
+            REFERENCE_AUDIO_DIGEST
+            if request.validation_id is None
+            else VALIDATION_AUDIO_DIGEST
+        )
+        return AssetResult(
+            audio_digest=self.asset_digest_override or reported,
+            audio_bytes=len(self.asset_audio),
+            duration_seconds=1.0,
+            audio=self.asset_audio,
+        )
 
 
 CANDIDATE_ID = "vd_" + "a" * 24
@@ -572,6 +592,129 @@ async def test_the_audition_is_read_at_the_revision_we_recorded(repository):
         CONFIRMED_REVISION
     ]
     assert port.asset_requests[0].candidate_id == CANDIDATE_ID
+
+
+async def _drive_to_awaiting_review(repository, worker, port):
+    await _drive_to_validating(repository, worker, port)
+    step = await worker.advance("task-1")
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+
+
+async def test_a_listener_is_handed_the_audio_and_the_facts_that_identify_it(
+    repository,
+):
+    """A review cannot exist without the audio, and cannot be checked without
+    the facts. Both travel together or the verdict is about nothing."""
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    asset = await worker.audition_asset(
+        "task-1", candidate_id="task-1:candidate:0", kind="reference"
+    )
+
+    assert asset.audio == port.asset_audio
+    assert asset.audio_digest == REFERENCE_AUDIO_DIGEST
+    assert asset.candidate_revision == CONFIRMED_REVISION
+    # The reference belongs to no validation, so it says so rather than
+    # carrying an id a client might echo into a review.
+    assert asset.validation_id is None
+
+
+async def test_the_cross_text_asset_carries_the_validation_a_verdict_must_name(
+    repository,
+):
+    """``voice.foundry.review`` demands a validation id no projection exposed.
+
+    It is the provider's answer to the validate call and is recorded only in
+    the operation journal, so this read is the one place a client can learn
+    the value it is required to send back.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    asset = await worker.audition_asset(
+        "task-1", candidate_id="task-1:candidate:0", kind="validation"
+    )
+
+    assert asset.validation_id == VALIDATION_ID
+    assert asset.audio_digest == VALIDATION_AUDIO_DIGEST
+
+
+async def test_audio_that_is_not_what_we_recorded_is_never_auditioned(repository):
+    """A verdict must describe the voice the evidence describes.
+
+    The provider can move a design at any time. If the audio served today
+    hashes to something other than what confirm and validate recorded, then a
+    listener judging it signs for a voice no evidence mentions — so the read
+    is refused instead of auditioning whatever is current.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    port.asset_digest_override = "1" * 64
+
+    with pytest.raises(VoiceFoundryPortError) as raised:
+        await worker.audition_asset(
+            "task-1", candidate_id="task-1:candidate:0", kind="reference"
+        )
+
+    assert raised.value.code == "audition_asset_drifted"
+
+
+async def test_an_asset_too_large_for_one_frame_is_refused_not_truncated(repository):
+    """Truncation is the worse failure by a wide margin.
+
+    A WAV cut short still decodes, still plays, and still sounds like a voice —
+    a listener would judge it and sign, while the evidence kept describing
+    bytes they never heard. Refusing is the only honest outcome.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    port.asset_audio = b"\0" * (MAX_AUDITION_ASSET_BYTES + 1)
+
+    with pytest.raises(VoiceFoundryPortError) as raised:
+        await worker.audition_asset(
+            "task-1", candidate_id="task-1:candidate:0", kind="reference"
+        )
+
+    assert raised.value.code == "audition_asset_too_large"
+
+
+async def test_an_asset_with_no_bytes_is_refused(repository):
+    """A digest is a claim about audio, not the audio.
+
+    A provider adapter that answers with a well-formed result and an empty
+    payload must not be able to pass an empty audition off as a voice.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    port.asset_audio = b""
+
+    with pytest.raises(VoiceFoundryPortError) as raised:
+        await worker.audition_asset(
+            "task-1", candidate_id="task-1:candidate:0", kind="reference"
+        )
+
+    assert raised.value.code == "audition_asset_empty"
+
+
+async def test_an_unknown_asset_kind_never_reaches_the_provider(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+    port.calls.clear()
+
+    with pytest.raises(VoiceFoundryPortError) as raised:
+        await worker.audition_asset(
+            "task-1", candidate_id="task-1:candidate:0", kind="preview"
+        )
+
+    assert raised.value.code == "audition_asset_kind_unknown"
+    assert port.calls == []
 
 
 async def test_a_design_that_moved_where_we_have_no_record_of_is_refused(

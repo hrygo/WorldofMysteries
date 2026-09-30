@@ -64,6 +64,15 @@ MAX_CANDIDATES = 4
 #: nobody ever heard.
 PRODUCTION_CAPABILITY_KEY = "quality.render"
 
+#: Largest audition asset this engine will hand to a client. The bound is the
+#: wire's, not the provider's: 589824 bytes encodes to 786432 base64 bytes,
+#: which fits the 1 MiB IPC frame with room for the envelope, and it is stated
+#: in ``contracts/protocol/voice_foundry_control.schema.json`` so a client can
+#: rely on it. An asset above it is refused rather than truncated — a WAV cut
+#: short still plays and still sounds like a voice, and a listener would judge
+#: it while the evidence kept describing bytes they never heard.
+MAX_AUDITION_ASSET_BYTES = 589_824
+
 #: The only failure worth retrying: the call may or may not have landed.
 INDETERMINATE_CODES = frozenset({"foundry_transient"})
 
@@ -94,6 +103,24 @@ class WorkerStep:
 
     record: "VoiceFoundryTaskRecord"
     slot_consumed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AuditionAsset:
+    """One audition asset, with the facts that make it checkable.
+
+    A human verdict is about particular audio. Carrying the bytes next to the
+    revision, the validation identity and the digest is what lets the review
+    that follows be checked against exactly what a listener heard, instead of
+    against a claim that some audio existed somewhere.
+    """
+
+    candidate_id: str
+    kind: str
+    candidate_revision: str
+    validation_id: str | None
+    audio: bytes
+    audio_digest: str
 
 
 def _candidate_key(task_id: str, index: int) -> str:
@@ -413,6 +440,81 @@ class VoiceFoundryWorker:
             reason_code=None if accepted else "human_review_rejected",
         )
         return WorkerStep(record=task, slot_consumed=True)
+
+    async def audition_asset(
+        self,
+        task_id: str,
+        *,
+        candidate_id: str,
+        kind: str,
+    ) -> AuditionAsset:
+        """Fetch one of a candidate's two audition assets, and say what it is.
+
+        Reading is not the hard part of a human review; being able to prove
+        what was heard is. Three facts travel with the bytes here, and each
+        one closes a way the review that follows could be about the wrong
+        thing:
+
+        * the read names the candidate revision this engine recorded, so the
+          audio belongs to the design whose evidence will be published;
+        * the validation id comes from the operation journal, so a client can
+          actually name the validation its verdict is about — it is the
+          provider's answer to the validate call and lives nowhere else;
+        * the digest is compared against the one recorded when the asset was
+          first read. If the provider has moved since, the audio a listener
+          would hear today is not the audio the evidence describes, and the
+          read is refused instead of quietly auditioning something else.
+
+        Nothing here is journalled. An audition changes no state, so a repeat
+        costs one provider read and nothing else — there is no second casting
+        to accidentally perform.
+        """
+        if kind not in ("reference", "validation"):
+            raise VoiceFoundryPortError("audition_asset_kind_unknown")
+        candidate = await self._repository.load_candidate(task_id, candidate_id)
+        if (
+            candidate.provider_candidate_id is None
+            or candidate.provider_candidate_revision is None
+        ):
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+
+        validation_id: str | None = None
+        if kind == "validation":
+            record = await self._repository.load_operation(
+                _operation_id("validate", task_id, 0)
+            )
+            if record.status != "confirmed" or record.provider_result_ref is None:
+                raise VoiceFoundryPortError("foundry_outcome_unknown")
+            validation_id = record.provider_result_ref
+
+        result = await self._port.read_asset(
+            AssetRequest(
+                candidate_id=candidate.provider_candidate_id,
+                candidate_revision=candidate.provider_candidate_revision,
+                validation_id=validation_id,
+            )
+        )
+        recorded = (
+            candidate.reference_audio_digest
+            if kind == "reference"
+            else candidate.validation_audio_digest
+        )
+        if recorded is None:
+            raise VoiceFoundryPortError("audition_asset_not_recorded")
+        if result.audio_digest != recorded:
+            raise VoiceFoundryPortError("audition_asset_drifted")
+        if not result.audio:
+            raise VoiceFoundryPortError("audition_asset_empty")
+        if len(result.audio) > MAX_AUDITION_ASSET_BYTES:
+            raise VoiceFoundryPortError("audition_asset_too_large")
+        return AuditionAsset(
+            candidate_id=candidate.candidate_id,
+            kind=kind,
+            candidate_revision=candidate.provider_candidate_revision,
+            validation_id=validation_id,
+            audio=result.audio,
+            audio_digest=result.audio_digest,
+        )
 
     async def _require_auditioned_assets(
         self,
@@ -894,6 +996,8 @@ __all__ = [
     "HUMAN_STAGES",
     "INDETERMINATE_CODES",
     "MAX_CANDIDATES",
+    "MAX_AUDITION_ASSET_BYTES",
+    "AuditionAsset",
     "FoundryRetryPolicy",
     "VoiceFoundryWorker",
     "WorkerStep",
