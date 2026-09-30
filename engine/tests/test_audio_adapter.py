@@ -2497,6 +2497,29 @@ def _wav(seconds: float = 1.0, *, sample_rate: int = 8_000) -> bytes:
     return header + data
 
 
+def test_the_adapter_and_the_render_identity_share_one_locale_map():
+    """Two vocabularies, one table.
+
+    The adapter validates a candidate against the provider's language; a
+    render's execution identity is compared by the gate against the same
+    provider language. Those are the same question asked at two ends of the
+    pipeline, so the table answering it must be the same object — a second
+    copy with the same contents today is a second copy that can differ
+    tomorrow, and it would fail the way the last one did: a render refused as
+    an execution mismatch against evidence this provider itself minted.
+
+    Identity, not equality. Two equal tables still drift.
+    """
+    from application.voice_foundry_ports import (
+        GAME_TO_PROVIDER_LOCALE as application_map,
+    )
+    from infrastructure.audio.voice_foundry_adapter import (
+        GAME_TO_PROVIDER_LOCALE as adapter_map,
+    )
+
+    assert adapter_map is application_map
+
+
 def test_adapter_rejects_a_base_url_outside_the_trust_boundary():
     for bad in (
         "http://user:pw@127.0.0.1:8080/v1",

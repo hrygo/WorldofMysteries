@@ -32,6 +32,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from application.voice_foundry_ports import (
+    GAME_TO_PROVIDER_LOCALE,
     REQUIRED_EVIDENCE_FIELDS,
     AssetRequest,
     AssetResult,
@@ -69,8 +70,6 @@ _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 #: SpeechRail advertises ``language="zh"`` only. Stating that mapping here —
 #: rather than inferring it from the tag — is what stops zh-TW from being
 #: silently treated as accepted.
-GAME_TO_PROVIDER_LOCALE = ProviderLocaleMap({"zh-CN": "zh"})
-
 _RETRY_STATUS = frozenset({500, 502, 503, 504})
 _STATUS_CODES = {
     400: "foundry_rejected",
