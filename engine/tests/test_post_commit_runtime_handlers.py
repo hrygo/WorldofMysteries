@@ -222,6 +222,7 @@ async def test_audio_handler_never_seals_before_narrative_artifact_exists():
         voice_id="approved-voice",
         dictionary_revision="dictionary-1",
         fetch_json=None,
+        evidence_store=object(),
     )
 
     result = await handler.execute(source)
@@ -357,6 +358,7 @@ async def _audio_handler_around_a_missing_voice(monkeypatch, trigger):
         voice_id="approved-voice",
         dictionary_revision="dictionary-1",
         fetch_json=None,
+        evidence_store=object(),
         supply_trigger=trigger,
     )
     return handler, source

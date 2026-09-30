@@ -714,6 +714,7 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -781,6 +782,7 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -940,6 +942,7 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -992,6 +995,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
         workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -1068,6 +1072,7 @@ async def test_a_block_that_opens_with_narration_still_speaks_for_its_character(
         workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)

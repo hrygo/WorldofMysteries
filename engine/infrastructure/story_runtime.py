@@ -68,6 +68,7 @@ from application.turn_context_binding import (
     TurnContextStage,
 )
 from application.turn_orchestrator import TurnOrchestrator
+from application.voice_evidence import load_evidence_record, render_execution
 from application.voice_foundry import VoiceFoundryWorker
 from application.voice_foundry_commands import VoiceFoundryCommandService
 from application.voice_foundry_service import VoiceSupplyService
@@ -79,7 +80,7 @@ from .audio.voice_delivery import (
     TurnDeliveryOutcome,
     TurnDeliveryPipeline,
 )
-from .audio.foundry_policy import execution_policy
+from .audio.foundry_policy import DEFAULT_VARIANT, execution_policy
 from .audio.voice_foundry_adapter import SpeechRailVoiceFoundryAdapter
 from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
@@ -838,6 +839,12 @@ class StoryRuntime:
         )
         narrative_port = SQLiteNarrativeBlockRepository(database)
         bindings = SQLiteVoiceBindingRepository(database)
+        # Read-only half of the foundry, wired independently of the control
+        # surface. ``_open_foundry`` returns nothing when a deployment has not
+        # declared a casting policy, but a voice published under an earlier
+        # configuration still has evidence that a render must be admitted
+        # against — and evidence outlives the switch that minted it.
+        evidence_store = SQLiteVoiceFoundryRepository(database)
         foundry = cls._open_foundry(
             database, audio_config, scopes=_SessionScopeResolver(query)
         )
@@ -852,6 +859,7 @@ class StoryRuntime:
             workers=workers,
             context_bindings=live_context_bindings,
             fetch_json=fetch_json,
+            evidence_store=evidence_store,
         )
         story_port = SQLiteStorySessionCommitPort(database, planner=planner)
         story = (
@@ -920,6 +928,7 @@ class StoryRuntime:
                     voice_id=config.voice_id,
                     dictionary_revision=DICTIONARY_REVISION,
                     fetch_json=fetch_json,
+                    evidence_store=evidence_store,
                     supply_trigger=supply_trigger,
                 ),
                 supported_recipes=planner.supported_recipes,
@@ -1095,6 +1104,7 @@ class _DeliveryCoordinator:
         workers: TurnWorkerFactory,
         context_bindings: TurnContextBindingPort | None,
         fetch_json,
+        evidence_store: SQLiteVoiceFoundryRepository,
     ) -> None:
         self._query = query
         self._narratives = narratives
@@ -1105,6 +1115,7 @@ class _DeliveryCoordinator:
         self._workers = workers
         self._context_bindings = context_bindings
         self._fetch_json = fetch_json
+        self._evidence_store = evidence_store
 
     async def after_commit(
         self,
@@ -1220,6 +1231,37 @@ class _DeliveryCoordinator:
                 reason="voice_runtime_unavailable",
             )
 
+        execution = render_execution(
+            provider_instance=resolved.provider_instance,
+            voice_id=resolved.binding.provider.voice_id,
+            voice_revision=resolved.binding.provider.conditional_pin,
+            model_id=resolved.execution_model_id,
+            model_artifact_revision=(
+                None
+                if resolved.binding.evidence is None
+                else resolved.binding.evidence.model_artifact_revision
+            ),
+            model_catalog_revision=resolved.model_catalog_revision,
+            locale=resolved.scope.locale,
+            phase=resolved.scope.phase,
+            variant=DEFAULT_VARIANT,
+        )
+        evidence = (
+            None
+            if execution is None
+            else await load_evidence_record(
+                self._evidence_store,
+                resolved.provider_instance,
+                resolved.binding.evidence.evidence_id,
+            )
+        )
+        if execution is None or evidence is None:
+            # Text is already published; a voice without admitted evidence
+            # costs this turn its audio and nothing else.
+            return TurnDeliveryView(
+                state="unavailable", reason="voice_evidence_not_admitted"
+            )
+
         pipeline = TurnDeliveryPipeline(
             sealing=SpeechUnitSealingService(
                 disclosure=AudioDisclosureAuthorizer(self._narratives),
@@ -1231,6 +1273,8 @@ class _DeliveryCoordinator:
             execution_model_id=resolved.execution_model_id,
             dictionary_revision=DICTIONARY_REVISION,
             seal_arguments={
+                "execution": execution,
+                "evidence": evidence,
                 "semantic_anchors": (),
                 "pronunciation_rules": (),
                 "desired_performance": resolved.performance,

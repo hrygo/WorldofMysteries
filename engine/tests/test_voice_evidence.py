@@ -22,6 +22,8 @@ from application.voice_evidence import (
     evidence_document,
     evidence_record,
     execution_requirements,
+    load_evidence_record,
+    render_execution,
 )
 
 NOW = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
@@ -262,6 +264,95 @@ def test_execution_is_pinned_independently_of_the_evidence():
     assert stored is not None
     verdict = gate().admit(stored, declared)
     assert verdict.reason is EvidenceRejection.EXECUTION_MISMATCH
+
+
+def _render_pinned(**overrides):
+    base = {
+        "provider_instance": "speechrail-local",
+        "voice_id": "wom-klein",
+        "voice_revision": "wvr_1",
+        "model_id": "qwen3-tts",
+        "model_artifact_revision": "art-1",
+        "model_catalog_revision": "cat-1",
+        "locale": "zh",
+        "phase": "dialogue",
+        "variant": "custom_voice",
+    }
+    base.update(overrides)
+    return render_execution(**base)
+
+
+def test_the_scope_phase_is_the_usage_a_review_has_to_have_granted():
+    """The same identity cast twice is two bindings, and two rights.
+
+    A voice cleared to narrate has not been cleared to speak. The binding key
+    already treats those as different scopes, so the usage a render declares
+    is the phase it renders under — not a second decision free to drift from
+    it.
+    """
+    assert _render_pinned(phase="narration").usage == "narration"
+    assert _render_pinned(phase="dialogue").usage == "dialogue"
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        {"voice_revision": None},
+        {"model_artifact_revision": None},
+        {"voice_revision": "", "model_artifact_revision": None},
+    ],
+)
+def test_a_binding_with_no_reviewed_voice_pins_no_execution(missing):
+    """A binding may be reserved before anyone has listened to it.
+
+    Such a binding has no artefact revision, so a render cannot name one. A
+    placeholder would let the gate compare this render against a voice nobody
+    approved, which is the check agreeing with itself.
+    """
+    assert _render_pinned(**missing) is None
+
+
+class _Snapshot:
+    def __init__(self, snapshot):
+        self.snapshot = snapshot
+
+
+class _Store:
+    def __init__(self, snapshot):
+        self._snapshot = snapshot
+
+    async def load_evidence(self, provider_instance, evidence_id):
+        if isinstance(self._snapshot, Exception):
+            raise self._snapshot
+        return self._snapshot
+
+
+async def test_a_stored_snapshot_is_read_back_into_a_judged_record():
+    store = _Store(_Snapshot(document()))
+    record = await load_evidence_record(store, "speechrail-local", "ev_1")
+    assert record is not None
+    assert record.evidence_id == "ev_1"
+
+
+@pytest.mark.parametrize(
+    "store",
+    [
+        _Store(RuntimeError("no such evidence")),
+        _Store(None),
+        _Store(_Snapshot("not a document")),
+        _Store(_Snapshot({"schema_version": "1.0"})),
+    ],
+)
+async def test_evidence_that_cannot_be_read_is_no_evidence(store):
+    """Absence and unreadability deny in the same direction.
+
+    A store that raises, a snapshot that is not a document, and a document
+    missing every section all mean the render cannot be admitted. Letting the
+    failure escape would push a storage fault into the delivery path, where a
+    handler converts it to "unavailable" anyway — further from the decision
+    than the decision itself.
+    """
+    assert await load_evidence_record(store, "speechrail-local", "ev_1") is None
 
 
 def test_expiry_blocks_new_synthesis_but_not_already_produced_audio():

@@ -380,6 +380,72 @@ def evidence_record(document: Mapping[str, object]) -> VoiceEvidenceRecord | Non
     )
 
 
+def render_execution(
+    *,
+    provider_instance: str,
+    voice_id: str,
+    voice_revision: str | None,
+    model_id: str,
+    model_artifact_revision: str | None,
+    model_catalog_revision: str,
+    locale: str,
+    phase: str,
+    variant: str,
+) -> ExecutionRequirements | None:
+    """Pin the render about to happen, or report that a fact is missing.
+
+    ``phase`` becomes the usage, and that is the whole reason a scope carries
+    one. The binding key includes it, so the same identity cast for narration
+    and for dialogue is two bindings; a voice cleared to narrate has not been
+    cleared to speak, and the rights a review granted are rights to a use.
+    The two vocabularies are the same pair on both sides — the scope phases
+    are exactly the permitted usages — so this is a rename, not a judgement.
+
+    ``None`` means the binding carries no reviewed voice to pin: a binding may
+    be reserved before anyone has listened to it, and a render cannot claim an
+    artefact revision that does not exist yet. The caller blocks rather than
+    substituting a default, because a guessed artefact revision would let the
+    gate compare the render against a voice nobody approved.
+    """
+    if not voice_revision or not model_artifact_revision:
+        return None
+    return execution_requirements(
+        provider_instance=provider_instance,
+        voice_id=voice_id,
+        voice_revision=voice_revision,
+        model_id=model_id,
+        model_artifact_revision=model_artifact_revision,
+        model_catalog_revision=model_catalog_revision,
+        variant=variant,
+        locale=locale,
+        usage=phase,
+    )
+
+
+async def load_evidence_record(
+    store: object,
+    provider_instance: str,
+    evidence_id: str,
+) -> VoiceEvidenceRecord | None:
+    """Read one stored snapshot back into the record the gate judges.
+
+    A store that raises is treated exactly like a store that has nothing: the
+    binding points at evidence this process cannot produce, and both mean no
+    admitted evidence. Letting the failure escape instead would push a
+    storage fault into the delivery path, where it would be caught by a
+    handler that turns exceptions into "unavailable" anyway — further from the
+    decision than the decision itself.
+    """
+    try:
+        snapshot = await store.load_evidence(provider_instance, evidence_id)
+    except Exception:  # noqa: BLE001 - absence and unreadability both deny
+        return None
+    document = getattr(snapshot, "snapshot", None)
+    if not isinstance(document, Mapping):
+        return None
+    return evidence_record(document)
+
+
 __all__ = [
     "EVIDENCE_SCHEMA_VERSION",
     "EvidenceRejection",
@@ -390,4 +456,6 @@ __all__ = [
     "evidence_document",
     "evidence_record",
     "execution_requirements",
+    "load_evidence_record",
+    "render_execution",
 ]

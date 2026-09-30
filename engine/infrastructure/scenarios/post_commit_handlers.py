@@ -25,9 +25,11 @@ from application.speech_unit import SealedSpeechUnit, SpeechUnitSealingService
 from application.story_initialization import StorySessionBootstrap
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import TurnContextBindingPort
+from application.voice_evidence import load_evidence_record, render_execution
 from contracts import NarrativeBlock, TurnStatus
 
 from ..audio.config import AudioProviderConfig
+from ..audio.foundry_policy import DEFAULT_VARIANT
 from ..audio.sealed_unit_codec import SealedSpeechUnitCodec, SealedSpeechUnitCodecError
 from ..audio.voice_delivery import TurnDeliveryError
 from ..audio.voice_runtime import VoiceRenderRuntime, VoiceRenderRuntimeError
@@ -47,6 +49,7 @@ from ..voice_binding_resolver import (
     resolve_voice_runtime,
     speaker_scope_for,
 )
+from ..voice_foundry_repository import SQLiteVoiceFoundryRepository
 from domain.voice_identity import VoiceBindingScope
 
 _SOURCE_MISMATCH = "work_unavailable"
@@ -368,6 +371,7 @@ class ScenarioAudioPrepareHandler:
         voice_id: str | None,
         dictionary_revision: str,
         fetch_json,
+        evidence_store: SQLiteVoiceFoundryRepository,
         codec: SealedSpeechUnitCodec | None = None,
         supply_trigger: VoiceSupplyTriggerPort | None = None,
     ) -> None:
@@ -381,6 +385,7 @@ class ScenarioAudioPrepareHandler:
         self._voice_id = voice_id
         self._dictionary_revision = dictionary_revision
         self._fetch_json = fetch_json
+        self._evidence_store = evidence_store
         self._codec = codec or SealedSpeechUnitCodec()
         self._supply_trigger = supply_trigger
 
@@ -446,6 +451,30 @@ class ScenarioAudioPrepareHandler:
                 except VoiceRenderRuntimeError:
                     return _blocked("handoff_unavailable")
                 return _success(f"sealed:{existing.unit_id}")
+            execution = render_execution(
+                provider_instance=resolved.provider_instance,
+                voice_id=resolved.binding.provider.voice_id,
+                voice_revision=resolved.binding.provider.conditional_pin,
+                model_id=resolved.execution_model_id,
+                model_artifact_revision=(
+                    None
+                    if resolved.binding.evidence is None
+                    else resolved.binding.evidence.model_artifact_revision
+                ),
+                model_catalog_revision=resolved.model_catalog_revision,
+                locale=resolved.scope.locale,
+                phase=resolved.scope.phase,
+                variant=DEFAULT_VARIANT,
+            )
+            if execution is None:
+                return _blocked("voice_evidence_not_admitted")
+            evidence = await load_evidence_record(
+                self._evidence_store,
+                resolved.provider_instance,
+                resolved.binding.evidence.evidence_id,
+            )
+            if evidence is None:
+                return _blocked("voice_evidence_not_admitted")
             sealing = SpeechUnitSealingService(
                 disclosure=AudioDisclosureAuthorizer(self._narratives),
                 bindings=self._bindings,
@@ -457,6 +486,8 @@ class ScenarioAudioPrepareHandler:
                 binding_scope=resolved.scope,
                 expected_binding_revision=resolved.binding.binding_revision,
                 execution_model_id=resolved.execution_model_id,
+                execution=execution,
+                evidence=evidence,
                 dictionary_revision=self._dictionary_revision,
                 semantic_anchors=(),
                 pronunciation_rules=(),
