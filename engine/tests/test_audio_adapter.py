@@ -2657,12 +2657,57 @@ async def test_read_asset_hashes_the_exact_bytes_returned():
     transport = _RecordingTransport((200, audio))
     adapter = _adapter(transport)
     asset = await adapter.read_asset(
-        AssetRequest(candidate_id="vd_" + "a" * 24, candidate_revision="vr_" + "b" * 32)
+        AssetRequest(
+            candidate_id="vd_" + "a" * 24, candidate_revision="vr_" + "b" * 32
+        )
     )
 
     assert asset.audio_digest == hashlib.sha256(audio).hexdigest()
     assert asset.audio_bytes == len(audio)
     assert transport.calls[0]["url"].endswith("/voice-designs/vd_" + "a" * 24 + "/audio")
+
+
+async def test_read_asset_declares_the_revision_it_expects():
+    """Both asset routes 428 without this header.
+
+    SpeechRail refuses a reference or validation audio read that does not name
+    the candidate revision it expects, so a read without it never returns audio
+    at all — and a provider that did answer would answer about whichever
+    revision the candidate is at now, not the one our evidence names.
+    """
+    transport = _RecordingTransport((200, b"RIFF----WAVEfake"))
+    adapter = _adapter(transport)
+
+    await adapter.read_asset(
+        AssetRequest(
+            candidate_id="vd_" + "a" * 24, candidate_revision="vr_" + "b" * 32
+        )
+    )
+    await adapter.read_asset(
+        AssetRequest(
+            candidate_id="vd_" + "a" * 24,
+            candidate_revision="vr_" + "c" * 32,
+            validation_id="vv_" + "e" * 24,
+        )
+    )
+
+    assert [
+        call["headers"]["SpeechRail-Expected-Candidate-Revision"]
+        for call in transport.calls
+    ] == ["vr_" + "b" * 32, "vr_" + "c" * 32]
+
+
+async def test_a_malformed_revision_never_reaches_the_provider():
+    transport = _RecordingTransport((200, b"RIFF----WAVEfake"))
+    adapter = _adapter(transport)
+
+    with pytest.raises(VoiceFoundryPortError) as raised:
+        await adapter.read_asset(
+            AssetRequest(candidate_id="vd_" + "a" * 24, candidate_revision="")
+        )
+
+    assert raised.value.code == "foundry_conflict"
+    assert transport.calls == []
 
 
 async def test_validation_audio_is_read_from_its_own_route():

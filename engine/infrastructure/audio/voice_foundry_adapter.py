@@ -457,6 +457,16 @@ class SpeechRailVoiceFoundryAdapter:
 
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         _require_id(request.candidate_id, _CANDIDATE_ID, "foundry_not_found")
+        # Both asset routes require the caller to name the revision it expects
+        # (`SpeechRail-Expected-Candidate-Revision`); omitting it is a 428, not
+        # a lenient default. The header is also the only thing that keeps the
+        # audio we hash tied to the revision our evidence names.
+        _require_id(
+            request.candidate_revision, _CANDIDATE_REVISION, "foundry_conflict"
+        )
+        headers = {
+            "SpeechRail-Expected-Candidate-Revision": request.candidate_revision,
+        }
         if request.validation_id is None:
             suffix = f"voice-designs/{_seg(request.candidate_id)}/audio"
         else:
@@ -468,7 +478,7 @@ class SpeechRailVoiceFoundryAdapter:
         response = await self._fetch(
             "GET",
             self._url(suffix),
-            self._headers(),
+            self._headers(headers),
             None,
             MAX_ASSET_BYTES,
             self._timeout,
