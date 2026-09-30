@@ -586,9 +586,19 @@ class SpeechRailVoiceFoundryAdapter:
                 "text_digest": _digest_field(reference, "text_sha256"),
             },
             output={
-                "status": _text_field(validation, "machine_status", "not_run"),
-                "capability_key": _text_field(validation, "capability_key", ""),
-                "validation_id": _text_field(validation, "validation_id", ""),
+                "status": _output_status(validation),
+                "validation_id": _optional_text(validation, "validation_id"),
+                # The digest of the validation audio is the caller's to
+                # supply, for the same reason it is the human block's: the
+                # provider publishes a validation but no digest of the asset
+                # a person heard. It is null when the caller has not read
+                # one, which is a fact about the evidence rather than a
+                # value to invent.
+                "audio_digest": validation_audio_digest or None,
+                # No digest of the validation text is published either, and
+                # the reference block already carries the text that the
+                # voice was designed against.
+                "text_digest": None,
             },
             human={
                 "identity_status": identity_status
@@ -681,6 +691,22 @@ def _text_field(payload: Mapping[str, object], key: str, default: str) -> str:
 def _optional_text(payload: Mapping[str, object], key: str) -> str | None:
     value = payload.get(key)
     return value if isinstance(value, str) and value else None
+
+
+_OUTPUT_STATUSES = frozenset({"pass", "fail", "not_run", "pending"})
+
+
+def _output_status(validation: Mapping[str, object]) -> str:
+    """Normalise the provider's machine verdict onto the contract's enum.
+
+    The status vocabulary is a contract fact, not a free string: evidence
+    that carried a status outside it could not be validated, and a caller
+    reading an unknown verdict has no way to know whether a voice passed.
+    A provider that reports something else has told us it did not run a
+    check we recognise, which is `not_run`.
+    """
+    status = _text_field(validation, "machine_status", "")
+    return status if status in _OUTPUT_STATUSES else "not_run"
 
 
 def _digest_field(payload: Mapping[str, object], key: str, *, required: bool = True) -> str:

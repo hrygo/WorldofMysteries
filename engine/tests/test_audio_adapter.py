@@ -2690,6 +2690,113 @@ async def test_publish_binds_evidence_to_the_actual_assets_and_execution_identit
     assert evidence.publication["state"] == "published"
 
 
+_EVIDENCE_SCHEMA = (
+    Path(__file__).resolve().parents[2]
+    / "contracts"
+    / "schemas"
+    / "voice_identity_evidence.schema.json"
+)
+
+
+async def test_adapter_output_section_satisfies_the_evidence_contract():
+    """The adapter's evidence must be loadable by the schema it is written for.
+
+    Nothing else checks this: the hand-written fixtures in the evidence and
+    control-surface tests describe what a *correct* bundle looks like, so a
+    bundle the adapter actually produces can drift away from the contract and
+    every test still passes. Validating the real output is what turns the
+    contract from documentation into a gate.
+    """
+    from jsonschema import Draft202012Validator
+
+    schema = json.loads(_EVIDENCE_SCHEMA.read_text(encoding="utf-8"))
+    output_validator = Draft202012Validator(
+        {"$ref": "#/$defs/output_check", "$defs": schema["$defs"]}
+    )
+
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+    result = await adapter.publish(
+        "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+    )
+
+    assert output_validator.is_valid(dict(result.evidence.output))
+
+    # And the section names the validation that actually ran, rather than a
+    # capability key the evidence contract does not carry.
+    assert result.evidence.output["validation_id"] == "vv_" + "e" * 24
+    assert "capability_key" not in result.evidence.output
+
+
+@pytest.mark.parametrize(
+    ("machine_status", "expected"),
+    [
+        ("pass", "pass"),
+        ("fail", "fail"),
+        ("pending", "pending"),
+        # A verdict outside the contract's vocabulary is a check we did not
+        # recognise, which is `not_run` — not a pass smuggled past the enum.
+        ("unknown", "not_run"),
+        ("", "not_run"),
+    ],
+)
+async def test_output_status_is_normalised_onto_the_contract_enum(
+    machine_status, expected
+):
+    candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
+    candidate["validations"][0]["machine_status"] = machine_status
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+    result = await adapter.publish(
+        "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+    )
+    assert result.evidence.output["status"] == expected
+
+
+async def test_output_audio_digest_carries_the_asset_the_caller_auditioned():
+    """The output section describes the audio a person heard.
+
+    The provider publishes no digest of a validation, so the digest is the
+    caller's. When the caller has read one it belongs in the output section;
+    when it has not, the field is null rather than pointing at the reference.
+    """
+    read = _adapter(
+        _RecordingTransport(
+            (200, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE}).encode())
+        ),
+        execution_policy=_EXECUTION_POLICY,
+    )
+    with_digest = await read.review(
+        "vd_" + "a" * 24,
+        validation_id="vv_" + "e" * 24,
+        identity=FoundryReviewVerdict.PASS,
+        naturalness=FoundryReviewVerdict.PASS,
+        validation_audio_digest="e" * 64,
+    )
+    assert with_digest.output["audio_digest"] == "e" * 64
+
+    without = _adapter(
+        _RecordingTransport(
+            (200, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE}).encode())
+        ),
+        execution_policy=_EXECUTION_POLICY,
+    )
+    result = await without.review(
+        "vd_" + "a" * 24,
+        validation_id="vv_" + "e" * 24,
+        identity=FoundryReviewVerdict.PASS,
+        naturalness=FoundryReviewVerdict.PASS,
+    )
+    assert result.output["audio_digest"] is None
+    # Never a stand-in: the reference digest describes the design sample, not
+    # the rendered validation.
+    assert result.output["audio_digest"] != result.reference["audio_digest"]
+
+
 async def test_read_asset_hashes_the_exact_bytes_returned():
     audio = b"RIFF----WAVEfake"
     transport = _RecordingTransport((200, audio))
