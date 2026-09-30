@@ -462,7 +462,7 @@ class ScenarioAudioPrepareHandler:
                     else resolved.binding.evidence.model_artifact_revision
                 ),
                 model_catalog_revision=resolved.model_catalog_revision,
-                locale=resolved.scope.locale,
+                game_locale=resolved.scope.locale,
                 phase=resolved.scope.phase,
                 variant=DEFAULT_VARIANT,
             )

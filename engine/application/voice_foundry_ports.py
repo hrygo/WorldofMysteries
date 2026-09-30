@@ -113,7 +113,14 @@ class PreviewRequest:
 
 @dataclass(frozen=True, slots=True)
 class ProviderLocaleMap:
-    """Explicit game-locale -> provider-locale mapping owned by the adapter."""
+    """Explicit game-locale -> provider-locale mapping.
+
+    Two vocabularies, deliberately. A scope says ``zh-CN`` because that is
+    what the product is written in; the provider says ``zh`` because that is
+    what it will render. Neither is a spelling of the other, so anything that
+    has to line the two up — a render's execution identity, most of all —
+    must say which side it is holding.
+    """
 
     mapping: Mapping[str, str]
 
@@ -124,6 +131,18 @@ class ProviderLocaleMap:
 
     def resolve(self, game_locale: str) -> str | None:
         return self.mapping.get(game_locale)
+
+
+#: The mapping this build ships.
+#:
+#: It lives here rather than in the adapter because a render's execution
+#: identity needs it too, and the gate compares that identity against the
+#: locale the provider recorded when the voice was verified. Keeping one copy
+#: at the bottom of the stack meant every caller above had to import an
+#: adapter to learn its own locale, and the two sides drifted: evidence said
+#: ``zh``, the scope said ``zh-CN``, and every render was refused as an
+#: execution mismatch.
+GAME_TO_PROVIDER_LOCALE = ProviderLocaleMap({"zh-CN": "zh"})
 
 
 @dataclass(frozen=True, slots=True)

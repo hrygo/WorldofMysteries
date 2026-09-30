@@ -274,7 +274,7 @@ def _render_pinned(**overrides):
         "model_id": "qwen3-tts",
         "model_artifact_revision": "art-1",
         "model_catalog_revision": "cat-1",
-        "locale": "zh",
+        "game_locale": "zh-CN",
         "phase": "dialogue",
         "variant": "custom_voice",
     }
@@ -292,6 +292,30 @@ def test_the_scope_phase_is_the_usage_a_review_has_to_have_granted():
     """
     assert _render_pinned(phase="narration").usage == "narration"
     assert _render_pinned(phase="dialogue").usage == "dialogue"
+
+
+def test_a_render_is_pinned_in_the_locale_the_provider_verified():
+    """The scope's locale and the provider's are not two spellings of one.
+
+    Evidence records the language the provider actually validated — the
+    adapter reads it off the candidate — while a scope carries the locale the
+    product is written in. Passing the scope's spelling straight through made
+    every render an ``EXECUTION_MISMATCH`` against evidence minted by this
+    very provider, for every locale the build supports. That reads as a
+    broken gate; it is a comparison of two different questions.
+    """
+    assert _render_pinned(game_locale="zh-CN").locale == "zh"
+
+
+@pytest.mark.parametrize("game_locale", ["zh", "en-US", "", "zh_CN"])
+def test_a_locale_the_provider_cannot_render_pins_no_execution(game_locale):
+    """A scope nobody can translate has no evidence to match.
+
+    Falling back to the input spelling would reintroduce exactly the mismatch
+    this translation exists to remove, and would do it silently for any locale
+    added to a scope without being added to the map.
+    """
+    assert _render_pinned(game_locale=game_locale) is None
 
 
 @pytest.mark.parametrize(

@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from application.voice_foundry_ports import GAME_TO_PROVIDER_LOCALE
+
 #: A human verdict only counts when it actually passed. Machine metrics are
 #: recorded separately and never fill this in.
 _HUMAN_PASS = "pass"
@@ -388,11 +390,19 @@ def render_execution(
     model_id: str,
     model_artifact_revision: str | None,
     model_catalog_revision: str,
-    locale: str,
+    game_locale: str,
     phase: str,
     variant: str,
 ) -> ExecutionRequirements | None:
     """Pin the render about to happen, or report that a fact is missing.
+
+    ``game_locale`` is translated to the provider's locale before it is
+    recorded, because that is the language the render is actually verified
+    in and therefore the one the gate has to compare against. The evidence
+    says ``zh`` — the adapter took it from the candidate the provider
+    validated — while the scope says ``zh-CN``. Handing the scope's spelling
+    straight through made every render an ``EXECUTION_MISMATCH``, for every
+    locale this build supports, which is the same as having no audio at all.
 
     ``phase`` becomes the usage, and that is the whole reason a scope carries
     one. The binding key includes it, so the same identity cast for narration
@@ -406,8 +416,15 @@ def render_execution(
     artefact revision that does not exist yet. The caller blocks rather than
     substituting a default, because a guessed artefact revision would let the
     gate compare the render against a voice nobody approved.
+
+    A locale outside the map is refused the same way, rather than passed
+    through: a voice can only have been verified in a language the provider
+    was asked for, and a scope nobody can translate has no evidence to match.
     """
     if not voice_revision or not model_artifact_revision:
+        return None
+    locale = GAME_TO_PROVIDER_LOCALE.resolve(game_locale)
+    if locale is None:
         return None
     return execution_requirements(
         provider_instance=provider_instance,

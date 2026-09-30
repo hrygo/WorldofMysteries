@@ -67,6 +67,27 @@ async def repository(paths):
         await db.close()
 
 
+@pytest.fixture
+async def foundry_and_bindings(paths):
+    """The foundry and the binding store over one database.
+
+    The two halves of a renderable voice live in different tables: the
+    evidence snapshot and its binding reference are written by the foundry,
+    while the artefact revision a review actually heard is only on the
+    binding. Reading one without the other is how a derivation ends up
+    inventing a fact it was supposed to be given.
+    """
+    from infrastructure.voice_binding_repository import SQLiteVoiceBindingRepository
+
+    db = await DatabaseManager.open(
+        paths, expected_sqlite_version=sqlite3.sqlite_version
+    )
+    try:
+        yield SQLiteVoiceFoundryRepository(db), SQLiteVoiceBindingRepository(db)
+    finally:
+        await db.close()
+
+
 def scope() -> VoiceBindingScope:
     return VoiceBindingScope(
         owner_id="player",
@@ -1182,6 +1203,97 @@ async def test_the_published_document_satisfies_the_shipped_evidence_contract(re
     assert record.cached_playback_policy == "revocation_aware"
     assert record.revoked is False
     assert record.expires_at is None
+
+
+async def test_a_published_voice_is_derived_into_an_admitted_render(
+    foundry_and_bindings,
+):
+    """The whole derivation, on stored data rather than assembled doubles.
+
+    Every stage below is the production one: the worker mints the evidence,
+    the repository stores it and the binding that points at it, and the read
+    back is the same ``load_evidence_record`` the two delivery paths call. The
+    question is whether those two facts — a binding's evidence reference and
+    the snapshot it names — add up to something the gate admits.
+
+    They can fail apart quietly. The snapshot can be unreadable while the
+    binding still looks renderable, the binding can carry no artefact
+    revision, and the execution can name a locale or a model the snapshot was
+    never minted for. Each leaves the turn with text, no audio, and no error
+    worth reporting — which is why the assertion is that the gate says
+    ``NONE``, not that nothing was raised.
+
+    This test is written after the fact: it is the one that found the render
+    being pinned in the game locale against evidence recorded in the
+    provider's, which refused every render the build could produce.
+    """
+    from application.voice_evidence import (
+        EvidenceRejection,
+        VoiceEvidenceGate,
+        load_evidence_record,
+        render_execution,
+    )
+
+    repository, bindings = foundry_and_bindings
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    await worker.advance("task-1")
+
+    task = await repository.load_task("task-1")
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="task-1:candidate:0",
+        state="published",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="published",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    await worker.publish_and_bind("task-1", binding_id=task.scope.binding_identity)
+
+    history = await repository.load_binding_history(task.scope.binding_identity)
+    active = [item for item in history if item.status == "active"][-1]
+
+    # Everything below is read back out of storage, not carried over from the
+    # values the fake provider was handed.
+    record = await load_evidence_record(
+        repository, active.provider_instance, active.evidence_id
+    )
+    assert record is not None
+    assert record.evidence_id == active.evidence_id
+
+    binding = await bindings.load_scope(active.scope)
+    assert binding is not None
+    assert binding.evidence is not None
+
+    execution = render_execution(
+        provider_instance=binding.provider.provider_instance,
+        voice_id=binding.provider.voice_id,
+        voice_revision=binding.provider.conditional_pin,
+        model_id="qwen3-tts",
+        model_artifact_revision=binding.evidence.model_artifact_revision,
+        model_catalog_revision=binding.provider.model_catalog_revision,
+        game_locale=binding.scope.locale,
+        phase=binding.scope.phase,
+        variant="custom_voice",
+    )
+    assert execution is not None
+
+    verdict = VoiceEvidenceGate().admit(record, execution)
+    assert verdict.synthesis_allowed is True, verdict.reason
+    assert verdict.reason is EvidenceRejection.NONE
+
+    # And the two facts agree about who they are about, which is what lets a
+    # sealed unit name the evidence it was admitted with.
+    assert execution.provider_instance == record.provider_instance
+    assert execution.voice_id == record.voice_id
+    assert execution.voice_revision == record.voice_revision
 
 
 async def test_a_binding_whose_evidence_cannot_be_read_is_not_renderable(repository):
