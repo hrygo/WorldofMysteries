@@ -726,6 +726,100 @@ async def _publish_task(repo: SQLiteVoiceFoundryRepository):
     )
 
 
+async def _candidate_with_a_recorded_revision(
+    repo: SQLiteVoiceFoundryRepository, reported: str
+):
+    """A task whose candidate exists and whose confirm call reported a revision."""
+    task = await repo.register_task(task_spec())
+    await repo.add_candidate(
+        task.task_id,
+        expected_revision=1,
+        candidate=candidate(),
+    )
+    intent = await repo.record_operation(
+        VoiceFoundryOperationIntent(
+            operation_id="confirm-1",
+            task_id=task.task_id,
+            stage="confirm",
+            attempt_identity="confirm:task-1",
+            idempotency_key="confirm-key-1",
+            payload={"candidate_id": "voice_design_01"},
+            payload_digest="e" * 64,
+        )
+    )
+    await repo.confirm_operation(
+        intent.operation_id,
+        expected_status="prepared",
+        provider_result_ref=reported,
+    )
+    return await repo.load_task(task.task_id)
+
+
+async def test_a_candidate_revision_may_advance_to_what_the_provider_reported(
+    database,
+):
+    """A revision that never moves makes publication impossible.
+
+    The provider advances a design's revision as it is confirmed, validated
+    and published, and ``publish`` is conditional on the revision that exists
+    then. Holding the one ``create`` handed out would send a stale value and
+    be refused, so the very first casting could never be released.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _candidate_with_a_recorded_revision(repo, "candidate-revision-2")
+
+    advanced = await repo.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="candidate-1",
+        provider_candidate_revision="candidate-revision-2",
+    )
+
+    assert advanced.provider_candidate_revision == "candidate-revision-2"
+    # The identity is a different thing, and it does not move.
+    assert advanced.provider_candidate_id == "voice_design_01"
+
+
+async def test_a_candidate_revision_nobody_reported_is_refused(database):
+    """Letting the revision move must not make it a free parameter.
+
+    A revision the provider never returned is a claim about a state that does
+    not exist. Publication is irreversible upstream, so it is refused here
+    rather than discovered there.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _candidate_with_a_recorded_revision(repo, "candidate-revision-2")
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id="candidate-1",
+            provider_candidate_revision="candidate-revision-9",
+        )
+
+    unchanged = await repo.load_candidate(task.task_id, "candidate-1")
+    assert unchanged.provider_candidate_revision == "candidate-revision-1"
+
+
+async def test_a_candidate_identity_is_still_immutable(database):
+    """Relaxing the revision must not relax the identity with it.
+
+    Re-pointing a slot at a different provider candidate is a silent re-cast:
+    the character would be voiced by a design nobody chose.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _candidate_with_a_recorded_revision(repo, "candidate-revision-2")
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id="candidate-1",
+            provider_candidate_id="voice_design_02",
+        )
+
+
 async def test_a_committed_binding_is_loadable_and_can_actually_render(database):
     """The whole point of committing a binding is that it can be used.
 

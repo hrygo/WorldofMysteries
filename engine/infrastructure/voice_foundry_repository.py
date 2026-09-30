@@ -831,13 +831,29 @@ class SQLiteVoiceFoundryRepository:
                 )
             if (
                 current.provider_candidate_revision is not None
-                and "provider_candidate_revision" in patches
+                and
+                "provider_candidate_revision" in patches
                 and patches["provider_candidate_revision"]
                 != current.provider_candidate_revision
             ):
-                raise VoiceFoundryConflict(
-                    "Voice Foundry candidate revision is already bound"
+                # A candidate's *identity* is immutable; its revision is not.
+                # The provider moves the revision as the design is confirmed,
+                # validated and published, and ``publish`` is conditional on
+                # the revision that exists then — so freezing the one create
+                # handed out makes publication impossible against a real
+                # provider. What may not happen is a re-point at a revision
+                # nobody ever reported, so a new value has to be one this
+                # engine durably recorded from the provider.
+                reported = tx.execute(
+                    "SELECT 1 FROM voice_foundry_operations "
+                    "WHERE task_id=? AND provider_result_ref=? "
+                    "AND status='confirmed' LIMIT 1",
+                    (task_id, patches["provider_candidate_revision"]),
                 )
+                if not reported:
+                    raise VoiceFoundryConflict(
+                        "Voice Foundry candidate revision was never reported"
+                    )
             if "state" in patches:
                 _require_forward_state(current.state, patches["state"])
             now = _now()
