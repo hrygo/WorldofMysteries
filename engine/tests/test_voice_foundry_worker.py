@@ -12,11 +12,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import sqlite3
+from dataclasses import replace
 
 import pytest
 
 from application.voice_foundry import (
     FoundryRetryPolicy,
+    PRODUCTION_CAPABILITY_KEY,
     VoiceFoundryWorker,
 )
 from application.voice_foundry_ports import (
@@ -443,6 +445,46 @@ async def _drive_to_validating(repository, worker, port):
     return await worker.advance(task.task_id)
 
 
+class _DiesBeforeRecording:
+    """A repository that dies the way a power cut does: mid-write, once.
+
+    Only the write that would have recorded a named field is fatal, so the
+    provider call it followed is already settled and the task is left exactly
+    as a crash would leave it.
+    """
+
+    def __init__(self, inner, field: str):
+        self._inner = inner
+        self._field = field
+        self._spent = False
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def update_candidate(self, task_id, **kwargs):
+        if not self._spent and kwargs.get(self._field) is not None:
+            self._spent = True
+            raise RuntimeError("the process died before the answer was recorded")
+        return await self._inner.update_candidate(task_id, **kwargs)
+
+
+class _DriftingValidationPort(RecordingPort):
+    """A provider that answers a replayed key with something else."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._answers = 0
+
+    async def validate(self, candidate_id, *, test_text, capability_key):
+        self._answers += 1
+        result = await super().validate(
+            candidate_id, test_text=test_text, capability_key=capability_key
+        )
+        if self._answers > 1:
+            return replace(result, validation_id="vv_" + "f" * 24)
+        return result
+
+
 async def test_a_selected_candidate_is_proved_on_text_it_has_not_heard(repository):
     """Selection used to be a one-way door into nowhere.
 
@@ -500,6 +542,248 @@ async def test_a_failed_cross_text_check_never_reaches_a_listener(repository):
     candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
     assert candidate.state == "failed"
     assert "review" not in step.record.required_actions
+
+
+async def test_the_two_validation_steps_can_be_authorized_one_at_a_time(repository):
+    """The control surface may drive the pair step by step.
+
+    A client that wants to authorize "confirm the reference" and "prove it on
+    other text" as two separately-recorded decisions has to reach the same
+    place the unattended path reaches, through the same code.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    confirmed = await worker.confirm_reference_step(
+        "task-1",
+        provider_candidate_revision="vr_" + "c" * 32,
+        reference_text=task_spec().reference_text,
+        reference_audio_digest=REFERENCE_AUDIO_DIGEST,
+    )
+
+    # Confirming the reference is not the same as having proved the voice, so
+    # the task stays where it can still be stopped.
+    assert confirmed.record.stage is VoiceFoundryStage.VALIDATING
+    assert confirmed.slot_consumed is True
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "validating"
+    assert candidate.reference_audio_digest == REFERENCE_AUDIO_DIGEST
+
+    step = await worker.validate_step(
+        "task-1",
+        test_text=task_spec().validation_text,
+        capability_key=PRODUCTION_CAPABILITY_KEY,
+    )
+
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+    assert step.record.required_actions == (
+        "listen_reference",
+        "listen_validation",
+        "review",
+    )
+    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+
+
+async def test_asking_twice_does_not_bind_the_reference_twice(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    for _ in range(2):
+        await worker.confirm_reference_step(
+            "task-1",
+            provider_candidate_revision="vr_" + "c" * 32,
+            reference_text=task_spec().reference_text,
+            reference_audio_digest=REFERENCE_AUDIO_DIGEST,
+        )
+
+    assert port.calls.count("confirm") == 1
+
+
+@pytest.mark.parametrize(
+    "reference_text",
+    ["这是另一段本任务从未授权用来绑定参考音色的完整句子。"],
+)
+async def test_a_reference_confirmation_about_other_text_is_refused_before_the_call(
+    repository, reference_text
+):
+    """Text the task was never authorized to bind is detectable for free.
+
+    Refusing here rather than after the call is the difference between a
+    confused client and a billed one.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    calls_before = list(port.calls)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.confirm_reference_step(
+            "task-1",
+            provider_candidate_revision="vr_" + "c" * 32,
+            reference_text=reference_text,
+            reference_audio_digest=REFERENCE_AUDIO_DIGEST,
+        )
+
+    assert caught.value.code == "confirm_reference_text_mismatch"
+    assert port.calls == calls_before
+
+
+async def test_a_reference_confirmation_about_regenerated_audio_is_refused(repository):
+    """A verdict is only ever about the audio that exists now.
+
+    The digest is the provider's to answer for, so this one can only be caught
+    after the call — which is exactly why the reference is bound durably first
+    and the caller's claim checked against it.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.confirm_reference_step(
+            "task-1",
+            provider_candidate_revision="vr_" + "c" * 32,
+            reference_text=task_spec().reference_text,
+            reference_audio_digest="0" * 64,
+        )
+
+    assert caught.value.code == "confirm_reference_asset_mismatch"
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.reference_audio_digest == REFERENCE_AUDIO_DIGEST
+
+
+async def test_a_reference_confirmation_about_another_revision_is_refused(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.confirm_reference_step(
+            "task-1",
+            provider_candidate_revision="vr_" + "f" * 32,
+            reference_text=task_spec().reference_text,
+            reference_audio_digest=REFERENCE_AUDIO_DIGEST,
+        )
+
+    assert caught.value.code == "confirm_reference_revision_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("test_text", "capability_key", "code"),
+    [
+        (
+            "这是另一段本任务从未授权用来复验音色的完整文本。",
+            PRODUCTION_CAPABILITY_KEY,
+            "validation_text_mismatch",
+        ),
+        (
+            task_spec().validation_text,
+            "quality.draft",
+            "validation_capability_mismatch",
+        ),
+    ],
+)
+async def test_a_validation_of_something_else_is_refused_before_the_call(
+    repository, test_text, capability_key, code
+):
+    """Evidence a listener signs is evidence about one test at one tier.
+
+    Proving the voice on other text, or at a cheaper tier, would produce a
+    verdict describing a test the record does not name — so the call is never
+    made, rather than made and quietly reinterpreted.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    await worker.confirm_reference_step(
+        "task-1",
+        provider_candidate_revision="vr_" + "c" * 32,
+        reference_text=task_spec().reference_text,
+        reference_audio_digest=REFERENCE_AUDIO_DIGEST,
+    )
+    calls_before = list(port.calls)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.validate_step(
+            "task-1", test_text=test_text, capability_key=capability_key
+        )
+
+    assert caught.value.code == code
+    assert port.calls == calls_before
+    assert (await repository.load_task("task-1")).stage is VoiceFoundryStage.VALIDATING
+
+
+async def test_a_voice_is_not_proved_before_its_reference_is_bound(repository):
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.validate_step(
+            "task-1",
+            test_text=task_spec().validation_text,
+            capability_key=PRODUCTION_CAPABILITY_KEY,
+        )
+
+    assert caught.value.code == "reference_not_confirmed"
+    assert "validate" not in port.calls
+
+
+async def test_a_settled_validation_is_reread_rather_than_assumed(repository):
+    """A crash between the answer and the record must not strand the task.
+
+    The cross-text call was confirmed before the process died, so the outcome
+    exists at the provider and nowhere in this database. A resume has to go
+    and read it; treating the settled intent as if it carried an answer would
+    either crash or, worse, publish a voice nobody ever heard pass.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(
+        _DiesBeforeRecording(repository, "validation_audio_digest"), port
+    )
+    await _drive_to_validating(repository, worker, port)
+
+    with pytest.raises(RuntimeError):
+        await worker.advance("task-1")
+    operation = await repository.load_operation("validate:task-1:0")
+    assert operation.status == "confirmed"
+    assert (await repository.load_task("task-1")).stage is VoiceFoundryStage.VALIDATING
+
+    resumed, _, _ = make_worker(repository, port)
+    step = await resumed.advance("task-1")
+
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "reviewing"
+    assert candidate.validation_audio_digest == VALIDATION_AUDIO_DIGEST
+    # Two calls, one logical check: the second read the original answer.
+    assert port.calls.count("validate") == 2
+
+
+async def test_a_provider_that_forgets_its_own_answer_is_not_guessed_around(
+    repository,
+):
+    """Re-reading is only safe because the key replays. If it does not, stop.
+
+    Silently keeping the recorded id, or silently keeping the new one, would
+    both leave a record claiming a cross-text result that was never obtained.
+    """
+    port = _DriftingValidationPort()
+    worker, _, _ = make_worker(
+        _DiesBeforeRecording(repository, "validation_audio_digest"), port
+    )
+    await _drive_to_validating(repository, worker, port)
+    with pytest.raises(RuntimeError):
+        await worker.advance("task-1")
+
+    resumed, _, _ = make_worker(repository, port)
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await resumed.advance("task-1")
+
+    assert caught.value.code == "foundry_outcome_diverged"
+    assert (await repository.load_task("task-1")).stage is VoiceFoundryStage.VALIDATING
 
 
 async def test_publishing_and_binding_land_together(repository):

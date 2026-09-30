@@ -180,6 +180,88 @@ class VoiceFoundryWorker:
             return WorkerStep(record=task, slot_consumed=False)
         return WorkerStep(record=task, slot_consumed=True)
 
+    async def confirm_reference_step(
+        self,
+        task_id: str,
+        *,
+        provider_candidate_revision: str,
+        reference_text: str,
+        reference_audio_digest: str,
+    ) -> WorkerStep:
+        """Bind the reference, then prove the caller means that binding.
+
+        The control surface lets a client authorize this half on its own, so
+        the three facts it brings back are checked against what this engine
+        durably recorded rather than taken on trust. The text is refused
+        before the provider is called, because a mismatch there costs nothing
+        to detect; the revision and the audio digest can only be checked
+        afterwards, because they are the provider's to answer.
+
+        Asking twice is not a second binding. The confirm intent is settled by
+        its operation identity, so a repeat reads the same answer back instead
+        of binding the reference again.
+        """
+        task = await self._repository.load_task(task_id)
+        if task.stage != "validating":
+            return WorkerStep(record=task, slot_consumed=False)
+        if reference_text != task.reference_text:
+            raise VoiceFoundryPortError("confirm_reference_text_mismatch")
+
+        task, candidate = await self._confirm_reference(
+            task, self._clock() + self._policy.deadline_seconds
+        )
+
+        confirm = await self._repository.load_operation(
+            _operation_id("confirm", task_id, 0)
+        )
+        if (
+            confirm.status != "confirmed"
+            or confirm.provider_result_ref != provider_candidate_revision
+        ):
+            raise VoiceFoundryPortError("confirm_reference_revision_mismatch")
+        if candidate.reference_audio_digest != reference_audio_digest:
+            raise VoiceFoundryPortError("confirm_reference_asset_mismatch")
+        return WorkerStep(record=task, slot_consumed=True)
+
+    async def validate_step(
+        self,
+        task_id: str,
+        *,
+        test_text: str,
+        capability_key: str,
+    ) -> WorkerStep:
+        """Prove the confirmed voice on text it has not been read.
+
+        Both inputs are refused before the provider is called when they are not
+        the ones this task was authorized to use. What a listener signs
+        afterwards is a verdict about *this* text at *this* tier, so a check
+        run against anything else would produce evidence describing a
+        different test than the one on the record.
+        """
+        task = await self._repository.load_task(task_id)
+        if task.stage != "validating":
+            return WorkerStep(record=task, slot_consumed=False)
+        candidate = await self._repository.load_candidate(
+            task_id, _candidate_key(task_id, 0)
+        )
+        if candidate.provider_candidate_id is None:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+        if candidate.state != "validating":
+            raise VoiceFoundryPortError("reference_not_confirmed")
+        if capability_key != PRODUCTION_CAPABILITY_KEY:
+            raise VoiceFoundryPortError("validation_capability_mismatch")
+        if test_text != task.validation_text:
+            raise VoiceFoundryPortError("validation_text_mismatch")
+
+        task = await self._validate(
+            task,
+            candidate,
+            self._clock() + self._policy.deadline_seconds,
+            test_text=test_text,
+            capability_key=capability_key,
+        )
+        return WorkerStep(record=task, slot_consumed=True)
+
     async def reconcile(self, task_id: str) -> int:
         """Settle every unknown operation on a task by asking the provider.
 
@@ -549,9 +631,27 @@ class VoiceFoundryWorker:
         no driver at all: provisioning left the task ``validating`` and nothing
         advanced it, so a task that had been selected waited there forever.
 
-        Both provider calls sit inside the same persist-call-confirm bracket as
-        creation. A crash between them leaves an ``unknown`` operation that a
-        resume reconciles, instead of a voice confirmed or validated twice.
+        It is the unattended path through the same two steps a client can
+        authorize one at a time, so both routes run one implementation and
+        cannot drift apart.
+        """
+        task, candidate = await self._confirm_reference(task, deadline_at)
+        return await self._validate(
+            task,
+            candidate,
+            deadline_at,
+            test_text=task.validation_text,
+            capability_key=PRODUCTION_CAPABILITY_KEY,
+        )
+
+    async def _confirm_reference(
+        self, task: "VoiceFoundryTaskRecord", deadline_at: float
+    ) -> tuple["VoiceFoundryTaskRecord", VoiceCandidateRecord]:
+        """Bind the reference text and record the audio a listener will hear.
+
+        The audition is a real asset, so its digest is read back from the
+        provider rather than assumed from the call that promised it. A promise
+        of an audio file is not evidence of one.
         """
         candidate = await self._repository.load_candidate(
             task.task_id, _candidate_key(task.task_id, 0)
@@ -579,13 +679,10 @@ class VoiceFoundryWorker:
             deadline_at=deadline_at,
         )
 
-        # The audition the listener will judge is a real asset, so its digest is
-        # read back from the provider rather than assumed from the call that
-        # produced it. A promise of an audio file is not evidence of one.
         reference_asset = await self._port.read_asset(
             AssetRequest(candidate_id=provider_candidate_id)
         )
-        await self._repository.update_candidate(
+        candidate = await self._repository.update_candidate(
             task.task_id,
             expected_revision=task.task_revision,
             candidate_id=candidate.candidate_id,
@@ -593,26 +690,45 @@ class VoiceFoundryWorker:
             reference_audio_digest=reference_asset.audio_digest,
             reference_text_digest=reference_text_digest,
         )
+        # Writing the candidate moved the task revision, so the record handed
+        # back has to be the one that now exists.
         task = await self._repository.load_task(task.task_id)
+        return task, candidate
+
+    async def _validate(
+        self,
+        task: "VoiceFoundryTaskRecord",
+        candidate: VoiceCandidateRecord,
+        deadline_at: float,
+        *,
+        test_text: str,
+        capability_key: str,
+    ) -> "VoiceFoundryTaskRecord":
+        """Run the cross-text check and hand the result to a person or to a
+        failure, never to both."""
 
         validation = await self._perform(
             task,
             stage="validate",
             discriminator=0,
             payload={
-                "candidate_id": provider_candidate_id,
-                "capability_key": PRODUCTION_CAPABILITY_KEY,
+                "candidate_id": candidate.provider_candidate_id,
+                "capability_key": capability_key,
                 "test_text_digest": hashlib.sha256(
-                    task.validation_text.encode("utf-8")
+                    test_text.encode("utf-8")
                 ).hexdigest(),
             },
             call=lambda: self._port.validate(
-                provider_candidate_id,
-                test_text=task.validation_text,
-                capability_key=PRODUCTION_CAPABILITY_KEY,
+                candidate.provider_candidate_id,
+                test_text=test_text,
+                capability_key=capability_key,
             ),
             result_ref=lambda outcome: outcome.validation_id,
             deadline_at=deadline_at,
+            # A settled intent still has to yield its answer. The provider
+            # replays the same result under the same key, so re-reading is
+            # how a resume recovers the outcome instead of assuming one.
+            reread_confirmed=True,
         )
 
         if not validation.passed:
@@ -665,6 +781,7 @@ class VoiceFoundryWorker:
         result_ref: Callable[[object], str],
         deadline_at: float,
         settle_unknown: bool = False,
+        reread_confirmed: bool = False,
     ):
         from infrastructure.voice_foundry_repository import (
             VoiceFoundryOperationIntent,
@@ -683,6 +800,16 @@ class VoiceFoundryWorker:
         )
         record = await self._repository.record_operation(intent)
         if record.status == "confirmed":
+            if reread_confirmed:
+                # The intent is already settled, so this is a read rather than
+                # an action: the provider answers the same key with the same
+                # object. Anything else means the provider and our own record
+                # have parted ways, and picking either one silently is exactly
+                # the kind of guess this bracket exists to prevent.
+                outcome = await self._call_with_retry(call, deadline_at)
+                if result_ref(outcome) != record.provider_result_ref:
+                    raise VoiceFoundryPortError("foundry_outcome_diverged")
+                return outcome
             return record
         if record.status == "unknown" and not settle_unknown:
             raise VoiceFoundryPortError("foundry_outcome_unknown")
