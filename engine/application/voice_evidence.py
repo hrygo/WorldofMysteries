@@ -36,6 +36,20 @@ _HUMAN_PASS = "pass"
 #: the two are never interchangeable facts about a voice.
 _MACHINE_PASS = "pass"
 
+#: The evidence contract revision this module reads and writes.
+EVIDENCE_SCHEMA_VERSION = "1.0"
+_EVIDENCE_SCHEMA_VERSION = EVIDENCE_SCHEMA_VERSION
+
+#: Cached audio follows a live revocation rather than waiting for the
+#: provider to be asked. It is the stricter of the two policies the contract
+#: allows, and it is the right default for a game that has already rendered a
+#: line: a withdrawn voice should stop being heard before anyone gets round
+#: to asking the service whether it is still fine.
+_CACHED_PLAYBACK_REVOCATION_AWARE = "revocation_aware"
+_CACHED_PLAYBACK_POLICIES = frozenset(
+    {_CACHED_PLAYBACK_REVOCATION_AWARE, "provider_decision"}
+)
+
 
 class EvidenceRejection(StrEnum):
     """Stable, machine-readable reason a voice was not admitted."""
@@ -222,10 +236,158 @@ class VoiceEvidenceGate:
         )
 
 
+def execution_requirements(
+    *,
+    provider_instance: str,
+    voice_id: str,
+    voice_revision: str,
+    model_id: str,
+    model_artifact_revision: str,
+    model_catalog_revision: str,
+    locale: str,
+    usage: str,
+    variant: str,
+) -> ExecutionRequirements:
+    """Pin the execution this render is about to run.
+
+    Every value here has to come from the binding or the provider, never from
+    the evidence document. That is not stylistic: ``VoiceEvidenceGate``
+    compares these fields against the snapshot to decide
+    ``EXECUTION_MISMATCH``, so a requirement built out of the evidence would
+    be comparing the evidence with itself and the check could never fire.
+    The gate is only worth having if the other side of the comparison is a
+    fact about the world rather than a copy of the thing being checked.
+
+    ``variant`` is therefore a required argument instead of a default. It is
+    a property of the pipeline this build renders through, declared by the
+    deployment, and the caller is the only place that knows it.
+    """
+    return ExecutionRequirements(
+        provider_instance=provider_instance,
+        voice_id=voice_id,
+        voice_revision=voice_revision,
+        model_id=model_id,
+        model_artifact_revision=model_artifact_revision,
+        model_catalog_revision=model_catalog_revision,
+        variant=variant,
+        locale=locale,
+        usage=usage,
+    )
+
+
+def evidence_document(
+    bundle: object,
+    *,
+    provider_instance: str,
+    voice_id: str,
+    voice_revision: str,
+    created_at: str,
+    expires_at: str | None = None,
+    revoked: bool = False,
+    cached_playback_policy: str = _CACHED_PLAYBACK_REVOCATION_AWARE,
+) -> dict[str, object]:
+    """Assemble the complete evidence document the contract describes.
+
+    A provider bundle carries six sections and an identity. The contract
+    document carries those plus eight more top-level facts, and until this
+    existed nobody produced them: the worker stored the six sections, the
+    repository stamped a row time, and the document that the schema
+    describes was never written down anywhere. Anything reading the snapshot
+    back therefore had to invent the difference.
+
+    The four values supplied here are exactly the ones this repository knows
+    and the provider does not report: which instance and which voice the
+    snapshot is about, when it was minted, and — for ``expires_at`` — that
+    there is no expiry policy yet, which ``None`` states rather than hides.
+    """
+    return {
+        "schema_version": _EVIDENCE_SCHEMA_VERSION,
+        "evidence_id": bundle.evidence_id,
+        "evidence_digest": bundle.evidence_digest,
+        "provider_instance": provider_instance,
+        "voice_id": voice_id,
+        "voice_revision": voice_revision,
+        "execution": dict(bundle.execution),
+        "reference": dict(bundle.reference),
+        "output": dict(bundle.output),
+        "human": dict(bundle.human),
+        "publication": dict(bundle.publication),
+        "rights": dict(bundle.rights),
+        "created_at": created_at,
+        "expires_at": expires_at,
+        "revoked": revoked,
+        "cached_playback_policy": cached_playback_policy,
+    }
+
+
+def evidence_record(document: Mapping[str, object]) -> VoiceEvidenceRecord | None:
+    """Rebuild the gate's record from a stored document, or refuse.
+
+    Absence and corruption deny in the same direction here, and that is the
+    point: both mean no admitted evidence, so both stop synthesis. Raising
+    instead would force every caller to catch, and a caller that caught it by
+    carrying on would have turned a storage fault into an unreviewed voice.
+    """
+    sections: dict[str, Mapping[str, object]] = {}
+    for name in ("execution", "reference", "output", "human", "publication", "rights"):
+        value = document.get(name)
+        if not isinstance(value, Mapping):
+            return None
+        sections[name] = value
+
+    text_fields = {
+        name: _text(document.get(name))
+        for name in (
+            "schema_version",
+            "evidence_id",
+            "evidence_digest",
+            "provider_instance",
+            "voice_id",
+            "voice_revision",
+            "created_at",
+            "cached_playback_policy",
+        )
+    }
+    if any(not value for value in text_fields.values()):
+        return None
+    if text_fields["schema_version"] != _EVIDENCE_SCHEMA_VERSION:
+        return None
+    expires_at = document.get("expires_at")
+    if expires_at is not None and not isinstance(expires_at, str):
+        return None
+    revoked = document.get("revoked")
+    if not isinstance(revoked, bool):
+        return None
+    if text_fields["cached_playback_policy"] not in _CACHED_PLAYBACK_POLICIES:
+        return None
+
+    return VoiceEvidenceRecord(
+        evidence_id=text_fields["evidence_id"],
+        evidence_digest=text_fields["evidence_digest"],
+        provider_instance=text_fields["provider_instance"],
+        voice_id=text_fields["voice_id"],
+        voice_revision=text_fields["voice_revision"],
+        execution=sections["execution"],
+        reference=sections["reference"],
+        output=sections["output"],
+        human=sections["human"],
+        publication=sections["publication"],
+        rights=sections["rights"],
+        created_at=text_fields["created_at"],
+        expires_at=expires_at,
+        revoked=revoked,
+        cached_playback_policy=text_fields["cached_playback_policy"],
+    )
+
+
 __all__ = [
+    "EVIDENCE_SCHEMA_VERSION",
     "EvidenceRejection",
     "EvidenceVerdict",
     "ExecutionRequirements",
     "VoiceEvidenceGate",
     "VoiceEvidenceRecord",
+    "evidence_document",
+    "evidence_record",
+    "execution_requirements",
 ]

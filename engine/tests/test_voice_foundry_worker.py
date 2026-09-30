@@ -1080,6 +1080,77 @@ async def test_publishing_and_binding_land_together(repository):
     assert all(item.evidence_id == "ev_1" for item in history)
 
 
+async def test_the_published_document_satisfies_the_shipped_evidence_contract(repository):
+    """The stored snapshot has to be the document, not a fragment of it.
+
+    The worker used to persist six sections and stop. Everything else the
+    evidence contract declares — when the snapshot was minted, whether it was
+    revoked, which playback policy applies — had no producer at all, so the
+    only way to read a voice back was to invent those facts.
+
+    Validating the whole document against the schema comes one slice later,
+    and deliberately not here: the contract's ``execution`` section currently
+    forbids a field the gate requires, and this suite's provider fake is not
+    contract-shaped either. Asserting validity now would be asserting a
+    document the contract does not permit, against a fixture that never was.
+    What this pins is the part that is genuinely the worker's — that the
+    document is whole, and that it can be read back at all.
+    """
+    from application.voice_evidence import evidence_record
+
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    await worker.advance("task-1")
+
+    task = await repository.load_task("task-1")
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="task-1:candidate:0",
+        state="published",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="published",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    await worker.publish_and_bind("task-1", binding_id=task.scope.binding_identity)
+
+    stored = await repository.load_evidence("speechrail-local", "ev_1")
+    document = dict(stored.snapshot)
+    assert set(document) == {
+        "schema_version",
+        "evidence_id",
+        "evidence_digest",
+        "provider_instance",
+        "voice_id",
+        "voice_revision",
+        "execution",
+        "reference",
+        "output",
+        "human",
+        "publication",
+        "rights",
+        "created_at",
+        "expires_at",
+        "revoked",
+        "cached_playback_policy",
+    }
+
+    # And it survives the trip back into the gate's own record, so a voice
+    # that was admitted when it was published can still be recognised later.
+    record = evidence_record(document)
+    assert record is not None
+    assert record.evidence_id == "ev_1"
+    assert record.cached_playback_policy == "revocation_aware"
+    assert record.revoked is False
+    assert record.expires_at is None
+
+
 async def test_publishing_a_task_that_is_not_published_is_refused(repository):
     """The worker will not improvise the step that needs a listener."""
     port = RecordingPort()

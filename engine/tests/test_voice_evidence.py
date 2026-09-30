@@ -19,6 +19,9 @@ from application.voice_evidence import (
     EvidenceRejection,
     VoiceEvidenceGate,
     VoiceEvidenceRecord,
+    evidence_document,
+    evidence_record,
+    execution_requirements,
 )
 
 NOW = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
@@ -140,6 +143,125 @@ def test_a_failed_output_check_denies_cached_playback_too():
     assert verdict.synthesis_allowed is False
     assert verdict.cached_playback_allowed is False
     assert verdict.reason is EvidenceRejection.OUTPUT_CHECK_INCOMPLETE
+
+
+class _Bundle:
+    """The shape a provider hands back, with nothing invented on top."""
+
+    evidence_id = "ev_1"
+    evidence_digest = "a" * 64
+    execution = {"model_id": "qwen3-tts"}
+    reference = {"status": "pass", "audio_digest": "b" * 64, "text_digest": "c" * 64}
+    output = {"status": "pass", "validation_id": "vv_1", "audio_digest": None, "text_digest": None}
+    human = {"identity_status": "pass", "naturalness_status": "pass"}
+    publication = {"state": "published", "published_revision": "wvr_1"}
+    rights = {"allowed_usages": ["dialogue"], "scope_ref": "klein-visible"}
+
+
+def document(**overrides) -> dict:
+    base = evidence_document(
+        _Bundle(),
+        provider_instance="speechrail-local",
+        voice_id="wom-klein",
+        voice_revision="wvr_1",
+        created_at=NOW.isoformat(),
+    )
+    base.update(overrides)
+    return base
+
+
+def test_a_stored_document_reads_back_into_an_admittable_record():
+    record = evidence_record(document())
+    assert record is not None
+    assert record.evidence_id == "ev_1"
+    assert record.provider_instance == "speechrail-local"
+    assert record.voice_id == "wom-klein"
+    assert record.voice_revision == "wvr_1"
+    assert record.cached_playback_policy == "revocation_aware"
+    assert record.revoked is False
+
+
+@pytest.mark.parametrize(
+    "section", ["execution", "reference", "output", "human", "publication", "rights"]
+)
+def test_a_document_missing_a_section_reads_as_no_evidence(section):
+    """A half-written snapshot is not a partially trusted one.
+
+    Refusing here means the gate denies with ``missing``, which is the same
+    answer it gives for no snapshot at all. Anything else would let a
+    truncated write keep a voice renderable.
+    """
+    broken = document()
+    del broken[section]
+    assert evidence_record(broken) is None
+
+    not_a_mapping = document()
+    not_a_mapping[section] = ["not", "a", "section"]
+    assert evidence_record(not_a_mapping) is None
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"schema_version": "2.0"},
+        {"schema_version": ""},
+        {"evidence_id": ""},
+        {"evidence_digest": ""},
+        {"provider_instance": ""},
+        {"voice_id": ""},
+        {"voice_revision": ""},
+        {"created_at": ""},
+        {"cached_playback_policy": "whenever"},
+        {"cached_playback_policy": ""},
+        {"revoked": "false"},
+        {"revoked": None},
+        {"expires_at": 12345},
+    ],
+)
+def test_a_document_with_an_unusable_top_level_fact_reads_as_no_evidence(overrides):
+    """Absent and malformed deny alike.
+
+    A future schema revision is refused rather than guessed at: reading an
+    unknown document as a known one is how a voice gets admitted on the
+    strength of fields this build has never heard of.
+    """
+    assert evidence_record(document(**overrides)) is None
+
+
+def test_execution_is_pinned_independently_of_the_evidence():
+    """The gate's comparison is only worth making if both sides are separate.
+
+    Requirements built from the provider and the binding can disagree with a
+    stored snapshot; that disagreement is the ``EXECUTION_MISMATCH`` the gate
+    exists to catch. Building them from the snapshot instead would make every
+    field match by construction.
+    """
+    def pinned(**overrides):
+        base = {
+            "provider_instance": "speechrail-local",
+            "voice_id": "wom-klein",
+            "voice_revision": "wvr_1",
+            "model_id": "qwen3-tts",
+            "model_artifact_revision": "art-1",
+            "model_catalog_revision": "cat-1",
+            "locale": "zh",
+            "usage": "dialogue",
+            "variant": "custom_voice",
+        }
+        base.update(overrides)
+        return execution_requirements(**base)
+
+    declared = pinned()
+    assert declared.variant == "custom_voice"
+
+    # The whole point: a render declared against facts the snapshot does not
+    # carry is refused. The stored execution names only a model, so the
+    # artefact, variant, locale and catalogue revision all diverge — and the
+    # gate can only see that because the two sides were built separately.
+    stored = evidence_record(document())
+    assert stored is not None
+    verdict = gate().admit(stored, declared)
+    assert verdict.reason is EvidenceRejection.EXECUTION_MISMATCH
 
 
 def test_expiry_blocks_new_synthesis_but_not_already_produced_audio():

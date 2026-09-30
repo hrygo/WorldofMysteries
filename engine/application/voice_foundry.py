@@ -31,6 +31,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from infrastructure.voice_foundry_repository import (
@@ -46,6 +47,7 @@ from application.voice_foundry_ports import (
     review_verdict_is_accepted,
     VoiceFoundryPortError,
 )
+from application.voice_evidence import evidence_document
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from infrastructure.voice_foundry_repository import (
@@ -170,12 +172,18 @@ class VoiceFoundryWorker:
         policy: FoundryRetryPolicy | None = None,
         sleeper: Callable[[float], Awaitable[None]] | None = None,
         clock: Callable[[], float] | None = None,
+        wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._port = port
         self._policy = policy or FoundryRetryPolicy()
         self._sleep = sleeper or asyncio.sleep
         self._clock = clock or time.monotonic
+        # ``clock`` above measures deadlines and is deliberately monotonic, so
+        # it cannot date anything. Evidence has to say when it was minted, and
+        # a monotonic reading would be a meaningless timestamp to anyone
+        # reading the snapshot later.
+        self._wall_clock = wall_clock or (lambda: datetime.now(UTC))
 
     # -- public surface --------------------------------------------------
 
@@ -593,14 +601,18 @@ class VoiceFoundryWorker:
                 evidence_digest=result.evidence.evidence_digest,
                 voice_id=result.voice_id,
                 voice_revision=result.voice_revision,
-                snapshot={
-                    "execution": dict(result.evidence.execution),
-                    "reference": dict(result.evidence.reference),
-                    "output": dict(result.evidence.output),
-                    "human": dict(result.evidence.human),
-                    "publication": dict(result.evidence.publication),
-                    "rights": dict(result.evidence.rights),
-                },
+                # The whole document, not just its six sections. Storing a
+                # fragment guaranteed that whoever read it back had to
+                # reconstruct the rest, and the parts nobody stored are
+                # exactly the ones a gate needs: when this was minted, and
+                # whether it was revoked.
+                snapshot=evidence_document(
+                    result.evidence,
+                    provider_instance=task.provider_instance,
+                    voice_id=result.voice_id,
+                    voice_revision=result.voice_revision,
+                    created_at=self._wall_clock().isoformat(),
+                ),
             ),
             binding_id=binding_id,
         )
