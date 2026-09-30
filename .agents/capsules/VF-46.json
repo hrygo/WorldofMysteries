@@ -3,16 +3,16 @@
   "capsule_id": "CAP-VF-46",
   "capsule_revision": 1,
   "task_id": "VF-46",
-  "title": "Implement VF-46",
+  "title": "铸造任务持久化执行范围与预算（仲裁扩权：迁移面）",
   "assigned_role": "AGT-DATA",
   "status": "CREATED",
-  "created_at": "2026-09-30T13:00:45.190359+00:00",
+  "created_at": "2026-09-30T13:12:46.300690+00:00",
   "risk_class": "high",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "dd48db99dc88632fdfa199d0b2c72c1cdec1b70e",
+    "base_sha": "2318a319e686b1c7ccdbf4a3280eb5dc5a627f14",
     "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
-    "context_snapshot": "sha256:218c239db0d449c0969b2be316e53ec90d8fe1e90744bf616a5bce74966fe9b0"
+    "context_snapshot": "sha256:7110d008a404e4339bef747b81b965d60da6f171f0a4c6e1273909e1f14ebfeb"
   },
   "scope": {
     "read": [
@@ -36,7 +36,9 @@
       ".hacf/**",
       ".github/**"
     ],
-    "privileged_grants": []
+    "privileged_grants": [
+      "engine/infrastructure/migrations/**"
+    ]
   },
   "context": {
     "core_manifest": [
@@ -76,7 +78,7 @@
       "state_delta.schema.json",
       "domain_event.schema.json"
     ],
-    "slice_strategy": "static-scope-order",
+    "slice_strategy": "focus-unmatched(static-scope-order)",
     "token_estimate": 783,
     "max_core_tokens": 3000,
     "expansion_policy": "arbiter_approved",
