@@ -21,6 +21,13 @@ from application.performance_compiler import (
 )
 from application.speech_unit import SealedSpeechUnit
 from domain.audio_voice import ASRProviderProtocol, ASRResult, SpeechResult, TTSProviderProtocol
+from infrastructure.audio.foundry_policy import (
+    DEFAULT_VALIDATION_POLICY_REVISION,
+    DEFAULT_VARIANT,
+    execution_policy,
+    processing_fingerprint,
+)
+from infrastructure.audio.voice_foundry_adapter import FoundryExecutionPolicy
 from infrastructure.audio import (
     MEDIA_MAX_HEADER_BYTES,
     REALTIME_TTS_SAMPLE_RATE,
@@ -3018,3 +3025,129 @@ async def test_a_preview_that_is_not_audio_is_refused_rather_than_hashed():
     # unknown rather than being invented from bytes that are not audio.
     assert result.duration_seconds == 0.0
     assert result.audio_bytes > 0
+
+# -- Foundry execution identity (VF-57) ------------------------------------
+
+
+DECLARED = {
+    "WOM_FOUNDRY_MODEL_ID": "tts-1.7b-design-bf16",
+    "WOM_FOUNDRY_SCOPE_REF": "wom-local-audio",
+}
+
+
+def test_a_declared_deployment_gets_a_policy():
+    policy = execution_policy(AudioProviderConfig(), env=DECLARED)
+
+    assert isinstance(policy, FoundryExecutionPolicy)
+    assert policy.model_id == "tts-1.7b-design-bf16"
+    assert policy.scope_ref == "wom-local-audio"
+
+
+@pytest.mark.parametrize(
+    "missing",
+    ["WOM_FOUNDRY_MODEL_ID", "WOM_FOUNDRY_SCOPE_REF"],
+)
+def test_an_undeclared_deployment_gets_no_policy(missing):
+    """Either omission is the same decision: this process will not say what
+    it is, so it does not offer to cast.
+
+    The model key is checked against the service's own report later, so
+    guessing it would make that check vacuous. The rights scope cannot be
+    checked at all — there is nobody to check it against — and inventing one
+    would put an unearned grant into the evidence of every voice the game
+    publishes.
+    """
+    env = {key: value for key, value in DECLARED.items() if key != missing}
+
+    assert execution_policy(AudioProviderConfig(), env=env) is None
+
+
+def test_an_empty_declaration_is_not_a_declaration():
+    env = dict(DECLARED, WOM_FOUNDRY_SCOPE_REF="   ")
+
+    assert execution_policy(AudioProviderConfig(), env=env) is None
+
+
+def test_the_pipeline_facts_have_true_defaults():
+    """A deployment should not have to remember what this build already is.
+
+    A foundry voice is a clone, so ``custom_voice`` is a fact rather than a
+    blank. Only the two things the repository genuinely cannot know are
+    required.
+    """
+    policy = execution_policy(AudioProviderConfig(), env=DECLARED)
+
+    assert policy is not None
+    assert policy.variant == DEFAULT_VARIANT == "custom_voice"
+    assert policy.validation_policy_revision == DEFAULT_VALIDATION_POLICY_REVISION
+    assert policy.allowed_usages == frozenset({"dialogue", "narration"})
+
+
+def test_the_fingerprint_covers_everything_the_build_enforces():
+    """Change any enforced input and the fingerprint has to move with it.
+
+    Evidence minted under one pipeline must not be presentable as evidence
+    about another. A version counter cannot express "the model and the
+    dictionary both changed", which is why this is a digest over the
+    combination.
+    """
+    base = dict(
+        provider_name="speechrail",
+        model_id="tts-1.7b-design-bf16",
+        variant=DEFAULT_VARIANT,
+        validation_policy_revision=DEFAULT_VALIDATION_POLICY_REVISION,
+        dictionary_revision="wom-zh-cn-v1",
+    )
+    reference = processing_fingerprint(**base)
+
+    assert reference == processing_fingerprint(**base)
+    for field, changed in (
+        ("provider_name", "other"),
+        ("model_id", "tts-1.7b-design-q8"),
+        ("variant", "voice_design"),
+        ("validation_policy_revision", "wom-voice-validation-v2"),
+        ("dictionary_revision", "wom-zh-cn-v2"),
+    ):
+        assert processing_fingerprint(**{**base, field: changed}) != reference
+
+
+def test_the_fingerprint_is_actually_the_policy_s():
+    """The value in the evidence and the value computed here must be one
+    value, or evidence names a pipeline this build is not running."""
+    policy = execution_policy(
+        AudioProviderConfig(provider_name="speechrail"),
+        env=DECLARED,
+        dictionary_revision="wom-zh-cn-v1",
+    )
+
+    assert policy is not None
+    assert policy.processing_fingerprint == processing_fingerprint(
+        provider_name="speechrail",
+        model_id="tts-1.7b-design-bf16",
+        variant=DEFAULT_VARIANT,
+        validation_policy_revision=DEFAULT_VALIDATION_POLICY_REVISION,
+        dictionary_revision="wom-zh-cn-v1",
+    )
+
+
+def test_usages_can_be_narrowed_but_not_invented():
+    """Narrowing rights is a legitimate deployment choice.
+
+    Widening them is not, and the policy object is what refuses: a usage
+    outside the vocabulary cannot be constructed in the first place.
+    """
+    policy = execution_policy(
+        AudioProviderConfig(), env=dict(DECLARED, WOM_FOUNDRY_ALLOWED_USAGES="dialogue")
+    )
+
+    assert policy is not None
+    assert policy.allowed_usages == frozenset({"dialogue"})
+    with pytest.raises(Exception):
+        FoundryExecutionPolicy(
+            model_id="m",
+            variant="custom_voice",
+            validation_policy_revision="p",
+            processing_fingerprint="a" * 64,
+            allowed_usages=frozenset({"resale"}),
+            scope_ref="s",
+        )
