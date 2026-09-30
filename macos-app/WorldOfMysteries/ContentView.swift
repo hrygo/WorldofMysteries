@@ -497,6 +497,10 @@ public struct ContentView: View {
                     DatabaseStatusHUDCard(role: role)
                 }
             }
+
+            // 铸造与评审是生产面而非叙事页面，因此挂在引擎/存储 HUD 之下，
+            // 而不是给叙事侧边栏新增一个一级入口。
+            VoiceFoundryAuditionSection()
         }
     }
 
