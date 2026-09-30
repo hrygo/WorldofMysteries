@@ -58,11 +58,6 @@ from .voice_binding_repository import SQLiteVoiceBindingRepository
 
 _BINDING_LOCALE = "zh-CN"
 
-#: The phase the resolver used before speakers were nameable, kept so the
-#: migration seam in ``binding_scope_for`` resolves exactly the row it
-#: resolved before. Not a phase a new binding should be written under.
-_LEGACY_BINDING_PHASE = "narrative"
-
 #: The identity narration speaks under. A published narrative block carries
 #: its narration with no ``speaker_id`` at all, so the narrator inherits
 #: nobody's voice and has to be named — and it is named by the same slug the
@@ -102,8 +97,8 @@ class ResolvedVoiceRuntime:
 def binding_scope_for(
     session: StorySession,
     *,
-    presentation_identity: str | None = None,
-    phase: str | None = None,
+    presentation_identity: str,
+    phase: str,
 ) -> VoiceBindingScope:
     """Derive the stable presentation scope of one speaker in one session.
 
@@ -116,29 +111,14 @@ def binding_scope_for(
     Both halves of the speaker are named because both decide the voice: the
     same identity cast for narration and for dialogue is two bindings, and a
     scope carrying only the identity would let one silently stand in for the
-    other.
-
-    Called with no speaker, this still falls back to the protagonist and is
-    how the resolver behaved before speakers were nameable. That fallback is
-    a migration seam for call sites not yet moved onto ``speaker_scope_for``,
-    not a supported way to ask for a voice: it is the reason the narrator and
-    the cast were unreachable, and it is removed once nothing calls it.
+    other. Neither has a default. This function used to read the protagonist
+    off the session when the caller named nobody, which is precisely what
+    made the narrator and the cast unreachable; the fallback existed only
+    until the last delivery site moved onto ``speaker_scope_for``, and it is
+    gone now.
     """
     if not isinstance(session, StorySession):
         raise VoiceBindingResolutionError("voice_binding_scope_invalid")
-    if (presentation_identity is None) != (phase is None):
-        # Half a speaker is not a speaker: silently defaulting one half would
-        # put the caller's intent in a scope they did not ask for.
-        raise VoiceBindingResolutionError("voice_binding_scope_invalid")
-    if presentation_identity is None:
-        return VoiceBindingScope(
-            owner_id=session.protagonist_id,
-            world_id=session.world_id,
-            worldline_id=session.worldline_id,
-            presentation_identity=session.protagonist_id,
-            phase=_LEGACY_BINDING_PHASE,
-            locale=_BINDING_LOCALE,
-        )
     if not isinstance(presentation_identity, str) or not presentation_identity.strip():
         raise VoiceBindingResolutionError("voice_binding_scope_invalid")
     if not isinstance(phase, str) or not phase.strip():
@@ -205,7 +185,7 @@ async def resolve_voice_runtime(
     session: StorySession,
     config: AudioProviderConfig,
     voice_id: str,
-    scope: VoiceBindingScope | None = None,
+    scope: VoiceBindingScope,
     fetch_json=None,
 ) -> ResolvedVoiceRuntime:
     """Resolve one speaker to its reviewed, verified voice.
@@ -213,21 +193,19 @@ async def resolve_voice_runtime(
     The scope is passed in rather than derived, because the speaker is the
     caller's to know: the delivery stage knows which segment it is sealing,
     and a resolver that re-derived "the protagonist" here would quietly throw
-    that knowledge away. Omitting it resolves the protagonist and is the
-    migration seam for call sites not yet sealing a named speaker; it goes
-    away with the last of them.
+    that knowledge away. It is required for the same reason — a resolver
+    willing to pick a speaker would pick the protagonist every time, and the
+    narrator and the cast would stay unreachable however many were cast.
     """
     if not isinstance(voice_id, str) or not voice_id.strip():
         raise VoiceBindingResolutionError("voice_not_configured")
-    if scope is not None and not isinstance(scope, VoiceBindingScope):
+    if not isinstance(scope, VoiceBindingScope):
         raise VoiceBindingResolutionError("voice_binding_scope_invalid")
 
     # The scope is checked before the provider is probed.  With no reviewed
     # binding there is nothing for a provider generation to be verified
     # against, and a provider error would name a problem that is not the one
     # actually stopping this session from being voiced.
-    if scope is None:
-        scope = binding_scope_for(session)
     existing = await repository.load_scope(scope)
     if existing is None:
         raise VoiceBindingResolutionError("voice_binding_not_reviewed")

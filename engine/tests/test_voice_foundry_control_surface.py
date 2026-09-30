@@ -1172,7 +1172,9 @@ class _Scopes:
     def __init__(self, known: set[str] | None = None) -> None:
         self.known = known if known is not None else {"session-1"}
 
-    async def scope_for(self, session_id: str, presentation_identity: str):
+    async def scope_for(
+        self, session_id: str, presentation_identity: str, phase: str
+    ):
         if session_id not in self.known:
             return None
         return VoiceBindingScope(
@@ -1180,7 +1182,7 @@ class _Scopes:
             world_id="world-1",
             worldline_id="line-1",
             presentation_identity=presentation_identity,
-            phase="narrative",
+            phase=phase,
             locale="zh-CN",
         )
 
@@ -1218,13 +1220,16 @@ async def test_the_button_casts_a_designed_identity_without_naming_a_world(repos
     # The projection does not carry the origin, so it is checked where it was
     # actually recorded: a task that does not name the brief it was cast from
     # cannot later be traced back to the words that shaped the voice.
+    # The phase is the design's own usage, not a constant: a narrator cast
+    # from the same catalog lands in a different scope, and looking it up
+    # under the wrong one would find nothing and prove nothing.
     stored = await repository.load_scope_tasks(
         VoiceBindingScope(
             owner_id="klein",
             world_id="world-1",
             worldline_id="line-1",
             presentation_identity="ida-finch",
-            phase="narrative",
+            phase="dialogue",
             locale="zh-CN",
         )
     )
@@ -1347,5 +1352,5 @@ class _StaticScopes:
     def __init__(self, scope) -> None:
         self._scope = scope
 
-    async def scope_for(self, _session_id: str, _identity: str):
+    async def scope_for(self, _session_id: str, _identity: str, _phase: str):
         return self._scope

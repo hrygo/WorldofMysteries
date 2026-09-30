@@ -451,7 +451,7 @@ class _FixedScope:
     """
 
     async def scope_for(
-        self, session_id: str, presentation_identity: str
+        self, session_id: str, presentation_identity: str, phase: str
     ) -> VoiceBindingScope | None:
         if session_id != SESSION_ID:
             return None
@@ -464,7 +464,7 @@ class _FixedScope:
             world_id="live-app-path-world",
             worldline_id="line-live",
             presentation_identity=presentation_identity,
-            phase="narration",
+            phase=phase,
             locale="zh-CN",
         )
 

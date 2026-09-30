@@ -80,12 +80,8 @@ def _scope(
 
     Named rather than derived, because that is the point of the change: the
     resolver no longer knows who is speaking, so a test that could not say
-    would not be testing anything. The no-argument form is the migration seam
-    and still resolves the protagonist; ``TestLegacyScopeFallback`` pins that
-    it stops there.
+    would not be testing anything.
     """
-    if presentation_identity is None:
-        return binding_scope_for(_session())
     return binding_scope_for(
         _session(), presentation_identity=presentation_identity, phase=phase
     )
@@ -166,31 +162,41 @@ class TestSpeakerScope:
         assert speaker_scope_for(_session(), segment) is None
 
 
-class TestLegacyScopeFallback:
-    """The migration seam, pinned so its removal is a deliberate act.
+class TestNoImplicitSpeaker:
+    """The resolver must never choose a speaker on the caller's behalf.
 
-    ``binding_scope_for(session)`` with no speaker still resolves the
-    protagonist, because call sites in ``story_runtime`` and
-    ``post_commit_handlers`` have not been moved onto ``speaker_scope_for``
-    yet. This is the reason the narrator and the cast are unreachable, so it
-    is a temporary shape with a test: when the last caller moves, this class
-    goes red and the fallback goes with it.
+    It used to: ``binding_scope_for(session)`` with no speaker resolved the
+    protagonist, which is why the narrator and the cast were unreachable no
+    matter how many had been cast, reviewed and bound. Both delivery sites
+    now name their speaker, so the fallback is gone rather than merely
+    unused — these tests are what keep it gone.
     """
 
-    def test_no_speaker_still_resolves_the_protagonist(self):
-        scope = binding_scope_for(_session())
-
-        assert scope.presentation_identity == "klein"
-        assert scope.phase == "narrative"
+    def test_a_scope_cannot_be_built_without_naming_a_speaker(self):
+        with pytest.raises(TypeError):
+            binding_scope_for(_session())  # type: ignore[call-arg]
 
     def test_half_a_speaker_is_refused(self):
-        """Naming an identity without a phase must not invent the other half."""
+        """An explicitly empty half must not borrow the other's value.
+
+        Omitting the argument is caught by the signature; passing ``None`` is
+        not, so the body still has to refuse it rather than fall through to a
+        scope the caller did not ask for.
+        """
         with pytest.raises(VoiceBindingResolutionError) as caught:
-            binding_scope_for(_session(), presentation_identity="ida-finch")
+            binding_scope_for(
+                _session(), presentation_identity="ida-finch", phase=None  # type: ignore[arg-type]
+            )
 
         assert caught.value.code == "voice_binding_scope_invalid"
 
-    def test_a_named_speaker_never_falls_back(self):
+    def test_a_blank_speaker_is_refused(self):
+        with pytest.raises(VoiceBindingResolutionError) as caught:
+            binding_scope_for(_session(), presentation_identity="   ", phase="dialogue")
+
+        assert caught.value.code == "voice_binding_scope_invalid"
+
+    def test_the_named_speaker_is_the_one_that_binds(self):
         scope = _scope("ida-finch", DIALOGUE_PHASE)
 
         assert scope.presentation_identity == "ida-finch"

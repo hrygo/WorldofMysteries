@@ -268,7 +268,10 @@ class VoiceScopeResolver(Protocol):
     """
 
     async def scope_for(
-        self, session_id: str, presentation_identity: str
+        self,
+        session_id: str,
+        presentation_identity: str,
+        phase: str,
     ) -> VoiceBindingScope | None: ...
 
 
@@ -308,7 +311,7 @@ def _cast_design(
         design = next(item for item in designs.designs if item.design_id == design_id)
         try:
             scope = await scopes.scope_for(
-                session_id, design.presentation_identity
+                session_id, design.presentation_identity, design.usage
             )
         except Exception:  # noqa: BLE001 - one stable public code
             return None, "service_unavailable"
