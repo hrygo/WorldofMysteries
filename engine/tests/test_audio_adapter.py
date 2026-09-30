@@ -2664,6 +2664,9 @@ async def test_read_asset_hashes_the_exact_bytes_returned():
 
     assert asset.audio_digest == hashlib.sha256(audio).hexdigest()
     assert asset.audio_bytes == len(audio)
+    # The digest and the payload are the same read. Returning only the digest
+    # would report a successful audition while handing back nothing to play.
+    assert asset.audio == audio
     assert transport.calls[0]["url"].endswith("/voice-designs/vd_" + "a" * 24 + "/audio")
 
 

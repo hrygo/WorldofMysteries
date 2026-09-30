@@ -489,6 +489,11 @@ class SpeechRailVoiceFoundryAdapter:
             audio_digest=hashlib.sha256(response.body).hexdigest(),
             audio_bytes=len(response.body),
             duration_seconds=0.0,
+            # The payload travels with its own digest. Hashing it and dropping
+            # it would let this call report success while leaving the caller
+            # with nothing to audition — which is the one thing an asset read
+            # exists for.
+            audio=response.body,
         )
 
     # -- evidence --------------------------------------------------------
