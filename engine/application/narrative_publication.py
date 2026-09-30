@@ -60,6 +60,26 @@ def _bounded_text(
     return text
 
 
+def _character_roster(value: object) -> tuple[str, ...]:
+    """Normalise a declared roster of who may speak this turn.
+
+    A duplicate is refused rather than collapsed. Two entries for one
+    character mean the projection is ambiguous about who is present, and
+    silently deduplicating would hide that from whoever has to debug a scene
+    that cast the wrong person — while still letting the roster through as
+    if it were well-formed.
+    """
+    if not isinstance(value, (tuple, list)):
+        raise NarrativePublicationError("invalid_present_character_ids")
+    roster = tuple(
+        _bounded_text(item, field="present_character_ids", limit=256)
+        for item in value
+    )
+    if len(set(roster)) != len(roster):
+        raise NarrativePublicationError("duplicate_present_character")
+    return roster
+
+
 @dataclass(frozen=True, slots=True)
 class NarrativeCandidate:
     """Model-produced expression with narration and dialogue kept distinct.
@@ -118,6 +138,22 @@ class CommittedNarrativeSource:
     disclosed_facts: str
     input_turn_id: str | None = None
     source_store_revision: int | None = None
+    #: Who is in the scene for this turn, when the world says so.
+    #:
+    #: Three states, and the difference between them is the whole point:
+    #: ``None`` means this source declares no roster at all, and publication
+    #: keeps its historical single-protagonist behaviour; ``()`` means the
+    #: world says the scene is empty and the block should carry narration
+    #: only; a non-empty tuple is authoritative and no one outside it can
+    #: speak. Folding ``None`` and ``()`` together would make "nobody is here"
+    #: indistinguishable from "we have not asked yet", and the first is a
+    #: fact while the second is an absence of one.
+    #:
+    #: This is a presentation-layer fact about who may be heard, not world
+    #: truth: it never advances the world revision. The roster it carries is
+    #: already a projection of committed state, narrowed by what this turn is
+    #: authorised to know (ADR-006 D2).
+    present_character_ids: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         for field in ("turn_id", "session_id", "state_delta_id", "protagonist_id"):
@@ -171,6 +207,12 @@ class CommittedNarrativeSource:
                 limit=_MAX_COMMITTED_SOURCE_CHARS,
             ),
         )
+        if self.present_character_ids is not None:
+            object.__setattr__(
+                self,
+                "present_character_ids",
+                _character_roster(self.present_character_ids),
+            )
 
 
 class NarrativeCompilerPort(Protocol):

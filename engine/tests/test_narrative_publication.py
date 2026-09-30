@@ -129,7 +129,11 @@ class MemoryNarrativeRepository:
         )
 
 
-def _committed_source(*, state_delta: StateDelta | None = None):
+def _committed_source(
+    *,
+    state_delta: StateDelta | None = None,
+    present_character_ids=None,
+):
     from application.narrative_publication import CommittedNarrativeSource
 
     return CommittedNarrativeSource(
@@ -143,6 +147,7 @@ def _committed_source(*, state_delta: StateDelta | None = None):
         disclosed_facts="已提交结果：预约簿缺少一页。",
         input_turn_id="input-1",
         source_store_revision=8,
+        present_character_ids=present_character_ids,
     )
 
 
@@ -656,3 +661,76 @@ async def test_story_expression_get_rejects_a_turn_from_another_session():
 
     with pytest.raises(StoryExpressionError, match="turn_session_mismatch"):
         await service.get(session_id="session-other", turn_id="turn-1")
+
+
+def test_a_source_can_carry_who_is_in_the_room():
+    """The roster is the fact that lets anyone but the protagonist speak.
+
+    Until the committed source carries this, publication has exactly one
+    identity to bind and the supply chain can only ever hear one voice — no
+    matter how many characters the world knows about.
+    """
+    source = _committed_source(
+        present_character_ids=("klein-visible", "audrey-presentation")
+    )
+    assert source.present_character_ids == (
+        "klein-visible",
+        "audrey-presentation",
+    )
+
+
+def test_declaring_nobody_and_declaring_nothing_are_different_facts():
+    """An empty scene is an answer; an unasked question is not.
+
+    ``()`` says the world placed nobody here, and the block should carry
+    narration alone. ``None`` says this source has no roster to give, which
+    is the state every source predating the roster is in. Collapsing them
+    would let "nobody is here" pass as "we have not looked yet", and the
+    first must never be mistaken for the second.
+    """
+    assert _committed_source().present_character_ids is None
+    assert _committed_source(present_character_ids=()).present_character_ids == ()
+
+
+def test_the_protagonist_is_not_required_to_be_in_the_room():
+    """Whether the player's character speaks is a product decision.
+
+    The roster is a fact about the scene, and the scene may be staged without
+    the protagonist in it. Making membership mandatory would answer that
+    question here, in a dataclass, with no way to say otherwise.
+    """
+    source = _committed_source(present_character_ids=("audrey-presentation",))
+    assert "protagonist-1" not in source.present_character_ids
+
+
+def test_a_roster_is_normalised_to_bounded_identifiers():
+    assert _committed_source(
+        present_character_ids=["  klein-visible  "]
+    ).present_character_ids == ("klein-visible",)
+
+
+@pytest.mark.parametrize(
+    "roster",
+    [
+        # A duplicate means the projection is ambiguous about who is present.
+        # Deduplicating would hide that from whoever debugs a scene that cast
+        # the wrong person, while still letting the roster through as if it
+        # were well-formed.
+        ("klein-visible", "klein-visible"),
+        ("klein-visible", "  klein-visible  "),
+        # Same character, two spellings: still two entries for one person.
+        ["klein-visible", ""],
+        ["klein-visible", "   "],
+        ["klein-visible", None],
+        ["klein-visible", 7],
+        ["klein-visible", "x" * 257],
+        ["klein-visible", "with\x00nul"],
+        "klein-visible",
+        7,
+    ],
+)
+def test_an_unusable_roster_is_refused(roster):
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError):
+        _committed_source(present_character_ids=roster)
