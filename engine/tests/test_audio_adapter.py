@@ -2637,6 +2637,31 @@ async def test_evidence_is_not_invented_when_upstream_cannot_supply_it():
     assert excinfo.value.code == "provider_contract_unsupported"
 
 
+async def test_evidence_refuses_a_model_the_service_did_not_render():
+    """A declared model that contradicts the service is not evidence.
+
+    The model in evidence is the declared one, because a provider string is
+    not a commitment. But a deployment whose declaration disagrees with what
+    the service actually rendered is not the deployment it claims to be, and
+    an evidence bundle naming the declared model would describe a voice
+    nobody heard. The revision was already taken from the provider; only the
+    model was taken on trust, which is exactly the half that can drift.
+    """
+    candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
+    candidate["source_model"]["artifact"] = "some-other-model"
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.publish(
+            "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+        )
+
+    assert excinfo.value.code == "evidence_model_identity_mismatch"
+
+
 async def test_publish_binds_evidence_to_the_actual_assets_and_execution_identity():
     transport = _RecordingTransport(
         (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())

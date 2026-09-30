@@ -544,9 +544,14 @@ class SpeechRailVoiceFoundryAdapter:
         source_model = _mapping(candidate, "source_model")
         validation = _latest_validation(candidate)
         # Upstream reports `source_model.artifact` (which model) and
-        # `source_model.revision` (which revision of that model). The evidence
-        # contract wants the revision here; the model identity comes from the
-        # declared policy, not from a provider string.
+        # `source_model.revision` (which revision of that model). The model
+        # identity in evidence is the *declared* one, because a provider
+        # string is not a commitment — but a declaration that contradicts the
+        # service is a deployment that is not what it says it is, and
+        # evidence naming it would be evidence about a voice nobody heard.
+        artifact = _text_field(source_model, "artifact", "")
+        if not artifact or artifact != policy.model_id:
+            raise VoiceFoundryPortError("evidence_model_identity_mismatch")
         artifact_revision = _text_field(source_model, "revision", "")
         if not artifact_revision:
             raise VoiceFoundryPortError("provider_contract_unsupported")
