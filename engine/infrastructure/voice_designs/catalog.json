@@ -1,0 +1,75 @@
+{
+  "catalog_version": "1.0",
+  "identities": [
+    {
+      "design_id": "tingen.narrator",
+      "display_name": "旁白",
+      "presentation_identity": "narrator",
+      "usage": "narration",
+      "locale": "zh-CN",
+      "kind": "original",
+      "canon_anchor": null,
+      "design_revision": 1,
+      "public_traits": ["温润", "旧书卷气", "中音", "偏慢", "不评判"],
+      "voice_description": "一位不指定性别的讲述者，中性，三十到四十岁的成熟感。音色温润，带一点旧书卷气。中音。语速偏慢，留白从容。标准中文，无口音。情绪沉静，带悬念的引导感，不夸张。不要播音腔，不要激昂，不要甜腻。",
+      "reference_text": "煤气灯在雾气里晕开，蒸汽管道的低鸣像是这座城市尚未醒来的呼吸。",
+      "validation_text": "钟楼敲过九下，潮水顺着堤岸往上爬，把昨夜没捞干净的脚印又抹了一遍。"
+    },
+    {
+      "design_id": "tingen.victor-osborn",
+      "display_name": "维克多·奥斯本",
+      "presentation_identity": "victor-osborn",
+      "usage": "dialogue",
+      "locale": "zh-CN",
+      "kind": "original",
+      "canon_anchor": null,
+      "design_revision": 2,
+      "public_traits": ["低沉", "粗粝", "沙哑", "慢而顿", "沉稳"],
+      "voice_description": "一位五十岁上下的男性。音色粗粝、沙哑，常年被机器声磨过。低音。语速慢而顿。情绪沉稳、可靠，像是修过很多坏机器之后不再着急的人。不要不耐烦，不要怨气，不要对任何人抱怨。",
+      "reference_text": "机器老了才最要紧，人老了还能修，机器散了可没人赔得起。",
+      "validation_text": "我修过贝克兰德运来的新锅炉，都比不上咱们这台老伙计懂事——它只是饿，不是坏。"
+    },
+    {
+      "design_id": "tingen.ida-finch",
+      "display_name": "艾达·芬奇",
+      "presentation_identity": "ida-finch",
+      "usage": "dialogue",
+      "locale": "zh-CN",
+      "kind": "original",
+      "canon_anchor": null,
+      "design_revision": 1,
+      "public_traits": ["清亮", "中偏高", "条理清楚", "克制"],
+      "voice_description": "一位三十七岁上下的女性。音色清亮、稳定，干净。中偏高音。语速中等偏快，但条理清楚。标准口音，略带受过教育的克制感。情绪冷静专业，带着克制的关切。不要尖锐，不要冷漠到刻薄，不要嗲。",
+      "reference_text": "把伤口按住别松手，麻药退下去之前，人不能睡过去。",
+      "validation_text": "我救得了外伤，救不了你瞒下来的事——把实话告诉我，我才能决定先救哪一头。"
+    },
+    {
+      "design_id": "tingen.samuel-clark",
+      "display_name": "塞缪尔·克拉克",
+      "presentation_identity": "samuel-clark",
+      "usage": "dialogue",
+      "locale": "zh-CN",
+      "kind": "original",
+      "canon_anchor": null,
+      "design_revision": 1,
+      "public_traits": ["清亮偏薄", "中高", "急促", "机敏"],
+      "voice_description": "一位二十七岁上下的男性。音色清亮偏薄，由语速带动，略急促。中高音。语速快，跳跃，藏不住兴奋。标准口音，读过书但爱装老练。情绪机敏、好追问，略带油滑的幽默。不要低沉，不要慢条斯理，不要老气。",
+      "reference_text": "先生，一条独家只要够快，印刷厂和您的名字就会一起出现在明早的头版上。",
+      "validation_text": "我这条命不值钱，可这条消息值——您要是慢了，明早它就是别人署的名。"
+    },
+    {
+      "design_id": "tingen.george-hart",
+      "display_name": "乔治·哈特",
+      "presentation_identity": "george-hart",
+      "usage": "dialogue",
+      "locale": "zh-CN",
+      "kind": "original",
+      "canon_anchor": null,
+      "design_revision": 1,
+      "public_traits": ["厚实", "中低", "短句", "命令感"],
+      "voice_description": "一位四十二岁上下的男性。音色厚实，有胸腔共鸣。中低音。语速中速，短句，命令感。标准口音，硬朗。情绪公事公办，带一点不耐，偶露人情味。不要阴阳怪气，不要慢吞吞，不要暴怒。",
+      "reference_text": "封锁这条街，没有我的章子，谁也别想抬走一具尸体。",
+      "validation_text": "按规矩，一份改过分类的报告要么被驳回，要么把签字的人一起送进去——你选哪条？"
+    }
+  ]
+}
