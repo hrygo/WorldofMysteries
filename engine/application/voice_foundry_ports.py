@@ -268,9 +268,19 @@ class EvidenceBundle:
 
 @dataclass(frozen=True, slots=True)
 class AssetRequest:
-    """Read one exact asset so audition binds a real digest, not a promise."""
+    """Read one exact asset so audition binds a real digest, not a promise.
+
+    ``candidate_revision`` is mandatory, not advisory. The provider moves a
+    candidate to a new revision every time its reference audio is rebound, and
+    its asset endpoints reject a read that does not name the revision they
+    expect. More importantly for us: audio read at the wrong revision describes
+    a different voice than the one the evidence and the review will describe.
+    The revision travels with the request so "the reference a listener hears"
+    and "the reference we recorded" cannot drift apart.
+    """
 
     candidate_id: str
+    candidate_revision: str
     validation_id: str | None = None
 
 

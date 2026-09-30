@@ -692,7 +692,14 @@ class VoiceFoundryWorker:
             raise VoiceFoundryPortError("foundry_outcome_unknown")
 
         reference_asset = await self._port.read_asset(
-            AssetRequest(candidate_id=provider_candidate_id)
+            AssetRequest(
+                candidate_id=provider_candidate_id,
+                # The revision ``confirm`` just produced, not the one
+                # ``create`` handed out: binding the reference is what moves
+                # the design. Reading at the older revision would hand a
+                # listener audio of a voice this engine never recorded.
+                candidate_revision=confirm.provider_result_ref,
+            )
         )
         candidate = await self._repository.update_candidate(
             task.task_id,

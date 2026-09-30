@@ -110,6 +110,7 @@ class RecordingPort:
         review_error: Exception | None = None,
     ):
         self.calls: list[str] = []
+        self.asset_requests: list[AssetRequest] = []
         self.preview_error = preview_error
         self.validation_passes = validation_passes
         self.review_error = review_error
@@ -255,6 +256,7 @@ class RecordingPort:
 
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         self.calls.append("read_asset")
+        self.asset_requests.append(request)
         return AssetResult(audio_digest="9" * 64, audio_bytes=16, duration_seconds=1.0)
 
 
@@ -549,6 +551,27 @@ async def test_confirming_the_reference_moves_the_recorded_revision(repository):
     assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
     candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
     assert candidate.provider_candidate_revision == CONFIRMED_REVISION
+
+
+async def test_the_audition_is_read_at_the_revision_we_recorded(repository):
+    """The reference a listener hears has to be the one this engine recorded.
+
+    Reading an asset without naming the revision does not fail loudly against
+    every provider — it hands back audio of whichever revision the candidate
+    happens to be at now. The digest would then describe a voice that no
+    evidence, no review and no publication ever mentions. So the revision
+    travels with the read, and it is the one ``confirm`` produced.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    await worker.advance("task-1")
+
+    assert [request.candidate_revision for request in port.asset_requests] == [
+        CONFIRMED_REVISION
+    ]
+    assert port.asset_requests[0].candidate_id == CANDIDATE_ID
 
 
 async def test_a_design_that_moved_where_we_have_no_record_of_is_refused(

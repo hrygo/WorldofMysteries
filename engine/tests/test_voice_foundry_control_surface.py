@@ -100,6 +100,7 @@ class _Port:
 
     def __init__(self, *, explode: bool = False):
         self.calls: list[str] = []
+        self.asset_requests: list[AssetRequest] = []
         self.explode = explode
 
     async def preview(self, request: PreviewRequest) -> PreviewResult:
@@ -147,6 +148,7 @@ class _Port:
 
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         self.calls.append("read_asset")
+        self.asset_requests.append(request)
         return AssetResult(
             audio_digest=REFERENCE_AUDIO_DIGEST, audio_bytes=16, duration_seconds=1.0
         )

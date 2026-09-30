@@ -2656,7 +2656,9 @@ async def test_read_asset_hashes_the_exact_bytes_returned():
     audio = b"RIFF----WAVEfake"
     transport = _RecordingTransport((200, audio))
     adapter = _adapter(transport)
-    asset = await adapter.read_asset(AssetRequest(candidate_id="vd_" + "a" * 24))
+    asset = await adapter.read_asset(
+        AssetRequest(candidate_id="vd_" + "a" * 24, candidate_revision="vr_" + "b" * 32)
+    )
 
     assert asset.audio_digest == hashlib.sha256(audio).hexdigest()
     assert asset.audio_bytes == len(audio)
@@ -2667,7 +2669,11 @@ async def test_validation_audio_is_read_from_its_own_route():
     transport = _RecordingTransport((200, b"RIFF----WAVEfake"))
     adapter = _adapter(transport)
     await adapter.read_asset(
-        AssetRequest(candidate_id="vd_" + "a" * 24, validation_id="vv_" + "e" * 24)
+        AssetRequest(
+            candidate_id="vd_" + "a" * 24,
+            candidate_revision="vr_" + "b" * 32,
+            validation_id="vv_" + "e" * 24,
+        )
     )
     assert transport.calls[0]["url"].endswith(
         "/voice-designs/vd_" + "a" * 24 + "/validations/vv_" + "e" * 24 + "/audio"
