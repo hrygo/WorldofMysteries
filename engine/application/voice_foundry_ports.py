@@ -193,6 +193,14 @@ class PreviewResult:
     duration_seconds: float
     recipe: Mapping[str, object]
     recipe_digest: str
+    #: The audio itself. An audition a listener cannot hear is not an
+    #: audition: the whole point of a preview is that a person judges the
+    #: voice before anything is registered, so a digest with no bytes beside
+    #: it leaves the reviewer with nothing to sign. It defaults empty only so
+    #: an adapter that has not been taught to return the payload fails loudly
+    #: at the point of use rather than reporting a well-formed preview that
+    #: carries nothing playable.
+    audio: bytes = b""
 
 
 @dataclass(frozen=True, slots=True)
