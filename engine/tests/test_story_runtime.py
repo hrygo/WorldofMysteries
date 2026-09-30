@@ -766,9 +766,55 @@ FOUNDRY_METHODS = frozenset(
 )
 
 
+@pytest.fixture
+def declared_foundry_identity(monkeypatch):
+    """Say what this deployment casts with, the way a real one must.
+
+    The foundry refuses to open without a declared model catalog key and a
+    rights scope, so a test that wants the supply chain has to declare them
+    too. That is the point rather than an inconvenience: a test reaching the
+    chain by asserting nothing about the execution identity would be evidence
+    that the chain opens for a deployment that has not said what it is.
+    """
+    monkeypatch.setenv("WOM_FOUNDRY_MODEL_ID", "tts-1.7b-design-bf16")
+    monkeypatch.setenv("WOM_FOUNDRY_SCOPE_REF", "wom-local-audio")
+    return "tts-1.7b-design-bf16"
+
+
+@pytest.mark.asyncio
+async def test_an_undeclared_deployment_does_not_advertise_a_foundry(
+    tmp_path, content_artifact, monkeypatch
+):
+    """A surface in the handshake is a promise, so it is withheld until said.
+
+    The alternative is advertising eight methods whose every publish ends in
+    ``provider_contract_unsupported`` — a client entitled to believe voice
+    supply exists, discovering it does not one irreversible step later. Not
+    advertising it is the same refusal, made where a client can still act on
+    it.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    for name in ("WOM_FOUNDRY_MODEL_ID", "WOM_FOUNDRY_SCOPE_REF"):
+        monkeypatch.delenv(name, raising=False)
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is None
+        assert not (FOUNDRY_METHODS & set(runtime.control_handlers))
+    finally:
+        await runtime.close()
+
+
 @pytest.mark.asyncio
 async def test_the_supply_chain_is_reachable_from_a_configured_engine(
-    tmp_path, content_artifact
+    tmp_path, content_artifact, declared_foundry_identity
 ):
     """Every supply component had a test and no production caller.
 
@@ -2462,7 +2508,7 @@ async def _noop():
 
 @pytest.mark.asyncio
 async def test_the_supply_driver_runs_for_as_long_as_the_engine_does(
-    tmp_path, content_artifact
+    tmp_path, content_artifact, declared_foundry_identity
 ):
     """Registering the surface was never the same as running the chain.
 
@@ -2569,7 +2615,7 @@ async def test_a_driver_that_refuses_to_stop_keeps_the_database_open():
 
 @pytest.mark.asyncio
 async def test_a_configured_engine_publishes_its_casting_catalog(
-    tmp_path, content_artifact
+    tmp_path, content_artifact, declared_foundry_identity
 ):
     """The App cannot offer a choice of whom to cast without this read.
 
@@ -2609,7 +2655,9 @@ async def test_a_configured_engine_publishes_its_casting_catalog(
 
 
 @pytest.mark.asyncio
-async def test_a_configured_engine_offers_both_ways_in(tmp_path, content_artifact):
+async def test_a_configured_engine_offers_both_ways_in(
+    tmp_path, content_artifact, declared_foundry_identity
+):
     """The button and the silent trigger are advertised by the same engine.
 
     One process, one catalog, one driver: the App casts through a control
@@ -2640,7 +2688,7 @@ async def test_a_configured_engine_offers_both_ways_in(tmp_path, content_artifac
 
 @pytest.mark.asyncio
 async def test_an_unreadable_catalog_does_not_silence_new_speakers(
-    tmp_path, content_artifact, monkeypatch
+    tmp_path, content_artifact, monkeypatch, declared_foundry_identity
 ):
     """One malformed file must not cost the world its automatic casting.
 

@@ -79,6 +79,7 @@ from .audio.voice_delivery import (
     TurnDeliveryOutcome,
     TurnDeliveryPipeline,
 )
+from .audio.foundry_policy import execution_policy
 from .audio.voice_foundry_adapter import SpeechRailVoiceFoundryAdapter
 from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
@@ -686,6 +687,16 @@ class StoryRuntime:
             return None
         if audio_config.provider_name.casefold() != "speechrail":
             return None
+        # Declared, not inferred. A deployment that has not said which model
+        # catalog key it casts with, or under what rights scope, gets no
+        # foundry: the adapter would refuse every publish anyway, and a
+        # surface advertised in the handshake is a promise the process cannot
+        # keep.
+        policy = execution_policy(
+            audio_config, dictionary_revision=DICTIONARY_REVISION
+        )
+        if policy is None:
+            return None
         repository = SQLiteVoiceFoundryRepository(database)
         supply = VoiceSupplyService(
             repository=repository,
@@ -696,7 +707,9 @@ class StoryRuntime:
         # configuration no player will ever hear, and the whole point of
         # binding evidence to a model artifact is lost.
         port = SpeechRailVoiceFoundryAdapter(
-            audio_config, preview_model=audio_config.tts_model
+            audio_config,
+            preview_model=audio_config.tts_model,
+            execution_policy=policy,
         )
         worker = VoiceFoundryWorker(repository, port)
         commands = VoiceFoundryCommandService(
