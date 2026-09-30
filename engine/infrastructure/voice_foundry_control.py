@@ -27,6 +27,11 @@ own.
 choice: ``voice_bindings`` already declares the scope unique, so the key is
 derived from the task's own scope and the repository refuses a mismatch.
 
+``voice.foundry.asset.get`` is the one read that carries audio out of this
+process. It is served here rather than by the client reaching the provider
+itself so that the digest a review is checked against describes the very bytes
+the client was handed.
+
 Deliberately still absent: ``voice.binding.replace``. It re-points a binding
 that already exists, so it has no task to hang its idempotency receipt on,
 and the command journal this surface uses is keyed by task.
@@ -34,6 +39,7 @@ and the command journal this surface uses is keyed by task.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
@@ -127,6 +133,9 @@ def voice_foundry_control_handlers(
     return {
         "voice.foundry.get": _wire(_get, repository, supply, None, None),
         "voice.foundry.list": _wire(_list, repository, supply, None, None),
+        "voice.foundry.asset.get": _wire(
+            _asset, repository, supply, worker, None
+        ),
         "voice.foundry.select": _wire(
             _select, repository, supply, commands, "select"
         ),
@@ -225,6 +234,51 @@ async def _list(
         "schema_version": SCHEMA_VERSION,
         "tasks": [_task_of(item) for item in page.tasks],
         "next_page_token": page.next_page_token,
+    }
+
+
+async def _asset(
+    payload: Mapping[str, object],
+    repository: SQLiteVoiceFoundryRepository,
+    supply: VoiceSupplyService,
+    driver: object,
+    action: str | None,
+) -> dict[str, object]:
+    """Hand a listener the audio, and the facts that say what it is.
+
+    The bytes are read here rather than fetched by the client from the
+    provider, because ``review`` accepts digests and this engine has to be
+    able to stand behind them. A client that fetched the audio itself could
+    hand back a digest for whatever it liked; reading it here means the
+    digest in the answer describes the same bytes the answer carries, and the
+    review that follows is checked against exactly what a person heard.
+
+    Nothing here is journalled. An audition moves no state, so a repeat costs
+    one provider read and nothing else.
+    """
+    request = _request(
+        payload, {"schema_version", "task_id", "candidate_id", "kind"}
+    )
+    _version(request["schema_version"])
+    kind = request["kind"]
+    if kind not in ("reference", "validation"):
+        raise _Rejected("schema_invalid")
+    task_id = _identifier(request["task_id"])
+    asset = await _worker(driver).audition_asset(
+        task_id,
+        candidate_id=_identifier(request["candidate_id"]),
+        kind=kind,
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "task_id": task_id,
+        "candidate_id": asset.candidate_id,
+        "kind": asset.kind,
+        "candidate_revision": asset.candidate_revision,
+        "validation_id": asset.validation_id,
+        "audio_digest": asset.audio_digest,
+        "audio_bytes": len(asset.audio),
+        "audio_base64": base64.b64encode(asset.audio).decode("ascii"),
     }
 
 

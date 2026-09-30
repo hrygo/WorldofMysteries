@@ -9,6 +9,7 @@ up.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import sqlite3
@@ -56,6 +57,10 @@ PREVIEW_AUDIO_DIGEST = "b" * 64
 REFERENCE_AUDIO_DIGEST = "9" * 64
 VALIDATION_AUDIO_DIGEST = "d" * 64
 VALIDATION_ID = "vv_" + "e" * 24
+#: What the provider actually serves. The digests above are recorded values, so
+#: the bytes have to be carried separately — a caller that decodes this has to
+#: get audio, not a well-formed envelope around nothing.
+ASSET_AUDIO = b"RIFF----WAVEfake"
 
 
 def digest(payload) -> str:
@@ -149,8 +154,17 @@ class _Port:
     async def read_asset(self, request: AssetRequest) -> AssetResult:
         self.calls.append("read_asset")
         self.asset_requests.append(request)
+        # Which asset is being read is decided by the validation id, as upstream
+        # decides it: the reference belongs to no validation.
         return AssetResult(
-            audio_digest=REFERENCE_AUDIO_DIGEST, audio_bytes=16, duration_seconds=1.0
+            audio_digest=(
+                REFERENCE_AUDIO_DIGEST
+                if request.validation_id is None
+                else VALIDATION_AUDIO_DIGEST
+            ),
+            audio_bytes=len(ASSET_AUDIO),
+            duration_seconds=1.0,
+            audio=ASSET_AUDIO,
         )
 
     async def review(self, candidate_id, *, validation_id, identity, naturalness):
@@ -393,6 +407,94 @@ async def test_reading_a_task_writes_nothing_and_calls_no_provider(
     assert body["task"]["task_id"] == "task-1"
     assert body["task"]["stage"] == VoiceFoundryStage.REQUESTED.value
     assert port.calls == []
+
+
+async def test_the_audition_hands_over_audio_and_the_facts_a_review_is_checked_against(
+    repository, worker, handlers, port
+):
+    """Everything ``review`` demands has to come from somewhere.
+
+    Its payload requires a validation id and both audio digests, and the task
+    projection carries none of them. This read is where a client learns all
+    three — and it learns them beside the bytes they describe, so the verdict
+    it goes on to send is about audio it can prove it was given.
+    """
+    await _reviewed(repository, worker, handlers, port)
+
+    body, code = await handlers["voice.foundry.asset.get"](
+        {
+            "schema_version": "1.0",
+            "task_id": "task-1",
+            "candidate_id": "task-1:candidate:0",
+            "kind": "validation",
+        }
+    )
+
+    assert code is None
+    assert base64.b64decode(body["audio_base64"]) == ASSET_AUDIO
+    assert body["audio_bytes"] == len(ASSET_AUDIO)
+    assert body["audio_digest"] == VALIDATION_AUDIO_DIGEST
+    assert body["validation_id"] == VALIDATION_ID
+    assert body["candidate_revision"] == CANDIDATE_REVISION
+
+
+async def test_the_reference_asset_names_no_validation(
+    repository, worker, handlers, port
+):
+    """It belongs to no validation, and says so rather than naming an empty one."""
+    await _reviewed(repository, worker, handlers, port)
+
+    body, code = await handlers["voice.foundry.asset.get"](
+        {
+            "schema_version": "1.0",
+            "task_id": "task-1",
+            "candidate_id": "task-1:candidate:0",
+            "kind": "reference",
+        }
+    )
+
+    assert code is None
+    assert body["validation_id"] is None
+    assert body["audio_digest"] == REFERENCE_AUDIO_DIGEST
+
+
+async def test_an_asset_kind_that_is_not_an_asset_is_refused(
+    repository, worker, handlers, port
+):
+    await _reviewed(repository, worker, handlers, port)
+    port.calls.clear()
+
+    body, code = await handlers["voice.foundry.asset.get"](
+        {
+            "schema_version": "1.0",
+            "task_id": "task-1",
+            "candidate_id": "task-1:candidate:0",
+            "kind": "preview",
+        }
+    )
+
+    assert (body, code) == (None, "schema_invalid")
+    assert port.calls == []
+
+
+async def test_an_asset_read_carries_no_command_envelope(
+    repository, worker, handlers, port
+):
+    """It is a read. A client that brings a command id is asking to change
+    something, and there is nothing here to change."""
+    await _reviewed(repository, worker, handlers, port)
+
+    body, code = await handlers["voice.foundry.asset.get"](
+        _command(
+            "task-1",
+            1,
+            "asset.get",
+            {"kind": "reference"},
+            command_id="cmd-asset",
+        )
+    )
+
+    assert (body, code) == (None, "schema_invalid")
 
 
 async def test_the_list_pages_without_losing_a_task(repository, handlers):
@@ -720,6 +822,7 @@ def test_binding_replace_is_not_registered_yet(handlers):
     assert set(handlers) == {
         "voice.foundry.get",
         "voice.foundry.list",
+        "voice.foundry.asset.get",
         "voice.foundry.select",
         "voice.foundry.confirm_reference",
         "voice.foundry.validate",
