@@ -35,6 +35,12 @@ IPC = json.loads(
     (ROOT / "contracts/protocol/engine_ipc.schema.json").read_text(encoding="utf-8")
 )
 
+#: Mirrors ``MAX_FRAME_BYTES`` in engine/infrastructure/ipc_framing.py. It is
+#: restated rather than imported: contracts do not depend on the engine, and a
+#: frame limit that quietly drifts from the transport is exactly the kind of
+#: drift this assertion exists to catch.
+MAX_FRAME_BYTES = 1024 * 1024
+
 EXPECTED_METHODS = {
     "voice.foundry.request",
     "voice.foundry.get",
@@ -44,6 +50,7 @@ EXPECTED_METHODS = {
     "voice.foundry.validate",
     "voice.foundry.review",
     "voice.foundry.publish",
+    "voice.foundry.asset.get",
     "voice.foundry.retry",
     "voice.foundry.cancel",
     "voice.binding.replace",
@@ -308,8 +315,10 @@ def test_foundry_state_vocabulary_is_single_and_explicit():
     [
         "foundry_get_request",
         "foundry_list_request",
+        "foundry_asset_request",
         "foundry_command",
         "foundry_get_response",
+        "foundry_asset_response",
         "foundry_command_response",
     ],
 )
@@ -371,6 +380,94 @@ def test_binding_replacement_is_an_explicit_cas_command():
     assert {"accepted", "replayed", "binding_id", "binding_revision"} <= set(
         response["required"]
     )
+
+
+def test_audition_asset_is_a_read_naming_one_candidate_and_one_kind():
+    """A client asks for one asset of one parked candidate.
+
+    It is a read, not a command: it moves nothing, so there is no command id
+    and no expected revision to lie about. The candidate is named because a
+    task can hold several, and only one of them was ever put in front of a
+    listener — the others are previews nobody judged.
+    """
+    request = FOUNDRY["$defs"]["foundry_asset_request"]
+    assert set(request["required"]) == {
+        "schema_version",
+        "task_id",
+        "candidate_id",
+        "kind",
+    }
+    assert request["properties"]["kind"]["enum"] == ["reference", "validation"]
+    validator = _validator(FOUNDRY, "foundry_asset_request")
+    assert validator.is_valid(
+        {
+            "schema_version": "1.0",
+            "task_id": "vf-task-1",
+            "candidate_id": "vf-task-1:candidate:0",
+            "kind": "validation",
+        }
+    )
+    assert not validator.is_valid(
+        {
+            "schema_version": "1.0",
+            "task_id": "vf-task-1",
+            "candidate_id": "vf-task-1:candidate:0",
+            "kind": "preview",
+        }
+    )
+
+
+def test_audition_asset_travels_with_the_facts_that_identify_it():
+    """The bytes are worth nothing without the revision and the digest beside them.
+
+    ``voice.foundry.review`` demands a validation id and two digests, and this
+    response is the only place a client can learn any of them — the task
+    projection carries neither. Sending the audio alone would leave a reviewer
+    unable to say what they heard; sending the digest alone would prove nothing
+    about whether it is the same audio.
+    """
+    response = FOUNDRY["$defs"]["foundry_asset_response"]
+    assert {
+        "candidate_revision",
+        "validation_id",
+        "audio_digest",
+        "audio_bytes",
+        "audio_base64",
+    } <= set(response["required"])
+    validator = _validator(FOUNDRY, "foundry_asset_response")
+    body = {
+        "schema_version": "1.0",
+        "task_id": "vf-task-1",
+        "candidate_id": "vf-task-1:candidate:0",
+        "kind": "validation",
+        "candidate_revision": "vr_" + "c" * 32,
+        "validation_id": "vv_" + "e" * 24,
+        "audio_digest": "9" * 64,
+        "audio_bytes": 4096,
+        "audio_base64": "UklGRg==",
+    }
+    assert validator.is_valid(body)
+    # The reference asset belongs to no validation and says so outright, rather
+    # than carrying an empty id a client could echo into a review.
+    assert validator.is_valid({**body, "kind": "reference", "validation_id": None})
+    assert not validator.is_valid({**body, "validation_id": None})
+
+
+def test_one_audition_asset_always_fits_a_single_ipc_frame():
+    """An asset too large to cross the wire is refused, not truncated.
+
+    Truncation would be the worse outcome by far: a WAV cut short still plays,
+    still sounds like a voice, and a listener would judge it — while the digest
+    in the evidence describes bytes that are not what they heard. The bound is
+    therefore a contract fact a client can rely on, not an implementation
+    detail it has to discover by getting a frame error.
+    """
+    cap = FOUNDRY["$defs"]["foundry_asset_response"]["properties"]["audio_bytes"][
+        "maximum"
+    ]
+    # Standard base64 emits four characters per three bytes, rounded up.
+    encoded = 4 * -(-cap // 3)
+    assert encoded + 1024 < MAX_FRAME_BYTES
 
 
 def test_review_binds_actual_reference_and_validation_audio_digests():

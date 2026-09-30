@@ -441,6 +441,104 @@
         }
       },
       "additionalProperties": false
+    },
+    "foundry_asset_request": {
+      "description": "Ask for one of a parked candidate's two audition assets. A read, not a command: it moves no state, so it carries no command_id and asks for no revision. The candidate is named because a task can hold several and only one of them was put in front of a listener.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "candidate_id",
+        "kind"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "kind": {
+          "description": "Which asset to read. The reference audio answers 'is this the voice that was described'; the cross-text audio answers 'does it still hold up on text it has never heard'. They are read one at a time because a verdict is formed by hearing both, not by being handed both at once.",
+          "type": "string",
+          "enum": [
+            "reference",
+            "validation"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_asset_response": {
+      "description": "One audition asset, delivered together with the facts that identify it. The engine reads the bytes and reports what they are; the client never fetches them from the provider itself. That is what makes voice.foundry.review answerable at all — its payload demands the validation id and both audio digests, and the digests it will accept are only ever the ones describing bytes this response actually carried.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "candidate_id",
+        "kind",
+        "candidate_revision",
+        "validation_id",
+        "audio_digest",
+        "audio_bytes",
+        "audio_base64"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": ["kind"],
+            "properties": {"kind": {"const": "validation"}}
+          },
+          "then": {
+            "properties": {"validation_id": {"$ref": "#/$defs/identifier"}}
+          }
+        },
+        {
+          "if": {
+            "required": ["kind"],
+            "properties": {"kind": {"const": "reference"}}
+          },
+          "then": {
+            "properties": {"validation_id": {"type": "null"}}
+          }
+        }
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "reference",
+            "validation"
+          ]
+        },
+        "candidate_revision": {
+          "description": "The provider revision the audio was read at. The read is refused unless it names the revision this engine recorded, so this value always agrees with the revision any later publish refers to.",
+          "$ref": "#/$defs/identifier"
+        },
+        "validation_id": {
+          "description": "The provider's validation identity. Null for the reference asset, which belongs to no validation; present for the cross-text asset, because voice.foundry.review has to name the validation a listener judged and this is the only place a client can learn it.",
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "audio_digest": {
+          "description": "SHA-256 of the exact decoded bytes in audio_base64. This is the value voice.foundry.review must echo back for this asset.",
+          "$ref": "#/$defs/digest"
+        },
+        "audio_bytes": {
+          "description": "Length of the decoded audio. Bounded so one asset always fits one IPC frame: 589824 bytes encodes to 786432 base64 bytes, inside the 1 MiB frame limit.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 589824
+        },
+        "audio_base64": {
+          "description": "The audio itself, standard base64. Carrying the bytes next to the digest is the whole point: a digest on its own proves nothing about what a listener heard.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

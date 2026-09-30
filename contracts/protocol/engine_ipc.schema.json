@@ -299,6 +299,7 @@
         "voice.foundry.validate",
         "voice.foundry.review",
         "voice.foundry.publish",
+        "voice.foundry.asset.get",
         "voice.foundry.retry",
         "voice.foundry.cancel",
         "voice.binding.replace",
