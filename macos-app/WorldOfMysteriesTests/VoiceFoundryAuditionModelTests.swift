@@ -25,8 +25,11 @@ private final class RecordingPlayback: VoiceFoundryAuditionPlayback {
 private final class FakeFoundryClient: VoiceFoundryEngineClient {
     var tasks: [VoiceFoundryTaskDTO]
     var assets: [VoiceFoundryAssetKind: VoiceFoundryAssetResponseDTO]
+    var designs: [VoiceDesignDTO] = [sampleDesign()]
     var listError: VoiceFoundryServiceError?
     var commandError: VoiceFoundryServiceError?
+    var castError: VoiceFoundryServiceError?
+    private(set) var casts: [(sessionId: String, designId: String)] = []
     private(set) var submitted: [(commandId: String, action: String, payload: Any)] = []
 
     init(tasks: [VoiceFoundryTaskDTO], assets: [VoiceFoundryAssetKind: VoiceFoundryAssetResponseDTO]) {
@@ -36,6 +39,30 @@ private final class FakeFoundryClient: VoiceFoundryEngineClient {
 
     func voiceFoundryTask(_ taskId: String) async throws -> VoiceFoundryGetResponseDTO {
         VoiceFoundryGetResponseDTO(schemaVersion: "1.0", task: tasks[0])
+    }
+
+    func voiceFoundryDesigns() async throws -> VoiceFoundryDesignsResponseDTO {
+        VoiceFoundryDesignsResponseDTO(
+            schemaVersion: "1.0",
+            catalogVersion: "test",
+            designs: designs
+        )
+    }
+
+    func voiceFoundryCastDesign(
+        sessionId: String,
+        designId: String
+    ) async throws -> VoiceFoundryCastResponseDTO {
+        casts.append((sessionId, designId))
+        if let castError { throw castError }
+        // A design nobody has cast yet opens a task; a design already spoken
+        // for answers with none, which is a success and not a failure.
+        guard !tasks.contains(where: { $0.scope.presentationIdentity == designId }) else {
+            return VoiceFoundryCastResponseDTO(schemaVersion: "1.0", task: nil)
+        }
+        let task = queuedTask(identity: designId)
+        tasks = [task] + tasks
+        return VoiceFoundryCastResponseDTO(schemaVersion: "1.0", task: task)
     }
 
     func voiceFoundryList(
@@ -139,6 +166,62 @@ private func auditionWav(frames: Int = 480) -> Data {
 private let REFERENCE_DIGEST = String(repeating: "9", count: 64)
 private let VALIDATION_DIGEST = String(repeating: "d", count: 64)
 private let VALIDATION_ID = "vv_" + String(repeating: "e", count: 24)
+
+private func sampleDesign(
+    designId: String = "narrator",
+    displayName: String = "旁白"
+) -> VoiceDesignDTO {
+    VoiceDesignDTO(
+        schemaVersion: "1.0",
+        designId: designId,
+        displayName: displayName,
+        presentationIdentity: designId,
+        usage: "narration",
+        locale: "zh-CN",
+        designRevision: 1,
+        publicTraits: ["低沉", "克制"],
+        voiceDescription: "低沉克制，语速偏慢。",
+        referenceText: "夜色沉下来，港口的灯一盏盏亮起。",
+        validationText: "枪响了三次，然后归于安静。"
+    )
+}
+
+/// A task that has been registered and is being cast, with nobody waiting on
+/// anything. This is what the automatic path produces before it stops at the
+/// one gate a person owns.
+private func queuedTask(identity: String) -> VoiceFoundryTaskDTO {
+    VoiceFoundryTaskDTO(
+        schemaVersion: "1.0",
+        taskId: "task-\(identity)",
+        requestId: "req-\(identity)",
+        requestDigest: String(repeating: "f", count: 64),
+        scope: VoiceFoundryScopeDTO(
+            ownerId: "owner",
+            worldId: "world",
+            worldlineId: "line",
+            presentationIdentity: identity,
+            phase: "narration",
+            locale: "zh-CN"
+        ),
+        stage: "requested",
+        taskRevision: 1,
+        cancelRequested: false,
+        operationStatus: "prepared",
+        requiredActions: [],
+        reasonCode: nil,
+        candidates: [
+            VoiceFoundryCandidateDTO(
+                candidateId: "task-\(identity):candidate:0",
+                slot: 1,
+                seed: 0,
+                state: "ready",
+                previewAudioDigest: String(repeating: "b", count: 64),
+                providerCandidateId: nil,
+                providerCandidateRevision: nil
+            )
+        ]
+    )
+}
 
 private func parkedTask(candidates: Int = 1) -> VoiceFoundryTaskDTO {
     VoiceFoundryTaskDTO(
@@ -336,5 +419,123 @@ struct VoiceFoundryAuditionModelTests {
 
         #expect(model.tasks.count == 1)
         #expect(model.awaitingReviewTasks.isEmpty)
+    }
+}
+
+// MARK: - Casting
+
+@Suite("Voice Foundry casting")
+struct VoiceFoundryCastingTests {
+    /// The button and the silent trigger are two doors into one casting. The
+    /// App asks with a session and a design and nothing else; every fact about
+    /// what gets cast is the engine's to resolve, because the App is never told
+    /// the world id and so cannot name a world of its own.
+    @MainActor
+    @Test("casting sends a session and a design and nothing else")
+    func castingSendsOnlySessionAndDesign() async {
+        let client = FakeFoundryClient(tasks: [], assets: [:])
+        let model = VoiceFoundryAuditionModel(playback: RecordingPlayback())
+        await model.load(using: client)
+
+        await model.cast(
+            sampleDesign(),
+            sessionId: "session-1",
+            using: client
+        )
+
+        #expect(client.casts.count == 1)
+        #expect(client.casts[0].sessionId == "session-1")
+        #expect(client.casts[0].designId == "narrator")
+    }
+
+    /// A voice that already exists is the system working. Reporting it as a
+    /// failure is what teaches a person to press the button twice.
+    @MainActor
+    @Test("casting somebody who already has a voice is not an error")
+    func existingVoiceIsNotAFailure() async {
+        let client = FakeFoundryClient(tasks: [parkedTask()], assets: [:])
+        let model = VoiceFoundryAuditionModel(playback: RecordingPlayback())
+        await model.load(using: client)
+
+        await model.cast(
+            sampleDesign(),
+            sessionId: "session-1",
+            using: client
+        )
+
+        #expect(model.phase == .ready)
+        #expect(model.castNotice?.contains("未重复铸造") == true)
+    }
+
+    /// A new task has to appear without a refresh. The cast *is* the answer,
+    /// and re-listing could sort it out of view before anybody read it.
+    @MainActor
+    @Test("a fresh cast shows up on the desk straight away")
+    func freshCastIsVisibleWithoutRefreshing() async {
+        let client = FakeFoundryClient(tasks: [], assets: [:])
+        let model = VoiceFoundryAuditionModel(playback: RecordingPlayback())
+        await model.load(using: client)
+        #expect(model.outstandingTasks.isEmpty)
+
+        await model.cast(sampleDesign(), sessionId: "session-1", using: client)
+
+        #expect(model.outstandingTasks.count == 1)
+        #expect(model.outstandingTasks.first?.stage == "requested")
+    }
+
+    /// With no session there is no world to cast into, and the engine must not
+    /// be asked to guess one.
+    @MainActor
+    @Test("casting without a session asks the engine nothing")
+    func noSessionNoRequest() async {
+        let client = FakeFoundryClient(tasks: [], assets: [:])
+        let model = VoiceFoundryAuditionModel(playback: RecordingPlayback())
+        await model.load(using: client)
+
+        await model.cast(sampleDesign(), sessionId: "", using: client)
+
+        #expect(client.casts.isEmpty)
+        #expect(model.castNotice != nil)
+    }
+
+    /// Registration with the provider costs a real call and cannot be undone
+    /// for that candidate, so it is the one step the automatic path stops at
+    /// and a person has to press.
+    @MainActor
+    @Test("a previewed candidate is offered for selection, quoting its digest")
+    func candidateSelectionQuotesThePreviewDigest() async throws {
+        let task = queuedTask(identity: "narrator")
+        let client = FakeFoundryClient(tasks: [task], assets: [:])
+        let model = VoiceFoundryAuditionModel(playback: RecordingPlayback())
+        await model.load(using: client)
+        model.select(task.taskId)
+
+        #expect(model.canSelectCandidate)
+        await model.selectCandidate(using: client)
+
+        let submitted = client.submitted
+        #expect(submitted.count == 1)
+        #expect(submitted[0].action == "select")
+        let payload = try #require(
+            submitted[0].payload as? VoiceFoundrySelectPayloadDTO
+        )
+        #expect(payload.candidateId == "task-narrator:candidate:0")
+        #expect(payload.previewAudioDigest == String(repeating: "b", count: 64))
+    }
+
+    /// A finished or failed task with nothing owed is history. A row on screen
+    /// that no button in it can act on is worse than no row.
+    @MainActor
+    @Test("only tasks that owe something or are in flight are listed")
+    func onlyOutstandingTasksAreListed() {
+        #expect(
+            VoiceFoundryAuditionModel.pendingSummary(for: queuedTask(identity: "旁白"))
+                == "旁白 · 铸造中（已登记）"
+        )
+        #expect(
+            VoiceFoundryAuditionModel.pendingSummary(for: parkedTask())
+                == "narrator · 待听审"
+        )
+        #expect(VoiceFoundryAuditionModel.stageLabel("validating") == "跨文本复验")
     }
 }

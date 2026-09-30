@@ -14,6 +14,11 @@ public nonisolated struct VoiceFoundryServiceError: Error, Equatable, Sendable {
 
 /// The narrow surface the audition UI depends on.
 public protocol VoiceFoundryEngineClient: Sendable {
+    func voiceFoundryDesigns() async throws -> VoiceFoundryDesignsResponseDTO
+    func voiceFoundryCastDesign(
+        sessionId: String,
+        designId: String
+    ) async throws -> VoiceFoundryCastResponseDTO
     func voiceFoundryTask(_ taskId: String) async throws -> VoiceFoundryGetResponseDTO
     func voiceFoundryList(
         pageSize: Int,
@@ -36,6 +41,44 @@ extension EngineIPCClient {
     /// send a user hunting for a setting that does not exist.
     public func supportsVoiceFoundryMethod(_ method: String) async -> Bool {
         handshake?.capabilities.contains(method) ?? false
+    }
+
+    public func voiceFoundryDesigns(
+        traceId: String = UUID().uuidString
+    ) async throws -> VoiceFoundryDesignsResponseDTO {
+        try await voiceFoundryRequest(
+            method: "voice.foundry.list_designs",
+            payload: ["schema_version": .string("1.0")],
+            traceId: traceId
+        )
+    }
+
+    /// Ask the engine to cast one designed identity.
+    ///
+    /// The request names a session and a design and nothing else — no world, no
+    /// scope, no brief. The App is never told the world id, and a scope it
+    /// could have supplied is one it could have forged; the engine resolves
+    /// all of it from a session it already owns. For the same reason the
+    /// request quotes no digest: there is no payload here whose meaning the
+    /// client could get subtly wrong.
+    public func voiceFoundryCastDesign(
+        sessionId: String,
+        designId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> VoiceFoundryCastResponseDTO {
+        try await voiceFoundryRequest(
+            method: "voice.foundry.cast_design",
+            payload: [
+                "schema_version": .string("1.0"),
+                "session_id": .string(sessionId),
+                "design_id": .string(designId),
+            ],
+            traceId: traceId,
+            // Idempotent by what is being cast, which the engine derives; a
+            // stable key here means a retry after a dropped connection
+            // resumes the one casting instead of asking for a second.
+            idempotencyKey: "cast-design:\(sessionId):\(designId)"
+        )
     }
 
     public func voiceFoundryTask(
@@ -144,6 +187,21 @@ extension EngineIPCClient {
 }
 
 extension EngineIPCClient: VoiceFoundryEngineClient {
+    public func voiceFoundryDesigns() async throws -> VoiceFoundryDesignsResponseDTO {
+        try await voiceFoundryDesigns(traceId: UUID().uuidString)
+    }
+
+    public func voiceFoundryCastDesign(
+        sessionId: String,
+        designId: String
+    ) async throws -> VoiceFoundryCastResponseDTO {
+        try await voiceFoundryCastDesign(
+            sessionId: sessionId,
+            designId: designId,
+            traceId: UUID().uuidString
+        )
+    }
+
     public func voiceFoundryTask(_ taskId: String) async throws -> VoiceFoundryGetResponseDTO {
         try await voiceFoundryTask(taskId, traceId: UUID().uuidString)
     }

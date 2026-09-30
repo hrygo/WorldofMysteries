@@ -290,3 +290,75 @@ public nonisolated struct VoiceFoundryCommandResponseDTO: Codable, Sendable, Equ
         case task
     }
 }
+
+// MARK: - Casting catalog
+
+/// One identity's public casting brief, exactly as
+/// `contracts/schemas/voice_design.schema.json` states it.
+///
+/// The App renders this so a person can choose whom to cast. The brief itself
+/// stays engine-side: casting sends a design id and lets the engine look up
+/// the words, so the picker and the cast can never be describing two different
+/// voices for one character.
+public nonisolated struct VoiceDesignDTO: Codable, Sendable, Equatable, Identifiable {
+    public let schemaVersion: String
+    public let designId: String
+    public let displayName: String
+    public let presentationIdentity: String
+    public let usage: String
+    public let locale: String
+    public let designRevision: Int
+    public let publicTraits: [String]
+    public let voiceDescription: String
+    public let referenceText: String
+    public let validationText: String
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case designId = "design_id"
+        case displayName = "display_name"
+        case presentationIdentity = "presentation_identity"
+        case usage
+        case locale
+        case designRevision = "design_revision"
+        case publicTraits = "public_traits"
+        case voiceDescription = "voice_description"
+        case referenceText = "reference_text"
+        case validationText = "validation_text"
+    }
+
+    public var id: String { designId }
+
+    /// The one-line form a picker shows. The full brief is deliberately not the
+    /// label: a wall of prose in a menu is how a cast gets chosen by accident.
+    public var pickerSummary: String {
+        publicTraits.isEmpty
+            ? displayName
+            : "\(displayName) · \(publicTraits.joined(separator: "、"))"
+    }
+}
+
+public nonisolated struct VoiceFoundryDesignsResponseDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let catalogVersion: String
+    public let designs: [VoiceDesignDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case catalogVersion = "catalog_version"
+        case designs
+    }
+}
+
+/// The answer to a cast: the task that was opened, or nothing because the
+/// identity already had a voice. An existing voice is an answer, not an empty
+/// casting — the button pressing it again must not read as a failure.
+public nonisolated struct VoiceFoundryCastResponseDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let task: VoiceFoundryTaskDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case task
+    }
+}

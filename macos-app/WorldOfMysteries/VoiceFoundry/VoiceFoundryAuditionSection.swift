@@ -27,10 +27,16 @@ public struct VoiceFoundryAuditionSection: View {
                 if supported == false {
                     unavailable
                 } else {
+                    castBar
                     taskList
                     if model.selectedTask != nil {
-                        audition
-                        verdict
+                        if model.selectableCandidate != nil {
+                            selection
+                        }
+                        if model.selectedTask?.stage == "awaiting_review" {
+                            audition
+                            verdict
+                        }
                     }
                 }
             }
@@ -73,13 +79,55 @@ public struct VoiceFoundryAuditionSection: View {
 
     // MARK: - Tasks
 
+    /// The explicit door into casting, next to the automatic one.
+    ///
+    /// It is a menu of the catalog rather than a free-text field because the
+    /// brief is engine-side: the App shows who it would cast and sends the id.
+    /// A client that could also write the description would eventually send a
+    /// description the engine never agreed to.
+    @ViewBuilder
+    private var castBar: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                Menu {
+                    ForEach(model.designs) { design in
+                        Button {
+                            Task {
+                                await model.cast(
+                                    design,
+                                    sessionId: appState.storyModel.view?.sessionId ?? "",
+                                    using: appState.ipcClient
+                                )
+                            }
+                        } label: {
+                            Text(design.pickerSummary)
+                        }
+                    }
+                } label: {
+                    Text(model.phase == .submitting ? "铸造中…" : "铸造音色")
+                }
+                .disabled(!model.canCast)
+                .accessibilityLabel("铸造音色")
+
+                if let notice = model.castNotice {
+                    statusLine(notice)
+                }
+            }
+            if let code = model.catalogCode {
+                statusLine("音色目录不可用：\(code)。已存在的任务不受影响。")
+            } else if model.designs.isEmpty && supported == true {
+                statusLine("音色目录为空。名录只收录已听审签署的角色；其余人首次出场时由系统自动合成简报。")
+            }
+        }
+    }
+
     @ViewBuilder
     private var taskList: some View {
-        let tasks = model.awaitingReviewTasks
+        let tasks = model.outstandingTasks
         if case .failed(let code) = model.phase {
             statusLine("引擎拒绝：\(code)")
         } else if tasks.isEmpty {
-            statusLine("当前没有等待听审的音色任务。")
+            statusLine("当前没有待处理或铸造中的音色任务。")
         } else {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 ForEach(tasks, id: \.taskId) { task in
@@ -89,7 +137,7 @@ public struct VoiceFoundryAuditionSection: View {
                         HStack(spacing: DesignTokens.Spacing.sm) {
                             WOMIcon(system: .audioReplay, size: .standard)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(task.scope.presentationIdentity)
+                                Text(VoiceFoundryAuditionModel.pendingSummary(for: task))
                                     .font(Font.Mystic.bodyMedium)
                                     .foregroundStyle(Color.Mystic.textGoldAccent)
                                 Text("\(task.scope.phase) · \(task.scope.locale) · rev \(task.taskRevision)")
@@ -112,6 +160,42 @@ public struct VoiceFoundryAuditionSection: View {
     }
 
     // MARK: - Audition
+
+    /// The one decision that must stay a person's.
+    ///
+    /// Everything else about a casting may run unattended, but registering the
+    /// voice with the provider costs a real call and is irreversible for that
+    /// candidate, so it waits here. The engine mints exactly one candidate per
+    /// task today, so this is a confirmation rather than a comparison — the
+    /// copy says so rather than dressing one option up as a choice.
+    @ViewBuilder
+    private var selection: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            Text("选定候选 (Select Candidate)")
+                .font(Font.Mystic.titleSmall)
+                .foregroundStyle(Color.Mystic.brassGoldPrimary)
+            Text("候选音色已经生成，但尚未向服务商注册。选定后才会真正铸造；这一步不会自动替你做。")
+                .font(Font.Mystic.caption)
+                .foregroundStyle(Color.Mystic.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let candidate = model.selectableCandidate {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    WOMIcon(system: .audioReplay, size: .standard)
+                    Text("候选 \(candidate.slot) · seed \(candidate.seed) · rev \(candidate.providerCandidateRevision ?? "未注册")")
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                    Spacer(minLength: DesignTokens.Spacing.sm)
+                    Button {
+                        Task { await model.selectCandidate(using: appState.ipcClient) }
+                    } label: {
+                        Text(model.phase == .submitting ? "提交中…" : "选定并铸造")
+                    }
+                    .disabled(!model.canSelectCandidate)
+                }
+            }
+        }
+    }
 
     @ViewBuilder
     private var audition: some View {
