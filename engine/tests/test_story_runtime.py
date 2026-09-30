@@ -231,6 +231,7 @@ async def test_story_runtime_close_orders_resources_once():
 
     runtime = object.__new__(StoryRuntime)
     runtime._post_commit_worker = Worker()
+    runtime._foundry = None
     runtime._workers = ModelWorkers()
     runtime._voice = Voice()
     runtime._database = Database()
@@ -272,6 +273,7 @@ async def test_story_runtime_close_releases_later_resources_after_partial_failur
 
     runtime = object.__new__(StoryRuntime)
     runtime._post_commit_worker = Worker()
+    runtime._foundry = None
     runtime._workers = ModelWorkers()
     runtime._voice = Voice()
     runtime._database = Database()
@@ -2452,3 +2454,114 @@ def _world_revision(root: Path) -> int:
 def _episode_count(root: Path) -> int:
     with stdlib_sqlite3.connect(_world_path(root)) as connection:
         return connection.execute("SELECT count(*) FROM episodes").fetchone()[0]
+
+
+async def _noop():
+    return None
+
+
+@pytest.mark.asyncio
+async def test_the_supply_driver_runs_for_as_long_as_the_engine_does(
+    tmp_path, content_artifact
+):
+    """Registering the surface was never the same as running the chain.
+
+    The handlers answered a client's calls while the one component that
+    moves a task forward had no lifetime at all, so a registered cast sat at
+    ``requested`` until somebody pressed Retry. Opening the engine is what
+    gives the driver a lifetime; closing it is what takes that lifetime back.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is not None
+        assert runtime._foundry.driver.is_running
+    finally:
+        await runtime.close()
+    assert not runtime._foundry.driver.is_running
+
+
+@pytest.mark.asyncio
+async def test_the_supply_driver_stops_before_the_database_it_polls():
+    """A driver still polling while the world closes is a use-after-close.
+
+    The ordering is the whole point: the driver reads and writes through the
+    same handle the shutdown is about to close, so it has to be settled first
+    — the same rule the post-COMMIT worker already follows.
+    """
+    events: list[str] = []
+
+    class Driver:
+        is_running = True
+
+        def request_stop(self):
+            events.append("driver.request_stop")
+
+        async def stop(self):
+            events.append("driver.stop")
+            self.is_running = False
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    class Nothing:
+        async def aclose(self):
+            events.append("nothing.aclose")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = None
+    runtime._foundry = SimpleNamespace(driver=Driver())
+    runtime._workers = Nothing()
+    runtime._voice = None
+    runtime._database = Database()
+    runtime._close_task = None
+
+    await runtime.close()
+
+    assert events.index("driver.stop") < events.index("database.close")
+
+
+@pytest.mark.asyncio
+async def test_a_driver_that_refuses_to_stop_keeps_the_database_open():
+    """Reported as a failure on purpose: continuing would close it anyway.
+
+    Every other resource is released independently, so the temptation is to
+    close the database regardless. That converts a recoverable shutdown
+    problem into a corrupted world, and the error is the cheaper outcome.
+    """
+    events: list[str] = []
+
+    class Stubborn:
+        is_running = True
+
+        def request_stop(self):
+            events.append("driver.request_stop")
+
+        async def stop(self):
+            events.append("driver.stop")
+            raise RuntimeError("driver_stop_failed")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = None
+    runtime._foundry = SimpleNamespace(driver=Stubborn())
+    runtime._workers = SimpleNamespace(aclose=_noop)
+    runtime._voice = None
+    runtime._database = Database()
+    runtime._close_task = None
+
+    with pytest.raises(RuntimeError, match="driver_stop_failed"):
+        await runtime.close()
+
+    assert "database.close" not in events

@@ -24,7 +24,7 @@ import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 
 from ai.authorized_live_execution import AuthorizedLiveExecution
 from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
@@ -131,6 +131,7 @@ from .voice_foundry_control import (
     ControlHandler as VoiceFoundryControlHandler,
     voice_foundry_control_handlers,
 )
+from .voice_foundry_driver import VoiceFoundryDriver
 from .voice_foundry_repository import SQLiteVoiceFoundryRepository
 
 ENGINEERING_WORLD_ID = "engineering-golden001"
@@ -392,9 +393,21 @@ class StoryRuntimeConfig:
         )
 
 
+class _SupervisedLoop(Protocol):
+    """The lifecycle three words every background loop in this runtime shares."""
+
+    @property
+    def is_running(self) -> bool: ...
+
+    def request_stop(self) -> None: ...
+
+    async def stop(self) -> None: ...
+
+
 async def _close_runtime_resources(
     *,
     post_commit_worker: PostCommitWorker | None,
+    foundry_driver: VoiceFoundryDriver | None = None,
     workers: TurnWorkerFactory | None,
     voice: VoiceRenderRuntime | None,
     database: DatabaseManager,
@@ -403,31 +416,16 @@ async def _close_runtime_resources(
 
     errors: list[BaseException] = []
     if post_commit_worker is not None:
-        try:
-            await post_commit_worker.stop()
-        except asyncio.CancelledError as error:
-            if post_commit_worker.is_running:
-                errors.append(error)
-                try:
-                    post_commit_worker.request_stop()
-                    await post_commit_worker.stop()
-                except BaseException as retry_error:  # noqa: BLE001 - keep releasing independent resources.
-                    errors.append(retry_error)
-                if post_commit_worker.is_running:
-                    _raise_cleanup_errors(errors)
-        except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
-            errors.append(error)
-            # Closing the model or database while an in-flight worker can still
-            # use them is unsafe. Retry the worker's idempotent stop once, then
-            # stop cleanup only if it remains active.
-            if post_commit_worker.is_running:
-                try:
-                    post_commit_worker.request_stop()
-                    await post_commit_worker.stop()
-                except BaseException as retry_error:  # noqa: BLE001 - keep releasing independent resources.
-                    errors.append(retry_error)
-                if post_commit_worker.is_running:
-                    _raise_cleanup_errors(errors)
+        errors.extend(
+            await _stop_supervised(post_commit_worker),
+        )
+
+    # Before the database, and on the same terms as the post-commit worker:
+    # both loops read and write through this handle, so a driver still
+    # polling while the world closes is the same hazard as a worker still
+    # settling.
+    if foundry_driver is not None:
+        errors.extend(await _stop_supervised(foundry_driver))
 
     close_workers = getattr(workers, "aclose", None)
     if callable(close_workers):
@@ -451,11 +449,64 @@ async def _close_runtime_resources(
         _raise_cleanup_errors(errors)
 
 
+async def _stop_supervised(loop: _SupervisedLoop) -> list[BaseException]:
+    """Stop a background loop, retrying once if the first attempt failed.
+
+    The only thing that makes a failed stop worth reporting is the loop still
+    running afterwards: that is the case where continuing would close the
+    database out from under it. A stop that raised *and* left nothing running
+    did what it was asked to, so its error is dropped rather than raised —
+    which is what keeps a cancelled post-COMMIT job from turning a clean
+    shutdown into a failed one.
+    """
+    errors: list[BaseException] = []
+    for _ in range(2):
+        try:
+            await loop.stop()
+            return errors
+        except asyncio.CancelledError as error:
+            if not loop.is_running:
+                return errors
+            errors.append(error)
+        except BaseException as error:  # noqa: BLE001 - keep releasing independent resources.
+            if not loop.is_running:
+                return errors
+            errors.append(error)
+        loop.request_stop()
+    if loop.is_running:
+        _raise_cleanup_errors(errors)
+    return errors
+
+
 def _raise_cleanup_errors(errors: list[BaseException]) -> None:
     primary = errors[0]
     for extra in errors[1:]:
         primary.add_note(f"additional shutdown failure: {extra!r}")
     raise primary
+
+
+@dataclass(frozen=True, slots=True)
+class FoundryRuntime:
+    """The supply chain, assembled and alive for as long as the world is.
+
+    Holding the control handlers alone was enough to answer a client's calls
+    and not enough to move any of them: registering eight methods made the
+    surface look alive while a registered task sat at ``requested`` forever,
+    because the thing that advances it was never given a lifetime. The driver
+    is what turns a request into progress, so it starts with the runtime and
+    stops with it.
+
+    ``supply`` is carried for the callers that need to ask what an identity
+    still needs without going through IPC — the pre-warm path, and the audio
+    job that quietly requests a voice the first time somebody speaks.
+    """
+
+    supply: VoiceSupplyService
+    driver: VoiceFoundryDriver
+    handlers: dict[str, VoiceFoundryControlHandler]
+
+    async def start(self) -> None:
+        await self.driver.start()
 
 
 class StoryRuntime:
@@ -475,7 +526,7 @@ class StoryRuntime:
         episodes: SQLiteEpisodeFinalizationRepository,
         projector: OutboxProjector,
         handlers: dict[str, StoryRequestHandler],
-        foundry_handlers: dict[str, VoiceFoundryControlHandler] | None = None,
+        foundry: FoundryRuntime | None = None,
     ) -> None:
         self._database = database
         self._facade = facade
@@ -488,8 +539,12 @@ class StoryRuntime:
         self._episodes = episodes
         self._projector = projector
         self._handlers = dict(handlers)
-        self._foundry_handlers = dict(foundry_handlers or {})
+        self._foundry = foundry
         self._close_task: asyncio.Task[None] | None = None
+
+    @property
+    def _foundry_driver(self) -> VoiceFoundryDriver | None:
+        return None if self._foundry is None else self._foundry.driver
 
     @classmethod
     async def open(
@@ -541,6 +596,11 @@ class StoryRuntime:
                 await PostCommitReconciler(database).reconcile()
             if runtime._post_commit_worker is not None:
                 await runtime._post_commit_worker.start()
+            # The supply driver only now has something to advance: any task
+            # registered before this point was, by construction, a request
+            # nobody had made yet.
+            if runtime._foundry is not None:
+                await runtime._foundry.start()
             return runtime
         except BaseException as failure:
             try:
@@ -572,7 +632,7 @@ class StoryRuntime:
     def _open_foundry(
         database: DatabaseManager,
         audio_config: AudioProviderConfig | None,
-    ) -> dict[str, VoiceFoundryControlHandler]:
+    ) -> "FoundryRuntime | None":
         """Wire the supply chain to a real provider, or to nothing at all.
 
         Every component here had a test and no production caller, which is why
@@ -587,9 +647,9 @@ class StoryRuntime:
         the process does not have.
         """
         if audio_config is None:
-            return {}
+            return None
         if audio_config.provider_name.casefold() != "speechrail":
-            return {}
+            return None
         repository = SQLiteVoiceFoundryRepository(database)
         supply = VoiceSupplyService(
             repository=repository,
@@ -606,11 +666,15 @@ class StoryRuntime:
         commands = VoiceFoundryCommandService(
             repository=repository, supply=supply, driver=worker
         )
-        return voice_foundry_control_handlers(
-            repository=repository,
+        return FoundryRuntime(
             supply=supply,
-            commands=commands,
-            worker=worker,
+            driver=VoiceFoundryDriver(repository=repository, worker=worker),
+            handlers=voice_foundry_control_handlers(
+                repository=repository,
+                supply=supply,
+                commands=commands,
+                worker=worker,
+            ),
         )
 
     @classmethod
@@ -808,6 +872,7 @@ class StoryRuntime:
             **story_handlers,
             **story_expression_control_handlers(expression_query),
         }
+        foundry = cls._open_foundry(database, audio_config)
         return cls(
             database=database,
             facade=facade,
@@ -820,7 +885,7 @@ class StoryRuntime:
             episodes=episodes,
             projector=projector,
             handlers=handlers,
-            foundry_handlers=cls._open_foundry(database, audio_config),
+            foundry=foundry,
         )
 
     @property
@@ -839,7 +904,7 @@ class StoryRuntime:
                 [Mapping[str, object]],
                 Awaitable[tuple[dict[str, object] | None, str | None]],
             ],
-        ] = dict(self._foundry_handlers)
+        ] = dict(self._foundry.handlers) if self._foundry is not None else {}
         if self._voice is not None:
             handlers["voice.render"] = self._voice.handle_control
         return handlers
@@ -885,6 +950,7 @@ class StoryRuntime:
             task = asyncio.create_task(
                 _close_runtime_resources(
                     post_commit_worker=self._post_commit_worker,
+                    foundry_driver=self._foundry_driver,
                     workers=self._workers,
                     voice=self._voice,
                     database=self._database,
