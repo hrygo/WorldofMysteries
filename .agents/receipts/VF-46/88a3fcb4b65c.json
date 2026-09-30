@@ -1,0 +1,58 @@
+{
+  "receipt_id": "RCP-WORK-VF-46-88a3fcb4b65c",
+  "receipt_type": "work",
+  "task_id": "VF-46",
+  "capsule_id": "CAP-VF-46",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d2c1cc1f0bedeff6fff282226d34d15b4c18c480eaea83920da96c48f61b1c45",
+  "diff_digest": "sha256:b34e91e67825968adbf0d364935e0fcc43c1b4f231a87d8e84289291a8f84bc6",
+  "assigned_role": "AGT-DATA",
+  "risk_class": "high",
+  "base_commit": "dd48db99dc88632fdfa199d0b2c72c1cdec1b70e",
+  "head_commit": "88a3fcb4b65c3f50db40f314d1b3c73d1692c577",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "DATA_KERNEL_P0",
+  "gate_profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+  "gate_result": "not_run",
+  "gate_stages": [],
+  "coverage_gaps": [
+    "范围裁决未通过"
+  ],
+  "scope_audit": {
+    "changed_files": [
+      "engine/infrastructure/database_schema.py",
+      "engine/infrastructure/migrations/017_world_voice_foundry_intake.sql",
+      "engine/infrastructure/voice_foundry_repository.py",
+      "engine/tests/test_voice_foundry_repository.py"
+    ],
+    "violations": [],
+    "escalations": [
+      {
+        "path": "engine/infrastructure/migrations/017_world_voice_foundry_intake.sql",
+        "reason": "命中高风险面，需仲裁扩权（SCOPE_ESCALATION_REQUIRED）"
+      }
+    ],
+    "privileged_uses": []
+  },
+  "toolchain": {},
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DATA",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-intake-storage"
+  },
+  "started_at": "2026-09-30T13:11:07.065178+00:00",
+  "finished_at": "2026-09-30T13:11:07.134444+00:00",
+  "verdict": "failed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [
+    "范围裁决未通过"
+  ],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
