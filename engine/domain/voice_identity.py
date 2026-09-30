@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+import hashlib
 import re
 
 
@@ -162,6 +163,39 @@ class VoiceBindingScope:
             ("locale", self.locale),
         ):
             _identifier(value, field)
+
+    @property
+    def binding_identity(self) -> str:
+        """The row key for the one binding this scope is allowed to have.
+
+        ``voice_bindings`` already declares
+        ``UNIQUE(owner_id, world_id, worldline_id, presentation_identity,
+        phase, locale)``: a scope has exactly one binding row, forever, and a
+        worldline fork gets its own because the worldline is part of the key.
+        ``binding_id`` is the primary key over that same row, so it has to be
+        a function of the scope and nothing else. Deriving it here is what
+        stops a task for one character from committing its voice under another
+        character's key, which the renderer — it resolves by scope — would
+        then never find.
+
+        Each field is length-prefixed before joining. A bare separator would
+        let ``("a|b", "c")`` and ``("a", "b|c")`` hash to the same row, and
+        two scopes sharing a binding row is precisely the failure this is
+        here to make impossible.
+        """
+        parts = []
+        for value in (
+            self.owner_id,
+            self.world_id,
+            self.worldline_id,
+            self.presentation_identity,
+            self.phase,
+            self.locale,
+        ):
+            encoded = value.encode("utf-8")
+            parts.append(f"{len(encoded)}:{value}")
+        raw = "|".join(parts)
+        return "vb-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,4 +1,5 @@
 from dataclasses import replace
+import re
 
 import pytest
 
@@ -283,3 +284,69 @@ def test_revoked_provider_voice_cannot_be_reserved_or_activated():
     invalidated = replace(reserved, provider=replace(reserved.provider, revoked=True))
     with pytest.raises(VoiceIdentityError, match="revoked provider"):
         invalidated.activate(expected_binding_revision=1)
+
+
+def test_a_scope_and_its_binding_row_key_are_the_same_fact():
+    """``voice_bindings`` is UNIQUE on the scope, so the row key must be too.
+
+    The renderer resolves a voice by scope. A row key that was not a function
+    of the scope would let one character's voice be committed under another
+    character's key, and the lookup that matters would never find it.
+    """
+    scope = _scope()
+
+    assert scope.binding_identity == _scope().binding_identity
+    assert scope.binding_identity.startswith("vb-")
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "owner_id",
+        "world_id",
+        "worldline_id",
+        "presentation_identity",
+        "phase",
+        "locale",
+    ],
+)
+def test_no_field_of_the_scope_can_be_changed_without_moving_the_binding(field):
+    assert _scope().binding_identity != _scope(**{field: "other"}).binding_identity
+
+
+def test_a_worldline_fork_gets_its_own_binding():
+    """D9: a fork is explicit and isolated, and it inherits no binding by accident.
+
+    The worldline is part of the key precisely so a fork cannot resolve to
+    the voice its parent worldline happens to be using.
+    """
+    assert (
+        _scope(worldline_id="line-1").binding_identity
+        != _scope(worldline_id="line-2").binding_identity
+    )
+
+
+def test_a_separator_inside_a_field_cannot_forge_another_scope():
+    """Length-prefixing is what makes the encoding injective.
+
+    Joining on a bare ``|`` would let a scope whose identity contains one
+    hash to the same row as a scope that splits differently across the fields
+    — and two scopes sharing a binding row is the whole failure being
+    prevented.
+    """
+    left = _scope(presentation_identity="a|zh-CN", locale="en-US")
+    right = _scope(presentation_identity="a", locale="zh-CN|en-US")
+
+    assert left != right
+    assert left.binding_identity != right.binding_identity
+
+
+def test_the_binding_key_is_an_opaque_fixed_width_digest():
+    """A readable key would leak the presentation identity into a log line.
+
+    The row key travels in error messages and diagnostics, and the scope names
+    a character. Pinning the shape keeps that name out of all of them.
+    """
+    key = _scope().binding_identity
+
+    assert re.fullmatch(r"vb-[0-9a-f]{16}", key)
