@@ -64,6 +64,7 @@ from infrastructure.audio.config import AudioProviderConfig
 from infrastructure.audio.foundry_policy import execution_policy
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.story_runtime import StoryRuntime
+from infrastructure.voice_design_catalog import load_voice_design_catalog
 from infrastructure.voice_foundry_repository import (
     SQLiteVoiceFoundryRepository,
 )
@@ -73,12 +74,31 @@ pytestmark = pytest.mark.skipif(
     reason="live SpeechRail integration is opt-in (WOM_LIVE_SPEECHRAIL=1)",
 )
 
-#: A real identity from the shipped catalog. Casting a design the engine does
-#: not publish would prove nothing about the button: the refusal path is not
-#: what this file is walking.
-DESIGN_ID = "tingen.narrator"
-DESIGN_IDENTITY = "narrator"
 SESSION_ID = "live-app-path-session"
+
+
+def _selected_designs() -> tuple[str, ...]:
+    """Which catalog identities this run casts.
+
+    Defaults to the whole shipped roster rather than one character, because
+    acceptance asks for the narrator and the first three to five people to be
+    cast and listened to for real; a file that only ever proves the first one
+    leaves the rest of the claim untested. ``WOM_LIVE_DESIGNS`` narrows it to
+    one identity when a brief has just been revised.
+    """
+    raw = (os.environ.get("WOM_LIVE_DESIGNS") or "").strip()
+    if raw:
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    return tuple(item.design_id for item in load_voice_design_catalog().designs)
+
+
+#: Where the audition clips are written for a person to actually listen to.
+#: Acceptance wants the listening recorded, and a machine verdict is nobody
+#: hearing anything — so a run leaves the two WAVs and the facts about them on
+#: disk, including which text each one speaks. Empty means the run asserts
+#: only, which is what CI and an ordinary re-run should do.
+AUDITION_DIR = (os.environ.get("WOM_LIVE_AUDITION_DIR") or "").strip()
+
 
 #: What ``_open_foundry`` advertises. The App probes this before it offers the
 #: audition console, so a surface missing a method is a capability the client
@@ -157,9 +177,65 @@ async def _advance_to_a_human_stage(worker: VoiceFoundryWorker, task_id: str):
     raise AssertionError("the supply chain never reached a human stage")
 
 
+def _record_for_listening(
+    design_id: str,
+    *,
+    heard: dict,
+    candidate_id: str,
+) -> None:
+    """Leave the two clips and the facts a listener needs, on disk.
+
+    Written from the bytes the engine handed the App rather than re-read from
+    the provider, so what a person hears is exactly what the App would have
+    played — including the digests the review was signed against, which is
+    what makes a later verdict about these files a verdict about *this*
+    casting rather than a fresh one that happens to sound similar.
+
+    No-ops unless ``WOM_LIVE_AUDITION_DIR`` names a directory, so an ordinary
+    run and CI leave nothing behind.
+    """
+    if not AUDITION_DIR:
+        return
+    design = next(
+        item
+        for item in load_voice_design_catalog().designs
+        if item.design_id == design_id
+    )
+    out = Path(AUDITION_DIR) / design_id.replace(".", "_")
+    out.mkdir(parents=True, exist_ok=True)
+    record = {
+        "design_id": design.design_id,
+        "display_name": design.display_name,
+        "public_traits": list(design.public_traits),
+        "voice_description": design.voice_description,
+        "candidate_id": candidate_id,
+        "published": True,
+        "human_review": "NOT YET SIGNED — a machine pass is not a person",
+    }
+    for kind, text in (
+        ("reference", design.reference_text),
+        ("validation", design.validation_text),
+    ):
+        audio = base64.b64decode(heard[kind]["audio_base64"], validate=True)
+        name = f"{kind}.wav"
+        (out / name).write_bytes(audio)
+        record[kind] = {
+            "file": name,
+            "text": text,
+            "audio_digest": heard[kind]["audio_digest"],
+            "audio_bytes": heard[kind]["audio_bytes"],
+        }
+    record["validation_id"] = heard["validation"]["validation_id"]
+    (out / "acceptance.json").write_text(
+        json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("design_id", _selected_designs())
 async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
     tmp_path,
+    design_id,
 ):
     """Walk the four methods the App calls, over the real assembly.
 
@@ -217,12 +293,16 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
             {
                 "schema_version": "1.0",
                 "session_id": SESSION_ID,
-                "design_id": DESIGN_ID,
+                "design_id": design_id,
             }
         )
         assert code is None, cast_body
         opened = cast_body["task"]
-        assert opened["scope"]["presentation_identity"] == DESIGN_IDENTITY
+        # The engine resolved the scope from the session, not from the
+        # request: a client that could have named the world would also have
+        # been able to lie about it.
+        assert opened["scope"]["world_id"] == "live-app-path-world"
+        assert opened["scope"]["owner_id"] == "player"
         assert opened["required_actions"] == []
         task_id = opened["task_id"]
         candidate_id = None
@@ -342,6 +422,11 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
             )
             assert code is None, code
             assert publish_body["task"]["stage"] in {"binding", "ready"}
+            _record_for_listening(
+                design_id,
+                heard=heard,
+                candidate_id=candidate_id,
+            )
             candidate_id = None
             provider_candidate_id = None
         finally:
