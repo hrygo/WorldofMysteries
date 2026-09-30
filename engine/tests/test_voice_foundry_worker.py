@@ -73,7 +73,7 @@ def scope() -> VoiceBindingScope:
         world_id="foundry-world",
         worldline_id="line-1",
         presentation_identity="klein-visible",
-        phase="narrative",
+        phase="narration",
         locale="zh-CN",
     )
 
@@ -251,16 +251,35 @@ class RecordingPort:
                 execution={
                     "model_id": "qwen3-tts",
                     "model_artifact_revision": "art-1",
+                    "model_catalog_revision": "cat-1",
                     "variant": "custom_voice",
                     "locale": "zh",
                     "validation_policy_revision": "policy-1",
                     "processing_fingerprint": "8" * 64,
                 },
-                reference={"audio_sha256": "c" * 64},
-                output={"audio_sha256": "d" * 64},
-                human={"identity_status": "pass", "naturalness_status": "pass"},
-                publication={"published": True},
-                rights={"cleared": True},
+                reference={
+                    "status": "pass",
+                    "audio_digest": "c" * 64,
+                    "text_digest": "9" * 64,
+                },
+                output={
+                    "status": "pass",
+                    "validation_id": "vv_1",
+                    "audio_digest": "4" * 64,
+                    "text_digest": None,
+                },
+                human={
+                    "identity_status": "pass",
+                    "naturalness_status": "pass",
+                    "review_id": "rv_1",
+                    "reference_audio_digest": "c" * 64,
+                    "validation_audio_digest": "4" * 64,
+                },
+                publication={"state": "published", "published_revision": "wvr_" + "9" * 24},
+                rights={
+                    "allowed_usages": ["dialogue", "narration"],
+                    "scope_ref": "klein-visible",
+                },
             ),
         )
 
@@ -1088,15 +1107,27 @@ async def test_the_published_document_satisfies_the_shipped_evidence_contract(re
     revoked, which playback policy applies — had no producer at all, so the
     only way to read a voice back was to invent those facts.
 
-    Validating the whole document against the schema comes one slice later,
-    and deliberately not here: the contract's ``execution`` section currently
-    forbids a field the gate requires, and this suite's provider fake is not
-    contract-shaped either. Asserting validity now would be asserting a
-    document the contract does not permit, against a fixture that never was.
-    What this pins is the part that is genuinely the worker's — that the
-    document is whole, and that it can be read back at all.
+    The document is now checked against the shipped schema itself. That was
+    deferred twice for honest reasons — the contract's ``execution`` section
+    forbade a field the gate requires, and this suite's provider fake was not
+    contract-shaped — and both had to be fixed before the assertion could
+    mean anything. A fake that describes what a correct bundle looks like
+    without being one is what let two separate contract violations ship.
     """
+    from jsonschema import Draft202012Validator
+
     from application.voice_evidence import evidence_record
+
+    import json
+    from pathlib import Path
+
+    schema_path = (
+        Path(__file__).resolve().parents[2]
+        / "contracts"
+        / "schemas"
+        / "voice_identity_evidence.schema.json"
+    )
+    validator = Draft202012Validator(json.loads(schema_path.read_text("utf-8")))
 
     port = RecordingPort()
     worker, _, _ = make_worker(repository, port)
@@ -1122,6 +1153,8 @@ async def test_the_published_document_satisfies_the_shipped_evidence_contract(re
 
     stored = await repository.load_evidence("speechrail-local", "ev_1")
     document = dict(stored.snapshot)
+    errors = sorted(validator.iter_errors(document), key=lambda e: list(e.path))
+    assert not errors, [f"{list(e.path)}: {e.message}" for e in errors]
     assert set(document) == {
         "schema_version",
         "evidence_id",
@@ -1149,6 +1182,45 @@ async def test_the_published_document_satisfies_the_shipped_evidence_contract(re
     assert record.cached_playback_policy == "revocation_aware"
     assert record.revoked is False
     assert record.expires_at is None
+
+
+async def test_a_binding_whose_evidence_cannot_be_read_is_not_renderable(repository):
+    """A binding that points at nothing must not render.
+
+    The evidence reference is a pointer, and a pointer can dangle: a snapshot
+    removed, a deployment pointed at a different database, a document written
+    before it was whole. None of those make the binding look unreviewed —
+    it still carries a passing human review and a published revision — so the
+    only thing standing between that and audio is the read-back refusing.
+    """
+    from application.voice_evidence import load_evidence_record, render_execution
+
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+    await worker.advance("task-1")
+
+    task = await repository.load_task("task-1")
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="task-1:candidate:0",
+        state="published",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="published",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    await worker.publish_and_bind("task-1", binding_id=task.scope.binding_identity)
+
+    history = await repository.load_binding_history(task.scope.binding_identity)
+    active = [item for item in history if item.status == "active"][-1]
+
+    assert await load_evidence_record(repository, active.provider_instance, "ev_absent") is None
 
 
 async def test_publishing_a_task_that_is_not_published_is_refused(repository):
