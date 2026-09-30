@@ -71,6 +71,7 @@ from application.turn_orchestrator import TurnOrchestrator
 from application.voice_foundry import VoiceFoundryWorker
 from application.voice_foundry_commands import VoiceFoundryCommandService
 from application.voice_foundry_service import VoiceSupplyService
+from application.voice_supply_trigger import VoiceSupplyTrigger
 
 from .audio.config import AudioProviderConfig
 from .audio.voice_delivery import (
@@ -123,6 +124,7 @@ from .turn_context_repository import (
 )
 from .turn_intake_repository import SQLiteTurnInputCommandPort
 from .voice_binding_repository import SQLiteVoiceBindingRepository
+from .voice_design_catalog import VoiceDesignError, load_voice_design_catalog
 from .voice_binding_resolver import (
     VoiceBindingResolutionError,
     resolve_voice_runtime,
@@ -677,6 +679,31 @@ class StoryRuntime:
             ),
         )
 
+    @staticmethod
+    def _open_supply_trigger(
+        foundry: "FoundryRuntime | None",
+        audio_config: AudioProviderConfig | None,
+    ) -> VoiceSupplyTrigger | None:
+        """Build the silent first-appearance trigger, or nothing at all.
+
+        Content that will not load is not a reason to refuse to start. The
+        engine's job is to run a world; a casting brief it cannot read costs
+        the automatic path and the explicit button reports it, which is a
+        visible, actionable failure — against an engine that refuses to open
+        because a JSON file is malformed.
+        """
+        if foundry is None or audio_config is None:
+            return None
+        try:
+            catalog = load_voice_design_catalog()
+        except VoiceDesignError:
+            return None
+        return VoiceSupplyTrigger(
+            supply=foundry.supply,
+            designs=catalog,
+            provider_instance=audio_config.provider_name,
+        )
+
     @classmethod
     def _compose_runtime(
         cls,
@@ -754,6 +781,8 @@ class StoryRuntime:
         )
         narrative_port = SQLiteNarrativeBlockRepository(database)
         bindings = SQLiteVoiceBindingRepository(database)
+        foundry = cls._open_foundry(database, audio_config)
+        supply_trigger = cls._open_supply_trigger(foundry, audio_config)
         delivery = _DeliveryCoordinator(
             query=query,
             narratives=narrative_port,
@@ -832,6 +861,7 @@ class StoryRuntime:
                     voice_id=config.voice_id,
                     dictionary_revision=DICTIONARY_REVISION,
                     fetch_json=fetch_json,
+                    supply_trigger=supply_trigger,
                 ),
                 supported_recipes=planner.supported_recipes,
             )
@@ -872,7 +902,6 @@ class StoryRuntime:
             **story_handlers,
             **story_expression_control_handlers(expression_query),
         }
-        foundry = cls._open_foundry(database, audio_config)
         return cls(
             database=database,
             facade=facade,

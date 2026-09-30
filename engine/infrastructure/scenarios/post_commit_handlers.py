@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from application.audio_disclosure import AudioDisclosureAuthorizer
 from application.narrative_publication import (
@@ -42,11 +42,22 @@ from ..voice_binding_repository import SQLiteVoiceBindingRepository
 from ..voice_binding_resolver import (
     ResolvedVoiceRuntime,
     VoiceBindingResolutionError,
+    binding_scope_for,
     resolve_voice_runtime,
 )
 
 _SOURCE_MISMATCH = "work_unavailable"
 _RESULT_CONFLICT = "sealed_result_conflict"
+
+
+class VoiceSupplyTriggerPort(Protocol):
+    """The one verb the audio job borrows, and the reason it may not fail.
+
+    Structural rather than concrete so the audio path can be exercised
+    without a catalog, a provider or a supply chain behind it.
+    """
+
+    async def ensure(self, scope: object) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +366,7 @@ class ScenarioAudioPrepareHandler:
         dictionary_revision: str,
         fetch_json,
         codec: SealedSpeechUnitCodec | None = None,
+        supply_trigger: VoiceSupplyTriggerPort | None = None,
     ) -> None:
         self._database = database
         self._story = story
@@ -367,6 +379,7 @@ class ScenarioAudioPrepareHandler:
         self._dictionary_revision = dictionary_revision
         self._fetch_json = fetch_json
         self._codec = codec or SealedSpeechUnitCodec()
+        self._supply_trigger = supply_trigger
 
     async def execute(self, source: PostCommitWorkSource) -> PostCommitResult:
         if source.kind is not PostCommitKind.AUDIO_PREPARE:
@@ -453,9 +466,33 @@ class ScenarioAudioPrepareHandler:
         except SealedSpeechUnitCodecError:
             return _blocked("handoff_unverified")
         except VoiceBindingResolutionError as exc:
+            # First appearance with no voice is when supply starts, and it
+            # starts silently. The outcome returned below is exactly what it
+            # would have been without this call: the text is already
+            # published, and the segment falls back to a subtitle.
+            await self._request_supply_quietly(source.session_id)
             return _blocked(exc.code)
         except (StorageError, TurnDeliveryError):
             return _blocked("audio_prepare_failed")
+
+    async def _request_supply_quietly(self, session_id: str) -> None:
+        """Ask supply to start casting this speaker, and fail at nothing.
+
+        Everything this does is invisible to the caller by construction. It
+        runs after the turn's text is committed and published, so opening a
+        casting task, finding one already open, having no design for this
+        character and outright failing all leave the job returning the same
+        blocked audio result it always did. A supply problem is not allowed to
+        become a story problem.
+        """
+        trigger = self._supply_trigger
+        if trigger is None:
+            return
+        try:
+            session = await self._story.load_session(session_id)
+            await trigger.ensure(binding_scope_for(session))
+        except Exception:  # noqa: BLE001 - supply must never fail this job
+            return
 
     async def _load_sealed_unit(
         self,
