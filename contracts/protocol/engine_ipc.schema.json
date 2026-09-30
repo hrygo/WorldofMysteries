@@ -295,6 +295,7 @@
         "voice.foundry.get",
         "voice.foundry.list",
         "voice.foundry.list_designs",
+        "voice.foundry.cast_design",
         "voice.foundry.select",
         "voice.foundry.confirm_reference",
         "voice.foundry.validate",

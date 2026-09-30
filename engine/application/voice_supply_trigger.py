@@ -41,6 +41,16 @@ from infrastructure.voice_foundry_repository import VoiceFoundryTaskSpec
 from .voice_foundry_service import VoiceSupplyOutcome, VoiceSupplyResult
 
 
+#: One authorization reference for both doors into a casting.
+#:
+#: It is part of the request digest, so if the button and the silent trigger
+#: quoted different ones, the same character would look like two different
+#: requests: the second would be refused as a conflict instead of joining the
+#: casting already under way. Who *initiated* a cast is not part of what is
+#: being cast — the origin already records that it came from content.
+CAST_AUTHORIZATION_REF = "auto:voice-supply"
+
+
 class VoiceDesignLookup(Protocol):
     """The catalog, by identity.
 
@@ -86,7 +96,7 @@ class VoiceSupplyTrigger:
         supply: VoiceSupplyPort,
         designs: VoiceDesignLookup,
         provider_instance: str,
-        authorization_ref: str = "auto:voice-supply",
+        authorization_ref: str = CAST_AUTHORIZATION_REF,
     ) -> None:
         self._supply = supply
         self._designs = designs
@@ -167,6 +177,7 @@ def _automatic_request_id(
 
 
 __all__ = [
+    "CAST_AUTHORIZATION_REF",
     "VoiceDesignLookup",
     "VoiceSupplyPort",
     "VoiceSupplyTrigger",

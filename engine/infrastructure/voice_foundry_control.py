@@ -43,7 +43,7 @@ import base64
 import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from application.voice_foundry import VoiceFoundryWorker
 from application.voice_foundry_commands import (
@@ -55,6 +55,7 @@ from application.voice_foundry_ports import (
     VoiceFoundryPortError,
 )
 from application.voice_foundry_service import VoiceSupplyService
+from application.voice_supply_trigger import CAST_AUTHORIZATION_REF
 
 from domain.voice_identity import VoiceBindingScope
 
@@ -135,6 +136,8 @@ def voice_foundry_control_handlers(
     commands: VoiceFoundryCommandService,
     worker: VoiceFoundryWorker,
     designs: VoiceDesignCatalog | None = None,
+    scopes: VoiceScopeResolver | None = None,
+    provider_instance: str = "",
 ) -> dict[str, ControlHandler]:
     """The registered methods, keyed by the capability the client asks for."""
     handlers = {
@@ -166,6 +169,10 @@ def voice_foundry_control_handlers(
         # casting, and a handshake that lists the method anyway is a promise
         # the engine is not keeping.
         handlers["voice.foundry.list_designs"] = _designs(designs)
+        if scopes is not None and provider_instance:
+            handlers["voice.foundry.cast_design"] = _cast_design(
+                designs, scopes, supply, provider_instance
+            )
     return handlers
 
 
@@ -250,6 +257,100 @@ def _designs(designs: VoiceDesignCatalog) -> ControlHandler:
         )
 
     return handler
+
+
+class VoiceScopeResolver(Protocol):
+    """Turns a session the engine already owns into a presentation scope.
+
+    The client cannot do this itself: it is never told the world id, the
+    worldline id or the owner, so a request that carried them would either be
+    unanswerable or — worse — answerable with whatever the caller claimed.
+    """
+
+    async def scope_for(
+        self, session_id: str, presentation_identity: str
+    ) -> VoiceBindingScope | None: ...
+
+
+def _cast_design(
+    designs: VoiceDesignCatalog,
+    scopes: VoiceScopeResolver,
+    supply: VoiceSupplyService,
+    provider_instance: str,
+) -> ControlHandler:
+    """The explicit button: cast the designed voice for one identity.
+
+    Same outcome as the automatic path, same task, same identity — the button
+    is a second way in, not a second way of casting. That is why the request
+    id is *derived* here rather than supplied: a person who taps the button
+    after a character was already cast silently, or taps twice, resumes one
+    casting instead of putting a duplicate set of candidates in front of the
+    same listener.
+    """
+
+    async def handler(
+        payload: Mapping[str, object],
+    ) -> tuple[dict[str, object] | None, str | None]:
+        try:
+            request = _request(
+                payload, {"schema_version", "session_id", "design_id"}
+            )
+            _version(request["schema_version"])
+            session_id = _identifier(request["session_id"])
+            design_id = _identifier(request["design_id"])
+        except _Rejected as exc:
+            return None, exc.code
+        if design_id not in {item.design_id for item in designs.designs}:
+            # Naming an undesigned identity is refused rather than cast from
+            # an invented brief: deciding what an unwritten character sounds
+            # like is not a client's privilege.
+            return None, "voice_design_not_found"
+        design = next(item for item in designs.designs if item.design_id == design_id)
+        try:
+            scope = await scopes.scope_for(
+                session_id, design.presentation_identity
+            )
+        except Exception:  # noqa: BLE001 - one stable public code
+            return None, "service_unavailable"
+        if scope is None:
+            return None, "voice_scope_unavailable"
+        try:
+            result = await supply.request(
+                design.task_spec(
+                    scope=scope,
+                    request_id=_cast_request_id(scope, design.design_revision),
+                    persona_revision=f"persona-{design.design_revision}",
+                    authorization_ref=CAST_AUTHORIZATION_REF,
+                    provider_instance=provider_instance,
+                )
+            )
+        except (VoiceFoundryCommandError, VoiceFoundryPortError) as exc:
+            return None, exc.code
+        except Exception:  # noqa: BLE001 - one stable public code
+            return None, "service_unavailable"
+        return _supply_of(result), None
+
+    return handler
+
+
+def _cast_request_id(scope: VoiceBindingScope, design_revision: int) -> str:
+    """The one identity a cast has, whichever door it came through.
+
+    Deliberately the same derivation the silent first-appearance trigger uses:
+    two paths that minted different ids for the same character would each
+    believe they were the only casting, and the listener would be asked to
+    choose between two sets of candidates for one voice.
+    """
+    seed = "|".join(
+        (
+            scope.world_id,
+            scope.worldline_id,
+            scope.presentation_identity,
+            scope.phase,
+            f"persona-{design_revision}",
+        )
+    )
+    return "auto-" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
 
 # -- intake --------------------------------------------------------------

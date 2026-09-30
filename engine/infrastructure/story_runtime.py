@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -133,7 +133,11 @@ from .voice_binding_resolver import (
     VoiceBindingResolutionError,
     resolve_voice_runtime,
 )
+from domain.voice_identity import VoiceBindingScope
+
+from .voice_binding_resolver import binding_scope_for
 from .voice_foundry_control import (
+    VoiceScopeResolver,
     ControlHandler as VoiceFoundryControlHandler,
     voice_foundry_control_handlers,
 )
@@ -653,6 +657,7 @@ class StoryRuntime:
     def _open_foundry(
         database: DatabaseManager,
         audio_config: AudioProviderConfig | None,
+        scopes: VoiceScopeResolver | None = None,
     ) -> "FoundryRuntime | None":
         """Wire the supply chain to a real provider, or to nothing at all.
 
@@ -702,6 +707,10 @@ class StoryRuntime:
                 commands=commands,
                 worker=worker,
                 designs=designs,
+                scopes=scopes,
+                provider_instance=(
+                    "" if audio_config is None else audio_config.provider_name
+                ),
             ),
         )
 
@@ -801,7 +810,9 @@ class StoryRuntime:
         )
         narrative_port = SQLiteNarrativeBlockRepository(database)
         bindings = SQLiteVoiceBindingRepository(database)
-        foundry = cls._open_foundry(database, audio_config)
+        foundry = cls._open_foundry(
+            database, audio_config, scopes=_SessionScopeResolver(query)
+        )
         supply_trigger = cls._open_supply_trigger(foundry, audio_config)
         delivery = _DeliveryCoordinator(
             query=query,
@@ -1008,6 +1019,33 @@ class StoryRuntime:
             )
             self._close_task = task
         await asyncio.shield(task)
+
+
+class _SessionScopeResolver:
+    """Answer "whose world is this" from a session the engine already owns.
+
+    The App is never told the world id, the worldline id or the owner, and it
+    has no business being: a scope it could name is a scope it could forge.
+    So the button sends a session it is already in, and the engine derives the
+    rest from the session it already has. The identity comes from the design
+    rather than the caller — the design is content this engine published, and
+    that is what makes the swap safe.
+    """
+
+    def __init__(self, query: SQLiteStorySessionQuery) -> None:
+        self._query = query
+
+    async def scope_for(
+        self, session_id: str, presentation_identity: str
+    ) -> VoiceBindingScope | None:
+        try:
+            session = await self._query.load_session(session_id)
+        except Exception:  # noqa: BLE001 - an unknown session is not a crash
+            return None
+        return replace(
+            binding_scope_for(session),
+            presentation_identity=presentation_identity,
+        )
 
 
 class _DeliveryCoordinator:

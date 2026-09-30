@@ -50,6 +50,7 @@ EXPECTED_METHODS = {
     "voice.foundry.get",
     "voice.foundry.list",
     "voice.foundry.list_designs",
+    "voice.foundry.cast_design",
     "voice.foundry.select",
     "voice.foundry.confirm_reference",
     "voice.foundry.validate",
@@ -371,6 +372,7 @@ def test_foundry_state_vocabulary_is_single_and_explicit():
         "foundry_request_request",
         "foundry_list_request",
         "foundry_designs_request",
+        "foundry_cast_design_request",
         "foundry_asset_request",
         "foundry_command",
         "foundry_get_response",
@@ -725,3 +727,20 @@ def test_a_replacement_cannot_smuggle_in_an_assurance_the_revision_contradicts()
     legacy = _binding_replace()
     del legacy["voice_revision"]
     assert not validator.is_valid(legacy)
+
+
+def test_casting_a_design_does_not_ask_the_client_to_name_a_world():
+    """The client is never told the world, so it must not be asked for it.
+
+    A scope the caller could supply is a scope it could forge; a scope it
+    cannot supply is a request it has no honest way to make. The engine
+    resolves owner, world and worldline from a session it already owns, and
+    takes the identity from the design it published.
+    """
+    shape = FOUNDRY["$defs"]["foundry_cast_design_request"]
+    assert set(shape["required"]) == {"schema_version", "session_id", "design_id"}
+    assert set(shape["properties"]) == {"schema_version", "session_id", "design_id"}
+    assert shape["additionalProperties"] is False
+    assert FORBIDDEN_FIELDS.isdisjoint(shape["properties"])
+    for forged in ("world_id", "worldline_id", "owner_id", "scope"):
+        assert forged not in shape["properties"]

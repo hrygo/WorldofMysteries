@@ -2605,3 +2605,34 @@ async def test_a_configured_engine_publishes_its_casting_catalog(
         assert runtime._foundry.designs is not None
     finally:
         await runtime.close()
+
+
+
+@pytest.mark.asyncio
+async def test_a_configured_engine_offers_both_ways_in(tmp_path, content_artifact):
+    """The button and the silent trigger are advertised by the same engine.
+
+    One process, one catalog, one driver: the App casts through a control
+    method and the world casts through the audio job, and both land on the
+    same task table. Splitting them across two surfaces would be how they
+    drifted apart.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert {
+            "voice.foundry.list_designs",
+            "voice.foundry.cast_design",
+        } <= set(runtime.control_handlers)
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is not None
+        assert runtime._foundry.driver.is_running
+    finally:
+        await runtime.close()

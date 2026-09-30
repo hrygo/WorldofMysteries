@@ -1164,3 +1164,188 @@ def test_every_published_design_matches_the_published_contract():
                 "validation_text": design.validation_text,
             }
         )
+
+
+class _Scopes:
+    """One session the engine owns; anything else is not this world."""
+
+    def __init__(self, known: set[str] | None = None) -> None:
+        self.known = known if known is not None else {"session-1"}
+
+    async def scope_for(self, session_id: str, presentation_identity: str):
+        if session_id not in self.known:
+            return None
+        return VoiceBindingScope(
+            owner_id="klein",
+            world_id="world-1",
+            worldline_id="line-1",
+            presentation_identity=presentation_identity,
+            phase="narrative",
+            locale="zh-CN",
+        )
+
+
+def _cast_handlers(repository, *, scopes=None):
+    return voice_foundry_control_handlers(
+        repository=repository,
+        supply=_supply(repository),
+        commands=None,
+        worker=None,
+        designs=load_voice_design_catalog(),
+        scopes=scopes if scopes is not None else _Scopes(),
+        provider_instance="speechrail-local",
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_button_casts_a_designed_identity_without_naming_a_world(repository):
+    """The client sends a session and a design; the engine owns the rest.
+
+    It never learns the world id, so it cannot forge one — and the identity it
+    casts comes from the design rather than the caller, which is what makes the
+    swap safe.
+    """
+    handlers = _cast_handlers(repository)
+
+    payload, code = await handlers["voice.foundry.cast_design"](
+        {"schema_version": "1.0", "session_id": "session-1", "design_id": "tingen.ida-finch"}
+    )
+
+    assert code is None
+    assert payload is not None
+    assert payload["task"]["stage"] == "requested"
+    assert payload["task"]["scope"]["presentation_identity"] == "ida-finch"
+    # The projection does not carry the origin, so it is checked where it was
+    # actually recorded: a task that does not name the brief it was cast from
+    # cannot later be traced back to the words that shaped the voice.
+    stored = await repository.load_scope_tasks(
+        VoiceBindingScope(
+            owner_id="klein",
+            world_id="world-1",
+            worldline_id="line-1",
+            presentation_identity="ida-finch",
+            phase="narrative",
+            locale="zh-CN",
+        )
+    )
+    assert [item.origin_ref for item in stored] == ["voice_design:tingen.ida-finch"]
+
+
+@pytest.mark.asyncio
+async def test_a_session_this_engine_does_not_own_casts_nothing(repository):
+    handlers = _cast_handlers(repository)
+
+    payload, code = await handlers["voice.foundry.cast_design"](
+        {"schema_version": "1.0", "session_id": "someone-elses", "design_id": "tingen.ida-finch"}
+    )
+
+    assert payload is None
+    assert code == "voice_scope_unavailable"
+    assert await repository.load_tasks_page(page_size=10) == ()
+
+
+@pytest.mark.asyncio
+async def test_an_identity_nobody_wrote_a_voice_for_is_refused(repository):
+    """The supply chain does not get to decide what an unwritten voice is."""
+    handlers = _cast_handlers(repository)
+
+    payload, code = await handlers["voice.foundry.cast_design"](
+        {"schema_version": "1.0", "session_id": "session-1", "design_id": "tingen.nobody"}
+    )
+
+    assert payload is None
+    assert code == "voice_design_not_found"
+    assert await repository.load_tasks_page(page_size=10) == ()
+
+
+@pytest.mark.asyncio
+async def test_the_button_and_the_automatic_path_are_one_casting(repository):
+    """Two doors, one cast. Otherwise a listener chooses between duplicates."""
+    handlers = _cast_handlers(repository)
+
+    for _ in range(3):
+        payload, code = await handlers["voice.foundry.cast_design"](
+            {"schema_version": "1.0", "session_id": "session-1", "design_id": "tingen.victor-osborn"}
+        )
+        assert code is None
+        assert payload is not None
+
+    tasks = await repository.load_tasks_page(page_size=10)
+    assert len(tasks) == 1
+
+
+@pytest.mark.asyncio
+async def test_casting_carries_no_scope_the_caller_chose(repository):
+    """A request that tries to name a world, or smuggle a brief, is refused."""
+    handlers = _cast_handlers(repository)
+
+    payload, code = await handlers["voice.foundry.cast_design"](
+        {
+            "schema_version": "1.0",
+            "session_id": "session-1",
+            "design_id": "tingen.ida-finch",
+            "world_id": "someone-elses-world",
+        }
+    )
+
+    assert payload is None
+    assert code == "schema_invalid"
+
+
+@pytest.mark.asyncio
+async def test_the_button_and_the_silent_trigger_are_one_casting(repository):
+    """Two doors, one cast — asserted on the rows, not on the derivations.
+
+    Each path derives its own request id from what is being cast. If the two
+    derivations ever disagree, both would believe they were the only casting,
+    and the listener would be asked to choose between two sets of candidates
+    for one character: a failure with no error anywhere, only a duplicated
+    audition. So the outcome is compared, not the formula.
+    """
+    from application.voice_supply_trigger import VoiceSupplyTrigger
+
+    scope = VoiceBindingScope(
+        owner_id="klein",
+        world_id="world-1",
+        worldline_id="line-1",
+        presentation_identity="victor-osborn",
+        phase="narrative",
+        locale="zh-CN",
+    )
+    catalog = load_voice_design_catalog()
+
+    class Nothing:
+        async def load_scope(self, _scope):
+            return None
+
+    from application.voice_foundry_service import VoiceSupplyService
+
+    trigger = VoiceSupplyTrigger(
+        supply=VoiceSupplyService(repository=repository, bindings=Nothing()),
+        designs=catalog,
+        provider_instance="speechrail-local",
+    )
+    await trigger.ensure(scope)
+
+    handlers = _cast_handlers(repository, scopes=_StaticScopes(scope))
+    for _ in range(2):
+        payload, code = await handlers["voice.foundry.cast_design"](
+            {
+                "schema_version": "1.0",
+                "session_id": "session-1",
+                "design_id": "tingen.victor-osborn",
+            }
+        )
+        assert code is None
+        assert payload is not None
+
+    tasks = await repository.load_tasks_page(page_size=10)
+    assert len(tasks) == 1
+
+
+class _StaticScopes:
+    def __init__(self, scope) -> None:
+        self._scope = scope
+
+    async def scope_for(self, _session_id: str, _identity: str):
+        return self._scope

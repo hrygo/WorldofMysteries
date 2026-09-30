@@ -178,6 +178,17 @@
       "properties": {"schema_version": {"const": "1.0"}},
       "additionalProperties": false
     },
+    "foundry_cast_design_request": {
+      "description": "Cast the designed voice for one identity, in a session this engine serves. The client names a session and a design and nothing else: world, worldline and owner are resolved by the engine from a session it already owns, because a client that supplied them could name a world it does not belong to, and a client that cannot supply them has no honest way to ask. Pure read of the catalog happens separately; this is the write, and it is idempotent by a request id derived from what is being cast.",
+      "type": "object",
+      "required": ["schema_version", "session_id", "design_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "design_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
     "foundry_command": {
       "description": "Idempotently accepts one explicitly authorized Foundry action. The same command_id with the same payload_digest replays; a different digest conflicts. It never submits player input or rewrites a committed Domain turn.",
       "type": "object",
