@@ -816,12 +816,14 @@ async def test_publishing_and_binding_land_together(repository):
         required_actions=(),
     )
 
-    step = await worker.publish_and_bind("task-1", binding_id="vb_klein")
+    step = await worker.publish_and_bind(
+        "task-1", binding_id=task.scope.binding_identity
+    )
 
     assert step.record.stage is VoiceFoundryStage.READY
     # Publishing is guarded on the exact candidate revision that was reviewed.
     assert port.published_revision == REVISION
-    history = await repository.load_binding_history("vb_klein")
+    history = await repository.load_binding_history(task.scope.binding_identity)
     assert [(item.binding_revision, item.status) for item in history] == [
         (1, "reserved"),
         (2, "active"),
@@ -833,9 +835,11 @@ async def test_publishing_a_task_that_is_not_published_is_refused(repository):
     """The worker will not improvise the step that needs a listener."""
     port = RecordingPort()
     worker, _, _ = make_worker(repository, port)
-    await repository.register_task(task_spec())
+    registered = await repository.register_task(task_spec())
 
-    step = await worker.publish_and_bind("task-1", binding_id="vb_klein")
+    step = await worker.publish_and_bind(
+        "task-1", binding_id=registered.scope.binding_identity
+    )
 
     assert step.record.stage is VoiceFoundryStage.REQUESTED
     assert step.slot_consumed is False

@@ -1190,6 +1190,16 @@ class SQLiteVoiceFoundryRepository:
                 )
 
             scope = task.scope
+            # The row key and the row's scope have to be the same fact.
+            # Both uniqueness checks below would pass for a key borrowed from
+            # another scope: the borrowed key is either unused, or it belongs
+            # to a scope this task is not. The row would satisfy the
+            # constraint and still be unreachable, because everything that
+            # renders a voice looks it up by scope.
+            if binding_id != scope.binding_identity:
+                raise VoiceFoundryConflict(
+                    "Voice Foundry binding id does not match the task scope"
+                )
             scope_rows = tx.execute(
                 "SELECT binding_id FROM voice_bindings WHERE owner_id=? AND world_id=? "
                 "AND worldline_id=? AND presentation_identity=? AND phase=? AND locale=?",

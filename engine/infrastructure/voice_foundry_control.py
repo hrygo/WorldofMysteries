@@ -23,11 +23,13 @@ that owns them; the four worker verbs are journalled here, because the
 worker settles its own provider intents and has no command journal of its
 own.
 
-Deliberately absent: ``voice.foundry.publish`` and ``voice.binding.replace``.
-Both need a ``binding_id`` for a binding that does not exist yet, and no
-production path mints one — every call site takes it as a parameter. Rather
-than invent a binding identity scheme inside a data-layer slice, publish and
-replace wait on that decision.
+``voice.foundry.publish`` is here because its binding key is not a client
+choice: ``voice_bindings`` already declares the scope unique, so the key is
+derived from the task's own scope and the repository refuses a mismatch.
+
+Deliberately still absent: ``voice.binding.replace``. It re-points a binding
+that already exists, so it has no task to hang its idempotency receipt on,
+and the command journal this surface uses is keyed by task.
 """
 
 from __future__ import annotations
@@ -48,7 +50,11 @@ from application.voice_foundry_ports import (
 )
 from application.voice_foundry_service import VoiceSupplyService
 
-from .voice_foundry_repository import SQLiteVoiceFoundryRepository, VoiceCommandAck
+from .voice_foundry_repository import (
+    SQLiteVoiceFoundryRepository,
+    VoiceCandidateRecord,
+    VoiceCommandAck,
+)
 
 ControlHandler = Callable[
     [Mapping[str, object]], Awaitable[tuple[dict[str, object] | None, str | None]]
@@ -130,8 +136,9 @@ def voice_foundry_control_handlers(
         "voice.foundry.validate": _wire(
             _validate, repository, supply, worker, "validate"
         ),
-        "voice.foundry.review": _wire(_review, repository, supply, worker, "review"),
-        "voice.foundry.retry": _wire(_retry, repository, supply, commands, "retry"),
+    "voice.foundry.review": _wire(_review, repository, supply, worker, "review"),
+    "voice.foundry.publish": _wire(_publish, repository, supply, worker, "publish"),
+    "voice.foundry.retry": _wire(_retry, repository, supply, commands, "retry"),
         "voice.foundry.cancel": _wire(
             _cancel, repository, supply, commands, "cancel"
         ),
@@ -314,10 +321,15 @@ async def _review(
     # request: a verdict is about the voice this task actually parked for
     # review, and a client naming a different one is describing something
     # that was never auditioned.
-    candidate = await _reviewed_candidate(repository, command["task_id"])
+    candidate = await _candidate_in_state(
+        repository,
+        command["task_id"],
+        "reviewing",
+        absent="candidate_not_awaiting_review",
+    )
     await _worker(driver).submit_review(
         command["task_id"],
-        candidate_id=candidate,
+        candidate_id=candidate.candidate_id,
         validation_id=_identifier(review["validation_id"]),
         reference_audio_digest=_digest_field(review["reference_audio_digest"]),
         validation_audio_digest=_digest_field(review["validation_audio_digest"]),
@@ -325,6 +337,45 @@ async def _review(
         naturalness=_verdict(review["naturalness"]),
     )
     return await _journalled(command, repository, supply, "review")
+
+
+async def _publish(
+    payload: Mapping[str, object],
+    repository: SQLiteVoiceFoundryRepository,
+    supply: VoiceSupplyService,
+    driver: object,
+    action: str | None,
+) -> dict[str, object]:
+    """Release the reviewed voice and bind it, in one authorized step.
+
+    The binding key is not asked for. It is derived from the task's own scope,
+    which is the same fact ``voice_bindings`` already declares unique, so a
+    caller cannot point one character's voice at another character's row. The
+    repository refuses a mismatch as well; deriving it here is what keeps the
+    request from being built wrong in the first place.
+    """
+    command = await _command(payload, repository, action)
+    body = _request(command["payload"], {"provider_candidate_revision"})
+    candidate = await _candidate_in_state(
+        repository,
+        command["task_id"],
+        "published",
+        absent="candidate_not_published",
+    )
+    # The caller names the revision it approved. Publishing is irreversible
+    # upstream, so the revision that goes out has to be the one a person
+    # actually heard, not merely the one on the row today.
+    if (
+        candidate.provider_candidate_revision
+        != _identifier(body["provider_candidate_revision"])
+    ):
+        raise _Rejected("publish_revision_mismatch")
+    task = await repository.load_task(command["task_id"])
+    await _worker(driver).publish_and_bind(
+        command["task_id"],
+        binding_id=task.scope.binding_identity,
+    )
+    return await _journalled(command, repository, supply, "publish")
 
 
 async def _retry(
@@ -495,13 +546,23 @@ def _worker(driver: object) -> VoiceFoundryWorker:
     return driver
 
 
-async def _reviewed_candidate(
-    repository: SQLiteVoiceFoundryRepository, task_id: str
-) -> str:
+async def _candidate_in_state(
+    repository: SQLiteVoiceFoundryRepository,
+    task_id: str,
+    state: str,
+    *,
+    absent: str,
+) -> VoiceCandidateRecord:
+    """The one candidate this task parked in a given state, read back.
+
+    A client that named the candidate itself would be naming a row it could
+    have read at any time; the state the task is sitting in is the fact that
+    says which row the decision is actually about.
+    """
     for candidate in await repository.load_candidates(task_id):
-        if candidate.state == "reviewing":
-            return candidate.candidate_id
-    raise _Rejected("candidate_not_awaiting_review")
+        if candidate.state == state:
+            return candidate
+    raise _Rejected(absent)
 
 
 def _task_of(result: object) -> dict[str, object]:

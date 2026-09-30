@@ -212,7 +212,7 @@ async def test_stage_transition_uses_revision_cas_and_cancel_wins_before_ready(d
             task.task_id,
             expected_task_revision=3,
             evidence=evidence(),
-            binding_id="binding-1",
+            binding_id=task.scope.binding_identity,
         )
     assert await world_revision(database) == 0
 
@@ -374,12 +374,12 @@ async def test_ready_binding_atomically_records_evidence_history_and_task(databa
         task.task_id,
         expected_task_revision=2,
         evidence=evidence(),
-        binding_id="binding-1",
+        binding_id=task.scope.binding_identity,
     )
     assert ready.stage is VoiceFoundryStage.READY
     assert ready.task_revision == 3
 
-    history = await repo.load_binding_history("binding-1")
+    history = await repo.load_binding_history(task.scope.binding_identity)
     assert [(item.binding_revision, item.status) for item in history] == [
         (1, "reserved"),
         (2, "active"),
@@ -390,7 +390,7 @@ async def test_ready_binding_atomically_records_evidence_history_and_task(databa
     )
     current = await database.read_world(
         "SELECT binding_revision,status,evidence_id FROM voice_bindings WHERE binding_id=?",
-        ("binding-1",),
+        (task.scope.binding_identity,),
     )
     assert current == [
         {
@@ -399,6 +399,35 @@ async def test_ready_binding_atomically_records_evidence_history_and_task(databa
             "evidence_id": "evidence-1",
         }
     ]
+    assert await world_revision(database) == 0
+
+
+async def test_a_binding_id_borrowed_from_another_scope_is_refused(database):
+    """The row key and the row's scope have to be the same fact.
+
+    Both uniqueness checks would otherwise pass for a key borrowed from
+    somewhere else: the borrowed key is either unused, or it belongs to a
+    scope this task is not. The row would satisfy the constraint and still be
+    unreachable, because everything that renders a voice looks it up by scope.
+    Nothing downstream would report an error — the voice would simply never
+    be heard.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _publish_task(repo)
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.commit_ready_binding(
+            task.task_id,
+            expected_task_revision=task.task_revision,
+            evidence=evidence(),
+            binding_id="vb-0000000000000000",
+        )
+
+    assert await database.read_world(
+        "SELECT binding_id FROM voice_bindings WHERE binding_id=?",
+        ("vb-0000000000000000",),
+    ) == []
+    assert (await repo.load_task(task.task_id)).stage is VoiceFoundryStage.PUBLISHED
     assert await world_revision(database) == 0
 
 
@@ -420,9 +449,9 @@ async def test_concurrent_ready_commits_elect_one_history_and_do_not_duplicate_e
                 task.task_id,
                 expected_task_revision=2,
                 evidence=evidence(),
-                binding_id=f"binding-{index}",
+                binding_id=task.scope.binding_identity,
             )
-            for index in range(6)
+            for _ in range(6)
         ),
         return_exceptions=True,
     )
@@ -712,11 +741,13 @@ async def test_a_committed_binding_is_loadable_and_can_actually_render(database)
         task.task_id,
         expected_task_revision=task.task_revision,
         evidence=evidence(),
-        binding_id="binding-1",
+        binding_id=task.scope.binding_identity,
     )
     assert ready.stage is VoiceFoundryStage.READY
 
-    bound = await SQLiteVoiceBindingRepository(database).load("binding-1")
+    bound = await SQLiteVoiceBindingRepository(database).load(
+        task.scope.binding_identity
+    )
     assert bound.status is VoiceBindingStatus.ACTIVE
     assert bound.permits_new_render
     assert bound.evidence is not None
@@ -739,11 +770,12 @@ async def test_evidence_without_an_artifact_revision_never_becomes_a_binding(dat
             task.task_id,
             expected_task_revision=task.task_revision,
             evidence=incomplete,
-            binding_id="binding-1",
+            binding_id=task.scope.binding_identity,
         )
 
     assert await database.read_world(
-        "SELECT binding_id FROM voice_bindings WHERE binding_id='binding-1'"
+        "SELECT binding_id FROM voice_bindings WHERE binding_id=?",
+        (task.scope.binding_identity,),
     ) == []
     assert (await repo.load_task(task.task_id)).stage is VoiceFoundryStage.PUBLISHED
     assert await world_revision(database) == 0

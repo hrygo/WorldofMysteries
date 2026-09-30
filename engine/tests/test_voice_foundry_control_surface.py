@@ -29,6 +29,7 @@ from application.voice_foundry_ports import (
     PreviewRequest,
     PreviewResult,
     ProviderLocaleMap,
+    PublishResult,
     ValidationResult,
     VoiceFoundryCapabilities,
 )
@@ -47,6 +48,9 @@ from infrastructure.voice_foundry_repository import (
 )
 
 CANDIDATE_REVISION = "vr_" + "c" * 32
+#: What ``create`` answers with, and therefore what the candidate row carries.
+#: ``confirm`` moves the provider on to :data:`CANDIDATE_REVISION`.
+CANDIDATE_ROW_REVISION = "vr_" + "b" * 32
 PREVIEW_AUDIO_DIGEST = "b" * 64
 REFERENCE_AUDIO_DIGEST = "9" * 64
 VALIDATION_AUDIO_DIGEST = "d" * 64
@@ -112,7 +116,7 @@ class _Port:
         self.calls.append("create")
         return CandidateState(
             candidate_id="vd_" + "a" * 24,
-            candidate_revision="vr_" + "b" * 32,
+            candidate_revision=CANDIDATE_ROW_REVISION,
             state="created",
             reference_confirmed=False,
         )
@@ -133,7 +137,7 @@ class _Port:
         return ValidationResult(
             validation_id=VALIDATION_ID,
             candidate_id=candidate_id,
-            candidate_revision="vr_" + "b" * 32,
+            candidate_revision=CANDIDATE_ROW_REVISION,
             capability_key=capability_key,
             audio_digest=VALIDATION_AUDIO_DIGEST,
             text_digest="e" * 64,
@@ -166,6 +170,33 @@ class _Port:
             },
             publication={"published": False},
             rights={"cleared": True},
+        )
+
+    async def publish(self, candidate_id, *, expected_candidate_revision):
+        self.calls.append("publish")
+        self.published_revision = expected_candidate_revision
+        return PublishResult(
+            candidate_id=candidate_id,
+            candidate_revision=expected_candidate_revision,
+            voice_id="vd_published",
+            voice_revision="wvr_" + "9" * 24,
+            evidence=EvidenceBundle(
+                evidence_id="ev_published",
+                evidence_digest="7" * 64,
+                execution={
+                    "model_id": "qwen3-tts",
+                    "model_artifact_revision": "art-1",
+                    "variant": "custom_voice",
+                    "locale": "zh",
+                    "validation_policy_revision": "policy-1",
+                    "processing_fingerprint": "8" * 64,
+                },
+                reference={"audio_sha256": REFERENCE_AUDIO_DIGEST},
+                output={"audio_sha256": VALIDATION_AUDIO_DIGEST},
+                human={"identity_status": "pass", "naturalness_status": "pass"},
+                publication={"published": True},
+                rights={"cleared": True},
+            ),
         )
 
     @property
@@ -316,6 +347,30 @@ async def _confirmed(repository, worker, handlers, port):
             command_id="cmd-confirm",
         )
     )
+    return await repository.load_task("task-1")
+
+
+async def _published(repository, worker, handlers, port):
+    """Walk one casting all the way through a listener's approval."""
+    task = await _reviewed(repository, worker, handlers, port)
+    body, code = await handlers["voice.foundry.review"](
+        _command(
+            "task-1",
+            task.task_revision,
+            "review",
+            {
+                "human_review": {
+                    "validation_id": VALIDATION_ID,
+                    "reference_audio_digest": REFERENCE_AUDIO_DIGEST,
+                    "validation_audio_digest": VALIDATION_AUDIO_DIGEST,
+                    "identity": "pass",
+                    "naturalness": "pass",
+                }
+            },
+            command_id="cmd-review",
+        )
+    )
+    assert code is None, body
     return await repository.load_task("task-1")
 
 
@@ -650,14 +705,15 @@ async def test_a_verdict_on_a_task_with_nothing_awaiting_review_is_refused(
 # -- what is deliberately not here ---------------------------------------
 
 
-def test_publish_and_binding_replace_are_not_registered_yet(handlers):
-    """Both need a binding id for a binding that does not exist yet.
+def test_binding_replace_is_not_registered_yet(handlers):
+    """It re-points a binding that already exists, so it has no task to hang
+    its idempotency receipt on.
 
-    No production path mints one: every call site takes ``binding_id`` as a
-    parameter and the wire contract carries no field that could supply it.
-    Registering them here would mean inventing a binding identity scheme in a
-    data-layer slice, where nothing would catch it being wrong.
+    The journal these commands replay through is keyed by task, and a
+    replacement names a binding rather than a casting. Registering it against
+    that journal would either lose the receipt or invent a second one.
     """
+    assert "voice.binding.replace" not in handlers
     assert set(handlers) == {
         "voice.foundry.get",
         "voice.foundry.list",
@@ -665,6 +721,7 @@ def test_publish_and_binding_replace_are_not_registered_yet(handlers):
         "voice.foundry.confirm_reference",
         "voice.foundry.validate",
         "voice.foundry.review",
+        "voice.foundry.publish",
         "voice.foundry.retry",
         "voice.foundry.cancel",
     }
@@ -693,3 +750,79 @@ async def test_an_unexpected_failure_reaches_the_caller_as_one_stable_code(
     # message can carry a path, a provider body, or a field nobody outside
     # this process is allowed to see.
     assert code == "service_unavailable"
+
+
+async def test_publishing_binds_the_voice_under_the_scope_it_was_cast_for(
+    repository, handlers, worker, port
+):
+    """The binding key is derived, not chosen.
+
+    ``voice_bindings`` is unique on the scope, so a caller that named its own
+    key could point one character's voice at another character's row and
+    nothing would report an error — the row would satisfy the constraint and
+    still be unreachable, because rendering looks a voice up by scope.
+    """
+    task = await _published(repository, worker, handlers, port)
+    assert task.stage is VoiceFoundryStage.PUBLISHED
+
+    body, code = await handlers["voice.foundry.publish"](
+        _command(
+            "task-1",
+            task.task_revision,
+            "publish",
+            {"provider_candidate_revision": CANDIDATE_ROW_REVISION},
+            command_id="cmd-publish",
+        )
+    )
+
+    assert code is None
+    assert body["task"]["stage"] == VoiceFoundryStage.READY.value
+    assert port.calls[-1] == "publish"
+    assert port.published_revision == CANDIDATE_ROW_REVISION
+
+
+async def test_publishing_a_revision_nobody_approved_is_refused(
+    repository, handlers, worker, port
+):
+    """Publication is irreversible upstream.
+
+    The caller names the revision it approved; the row carries the revision
+    that exists today. Releasing the one on the row when the caller approved a
+    different one would put a voice in front of players that no person ever
+    heard.
+    """
+    task = await _published(repository, worker, handlers, port)
+    calls_before = list(port.calls)
+
+    body, code = await handlers["voice.foundry.publish"](
+        _command(
+            "task-1",
+            task.task_revision,
+            "publish",
+            {"provider_candidate_revision": CANDIDATE_REVISION},
+            command_id="cmd-publish",
+        )
+    )
+
+    assert (body, code) == (None, "publish_revision_mismatch")
+    assert port.calls == calls_before
+
+
+async def test_publishing_a_task_no_listener_approved_is_refused(
+    repository, handlers, worker, port
+):
+    await _confirmed(repository, worker, handlers, port)
+    task = await repository.load_task("task-1")
+
+    body, code = await handlers["voice.foundry.publish"](
+        _command(
+            "task-1",
+            task.task_revision,
+            "publish",
+            {"provider_candidate_revision": CANDIDATE_REVISION},
+            command_id="cmd-publish",
+        )
+    )
+
+    assert (body, code) == (None, "candidate_not_published")
+    assert "publish" not in port.calls

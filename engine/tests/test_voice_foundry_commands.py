@@ -308,17 +308,18 @@ async def test_binding_a_published_voice_yields_one_renderable_binding(
     repository, commands, database
 ):
     service, _, _ = commands
-    await _at_published(repository)
+    task = await _at_published(repository)
+    binding_id = task.scope.binding_identity
 
     result = await service.bind(
         command_id="command-1",
         task_id="task-1",
         evidence=evidence(),
-        binding_id="binding-1",
+        binding_id=binding_id,
     )
 
     assert result.outcome is VoiceSupplyOutcome.READY
-    bound = await SQLiteVoiceBindingRepository(database).load("binding-1")
+    bound = await SQLiteVoiceBindingRepository(database).load(binding_id)
     assert bound.status is VoiceBindingStatus.ACTIVE
     assert bound.permits_new_render
     assert bound.evidence.model_artifact_revision == "model-revision-1"
@@ -330,23 +331,24 @@ async def test_replaying_a_bind_does_not_mint_a_second_binding(
     repository, commands, database
 ):
     service, _, _ = commands
-    await _at_published(repository)
+    task = await _at_published(repository)
+    binding_id = task.scope.binding_identity
 
     await service.bind(
         command_id="command-1",
         task_id="task-1",
         evidence=evidence(),
-        binding_id="binding-1",
+        binding_id=binding_id,
     )
     await service.bind(
         command_id="command-1",
         task_id="task-1",
         evidence=evidence(),
-        binding_id="binding-1",
+        binding_id=binding_id,
     )
 
     rows = await database.read_world("SELECT binding_id FROM voice_bindings")
-    assert rows == [{"binding_id": "binding-1"}]
+    assert rows == [{"binding_id": binding_id}]
 
 
 @pytest.mark.asyncio
