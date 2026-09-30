@@ -41,6 +41,9 @@ IPC = json.loads(
 #: drift this assertion exists to catch.
 MAX_FRAME_BYTES = 1024 * 1024
 
+#: The base this protocol's relative cross-file ``$ref``s resolve against.
+PROTOCOL_BASE = FOUNDRY["$id"].rsplit("/", 1)[0] + "/"
+
 EXPECTED_METHODS = {
     "voice.foundry.request",
     "voice.foundry.get",
@@ -75,9 +78,22 @@ FORBIDDEN_FIELDS = {
 
 
 def _registry(*schemas: dict) -> Registry:
-    return Registry().with_resources(
-        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
-    )
+    """Register schemas under every URI a cross-file ``$ref`` may resolve to.
+
+    The product schemas carry ``mysterious.world`` ids while this protocol
+    lives on ``worldofmysteries.io``, so a relative ``$ref`` like
+    ``voice_cast_request.schema.json`` resolves against the protocol's own
+    base and lands on a URI no schema claims. Registering only the declared
+    ``$id`` hides that: nothing ever resolved these refs, because nothing ever
+    validated a whole response.
+    """
+    resources = []
+    for schema in schemas:
+        resource = Resource.from_contents(schema)
+        name = schema["$id"].rsplit("/", 1)[-1]
+        resources.append((schema["$id"], resource))
+        resources.append((f"{PROTOCOL_BASE}{name}", resource))
+    return Registry().with_resources(resources)
 
 
 def _validator(schema: dict, shape: str) -> Draft202012Validator:
@@ -234,11 +250,47 @@ def test_cast_request_is_authorized_public_presentation_only():
     request = _cast_request()
     assert validator.is_valid(request)
     assert FORBIDDEN_FIELDS.isdisjoint(request)
-
     for field in FORBIDDEN_FIELDS:
         invalid = copy.deepcopy(request)
         invalid[field] = "leaked"
         assert not validator.is_valid(invalid)
+
+
+def test_intake_carries_the_whole_cast_request_and_nothing_else():
+    """The method advertised by the IPC schema finally has a shape.
+
+    ``voice.foundry.request`` has been in the transport's capability enum
+    since the protocol was written, so a client could ask for it and there
+    was nothing to validate the answer against. Intake is the one write here
+    that is not a command: it acts on no existing task, so it has no
+    expected revision and no command id to replay under.
+    """
+    validator = _validator(FOUNDRY, "foundry_request_request")
+    assert validator.is_valid({"schema_version": "1.0", "request": _cast_request()})
+    assert not validator.is_valid({"schema_version": "1.0"})
+    assert not validator.is_valid(
+        {"schema_version": "1.0", "request": _cast_request(), "force": True}
+    )
+
+
+def test_an_already_bound_identity_answers_ready_without_inventing_a_task():
+    """A voice that already exists is an answer, not an empty casting.
+
+    Returning a task alongside ``ready`` would put a phantom casting in
+    front of a listener: there was nothing to cast, and a task id would
+    invite someone to go and look for candidates that were never minted.
+    """
+    validator = _validator(FOUNDRY, "foundry_request_response")
+    assert validator.is_valid(
+        {"schema_version": "1.0", "outcome": "ready", "binding_id": "bind_01"}
+    )
+    assert not validator.is_valid(
+        {"schema_version": "1.0", "outcome": "ready", "task_id": "task-01"}
+    )
+    assert validator.is_valid(
+        {"schema_version": "1.0", "outcome": "supply_required", "task_id": "task-01"}
+    )
+    assert not validator.is_valid({"schema_version": "1.0", "outcome": "ready_ish"})
 
 
 def test_reference_and_validation_text_are_both_bounded_and_distinct_fields():
@@ -314,10 +366,12 @@ def test_foundry_state_vocabulary_is_single_and_explicit():
     "shape",
     [
         "foundry_get_request",
+        "foundry_request_request",
         "foundry_list_request",
         "foundry_asset_request",
         "foundry_command",
         "foundry_get_response",
+        "foundry_request_response",
         "foundry_asset_response",
         "foundry_command_response",
     ],

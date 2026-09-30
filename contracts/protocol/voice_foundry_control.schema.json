@@ -371,6 +371,67 @@
       },
       "additionalProperties": false
     },
+    "foundry_request_request": {
+      "description": "Open one casting task for an authorized identity. Unlike every other write here this is not a command: it acts on no existing task, so it has no expected revision to be stale against and no command id to replay under. Idempotence comes from the request itself — VoiceCastRequest is keyed by request_id, and a scope already in flight is keyed by request_digest — so a retried intake resumes the same task instead of minting a second set of candidates for the same character. The answer is a VoiceSupplyOutcome rather than a task: a caller asking for a voice that is already bound is told ready and given no task at all, because there was nothing to cast.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "request"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "request": {
+          "$ref": "voice_cast_request.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_request_response": {
+      "description": "What a caller may now do about this identity's voice. `task` and `task_id` are absent when the identity already had a renderable binding: there was no task, and inventing one to carry the answer would put a phantom casting in front of a listener.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "outcome"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "outcome": {
+          "enum": [
+            "ready",
+            "supply_required",
+            "pending_review",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        },
+        "binding_id": {"$ref": "#/$defs/identifier"},
+        "reason_code": {"$ref": "#/$defs/reason"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"outcome": {"const": "ready"}},
+            "required": ["outcome"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["task"]},
+                {"required": ["task_id"]}
+              ]
+            }
+          },
+          "else": {
+            "required": ["task_id"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
     "foundry_list_response": {
       "type": "object",
       "required": [
