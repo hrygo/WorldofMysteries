@@ -140,10 +140,13 @@ async def test_the_supply_chain_runs_against_a_real_speechrail():
             created.candidate_id,
             ConfirmRequest(reference_text=PROBE_REFERENCE),
         )
-        # Binding the reference moves the design. Holding the older revision
-        # would make every later call — including the asset reads below —
-        # describe a voice that no longer exists.
-        assert confirmed.candidate_revision != created.candidate_revision
+        # A candidate revision is content-addressed: it names the recipe that
+        # defines the voice, so binding a reference confirms that recipe
+        # rather than replacing it. The revision therefore holds across
+        # confirm, and the asset reads below name the revision that is
+        # actually current. Asserting it moved would encode the old
+        # counter-based model and fail against a correct confirm.
+        assert confirmed.candidate_revision == created.candidate_revision
         assert confirmed.reference_confirmed is True
 
         reference = await adapter.read_asset(
