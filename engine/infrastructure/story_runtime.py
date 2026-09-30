@@ -68,6 +68,9 @@ from application.turn_context_binding import (
     TurnContextStage,
 )
 from application.turn_orchestrator import TurnOrchestrator
+from application.voice_foundry import VoiceFoundryWorker
+from application.voice_foundry_commands import VoiceFoundryCommandService
+from application.voice_foundry_service import VoiceSupplyService
 
 from .audio.config import AudioProviderConfig
 from .audio.voice_delivery import (
@@ -75,6 +78,7 @@ from .audio.voice_delivery import (
     TurnDeliveryOutcome,
     TurnDeliveryPipeline,
 )
+from .audio.voice_foundry_adapter import SpeechRailVoiceFoundryAdapter
 from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
 from .database_manager import DatabaseManager, DatabasePaths
@@ -123,6 +127,11 @@ from .voice_binding_resolver import (
     VoiceBindingResolutionError,
     resolve_voice_runtime,
 )
+from .voice_foundry_control import (
+    ControlHandler as VoiceFoundryControlHandler,
+    voice_foundry_control_handlers,
+)
+from .voice_foundry_repository import SQLiteVoiceFoundryRepository
 
 ENGINEERING_WORLD_ID = "engineering-golden001"
 CONTENT_ARTIFACT_NAME = "canon.db"
@@ -466,6 +475,7 @@ class StoryRuntime:
         episodes: SQLiteEpisodeFinalizationRepository,
         projector: OutboxProjector,
         handlers: dict[str, StoryRequestHandler],
+        foundry_handlers: dict[str, VoiceFoundryControlHandler] | None = None,
     ) -> None:
         self._database = database
         self._facade = facade
@@ -478,6 +488,7 @@ class StoryRuntime:
         self._episodes = episodes
         self._projector = projector
         self._handlers = dict(handlers)
+        self._foundry_handlers = dict(foundry_handlers or {})
         self._close_task: asyncio.Task[None] | None = None
 
     @classmethod
@@ -556,6 +567,51 @@ class StoryRuntime:
         if audio_config.provider_name.casefold() != "speechrail":
             return None
         return VoiceRenderRuntime(provider_instance=audio_config.provider_name)
+
+    @staticmethod
+    def _open_foundry(
+        database: DatabaseManager,
+        audio_config: AudioProviderConfig | None,
+    ) -> dict[str, VoiceFoundryControlHandler]:
+        """Wire the supply chain to a real provider, or to nothing at all.
+
+        Every component here had a test and no production caller, which is why
+        a casting could be driven from a test and from nowhere else. They are
+        built together and torn down together: a repository with no port, or a
+        port with no repository, would each be a supply chain that cannot
+        finish.
+
+        The surface is registered only when a port can actually be built.
+        Advertising eight methods whose every write ends in
+        ``service_unavailable`` would be a handshake promising a capability
+        the process does not have.
+        """
+        if audio_config is None:
+            return {}
+        if audio_config.provider_name.casefold() != "speechrail":
+            return {}
+        repository = SQLiteVoiceFoundryRepository(database)
+        supply = VoiceSupplyService(
+            repository=repository,
+            bindings=SQLiteVoiceBindingRepository(database),
+        )
+        # The audition is rendered by the model the game will speak with. A
+        # preview rendered by anything else yields evidence about a
+        # configuration no player will ever hear, and the whole point of
+        # binding evidence to a model artifact is lost.
+        port = SpeechRailVoiceFoundryAdapter(
+            audio_config, preview_model=audio_config.tts_model
+        )
+        worker = VoiceFoundryWorker(repository, port)
+        commands = VoiceFoundryCommandService(
+            repository=repository, supply=supply, driver=worker
+        )
+        return voice_foundry_control_handlers(
+            repository=repository,
+            supply=supply,
+            commands=commands,
+            worker=worker,
+        )
 
     @classmethod
     def _compose_runtime(
@@ -764,6 +820,7 @@ class StoryRuntime:
             episodes=episodes,
             projector=projector,
             handlers=handlers,
+            foundry_handlers=cls._open_foundry(database, audio_config),
         )
 
     @property
@@ -772,9 +829,20 @@ class StoryRuntime:
 
     @property
     def control_handlers(self) -> dict[str, Callable[[Mapping[str, object]], Awaitable[tuple[dict[str, object] | None, str | None]]]]:
-        if self._voice is None:
-            return {}
-        return {"voice.render": self._voice.handle_control}
+        # The supply surface does not depend on the render runtime: a voice has
+        # to be cast long before there is anything to render it with. Gating
+        # the whole registry on ``_voice`` would hide eight working methods
+        # from every engine that has no renderer configured yet.
+        handlers: dict[
+            str,
+            Callable[
+                [Mapping[str, object]],
+                Awaitable[tuple[dict[str, object] | None, str | None]],
+            ],
+        ] = dict(self._foundry_handlers)
+        if self._voice is not None:
+            handlers["voice.render"] = self._voice.handle_control
+        return handlers
 
     @property
     def media_session_handler(self):

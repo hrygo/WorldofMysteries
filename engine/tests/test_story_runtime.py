@@ -750,6 +750,82 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
     assert len(first_turn.compile_calls) == 1
 
 
+FOUNDRY_METHODS = frozenset(
+    {
+        "voice.foundry.get",
+        "voice.foundry.list",
+        "voice.foundry.select",
+        "voice.foundry.confirm_reference",
+        "voice.foundry.validate",
+        "voice.foundry.review",
+        "voice.foundry.retry",
+        "voice.foundry.cancel",
+    }
+)
+
+
+@pytest.mark.asyncio
+async def test_the_supply_chain_is_reachable_from_a_configured_engine(
+    tmp_path, content_artifact
+):
+    """Every supply component had a test and no production caller.
+
+    A casting could be driven from the suite and from nowhere else, so the
+    whole chain — request, audition, review, evidence, binding — was
+    unreachable from the app that needs it. What is asserted here is the
+    handshake, not the casting: these are the method names a client
+    negotiates against, and a handler that exists but is not registered is
+    the same as one that does not exist.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert FOUNDRY_METHODS <= set(runtime.control_handlers)
+        # Reading is the one verb that needs no provider and no prior state,
+        # so it is the one that can prove the registry is wired to a real
+        # repository rather than to a stub.
+        body, code = await runtime.control_handlers["voice.foundry.list"](
+            {"schema_version": "1.0", "page_size": 10}
+        )
+        assert code is None
+        assert body == {
+            "schema_version": "1.0",
+            "tasks": [],
+            "next_page_token": None,
+        }
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_an_engine_without_a_provider_advertises_no_supply_methods(
+    tmp_path, content_artifact
+):
+    """A handshake must not promise a capability the process does not have.
+
+    Registering the surface without a port behind it would answer every
+    write with ``service_unavailable`` — eight methods that look like a
+    working supply chain and are not one.
+    """
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+    )
+    try:
+        assert not (FOUNDRY_METHODS & set(runtime.control_handlers))
+    finally:
+        await runtime.close()
+
+
 @pytest.mark.asyncio
 async def test_narrative_publish_failure_returns_unavailable_after_domain_commit():
     from contracts import TurnStatus
