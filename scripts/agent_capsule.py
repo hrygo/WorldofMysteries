@@ -181,6 +181,12 @@ ROLE_DEFAULTS: Dict[str, Dict[str, Any]] = {
             ".gitignore",
             "engine/tests/test_hacf_governance.py",
             "engine/tests/test_contracts_schema.py",
+            # engine/contracts/models.py 是 contracts/schemas/ 的 Pydantic
+            # 镜像：契约字段在两侧必须同一切片内一起改，否则 schema 会接受
+            # 一个 Python 侧不存在的字段（或反之），而漂移不会被任何门禁
+            # 看见——因为没有任何角色被授权写它。契约无主是治理空洞，不是
+            # 无人可写的既成事实；镜像与源同归 AGT-ARB，单写入者不变。
+            "engine/contracts/",
             # 打包探针的源闭包断言与 scripts/build_macos_package.py 的
             # PACKAGE_PROBE_SWIFT_SOURCES 必须同一切片内原子更新：拆成两个
             # 切片会让其中一边在 FULL_P0 Stage 2 上必然变红。

@@ -209,6 +209,7 @@ EXCLUSIVE_WRITE_OWNERS = {
     "macos-app/WorldOfMysteries/StorySessionModel.swift": "AGT-MAC",
     "scripts/agent_capsule.py": "AGT-ARB",
     "contracts/protocol/engine_ipc.schema.json": "AGT-ARB",
+    "engine/contracts/models.py": "AGT-ARB",
 }
 
 
@@ -250,6 +251,43 @@ def test_every_delivery_surface_has_exactly_one_authorized_writer():
         path for path in EXCLUSIVE_WRITE_OWNERS if not (REPO_ROOT / path).is_file()
     ]
     assert not missing, f"治理矩阵引用了不存在的文件：{missing}"
+
+
+def _owners_of(path: str) -> list[str]:
+    owners = []
+    for role, defaults in agent_capsule.ROLE_DEFAULTS.items():
+        capsule = {
+            "assigned_role": role,
+            "scope": {
+                "write": defaults["write"],
+                "forbidden": defaults["forbidden"],
+                "privileged_grants": [],
+            },
+        }
+        if hacf_policy.path_verdict(capsule, path)["verdict"] == "authorized":
+            owners.append(role)
+    return owners
+
+
+def test_the_contract_schema_source_and_its_python_mirror_have_the_same_owner():
+    """契约源与 Python 镜像必须同主，否则字段只能改一半。
+
+    ``contracts/schemas/*.json`` 是跨语言协议的源，``engine/contracts/models.py``
+    是它的 Pydantic 镜像。两侧必须由同一角色持有：契约无主不是「无人可改」的
+    常态，而是治理空洞：曾经有一段时间两侧都没有写者，加字段的人只能去改一个，
+    而没有任何门禁会指出另一个被漏掉，漂移要等到运行时才暴露。
+
+    本断言把「同主」钉死，不指定具体是谁：换人裁决即可，但不允许一侧有主、
+    另一侧无主。
+    """
+    schema_owner = _owners_of("contracts/schemas/story_state.schema.json")
+    mirror_owner = _owners_of("engine/contracts/models.py")
+
+    assert schema_owner, "契约源无授权写入者"
+    assert mirror_owner, "契约镜像无授权写入者：加字段只能改一半"
+    assert schema_owner == mirror_owner, (
+        f"契约源与镜像归属不一致：源={schema_owner} 镜像={mirror_owner}"
+    )
 
 
 def test_project_status_renders_completed_milestones_clearly(capsys):
