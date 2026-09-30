@@ -2474,6 +2474,22 @@ def _adapter(transport, **kwargs):
     return SpeechRailVoiceFoundryAdapter(config, fetch=transport, **kwargs)
 
 
+def _wav(seconds: float = 1.0, *, sample_rate: int = 8_000) -> bytes:
+    """A real 16-bit PCM WAV, because a preview now arrives as audio itself."""
+    frames = int(seconds * sample_rate)
+    data = b"\x00\x00" * frames
+    header = b"RIFF" + (36 + len(data)).to_bytes(4, "little") + b"WAVE"
+    header += b"fmt " + (16).to_bytes(4, "little")
+    header += (1).to_bytes(2, "little")  # PCM
+    header += (1).to_bytes(2, "little")  # mono
+    header += sample_rate.to_bytes(4, "little")
+    header += (sample_rate * 2).to_bytes(4, "little")  # byte rate
+    header += (2).to_bytes(2, "little")  # block align
+    header += (16).to_bytes(2, "little")  # bits per sample
+    header += b"data" + len(data).to_bytes(4, "little")
+    return header + data
+
+
 def test_adapter_rejects_a_base_url_outside_the_trust_boundary():
     for bad in (
         "http://user:pw@127.0.0.1:8080/v1",
@@ -2554,18 +2570,8 @@ async def test_unsupported_locale_is_refused_before_any_request_is_sent():
 
 
 async def test_zh_cn_is_the_only_admitted_locale_and_maps_explicitly():
-    preview_wav = b"RIFF----WAVEpreview"
-    transport = _RecordingTransport(
-        (
-            200,
-            json.dumps(
-                {
-                    "audio_base64": base64.b64encode(preview_wav).decode(),
-                    "duration_seconds": 3.5,
-                }
-            ).encode(),
-        )
-    )
+    preview_wav = _wav(3.5)
+    transport = _RecordingTransport((200, preview_wav))
     adapter = _adapter(transport)
     result = await adapter.preview(
         PreviewRequest(
@@ -2815,18 +2821,8 @@ async def test_preview_auditions_without_registering_a_production_voice():
     every recipe the operator auditioned and rejected, which is the repeated
     casting the supply chain exists to avoid.
     """
-    audio = b"RIFF----WAVEpreview"
-    transport = _RecordingTransport(
-        (
-            200,
-            json.dumps(
-                {
-                    "audio_base64": base64.b64encode(audio).decode(),
-                    "duration_seconds": 4.5,
-                }
-            ).encode(),
-        )
-    )
+    audio = _wav(4.5)
+    transport = _RecordingTransport((200, audio))
     adapter = _adapter(transport)
 
     preview = await adapter.preview(
@@ -2865,15 +2861,7 @@ async def test_a_json_body_declares_its_content_type():
     instead of at each call site.
     """
     transport = _RecordingTransport(
-        (
-            200,
-            json.dumps(
-                {
-                    "audio_base64": base64.b64encode(b"RIFF----WAVEp").decode(),
-                    "duration_seconds": 3.5,
-                }
-            ).encode(),
-        )
+        (200, _wav(3.5))
     )
     adapter = _adapter(transport)
 
@@ -2905,3 +2893,49 @@ async def test_a_bodyless_asset_read_declares_no_content_type():
     call = transport.calls[0]
     assert call["body"] is None
     assert "Content-Type" not in call["headers"]
+
+
+async def test_a_preview_is_the_audio_itself_and_says_how_long_it_is():
+    """A design preview succeeds by returning the rendered clip, not a receipt.
+
+    The provider answers a preview with the WAV itself. Reading that body as a
+    JSON envelope fails on exactly the response that means the voice rendered,
+    so a supply failure and a successful audition become indistinguishable at
+    the call site. The length now has to come from the clip's own header.
+    """
+    audio = _wav(2.5)
+    transport = _RecordingTransport((200, audio))
+    adapter = _adapter(transport)
+
+    preview = await adapter.preview(
+        PreviewRequest(
+            game_locale="zh-CN",
+            voice_description="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+        )
+    )
+
+    assert preview.audio == audio
+    assert preview.audio_digest == hashlib.sha256(audio).hexdigest()
+    assert preview.duration_seconds == 2.5
+
+
+async def test_a_preview_that_is_not_audio_is_refused_rather_than_hashed():
+    """An unreadable body must not become a playable-looking audition."""
+    transport = _RecordingTransport((200, b'{"audio_base64":"not audio at all"}'))
+    adapter = _adapter(transport)
+
+    result = await adapter.preview(
+        PreviewRequest(
+            game_locale="zh-CN",
+            voice_description="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+        )
+    )
+
+    # Nothing in the contract lets us call this a clip, so the duration stays
+    # unknown rather than being invented from bytes that are not audio.
+    assert result.duration_seconds == 0.0
+    assert result.audio_bytes > 0

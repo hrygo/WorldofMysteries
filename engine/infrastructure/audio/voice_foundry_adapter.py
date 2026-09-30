@@ -22,7 +22,6 @@ Three rules shape the mapping:
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import json
 import re
@@ -74,6 +73,7 @@ GAME_TO_PROVIDER_LOCALE = ProviderLocaleMap({"zh-CN": "zh"})
 
 _RETRY_STATUS = frozenset({500, 502, 503, 504})
 _STATUS_CODES = {
+    400: "foundry_rejected",
     401: "foundry_unauthorized",
     403: "foundry_forbidden",
     404: "foundry_not_found",
@@ -308,19 +308,32 @@ class SpeechRailVoiceFoundryAdapter:
             self._capabilities, GAME_TO_PROVIDER_LOCALE, request.game_locale
         )
         self._capabilities.validate_preview(request)
-        payload = await self._json(
+        # A preview is the one supply call whose success body is the audio
+        # itself: the provider answers a design request with the rendered WAV
+        # (OpenAI speech shape), not with a JSON envelope carrying a digest.
+        # Reading it as JSON fails on the very response that means the voice
+        # rendered, which is the opposite of what a supply failure looks like.
+        response = await self._fetch(
             "POST",
-            "voices/previews",
-            payload={
-                "model": self._preview_model,
-                "input": request.reference_text,
-                "instruction": request.voice_description,
-                "response_format": "wav",
-                "language": admitted.provider_locale,
-                "seed": request.seed,
-            },
+            self._url("voices/previews"),
+            self._headers({"Content-Type": "application/json"}),
+            json.dumps(
+                {
+                    "model": self._preview_model,
+                    "input": request.reference_text,
+                    "instruction": request.voice_description,
+                    "response_format": "wav",
+                    "language": admitted.provider_locale,
+                    "seed": request.seed,
+                },
+                separators=(",", ":"),
+            ).encode("utf-8"),
+            MAX_ASSET_BYTES,
+            self._timeout,
         )
-        audio = _decode_audio(payload)
+        if response.status_code >= 400:
+            self._decode(response)  # raises the mapped reason code
+        audio = response.body
         recipe = {
             "preview_model": self._preview_model,
             "voice_description": request.voice_description,
@@ -331,11 +344,15 @@ class SpeechRailVoiceFoundryAdapter:
             preview_id=f"pv_{hashlib.sha256(audio).hexdigest()[:24]}",
             audio_digest=hashlib.sha256(audio).hexdigest(),
             audio_bytes=len(audio),
-            duration_seconds=_float_field(payload, "duration_seconds", 0.0),
+            duration_seconds=_wav_duration_seconds(audio),
             recipe=recipe,
             recipe_digest=hashlib.sha256(
                 json.dumps(recipe, sort_keys=True).encode("utf-8")
             ).hexdigest(),
+            # The clip travels with its own digest: a preview nobody can play
+            # is not an audition, and this is the payload the listening desk
+            # hands to a reviewer.
+            audio=audio,
         )
 
     async def create(self, request: CreateRequest) -> CandidateState:
@@ -614,14 +631,33 @@ def _mapping(payload: Mapping[str, object], key: str) -> Mapping[str, object]:
     return value
 
 
-def _decode_audio(payload: Mapping[str, object]) -> bytes:
-    encoded = payload.get("audio_base64")
-    if not isinstance(encoded, str) or not encoded:
-        raise VoiceFoundryPortError("provider_contract_unsupported")
-    try:
-        return base64.b64decode(encoded, validate=True)
-    except (ValueError, TypeError) as exc:
-        raise VoiceFoundryPortError("provider_contract_unsupported") from exc
+def _wav_duration_seconds(audio: bytes) -> float:
+    """Read a rendered clip's length from its own WAV header.
+
+    A preview used to arrive as a JSON envelope that stated the duration. It
+    now arrives as the audio itself, so the length has to come from the bytes
+    — a header this parser does not recognise is reported as unknown (0.0)
+    rather than guessed at, because a wrong duration is worse than none.
+    """
+    if len(audio) < 44 or not audio.startswith(b"RIFF") or audio[8:12] != b"WAVE":
+        return 0.0
+    offset = 12
+    byte_rate = 0
+    while offset + 8 <= len(audio):
+        chunk_id = audio[offset : offset + 4]
+        chunk_size = int.from_bytes(audio[offset + 4 : offset + 8], "little")
+        start = offset + 8
+        end = start + chunk_size
+        if end > len(audio):
+            break
+        if chunk_id == b"fmt " and chunk_size >= 16:
+            byte_rate = int.from_bytes(audio[start + 8 : start + 12], "little")
+        elif chunk_id == b"data":
+            if byte_rate <= 0:
+                return 0.0
+            return round(chunk_size / byte_rate, 3)
+        offset = end + (chunk_size % 2)
+    return 0.0
 
 
 def _text_field(payload: Mapping[str, object], key: str, default: str) -> str:
@@ -632,11 +668,6 @@ def _text_field(payload: Mapping[str, object], key: str, default: str) -> str:
 def _optional_text(payload: Mapping[str, object], key: str) -> str | None:
     value = payload.get(key)
     return value if isinstance(value, str) and value else None
-
-
-def _float_field(payload: Mapping[str, object], key: str, default: float) -> float:
-    value = payload.get(key)
-    return float(value) if isinstance(value, (int, float)) else default
 
 
 def _digest_field(payload: Mapping[str, object], key: str, *, required: bool = True) -> str:
