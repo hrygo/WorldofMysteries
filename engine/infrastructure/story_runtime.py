@@ -495,6 +495,16 @@ def _raise_cleanup_errors(errors: list[BaseException]) -> None:
     raise primary
 
 
+class _NoDesigns:
+    """Stands in for an unreadable catalog without disabling composition."""
+
+    def __contains__(self, _identity: object) -> bool:
+        return False
+
+    def get(self, _identity: str) -> object:
+        raise VoiceDesignError("voice_design_catalog_unreadable")
+
+
 def _load_catalog_or_none() -> VoiceDesignCatalog | None:
     """Read the casting briefs, or report that this process has none.
 
@@ -725,11 +735,16 @@ class StoryRuntime:
         it again, so the brief a person picks in the App and the brief cast
         without asking are the same object.
         """
-        if foundry is None or audio_config is None or foundry.designs is None:
+        if foundry is None or audio_config is None:
             return None
         return VoiceSupplyTrigger(
             supply=foundry.supply,
-            designs=foundry.designs,
+            # A catalog that failed to load costs the handful of briefs a
+            # person already ruled on — not the automatic path. Composing a
+            # brief from what a character has said needs no catalog at all,
+            # and tying the two together would mean one malformed file
+            # silences every new speaker in the world.
+            designs=foundry.designs or _NoDesigns(),
             provider_instance=audio_config.provider_name,
         )
 

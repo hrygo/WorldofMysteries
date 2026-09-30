@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -234,10 +235,12 @@ class _RecordingTrigger:
 
     def __init__(self, fails: bool = False) -> None:
         self.scopes: list[object] = []
+        self.spoken_lines: list[tuple[str, ...]] = []
         self.fails = fails
 
-    async def ensure(self, scope):
+    async def ensure(self, scope, *, spoken_lines=(), display_name="", request_id=None):
         self.scopes.append(scope)
+        self.spoken_lines.append(tuple(spoken_lines))
         if self.fails:
             raise RuntimeError("supply is down")
         return SimpleNamespace(requested=True, awaiting_person=False)
@@ -270,6 +273,37 @@ async def _audio_handler_around_a_missing_voice(monkeypatch, trigger):
         async def read_world(self, sql, _parameters):
             if "post_commit_job_results" in sql:
                 return []
+            if "narrative_blocks" in sql:
+                return [
+                    {
+                        "payload_json": json.dumps(
+                            {
+                                "segments": [
+                                    {
+                                        "type": "character",
+                                        "speaker_id": "victor-osborn",
+                                        "text": "今天雾很大，街角那盏煤气灯又坏了，巷子尽头一点光都没有。",
+                                    },
+                                    {
+                                        "type": "character",
+                                        "speaker_id": "victor-osborn",
+                                        "text": "你说的是哪一班？我记得是三点的，可那时钟早就停了吧。",
+                                    },
+                                    {
+                                        "type": "narration",
+                                        "speaker_id": None,
+                                        "text": "雾没有散。",
+                                    },
+                                    {
+                                        "type": "character",
+                                        "speaker_id": "somebody-else",
+                                        "text": "这一句不属于他，不该被拿去铸造他的声音。",
+                                    },
+                                ]
+                            }
+                        )
+                    }
+                ]
             return [{"committed_world_revision": source.source_world_revision}]
 
         async def post_commit_job_write(self, _apply):
@@ -338,6 +372,15 @@ async def test_a_voiceless_speaker_starts_being_cast_without_changing_the_audio(
     assert result.reason_code == "voice_binding_not_reviewed"
     assert len(trigger.scopes) == 1
     assert trigger.scopes[0].presentation_identity == "victor-osborn"
+    # Only this speaker's own published words. Narration is not his, and
+    # another character's line is not his either — a brief composed from
+    # either would tune a voice on text its owner never spoke.
+    assert trigger.spoken_lines == [
+        (
+            "今天雾很大，街角那盏煤气灯又坏了，巷子尽头一点光都没有。",
+            "你说的是哪一班？我记得是三点的，可那时钟早就停了吧。",
+        )
+    ]
 
 
 @pytest.mark.asyncio

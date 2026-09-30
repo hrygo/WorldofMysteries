@@ -1,6 +1,7 @@
 """Artifact-first handlers for the Golden scenario's durable post-COMMIT jobs."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -470,12 +471,16 @@ class ScenarioAudioPrepareHandler:
             # starts silently. The outcome returned below is exactly what it
             # would have been without this call: the text is already
             # published, and the segment falls back to a subtitle.
-            await self._request_supply_quietly(source.session_id)
+            await self._request_supply_quietly(
+                source.session_id, committed.bootstrap
+            )
             return _blocked(exc.code)
         except (StorageError, TurnDeliveryError):
             return _blocked("audio_prepare_failed")
 
-    async def _request_supply_quietly(self, session_id: str) -> None:
+    async def _request_supply_quietly(
+        self, session_id: str, bootstrap: StorySessionBootstrap
+    ) -> None:
         """Ask supply to start casting this speaker, and fail at nothing.
 
         Everything this does is invisible to the caller by construction. It
@@ -490,9 +495,55 @@ class ScenarioAudioPrepareHandler:
             return
         try:
             session = await self._story.load_session(session_id)
-            await trigger.ensure(binding_scope_for(session))
+            speaker = session.protagonist_id
+            await trigger.ensure(
+                binding_scope_for(session),
+                spoken_lines=await self._published_lines(session_id, speaker),
+                display_name=self._display_name(bootstrap),
+            )
         except Exception:  # noqa: BLE001 - supply must never fail this job
             return
+
+    async def _published_lines(
+        self, session_id: str, speaker_id: str
+    ) -> tuple[str, ...]:
+        """What this speaker has already said, as published.
+
+        Read from the published narrative rather than from any dossier: a line
+        the player has seen is public by construction, and a line they have not
+        is not something a voice may be tuned against. Accumulated across the
+        whole session, because one line per turn never reaches the two a
+        cross-text check needs — the character simply is not cast yet, and is
+        cast on the turn where they have finally said enough.
+        """
+        lines: list[str] = []
+        rows = await self._database.read_world(
+            "SELECT payload_json FROM narrative_blocks "
+            "WHERE session_id=? ORDER BY source_story_revision",
+            (session_id,),
+        )
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            for segment in payload.get("segments", []):
+                if (
+                    segment.get("type") == "character"
+                    and segment.get("speaker_id") == speaker_id
+                    and isinstance(segment.get("text"), str)
+                    and segment["text"].strip()
+                ):
+                    lines.append(segment["text"].strip())
+        return tuple(lines)
+
+    @staticmethod
+    def _display_name(bootstrap: StorySessionBootstrap) -> str:
+        try:
+            name = bootstrap.character["identity"]["display_name"]
+        except (AttributeError, KeyError, TypeError):
+            # A bootstrap without a character block is a content gap, not a
+            # reason to fail an audio job; the composer falls back to the
+            # identity itself.
+            return ""
+        return name if isinstance(name, str) else ""
 
     async def _load_sealed_unit(
         self,

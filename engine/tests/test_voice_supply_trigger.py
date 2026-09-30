@@ -127,13 +127,61 @@ async def test_a_task_already_waiting_on_somebody_is_not_reopened(repository):
     assert result.awaiting_person is True
 
 
-async def test_an_identity_nobody_designed_is_left_alone(repository):
-    """The supply chain does not get to decide what an undesigned voice is."""
-    result = await trigger(repository).ensure(scope("somebody-unwritten"))
+async def test_a_character_nobody_wrote_a_brief_for_is_cast_from_what_they_said(
+    repository,
+):
+    """The whole point: a new speaker is not mute.
+
+    Before this, an identity missing from the catalog returned
+    ``voice_design_absent`` and no task was ever opened — so the sixth
+    character to appear in a world was permanently voiceless. Now the brief is
+    composed from the lines they have already published.
+    """
+    target = scope("somebody-unwritten")
+    result = await trigger(repository).ensure(
+        target,
+        spoken_lines=(
+            "今天雾很大，街角那盏煤气灯又坏了，巷子尽头一点光都没有。",
+            "你说的是哪一班？我记得是三点的，可那时钟早就停了吧。",
+        ),
+        display_name="路人",
+    )
+
+    assert result.requested is True
+    tasks = await repository.load_scope_tasks(target)
+    assert len(tasks) == 1
+    assert tasks[0].voice_description != ""
+
+
+async def test_a_character_who_has_spoken_once_is_not_cast_yet(repository):
+    """Not enough published words to check a voice against, and it says so."""
+    target = scope("somebody-unwritten")
+    result = await trigger(repository).ensure(
+        target, spoken_lines=("今天雾很大。",), display_name="路人"
+    )
 
     assert result.requested is False
-    assert result.reason_code == "voice_design_absent"
-    assert await repository.load_scope_tasks(scope("somebody-unwritten")) == ()
+    assert result.reason_code == "voice_brief_insufficient_evidence"
+    assert await repository.load_scope_tasks(target) == ()
+
+
+async def test_a_catalog_brief_is_never_overwritten_by_a_composed_one(repository):
+    """A voice a person listened to and signed is not re-decided by the system."""
+    from infrastructure.voice_design_catalog import load_voice_design_catalog
+
+    target = scope("victor-osborn")
+    result = await trigger(repository).ensure(
+        target,
+        spoken_lines=("完全不同的另一套说法。", "而且是新的。"),
+        display_name="维克多·奥斯本",
+    )
+
+    assert result.requested is True
+    task = (await repository.load_scope_tasks(target))[-1]
+    assert (
+        task.voice_description
+        == load_voice_design_catalog().get("victor-osborn").voice_description
+    )
 
 
 async def test_an_identity_that_already_has_a_voice_is_left_alone(repository):

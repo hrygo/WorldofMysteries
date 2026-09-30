@@ -38,6 +38,7 @@ from typing import Protocol
 from domain.voice_identity import VoiceBindingScope
 from infrastructure.voice_foundry_repository import VoiceFoundryTaskSpec
 
+from .voice_brief_composer import VoiceBriefComposer, VoiceBriefFacts
 from .voice_foundry_service import VoiceSupplyOutcome, VoiceSupplyResult
 
 
@@ -97,14 +98,21 @@ class VoiceSupplyTrigger:
         designs: VoiceDesignLookup,
         provider_instance: str,
         authorization_ref: str = CAST_AUTHORIZATION_REF,
+        composer: VoiceBriefComposer | None = None,
     ) -> None:
         self._supply = supply
         self._designs = designs
         self._provider_instance = provider_instance
         self._authorization_ref = authorization_ref
+        self._composer = composer or VoiceBriefComposer()
 
     async def ensure(
-        self, scope: VoiceBindingScope, *, request_id: str | None = None
+        self,
+        scope: VoiceBindingScope,
+        *,
+        spoken_lines: tuple[str, ...] = (),
+        display_name: str = "",
+        request_id: str | None = None,
     ) -> VoiceSupplyTriggerResult:
         """Open a casting for ``scope`` if one is needed. Never raises.
 
@@ -113,12 +121,13 @@ class VoiceSupplyTrigger:
         anything is already under way. Only a scope that has never been asked
         for reaches the write, which is what keeps a character who speaks every
         turn from registering a task per turn.
+
+        A design in the catalog always wins. Those briefs were listened to and
+        signed, and a character whose voice a person has already ruled on does
+        not get a new one because the system can compose one. The composer is
+        the path for everyone else — which is most of them, in a world where
+        characters appear without anyone announcing them first.
         """
-        if scope.presentation_identity not in self._designs:
-            # Not an error. A world holds identities nobody has designed a
-            # voice for, and inventing a brief for one here would be the
-            # supply chain deciding what a character sounds like.
-            return VoiceSupplyTriggerResult(False, False, "voice_design_absent")
         try:
             existing = await self._supply.precheck(scope)
             if existing.outcome is VoiceSupplyOutcome.READY:
@@ -130,12 +139,19 @@ class VoiceSupplyTrigger:
                 return VoiceSupplyTriggerResult(
                     False, bool(existing.state.required_actions)
                 )
-            design = self._designs.get(scope.presentation_identity)
+            brief = await self._brief_for(
+                scope, spoken_lines=spoken_lines, display_name=display_name
+            )
+            if brief is None:
+                return VoiceSupplyTriggerResult(
+                    False, False, "voice_brief_insufficient_evidence"
+                )
             result = await self._supply.request(
-                design.task_spec(  # type: ignore[attr-defined]
+                brief.task_spec(
                     scope=scope,
-                    request_id=request_id or _automatic_request_id(scope, design),  # type: ignore[arg-type]
-                    persona_revision=f"persona-{design.design_revision}",  # type: ignore[attr-defined]
+                    request_id=request_id
+                    or _automatic_request_id(scope, brief.design_revision),
+                    persona_revision=f"persona-{brief.design_revision}",
                     authorization_ref=self._authorization_ref,
                     provider_instance=self._provider_instance,
                 )
@@ -151,10 +167,28 @@ class VoiceSupplyTrigger:
             ),
         )
 
+    async def _brief_for(
+        self,
+        scope: VoiceBindingScope,
+        *,
+        spoken_lines: tuple[str, ...],
+        display_name: str,
+    ) -> object | None:
+        """The brief this speaker casts from, or ``None`` if they cannot yet."""
+        identity = scope.presentation_identity
+        if identity in self._designs:
+            return self._designs.get(identity)
+        return await self._composer.compose(
+            VoiceBriefFacts(
+                presentation_identity=identity,
+                display_name=display_name or identity,
+                usage="dialogue",
+                spoken_lines=spoken_lines,
+            )
+        )
 
-def _automatic_request_id(
-    scope: VoiceBindingScope, design: object
-) -> str:
+
+def _automatic_request_id(scope: VoiceBindingScope, design_revision: int) -> str:
     """A request id that is the same every time this cast is warranted.
 
     Derived from what the casting *is* — this world, this worldline, this
@@ -170,7 +204,7 @@ def _automatic_request_id(
             scope.worldline_id,
             scope.presentation_identity,
             scope.phase,
-            f"persona-{design.design_revision}",  # type: ignore[attr-defined]
+            f"persona-{design_revision}",
         )
     )
     return "auto-" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]

@@ -2636,3 +2636,48 @@ async def test_a_configured_engine_offers_both_ways_in(tmp_path, content_artifac
         assert runtime._foundry.driver.is_running
     finally:
         await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_catalog_does_not_silence_new_speakers(
+    tmp_path, content_artifact, monkeypatch
+):
+    """One malformed file must not cost the world its automatic casting.
+
+    The catalog holds the briefs a person already ruled on. Composing one from
+    what a character has said needs no catalog at all, so wiring the two
+    together — an unreadable catalog disabling the trigger — would mean a
+    stray byte in a JSON file silences every character who appears next.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure import story_runtime as module
+
+    monkeypatch.setattr(module, "load_voice_design_catalog", _raise_unreadable)
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is None
+        # The picker is honestly absent…
+        assert "voice.foundry.list_designs" not in runtime.control_handlers
+        # …and the trigger is still standing, so a character nobody wrote a
+        # brief for can still be cast from what they have said.
+        trigger = StoryRuntime._open_supply_trigger(
+            runtime._foundry, AudioProviderConfig()
+        )
+        assert trigger is not None
+        assert "victor-osborn" not in trigger._designs
+    finally:
+        await runtime.close()
+
+
+def _raise_unreadable():
+    from infrastructure.voice_design_catalog import VoiceDesignError
+
+    raise VoiceDesignError("voice_design_catalog_unreadable")
