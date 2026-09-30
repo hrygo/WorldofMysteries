@@ -414,6 +414,7 @@ class SpeechRailVoiceFoundryAdapter:
         validation_id: str,
         identity: FoundryReviewVerdict,
         naturalness: FoundryReviewVerdict,
+        validation_audio_digest: str = "",
     ) -> EvidenceBundle:
         self._capabilities.require(FoundryOperation.REVIEW)
         _require_id(candidate_id, _CANDIDATE_ID, "foundry_not_found")
@@ -439,6 +440,7 @@ class SpeechRailVoiceFoundryAdapter:
             identity_status=identity_status,
             naturalness_status=naturalness_status,
             review_id=validation_id,
+            validation_audio_digest=validation_audio_digest,
         )
 
     async def publish(
@@ -529,6 +531,7 @@ class SpeechRailVoiceFoundryAdapter:
         naturalness_status: str | None,
         review_id: str | None,
         published_revision: str | None = None,
+        validation_audio_digest: str = "",
     ) -> EvidenceBundle:
         """Assemble evidence from reported facts, or refuse to assemble it."""
         policy = self._execution_policy
@@ -589,9 +592,14 @@ class SpeechRailVoiceFoundryAdapter:
                 or _text_field(validation, "naturalness_status", "not_run"),
                 "review_id": review_id or _text_field(validation, "validation_id", ""),
                 "reference_audio_digest": reference_audio,
-                "validation_audio_digest": _digest_field(
-                    validation, "audio_sha256", required=False
-                ),
+                # The provider publishes no digest for a validation, so this
+                # is the caller's to supply: it is the digest of the asset the
+                # caller actually read, which is the only one that describes
+                # the audio a person approved. Reading it from the reply — as
+                # this did, from a field the service does not publish — left
+                # evidence that named a validation while saying nothing about
+                # what was heard.
+                "validation_audio_digest": validation_audio_digest,
             },
             publication={
                 "state": "published",
@@ -730,8 +738,18 @@ def _validation_result(
         candidate_id=candidate_id,
         candidate_revision=_text_field(source, "candidate_revision", ""),
         capability_key=_text_field(source, "capability_key", capability_key),
-        audio_digest=_digest_field(source, "audio_sha256", required=False),
-        text_digest=_digest_field(source, "text_sha256", required=False),
+        # A validation publishes no digest. The service holds
+        # `output_wav_sha256` and `test_text_sha256` on the record and
+        # deliberately keeps them out of the projection, so there is no field
+        # name to read here — this adapter used to look for `audio_sha256`
+        # and `text_sha256`, found neither, and returned an empty digest that
+        # travelled all the way to the repository before anything refused it.
+        #
+        # The audio's identity is established by reading the asset instead,
+        # which the caller does rather than this layer. Reporting a digest
+        # here would mean reporting one this layer cannot stand behind.
+        audio_digest="",
+        text_digest="",
         passed=_text_field(source, "machine_status", "") == "pass",
     )
 

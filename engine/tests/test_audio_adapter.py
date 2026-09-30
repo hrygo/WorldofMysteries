@@ -2791,6 +2791,60 @@ async def test_validate_requests_new_text_and_records_no_verdict():
     assert result.validation_id == "vv_" + "e" * 24
 
 
+async def test_validate_reports_no_digest_because_the_provider_publishes_none():
+    """The empty digest is a fact about the provider, not a missing field.
+
+    SpeechRail keeps ``output_wav_sha256`` and ``test_text_sha256`` on the
+    validation record and deliberately leaves them out of the projection, so
+    there is no name this adapter could read. It used to look for
+    ``audio_sha256``/``text_sha256``, find neither, and hand back an empty
+    string indistinguishable from a digest it had computed — which then
+    travelled until the repository refused it as malformed. Pinned here so
+    the next reader knows the emptiness is the contract, not an oversight.
+    """
+    projection = dict(VOICE_DESIGN_CANDIDATE["validations"][0])
+    # Even a record that carried a digest under another name must not be mined
+    # for one: the caller establishes the audio's identity by reading it.
+    projection["output_wav_sha256"] = "9" * 64
+    projection["test_text_sha256"] = "8" * 64
+    transport = _RecordingTransport(
+        (200, json.dumps({"validation": projection}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    result = await adapter.validate(
+        "vd_" + "a" * 24,
+        test_text="这是用于跨文本复验的另一句完整文本，不能与参考文本相同。",
+        capability_key="quality.render",
+    )
+
+    assert result.audio_digest == ""
+    assert result.text_digest == ""
+
+
+async def test_evidence_names_the_validation_audio_the_caller_actually_read():
+    """The digest comes from the caller, because only it read the asset.
+
+    Evidence that named a validation while carrying no digest of its audio
+    would satisfy every shape check while proving nothing about what a person
+    approved, which is the one claim an evidence bundle exists to make.
+    """
+    transport = _RecordingTransport(
+        (200, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    evidence = await adapter.review(
+        "vd_" + "a" * 24,
+        validation_id="vv_" + "e" * 24,
+        identity=FoundryReviewVerdict.PASS,
+        naturalness=FoundryReviewVerdict.PASS,
+        validation_audio_digest="7" * 64,
+    )
+
+    assert evidence.human["validation_audio_digest"] == "7" * 64
+
+
 async def test_a_verdict_we_cannot_record_never_reaches_the_provider():
     """A warning has no lossless place in our evidence contract.
 
