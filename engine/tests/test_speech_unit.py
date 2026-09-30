@@ -701,3 +701,145 @@ async def test_seal_refuses_when_the_caller_declares_a_different_model():
         SpeechUnitSealingError, match="execution_model_conflicts_with_binding"
     ):
         await seal_once(execution=requirements)
+
+
+@pytest.mark.asyncio
+async def test_two_characters_in_one_block_each_get_their_own_voice():
+    """同一段文字里的两个人各自出声，谁也不借用谁的声线。
+
+    这是验收标准 1 里最难兑现的一条：不共用全局默认声线。此前的用例一次
+    只封一个段，于是「按段选对声音」从未被真正验证——任何能封出一个段的
+    实现都算通过，哪怕它对第二个人物永远返回同一份绑定。
+
+    两个人物的绑定、证据与执行身份都不同，所以任何一处「取默认声音」的
+    偷懒都会在这里暴露：要么第二段的 voice_id 与第一段相同，要么它的
+    证据准入失败。
+    """
+    from infrastructure.audio.voice_delivery import (
+        TurnDeliveryOutcome,
+        TurnDeliveryPipeline,
+    )
+
+    klein_line = "别过去，那条巷子我认得。"
+    ida_line = "按住伤口，别松手。"
+    block = NarrativeBlock(
+        schema_version="1.0",
+        # The disclosure authorizer re-reads the block through the turn and
+        # refuses any block whose id is not the one the turn committed, so the
+        # fixture turn pins this id rather than accepting any.
+        id="narrative-1",
+        story_session_id="session-1",
+        source_story_revision=7,
+        segments=[
+            NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。"),
+            NarrativeSegment(
+                type="character", speaker_id="klein-visible", text=klein_line
+            ),
+            NarrativeSegment(
+                type="character", speaker_id="ida-visible", text=ida_line
+            ),
+        ],
+        source_state_delta_id="delta-1",
+    )
+
+    def voice_of(identity: str) -> str:
+        return f"{identity}-approved"
+
+    klein_binding = _dc_replace(
+        binding(),
+        binding_id="binding-klein",
+        scope=scope(identity="klein-visible"),
+        provider=_dc_replace(
+            binding().provider, voice_id=voice_of("klein-visible")
+        ),
+    )
+    ida_binding = _dc_replace(
+        binding(),
+        binding_id="binding-ida",
+        scope=scope(identity="ida-visible"),
+        provider=_dc_replace(
+            binding().provider, voice_id=voice_of("ida-visible")
+        ),
+    )
+    by_identity = {
+        "klein-visible": klein_binding,
+        "ida-visible": ida_binding,
+    }
+
+    class ScopeResolvingBindings:
+        """Resolve by the scope asked for, which is the whole point.
+
+        The shared ``MemoryBindingPort`` hands back one fixed binding whatever
+        it is asked for, so a test using it cannot tell a correct lookup from
+        a constant.
+        """
+
+        async def load_scope(self, asked: VoiceBindingScope) -> VoiceBinding | None:
+            return by_identity.get(asked.presentation_identity)
+
+    sealed_service = SpeechUnitSealingService(
+        disclosure=AudioDisclosureAuthorizer(
+            MemoryDisclosurePort(turn(), block)
+        ),
+        bindings=ScopeResolvingBindings(),
+    )
+
+    class MemoryVoice:
+        def __init__(self):
+            self.units = []
+
+        def publish(self, unit):
+            self.units.append(unit)
+
+    voice = MemoryVoice()
+    published = []
+    for index, identity in ((1, "klein-visible"), (2, "ida-visible")):
+        pipeline = TurnDeliveryPipeline(
+            sealing=sealed_service,
+            voice=voice,
+            binding_scope=scope(identity=identity),
+            expected_binding_revision=2,
+            execution_model_id="speechrail/qwen3-tts",
+            dictionary_revision="pron-v1",
+            seal_arguments={
+                "execution": execution_requirements(
+                    voice_id=voice_of(identity)
+                ),
+                "evidence": approved_evidence(
+                    evidence_id=f"ev_{identity}",
+                    voice_id=voice_of(identity),
+                ),
+                "semantic_anchors": (),
+                "pronunciation_rules": (),
+                "desired_performance": DesiredPerformance(),
+                "performance_capabilities": VoicePerformanceCapabilities(
+                    variant="base_clone", native_speed=True
+                ),
+            },
+        )
+        receipt = await pipeline.deliver(
+            TurnDeliveryOutcome(
+                turn_id="turn-1",
+                session_id="session-1",
+                story_revision=7,
+                state_delta_id="delta-1",
+                narrative=block,
+                segment_index=index,
+            )
+        )
+        assert receipt is not None, f"{identity} produced no audio at all"
+        published.append(receipt)
+
+    units = voice.units
+    assert len(units) == 2
+    assert [unit.presentation_identity for unit in units] == [
+        "klein-visible",
+        "ida-visible",
+    ]
+    assert [unit.segment_index for unit in units] == [1, 2]
+    assert [unit.spoken_text for unit in units] == [klein_line, ida_line]
+    # The clause that matters: two speakers, two voices. A shared default
+    # would make these equal and still pass every test above it.
+    assert units[0].voice_id != units[1].voice_id
+    assert units[0].binding_id != units[1].binding_id
+    assert units[0].unit_id != units[1].unit_id
