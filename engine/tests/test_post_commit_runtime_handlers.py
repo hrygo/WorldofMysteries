@@ -266,7 +266,16 @@ async def _audio_handler_around_a_missing_voice(monkeypatch, trigger):
         story_session_id=source.session_id,
         source_story_revision=source.source_story_revision,
         source_state_delta_id=delta.id,
-        segments=[],
+        # A committed block always carries speech; an empty one would fail on
+        # "nobody spoke" before supply was ever asked, which is a different
+        # failure from the one this fixture is about.
+        segments=[
+            SimpleNamespace(
+                type="character",
+                speaker_id="victor-osborn",
+                text="今天雾很大，街角那盏煤气灯又坏了。",
+            )
+        ],
     )
 
     class Database:

@@ -136,7 +136,7 @@ from .voice_binding_resolver import (
 )
 from domain.voice_identity import VoiceBindingScope
 
-from .voice_binding_resolver import binding_scope_for
+from .voice_binding_resolver import binding_scope_for, speaker_scope_for
 from .voice_foundry_control import (
     VoiceScopeResolver,
     ControlHandler as VoiceFoundryControlHandler,
@@ -1055,24 +1055,28 @@ class _SessionScopeResolver:
     The App is never told the world id, the worldline id or the owner, and it
     has no business being: a scope it could name is a scope it could forge.
     So the button sends a session it is already in, and the engine derives the
-    rest from the session it already has. The identity comes from the design
-    rather than the caller — the design is content this engine published, and
-    that is what makes the swap safe.
+    rest from the session it already has. The identity and the phase come from
+    the design rather than the caller — the design is content this engine
+    published, and that is what makes the swap safe.
     """
 
     def __init__(self, query: SQLiteStorySessionQuery) -> None:
         self._query = query
 
     async def scope_for(
-        self, session_id: str, presentation_identity: str
+        self,
+        session_id: str,
+        presentation_identity: str,
+        phase: str,
     ) -> VoiceBindingScope | None:
         try:
             session = await self._query.load_session(session_id)
         except Exception:  # noqa: BLE001 - an unknown session is not a crash
             return None
-        return replace(
-            binding_scope_for(session),
+        return binding_scope_for(
+            session,
             presentation_identity=presentation_identity,
+            phase=phase,
         )
 
 
@@ -1174,16 +1178,20 @@ class _DeliveryCoordinator:
         if self._voice is None or self._audio is None or not self._voice_id:
             return TurnDeliveryView(state="unavailable", reason="voice_not_configured")
 
-        segment_index = next(
-            (
-                index
-                for index, segment in enumerate(narrative.segments)
-                if segment.type == "character"
-                and segment.speaker_id == result.session.protagonist_id
-            ),
-            None,
+        # The scope follows the segment rather than the session: a turn's
+        # audio belongs to whoever is speaking, and a resolver handed only
+        # the session would go looking for the protagonist's voice and report
+        # the wrong speaker as missing. Narration is speakable too — it is
+        # the narrator's voice, and the catalog casts one.
+        speakable = [
+            (index, speaker_scope_for(snapshot.session, item))
+            for index, item in enumerate(narrative.segments)
+        ]
+        segment_index, scope = next(
+            ((index, found) for index, found in speakable if found is not None),
+            (None, None),
         )
-        if segment_index is None:
+        if segment_index is None or scope is None:
             return TurnDeliveryView(
                 state="unavailable",
                 reason="narrative_has_no_character_segment",
@@ -1195,6 +1203,7 @@ class _DeliveryCoordinator:
                 session=snapshot.session,
                 config=self._audio,
                 voice_id=self._voice_id,
+                scope=scope,
                 fetch_json=self._fetch_json,
             )
         except VoiceBindingResolutionError as exc:

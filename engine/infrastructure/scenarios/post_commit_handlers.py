@@ -41,11 +41,13 @@ from ..story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from ..story_session_repository import SQLiteStorySessionCommitPort
 from ..voice_binding_repository import SQLiteVoiceBindingRepository
 from ..voice_binding_resolver import (
+    NARRATION_PHASE,
     ResolvedVoiceRuntime,
     VoiceBindingResolutionError,
-    binding_scope_for,
     resolve_voice_runtime,
+    speaker_scope_for,
 )
+from domain.voice_identity import VoiceBindingScope
 
 _SOURCE_MISMATCH = "work_unavailable"
 _RESULT_CONFLICT = "sealed_result_conflict"
@@ -406,11 +408,25 @@ class ScenarioAudioPrepareHandler:
             if self._voice is None or self._audio_config is None or not self._voice_id:
                 return _blocked("voice_not_configured")
             session = await self._story.load_session(source.session_id)
+            # The speaker is chosen before the voice is resolved, because the
+            # scope *is* the speaker. Resolving first would mean asking the
+            # repository for a voice before knowing whose voice was wanted.
+            segment_index, scope = next(
+                (
+                    (index, speaker_scope_for(session, item))
+                    for index, item in enumerate(narrative.segments)
+                    if speaker_scope_for(session, item) is not None
+                ),
+                (None, None),
+            )
+            if segment_index is None or scope is None:
+                return _blocked("narrative_has_no_character_segment")
             resolved = await resolve_voice_runtime(
                 repository=self._bindings,
                 session=session,
                 config=self._audio_config,
                 voice_id=self._voice_id,
+                scope=scope,
                 fetch_json=self._fetch_json,
             )
             if existing is not None:
@@ -421,18 +437,6 @@ class ScenarioAudioPrepareHandler:
                 except VoiceRenderRuntimeError:
                     return _blocked("handoff_unavailable")
                 return _success(f"sealed:{existing.unit_id}")
-            segment_index = next(
-                (
-                    index
-                    for index, segment in enumerate(narrative.segments)
-                    if segment.type == "character"
-                    and segment.speaker_id
-                    == committed.bootstrap.initial_session.protagonist_id
-                ),
-                None,
-            )
-            if segment_index is None:
-                return _blocked("narrative_has_no_character_segment")
             sealing = SpeechUnitSealingService(
                 disclosure=AudioDisclosureAuthorizer(self._narratives),
                 bindings=self._bindings,
@@ -472,14 +476,17 @@ class ScenarioAudioPrepareHandler:
             # would have been without this call: the text is already
             # published, and the segment falls back to a subtitle.
             await self._request_supply_quietly(
-                source.session_id, committed.bootstrap
+                source.session_id, committed.bootstrap, scope
             )
             return _blocked(exc.code)
         except (StorageError, TurnDeliveryError):
             return _blocked("audio_prepare_failed")
 
     async def _request_supply_quietly(
-        self, session_id: str, bootstrap: StorySessionBootstrap
+        self,
+        session_id: str,
+        bootstrap: StorySessionBootstrap,
+        scope: VoiceBindingScope,
     ) -> None:
         """Ask supply to start casting this speaker, and fail at nothing.
 
@@ -489,23 +496,26 @@ class ScenarioAudioPrepareHandler:
         character and outright failing all leave the job returning the same
         blocked audio result it always did. A supply problem is not allowed to
         become a story problem.
+
+        The scope is the one whose voice was just found missing, not a
+        re-derived guess: a turn whose narrator has no voice must ask the
+        foundry for a narrator, and asking on the protagonist's behalf would
+        cast a voice nobody is missing.
         """
         trigger = self._supply_trigger
         if trigger is None:
             return
         try:
-            session = await self._story.load_session(session_id)
-            speaker = session.protagonist_id
             await trigger.ensure(
-                binding_scope_for(session),
-                spoken_lines=await self._published_lines(session_id, speaker),
+                scope,
+                spoken_lines=await self._published_lines(session_id, scope),
                 display_name=self._display_name(bootstrap),
             )
         except Exception:  # noqa: BLE001 - supply must never fail this job
             return
 
     async def _published_lines(
-        self, session_id: str, speaker_id: str
+        self, session_id: str, scope: VoiceBindingScope
     ) -> tuple[str, ...]:
         """What this speaker has already said, as published.
 
@@ -515,6 +525,12 @@ class ScenarioAudioPrepareHandler:
         whole session, because one line per turn never reaches the two a
         cross-text check needs — the character simply is not cast yet, and is
         cast on the turn where they have finally said enough.
+
+        The scope decides which lines count. Narration is published with no
+        ``speaker_id`` at all, so a narrator's lines are found by their phase
+        and a character's by their speaker — reading a narrator's text as
+        though someone had said it aloud would tune the voice against lines no
+        mouth ever moved on.
         """
         lines: list[str] = []
         rows = await self._database.read_world(
@@ -522,12 +538,18 @@ class ScenarioAudioPrepareHandler:
             "WHERE session_id=? ORDER BY source_story_revision",
             (session_id,),
         )
+        narration = scope.phase == NARRATION_PHASE
         for row in rows:
             payload = json.loads(row["payload_json"])
             for segment in payload.get("segments", []):
                 if (
-                    segment.get("type") == "character"
-                    and segment.get("speaker_id") == speaker_id
+                    (
+                        segment.get("type") == "narration"
+                        if narration
+                        else segment.get("type") == "character"
+                        and segment.get("speaker_id")
+                        == scope.presentation_identity
+                    )
                     and isinstance(segment.get("text"), str)
                     and segment["text"].strip()
                 ):

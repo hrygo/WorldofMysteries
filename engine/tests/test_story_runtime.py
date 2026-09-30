@@ -633,8 +633,47 @@ def _committed_delivery_case(*, narrative=None):
             self.compile_calls.append(committed)
             return self.candidate
 
+    # A real session, not a stand-in: the delivery coordinator now derives
+    # the speaker's scope from it before resolving a voice, and a scope built
+    # from something that is not a session is refused on purpose.
+    from contracts import (
+        BaseRevisions,
+        StoryPhase,
+        StorySession,
+        StorySessionStatus,
+        StoryState,
+    )
+    from contracts.models import StoryCommitments, StoryScene
+
+    def _session():
+        return StorySession(
+            schema_version="1.0",
+            id="session-1",
+            world_id="world-1",
+            worldline_id="line-1",
+            protagonist_id="protagonist-1",
+            story_seed_id="seed_delivery_case",
+            base_revisions=BaseRevisions(world=0, character=0, story=0),
+            story_state=StoryState(
+                schema_version="1.0",
+                story_session_id="session-1",
+                revision=1,
+                turn=1,
+                phase=StoryPhase.INVESTIGATION,
+                scene=StoryScene(id="scene-1"),
+                world_time="1349-06-12T21:40:00",
+                active_conflicts=[],
+                discovered_clue_ids=[],
+                secret_states={},
+                commitments=StoryCommitments(hard_ids=[], soft_ids=[]),
+                local_state={},
+                pressure={},
+            ),
+            status=StorySessionStatus.ACTIVE,
+        )
+
     snapshot = SimpleNamespace(
-        session=SimpleNamespace(protagonist_id="protagonist-1"),
+        session=_session(),
         bootstrap=SimpleNamespace(
             presentation=SimpleNamespace(clue_display_names={})
         ),
