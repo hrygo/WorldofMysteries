@@ -2565,3 +2565,43 @@ async def test_a_driver_that_refuses_to_stop_keeps_the_database_open():
         await runtime.close()
 
     assert "database.close" not in events
+
+
+@pytest.mark.asyncio
+async def test_a_configured_engine_publishes_its_casting_catalog(
+    tmp_path, content_artifact
+):
+    """The App cannot offer a choice of whom to cast without this read.
+
+    The picker and the silent trigger share one catalog on purpose: if the App
+    showed briefs from anywhere else, the voice a person picks and the voice
+    cast without asking would be different for the same character.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert "voice.foundry.list_designs" in runtime.control_handlers
+        payload, code = await runtime.control_handlers["voice.foundry.list_designs"](
+            {"schema_version": "1.0"}
+        )
+        assert code is None
+        assert payload is not None
+        assert {item["presentation_identity"] for item in payload["designs"]} == {
+            "narrator",
+            "victor-osborn",
+            "ida-finch",
+            "samuel-clark",
+            "george-hart",
+        }
+        # The trigger reads the same object, not a second load of the file.
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is not None
+    finally:
+        await runtime.close()

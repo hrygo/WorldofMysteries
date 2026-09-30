@@ -12,8 +12,10 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from pathlib import Path
 import sqlite3
 
+import jsonschema
 import pytest
 import pytest_asyncio
 
@@ -42,6 +44,7 @@ from domain.voice_identity import VoiceBindingScope
 # second module object would fail its own type guards.
 from infrastructure.database_manager import DatabaseManager, DatabasePaths
 from infrastructure.voice_foundry_control import voice_foundry_control_handlers
+from infrastructure.voice_design_catalog import load_voice_design_catalog
 from infrastructure.voice_foundry_repository import (
     SQLiteVoiceFoundryRepository,
     VoiceFoundryStage,
@@ -1067,3 +1070,97 @@ async def test_a_key_the_contract_does_not_declare_is_refused(handlers):
     )
 
     assert (answer, code) == (None, "schema_invalid")
+
+
+@pytest.mark.asyncio
+def _supply(repository) -> VoiceSupplyService:
+    class Nothing:
+        async def load_scope(self, _scope):
+            return None
+
+    return VoiceSupplyService(repository=repository, bindings=Nothing())
+
+
+async def test_the_casting_catalog_is_readable_and_starts_nothing(repository):
+    """The picker needs the briefs; opening the picker must not cast anything."""
+    supply = _supply(repository)
+    handlers = voice_foundry_control_handlers(
+        repository=repository,
+        supply=supply,
+        commands=None,
+        worker=None,
+        designs=load_voice_design_catalog(),
+    )
+
+    payload, code = await handlers["voice.foundry.list_designs"](
+        {"schema_version": "1.0"}
+    )
+
+    assert code is None
+    assert payload is not None
+    assert len(payload["designs"]) == 5
+    assert sum(1 for item in payload["designs"] if item["usage"] == "narration") == 1
+    # Pure read: no task was created by describing what a voice would sound like.
+    page = await supply.list(page_size=100)
+    assert page.tasks == ()
+
+
+@pytest.mark.asyncio
+async def test_an_engine_without_a_catalog_does_not_advertise_the_read(repository):
+    """A handshake must not promise a catalog this process failed to load."""
+    handlers = voice_foundry_control_handlers(
+        repository=repository,
+        supply=_supply(repository),
+        commands=None,
+        worker=None,
+        designs=None,
+    )
+
+    assert "voice.foundry.list_designs" not in handlers
+
+
+@pytest.mark.asyncio
+async def test_the_catalog_rejects_a_payload_that_is_not_a_versioned_read(repository):
+    handlers = voice_foundry_control_handlers(
+        repository=repository,
+        supply=_supply(repository),
+        commands=None,
+        worker=None,
+        designs=load_voice_design_catalog(),
+    )
+
+    payload, code = await handlers["voice.foundry.list_designs"](
+        {"schema_version": "1.0", "identity": "victor-osborn"}
+    )
+
+    assert payload is None
+    assert code == "schema_invalid"
+
+
+def test_every_published_design_matches_the_published_contract():
+    """The engine's output and the contract's shape must not be able to drift."""
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "contracts"
+            / "schemas"
+            / "voice_design.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    catalog = load_voice_design_catalog()
+    for design in catalog.designs:
+        jsonschema.Draft202012Validator(schema).validate(
+            {
+                "schema_version": "1.0",
+                "design_id": design.design_id,
+                "display_name": design.display_name,
+                "presentation_identity": design.presentation_identity,
+                "usage": design.usage,
+                "locale": design.locale,
+                "design_revision": design.design_revision,
+                "public_traits": list(design.public_traits),
+                "voice_description": design.voice_description,
+                "reference_text": design.reference_text,
+                "validation_text": design.validation_text,
+            }
+        )

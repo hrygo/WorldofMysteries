@@ -58,6 +58,7 @@ from application.voice_foundry_service import VoiceSupplyService
 
 from domain.voice_identity import VoiceBindingScope
 
+from .voice_design_catalog import VoiceDesignCatalog
 from .voice_foundry_repository import (
     SQLiteVoiceFoundryRepository,
     VoiceCastBudget,
@@ -133,9 +134,10 @@ def voice_foundry_control_handlers(
     supply: VoiceSupplyService,
     commands: VoiceFoundryCommandService,
     worker: VoiceFoundryWorker,
+    designs: VoiceDesignCatalog | None = None,
 ) -> dict[str, ControlHandler]:
     """The registered methods, keyed by the capability the client asks for."""
-    return {
+    handlers = {
         "voice.foundry.request": _wire(_request_op, repository, supply, None, None),
         "voice.foundry.get": _wire(_get, repository, supply, None, None),
         "voice.foundry.list": _wire(_list, repository, supply, None, None),
@@ -158,6 +160,13 @@ def voice_foundry_control_handlers(
             _cancel, repository, supply, commands, "cancel"
         ),
     }
+    if designs is not None:
+        # Absent rather than answering "service_unavailable": a catalog that
+        # would not load means this process genuinely cannot describe a
+        # casting, and a handshake that lists the method anyway is a promise
+        # the engine is not keeping.
+        handlers["voice.foundry.list_designs"] = _designs(designs)
+    return handlers
 
 
 def _wire(
@@ -189,6 +198,56 @@ def _wire(
             return None, exc.code
         except Exception:  # noqa: BLE001 - one stable public code for the rest
             return None, "service_unavailable"
+
+    return handler
+
+
+def _designs(designs: VoiceDesignCatalog) -> ControlHandler:
+    """Publish the casting briefs a person chooses from.
+
+    The App needs these to offer a choice of whom to cast, and it needs the
+    brief's own text because a ``voice.foundry.request`` carries the whole
+    brief and the engine recomputes its digest — a client that invented its
+    own wording would be refused. Handing out the catalog rather than a
+    display name is what keeps one authority over what a character sounds
+    like: the content, not the interface.
+
+    A pure read. It starts nothing, casts nothing, and says nothing about any
+    task — which is the whole reason the App can show a picker without a
+    player being interrupted by the mere act of opening one.
+    """
+
+    async def handler(
+        payload: Mapping[str, object],
+    ) -> tuple[dict[str, object] | None, str | None]:
+        try:
+            request = _request(payload, {"schema_version"})
+            _version(request["schema_version"])
+        except _Rejected as exc:
+            return None, exc.code
+        return (
+            {
+                "schema_version": "1.0",
+                "catalog_version": designs.catalog_version,
+                "designs": [
+                    {
+                        "schema_version": "1.0",
+                        "design_id": design.design_id,
+                        "display_name": design.display_name,
+                        "presentation_identity": design.presentation_identity,
+                        "usage": design.usage,
+                        "locale": design.locale,
+                        "design_revision": design.design_revision,
+                        "public_traits": list(design.public_traits),
+                        "voice_description": design.voice_description,
+                        "reference_text": design.reference_text,
+                        "validation_text": design.validation_text,
+                    }
+                    for design in designs.designs
+                ],
+            },
+            None,
+        )
 
     return handler
 

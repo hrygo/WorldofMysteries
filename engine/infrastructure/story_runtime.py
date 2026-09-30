@@ -124,7 +124,11 @@ from .turn_context_repository import (
 )
 from .turn_intake_repository import SQLiteTurnInputCommandPort
 from .voice_binding_repository import SQLiteVoiceBindingRepository
-from .voice_design_catalog import VoiceDesignError, load_voice_design_catalog
+from .voice_design_catalog import (
+    VoiceDesignCatalog,
+    VoiceDesignError,
+    load_voice_design_catalog,
+)
 from .voice_binding_resolver import (
     VoiceBindingResolutionError,
     resolve_voice_runtime,
@@ -487,6 +491,20 @@ def _raise_cleanup_errors(errors: list[BaseException]) -> None:
     raise primary
 
 
+def _load_catalog_or_none() -> VoiceDesignCatalog | None:
+    """Read the casting briefs, or report that this process has none.
+
+    Content that will not load is not a reason to refuse to start. The
+    engine's job is to run a world; losing the catalog costs the automatic
+    path and the picker, which are visible and actionable, against an engine
+    that refuses to open because a JSON file is malformed.
+    """
+    try:
+        return load_voice_design_catalog()
+    except VoiceDesignError:
+        return None
+
+
 @dataclass(frozen=True, slots=True)
 class FoundryRuntime:
     """The supply chain, assembled and alive for as long as the world is.
@@ -505,6 +523,7 @@ class FoundryRuntime:
 
     supply: VoiceSupplyService
     driver: VoiceFoundryDriver
+    designs: VoiceDesignCatalog | None
     handlers: dict[str, VoiceFoundryControlHandler]
 
     async def start(self) -> None:
@@ -668,14 +687,21 @@ class StoryRuntime:
         commands = VoiceFoundryCommandService(
             repository=repository, supply=supply, driver=worker
         )
+        # One catalog, loaded once and shared: the picker the App renders and
+        # the brief the trigger casts from have to be the same words, or a
+        # button and an automatic first appearance would produce different
+        # voices for the same character.
+        designs = _load_catalog_or_none()
         return FoundryRuntime(
             supply=supply,
             driver=VoiceFoundryDriver(repository=repository, worker=worker),
+            designs=designs,
             handlers=voice_foundry_control_handlers(
                 repository=repository,
                 supply=supply,
                 commands=commands,
                 worker=worker,
+                designs=designs,
             ),
         )
 
@@ -686,21 +712,15 @@ class StoryRuntime:
     ) -> VoiceSupplyTrigger | None:
         """Build the silent first-appearance trigger, or nothing at all.
 
-        Content that will not load is not a reason to refuse to start. The
-        engine's job is to run a world; a casting brief it cannot read costs
-        the automatic path and the explicit button reports it, which is a
-        visible, actionable failure — against an engine that refuses to open
-        because a JSON file is malformed.
+        Shares the catalog the control surface publishes rather than reading
+        it again, so the brief a person picks in the App and the brief cast
+        without asking are the same object.
         """
-        if foundry is None or audio_config is None:
-            return None
-        try:
-            catalog = load_voice_design_catalog()
-        except VoiceDesignError:
+        if foundry is None or audio_config is None or foundry.designs is None:
             return None
         return VoiceSupplyTrigger(
             supply=foundry.supply,
-            designs=catalog,
+            designs=foundry.designs,
             provider_instance=audio_config.provider_name,
         )
 

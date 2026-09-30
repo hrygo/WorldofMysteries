@@ -17,6 +17,7 @@ SCHEMAS = {
     if path.name
     in {
         "voice_cast_request.schema.json",
+        "voice_design.schema.json",
         "voice_identity_evidence.schema.json",
         "voice_foundry_state.schema.json",
     }
@@ -48,6 +49,7 @@ EXPECTED_METHODS = {
     "voice.foundry.request",
     "voice.foundry.get",
     "voice.foundry.list",
+    "voice.foundry.list_designs",
     "voice.foundry.select",
     "voice.foundry.confirm_reference",
     "voice.foundry.validate",
@@ -368,10 +370,12 @@ def test_foundry_state_vocabulary_is_single_and_explicit():
         "foundry_get_request",
         "foundry_request_request",
         "foundry_list_request",
+        "foundry_designs_request",
         "foundry_asset_request",
         "foundry_command",
         "foundry_get_response",
         "foundry_request_response",
+        "foundry_designs_response",
         "foundry_asset_response",
         "foundry_command_response",
     ],
@@ -382,11 +386,76 @@ def test_control_shapes_are_closed_and_cannot_carry_domain_or_worker_inventory(s
 
 
 def test_get_and_list_are_documented_pure_reads():
-    for shape in ("foundry_get_request", "foundry_list_request"):
+    for shape in (
+        "foundry_get_request",
+        "foundry_list_request",
+        "foundry_designs_request",
+    ):
         description = FOUNDRY["$defs"][shape]["description"].lower()
         assert "pure read" in description
         assert "provider" in description
         assert "never" in description
+
+
+def _design(**overrides) -> dict:
+    design = {
+        "schema_version": "1.0",
+        "design_id": "tingen.victor-osborn",
+        "display_name": "维克多·奥斯本",
+        "presentation_identity": "victor-osborn",
+        "usage": "dialogue",
+        "locale": "zh-CN",
+        "design_revision": 2,
+        "public_traits": ["低沉", "粗粝"],
+        "voice_description": "一位五十岁上下的男性。音色粗粝、沙哑，常年被机器声磨过。",
+        "reference_text": "机器老了才最要紧，人老了还能修，机器散了可没人赔得起。",
+        "validation_text": "我修过贝克兰德运来的新锅炉，都比不上咱们这台老伙计懂事。",
+    }
+    design.update(overrides)
+    return design
+
+
+def test_a_casting_brief_carries_a_voice_and_nothing_else():
+    """The record a preview, a prompt and a log all read cannot be a dossier.
+
+    A hidden identity or an unplayed plot beat added here would reach a voice
+    actor, a provider and a log file in the same breath. Closing the shape is
+    the only control that does not depend on somebody remembering.
+    """
+    validator = Draft202012Validator(
+        SCHEMAS["voice_design.schema.json"],
+        registry=_registry(*SCHEMAS.values()),
+    )
+    assert validator.is_valid(_design())
+    for leaked in (
+        {"canon_anchor": "lotm:kleins"},
+        {"hidden_identity": "audrey"},
+        {"secret": "he is the seer"},
+        {"future_arc": "the war in the east"},
+    ):
+        assert not validator.is_valid(_design(**leaked)), leaked
+
+
+def test_a_brief_that_cannot_be_cast_is_refused_by_the_contract_too():
+    """The loader refuses these; the contract is what a second client reads."""
+    validator = Draft202012Validator(
+        SCHEMAS["voice_design.schema.json"],
+        registry=_registry(*SCHEMAS.values()),
+    )
+    assert not validator.is_valid(_design(usage="narration", presentation_identity=""))
+    assert not validator.is_valid(_design(design_revision=0))
+    assert not validator.is_valid(_design(reference_text="短"))
+    assert not validator.is_valid(_design(public_traits=["a", "a"]))
+
+
+def test_the_catalog_response_points_at_the_published_design_schema():
+    response = FOUNDRY["$defs"]["foundry_designs_response"]
+    assert (
+        response["properties"]["designs"]["items"]["$ref"]
+        == "voice_design.schema.json"
+    )
+    assert response["additionalProperties"] is False
+    assert set(response["required"]) == {"schema_version", "catalog_version", "designs"}
 
 
 @pytest.mark.parametrize(

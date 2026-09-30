@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/voice_design.schema.json",
+  "title": "VoiceDesign",
+  "description": "One presentation identity's public casting brief: what a voice actor is told to produce, and the two lines it is judged on. This is deliberately not a character dossier. It names no hidden identity, anchors no canon, and carries nothing about unplayed plot, because the same record reaches prompts, provider previews and logs — a field added here would leak three ways at once, and 'we did not think to use it' is not a control.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "design_id",
+    "display_name",
+    "presentation_identity",
+    "usage",
+    "locale",
+    "design_revision",
+    "public_traits",
+    "voice_description",
+    "reference_text",
+    "validation_text"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "design_id": {
+      "description": "Stable content identifier of the brief itself, not of the character. Retained across revisions so a task can name the brief it was cast from.",
+      "$ref": "#/$defs/identifier"
+    },
+    "display_name": {
+      "description": "Human-readable name for a listener choosing whom to cast. Never a hidden or canonical identity.",
+      "$ref": "#/$defs/identifier"
+    },
+    "presentation_identity": {
+      "description": "The identity a binding scope names. Two designs may not share one: 'which voice does this character have' must not depend on file order.",
+      "$ref": "#/$defs/identifier"
+    },
+    "usage": {
+      "description": "Narration is the storyteller's channel; at most one design may claim it, so 'the narrator' is never ambiguous at render time.",
+      "enum": [
+        "dialogue",
+        "narration"
+      ]
+    },
+    "locale": {
+      "$ref": "#/$defs/locale"
+    },
+    "design_revision": {
+      "description": "Content revision of this brief. Recorded on the task so a later edit shows up as a different casting rather than a silent change under an old one.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "public_traits": {
+      "description": "Short audible adjectives. Public by construction: shown in a picker and sent to the provider.",
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "voice_description": {
+      "description": "The casting brief in prose: timbre, pitch, pace, affect, and what to avoid.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "reference_text": {
+      "$ref": "#/$defs/review_text"
+    },
+    "validation_text": {
+      "description": "A line the voice has not been tuned on. A cross-text check against the reference proves nothing, which is why a repeat is refused at load rather than quietly accepted.",
+      "$ref": "#/$defs/review_text"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S",
+      "not": {
+        "pattern": "\u0000"
+      }
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    },
+    "review_text": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 240,
+      "pattern": "\\S",
+      "not": {
+        "pattern": "\u0000"
+      }
+    }
+  }
+}

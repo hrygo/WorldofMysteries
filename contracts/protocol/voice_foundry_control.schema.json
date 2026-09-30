@@ -171,6 +171,13 @@
       },
       "additionalProperties": false
     },
+    "foundry_designs_request": {
+      "description": "Pure read of the casting briefs this engine can cast from. It never writes, calls a provider, or starts a task: the App asks what a character should sound like so a person can choose whom to cast, then sends that same brief back in a voice.foundry.request whose digest the engine recomputes. Reading the brief is not asking for a voice.",
+      "type": "object",
+      "required": ["schema_version"],
+      "properties": {"schema_version": {"const": "1.0"}},
+      "additionalProperties": false
+    },
     "foundry_command": {
       "description": "Idempotently accepts one explicitly authorized Foundry action. The same command_id with the same payload_digest replays; a different digest conflicts. It never submits player input or rewrites a committed Domain turn.",
       "type": "object",
@@ -454,6 +461,17 @@
             {"type": "null"}
           ]
         }
+      },
+      "additionalProperties": false
+    },
+    "foundry_designs_response": {
+      "description": "The catalog, in a stable order. Each entry is a public casting brief; none names a hidden identity and none carries unplayed plot.",
+      "type": "object",
+      "required": ["schema_version", "catalog_version", "designs"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "catalog_version": {"$ref": "#/$defs/identifier"},
+        "designs": {"type": "array", "maxItems": 64, "items": {"$ref": "voice_design.schema.json"}}
       },
       "additionalProperties": false
     },
