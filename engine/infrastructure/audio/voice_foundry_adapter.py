@@ -708,9 +708,21 @@ def _latest_validation(candidate: Mapping[str, object]) -> Mapping[str, object]:
 def _validation_result(
     payload: Mapping[str, object], candidate_id: str, capability_key: str
 ) -> ValidationResult:
+    # A validation is reported on the candidate that carries it, not as a
+    # top-level field: the reply nests every validation the candidate holds and
+    # the one just recorded is the last of them. Reading a top-level
+    # `validation` that no longer exists yields an empty id, which fails as an
+    # unsupported provider rather than as the cross-text check that just ran.
     source = payload.get("validation")
     if not isinstance(source, Mapping):
-        source = payload
+        candidate = _nested_candidate(payload)
+        validations = candidate.get("validations")
+        if not isinstance(validations, list) or not validations:
+            raise VoiceFoundryPortError("provider_contract_unsupported")
+        latest = validations[-1]
+        if not isinstance(latest, Mapping):
+            raise VoiceFoundryPortError("provider_contract_unsupported")
+        source = latest
     validation_id = _text_field(source, "validation_id", "")
     _require_id(validation_id, _VALIDATION_ID, "provider_contract_unsupported")
     return ValidationResult(
