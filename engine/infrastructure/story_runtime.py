@@ -1181,16 +1181,22 @@ class _DeliveryCoordinator:
         # The scope follows the segment rather than the session: a turn's
         # audio belongs to whoever is speaking, and a resolver handed only
         # the session would go looking for the protagonist's voice and report
-        # the wrong speaker as missing. Narration is speakable too — it is
-        # the narrator's voice, and the catalog casts one.
-        speakable = [
-            (index, speaker_scope_for(snapshot.session, item))
+        # the wrong speaker as missing.
+        #
+        # Only character segments are candidates. The sealing boundary refuses
+        # a speakerless narration deliberately: until a NarrativeBlock carries
+        # an explicit narrator identity, a caller must not get to choose who
+        # narrates. Narration nevertheless leads every block, so taking the
+        # first *speakable* segment picked the one segment that can never be
+        # delivered — which silently cost the protagonist their voice, and
+        # cost the foundry the cast that would have supplied it.
+        candidates = [
+            (index, scope)
             for index, item in enumerate(narrative.segments)
+            if item.type == "character"
+            and (scope := speaker_scope_for(snapshot.session, item)) is not None
         ]
-        segment_index, scope = next(
-            ((index, found) for index, found in speakable if found is not None),
-            (None, None),
-        )
+        segment_index, scope = candidates[0] if candidates else (None, None)
         if segment_index is None or scope is None:
             return TurnDeliveryView(
                 state="unavailable",

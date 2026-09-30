@@ -411,13 +411,22 @@ class ScenarioAudioPrepareHandler:
             # The speaker is chosen before the voice is resolved, because the
             # scope *is* the speaker. Resolving first would mean asking the
             # repository for a voice before knowing whose voice was wanted.
-            segment_index, scope = next(
-                (
-                    (index, speaker_scope_for(session, item))
-                    for index, item in enumerate(narrative.segments)
-                    if speaker_scope_for(session, item) is not None
-                ),
-                (None, None),
+            #
+            # Only character segments are candidates here. The sealing
+            # boundary refuses a speakerless narration on purpose — until a
+            # NarrativeBlock carries an explicit narrator identity, letting a
+            # caller name one would let it choose who narrates the game. So
+            # narration leads every block but is not yet sealable, and
+            # selecting it anyway cost this job both its audio and the cast
+            # that would have supplied the character's voice.
+            candidates = [
+                (index, scope)
+                for index, item in enumerate(narrative.segments)
+                if item.type == "character"
+                and (scope := speaker_scope_for(session, item)) is not None
+            ]
+            segment_index, scope = (
+                candidates[0] if candidates else (None, None)
             )
             if segment_index is None or scope is None:
                 return _blocked("narrative_has_no_character_segment")

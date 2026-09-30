@@ -998,6 +998,85 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
 
     assert delivery.state == "unavailable"
     assert delivery.reason == "voice_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_a_block_that_opens_with_narration_still_speaks_for_its_character(
+    monkeypatch,
+):
+    """Whichever segment leads the block, the character is the one resolved.
+
+    Narration is written first in every published block, so "the first
+    speakable segment" is always the narration — and the narration is exactly
+    what the sealing boundary refuses, because a speakerless narration has no
+    identity to check a binding against. Selecting it there cost the turn its
+    only deliverable voice, and returned normally rather than raising, so the
+    cast that would have supplied the character was never requested either.
+    """
+    from contracts import NarrativeBlock, TurnStatus
+    from contracts.models import NarrativeSegment
+    from infrastructure import story_runtime
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure.story_runtime import _DeliveryCoordinator
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-narration-first",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[
+            NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。"),
+            NarrativeSegment(
+                type="character",
+                speaker_id="protagonist-1",
+                text="别过去，那条巷子我认得。",
+            ),
+        ],
+        source_state_delta_id="delta-1",
+    )
+    repository, _live_first_turn, snapshot, result, command = (
+        _committed_delivery_case(narrative=block)
+    )
+    repository.turn = repository.turn.model_copy(
+        update={
+            "status": TurnStatus.NARRATIVE_READY,
+            "narrative_block_id": block.id,
+        }
+    )
+
+    asked_for = []
+
+    async def capture_scope(**kwargs):
+        asked_for.append(kwargs["scope"])
+        raise VoiceBindingResolutionError("voice_binding_not_reviewed")
+
+    monkeypatch.setattr(story_runtime, "resolve_voice_runtime", capture_scope)
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=object(),
+        audio_config=AudioProviderConfig(),
+        voice_id="klein-approved",
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
+        fetch_json=None,
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert asked_for, "delivery never asked whose voice it wanted"
+    assert [scope.presentation_identity for scope in asked_for] == [
+        "protagonist-1"
+    ]
+    assert delivery.reason == "voice_binding_not_reviewed"
     assert repository.narrative is block
     assert repository.load_turn_calls == 1
     assert repository.publish_calls == 0
