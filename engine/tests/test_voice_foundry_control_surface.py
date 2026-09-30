@@ -849,6 +849,7 @@ def test_binding_replace_is_not_registered_yet(handlers):
         "voice.foundry.publish",
         "voice.foundry.retry",
         "voice.foundry.cancel",
+        "voice.foundry.request",
     }
 
 
@@ -954,3 +955,115 @@ async def test_publishing_a_task_no_listener_approved_is_refused(
 
     assert (body, code) == (None, "candidate_not_published")
     assert "publish" not in port.calls
+
+
+# -- intake --------------------------------------------------------------
+
+
+def _cast_request(**overrides) -> dict:
+    """A well-formed VoiceCastRequest, digest computed the way the wire does."""
+    body = {
+        "schema_version": "1.0",
+        "request_id": "vfr_01",
+        "authorization_ref": "authz-1",
+        "scope": {
+            "owner_id": "player",
+            "world_id": "foundry-control-world",
+            "worldline_id": "line-1",
+            "presentation_identity": "klein-visible",
+            "phase": "narrative",
+            "locale": "zh-CN",
+        },
+        "persona_revision": "persona-1",
+        "usage": "dialogue",
+        "locale": "zh-CN",
+        "public_traits": ["低沉", "克制"],
+        "voice_description": "克制而警觉的年轻男性声音。",
+        "reference_text": "这是用于确认音色参考的完整句子，必须足够长以通过校验。",
+        "validation_text": "这是用于跨文本复验的另一句完整文本，不能与参考文本相同。",
+        "provider_instance": "speechrail-local",
+        "requested_execution_scope": {
+            "model_id": None,
+            "model_artifact_revision": None,
+            "variant": "custom_voice",
+        },
+        "budget": {
+            "candidate_count": 3,
+            "timeout_ms": 300000,
+            "max_audio_bytes": 4194304,
+        },
+        "origin": {
+            "kind": "content",
+            "source_ref": "npc:klein",
+            "source_revision": 1,
+        },
+    }
+    body.update(overrides)
+    body["request_digest"] = digest({k: v for k, v in body.items() if k != "request_digest"})
+    return body
+
+
+async def test_intake_opens_a_task_and_answers_what_may_happen_next(handlers):
+    body, code = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": _cast_request()}
+    )
+    assert code is None, code
+    assert body["outcome"] == "supply_required"
+    assert body["task"]["scope"]["presentation_identity"] == "klein-visible"
+    assert body["task"]["stage"] == "requested"
+    # A task id the caller never chose: it is derived from the request, so a
+    # retry addresses the same row without remembering what it asked for.
+    assert body["task_id"]
+    assert "binding_id" not in body
+
+
+async def test_a_declared_execution_scope_and_budget_survive_intake(
+    handlers, repository
+):
+    body, _ = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": _cast_request()}
+    )
+
+    task = await repository.load_task(body["task_id"])
+    # "Unpinned" is an answer the contract allows, and it has to stay
+    # distinguishable from "pinned to something we have forgotten".
+    assert task.execution_scope.model_id is None
+    assert task.execution_scope.variant == "custom_voice"
+    assert task.budget.candidate_count == 3
+    assert task.budget.timeout_ms == 300000
+    assert task.budget.max_audio_bytes == 4194304
+
+
+async def test_the_same_request_twice_opens_one_casting(handlers):
+    first, code = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": _cast_request()}
+    )
+    assert code is None, code
+
+    replay, code = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": _cast_request()}
+    )
+
+    assert code is None, code
+    assert replay["task_id"] == first["task_id"]
+
+
+async def test_a_digest_that_does_not_describe_the_request_is_refused(handlers):
+    """Otherwise "same request id, different digest" detects nothing at all."""
+    body = _cast_request()
+    body["voice_description"] = "换了一段描述。"
+    # The digest still describes the original request.
+
+    answer, code = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": body}
+    )
+
+    assert (answer, code) == (None, "request_digest_mismatch")
+
+
+async def test_a_key_the_contract_does_not_declare_is_refused(handlers):
+    answer, code = await handlers["voice.foundry.request"](
+        {"schema_version": "1.0", "request": _cast_request(force=True)}
+    )
+
+    assert (answer, code) == (None, "schema_invalid")

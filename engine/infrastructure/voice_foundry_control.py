@@ -56,10 +56,15 @@ from application.voice_foundry_ports import (
 )
 from application.voice_foundry_service import VoiceSupplyService
 
+from domain.voice_identity import VoiceBindingScope
+
 from .voice_foundry_repository import (
     SQLiteVoiceFoundryRepository,
+    VoiceCastBudget,
     VoiceCandidateRecord,
     VoiceCommandAck,
+    VoiceExecutionScope,
+    VoiceFoundryTaskSpec,
 )
 
 ControlHandler = Callable[
@@ -131,6 +136,7 @@ def voice_foundry_control_handlers(
 ) -> dict[str, ControlHandler]:
     """The registered methods, keyed by the capability the client asks for."""
     return {
+        "voice.foundry.request": _wire(_request_op, repository, supply, None, None),
         "voice.foundry.get": _wire(_get, repository, supply, None, None),
         "voice.foundry.list": _wire(_list, repository, supply, None, None),
         "voice.foundry.asset.get": _wire(
@@ -185,6 +191,155 @@ def _wire(
             return None, "service_unavailable"
 
     return handler
+
+
+# -- intake --------------------------------------------------------------
+
+
+async def _request_op(
+    payload: Mapping[str, object],
+    repository: SQLiteVoiceFoundryRepository,
+    supply: VoiceSupplyService,
+    driver: object,
+    action: str | None,
+) -> dict[str, object]:
+    """Open a casting task, or report that this identity already has a voice.
+
+    The one write here that is not a command: it acts on no existing task, so
+    there is no revision to be stale against and no command id to replay
+    under. Idempotence is the request's own — ``request_id`` replays, and a
+    payload that changed underneath the same id is a conflict rather than a
+    second casting.
+
+    The digest is recomputed rather than believed. "Same request id, different
+    digest" is only a conflict if the digest describes the request; a caller
+    free to send any 64 hex characters would make that check vacuous, and the
+    scope-in-flight guard behind it would stop detecting a changed recipe.
+    """
+    request = _request(payload, {"schema_version", "request"})
+    _version(request["schema_version"])
+    body = _request(
+        request["request"],
+        {
+            "schema_version",
+            "request_id",
+            "request_digest",
+            "authorization_ref",
+            "scope",
+            "persona_revision",
+            "usage",
+            "locale",
+            "public_traits",
+            "voice_description",
+            "reference_text",
+            "validation_text",
+            "provider_instance",
+            "requested_execution_scope",
+            "budget",
+            "origin",
+        },
+    )
+    _version(body["schema_version"])
+    claimed = _digest_field(body["request_digest"])
+    if _digest({key: value for key, value in body.items() if key != "request_digest"}) != claimed:
+        raise _Rejected("request_digest_mismatch")
+
+    scope = _request(
+        body["scope"],
+        {
+            "owner_id",
+            "world_id",
+            "worldline_id",
+            "presentation_identity",
+            "phase",
+            "locale",
+        },
+    )
+    origin = _request(body["origin"], {"kind", "source_ref", "source_revision"})
+    traits = body["public_traits"]
+    if not isinstance(traits, list) or not all(
+        isinstance(item, str) for item in traits
+    ):
+        raise _Rejected("schema_invalid")
+    execution = _request(
+        body["requested_execution_scope"],
+        {"model_id", "model_artifact_revision", "variant"},
+    )
+    budget = _request(
+        body["budget"], {"candidate_count", "timeout_ms", "max_audio_bytes"}
+    )
+
+    request_id = _identifier(body["request_id"])
+    result = await supply.request(
+        VoiceFoundryTaskSpec(
+            # Derived, not supplied: the contract has no task id, and one
+            # derived from the request id means a retry addresses the same
+            # row without the caller having to remember what it asked for.
+            task_id="task-" + hashlib.sha256(request_id.encode("utf-8")).hexdigest()[:24],
+            request_id=request_id,
+            request_digest=claimed,
+            authorization_ref=_identifier(body["authorization_ref"]),
+            scope=VoiceBindingScope(
+                owner_id=_identifier(scope["owner_id"]),
+                world_id=_identifier(scope["world_id"]),
+                worldline_id=_identifier(scope["worldline_id"]),
+                presentation_identity=_identifier(scope["presentation_identity"]),
+                phase=_identifier(scope["phase"]),
+                locale=_identifier(scope["locale"]),
+            ),
+            persona_revision=_identifier(body["persona_revision"]),
+            usage=_identifier(body["usage"]),
+            provider_instance=_identifier(body["provider_instance"]),
+            public_traits=tuple(traits),
+            voice_description=_identifier(body["voice_description"]),
+            reference_text=_text(body["reference_text"]),
+            validation_text=_text(body["validation_text"]),
+            origin_kind=_identifier(origin["kind"]),
+            origin_ref=_identifier(origin["source_ref"]),
+            origin_revision=_integer(origin["source_revision"]),
+            execution_scope=VoiceExecutionScope(
+                variant=_identifier(execution["variant"]),
+                model_id=_optional(execution.get("model_id")),
+                model_artifact_revision=_optional(
+                    execution.get("model_artifact_revision")
+                ),
+            ),
+            budget=VoiceCastBudget(
+                candidate_count=_integer(budget["candidate_count"]),
+                timeout_ms=_integer(budget["timeout_ms"]),
+                max_audio_bytes=_integer(budget["max_audio_bytes"]),
+            ),
+        )
+    )
+    return _supply_of(result)
+
+
+def _supply_of(result: object) -> dict[str, object]:
+    """A voice that already exists is an answer, not an empty casting.
+
+    The task keys are left out when there is no task, which is the case the
+    contract forbids pairing with ``ready``: reporting a task id for a
+    casting that never happened would send someone looking for candidates
+    that were never minted.
+    """
+    outcome = getattr(result, "outcome", None)
+    if outcome is None:
+        raise _Rejected("service_unavailable")
+    body: dict[str, object] = {
+        "schema_version": SCHEMA_VERSION,
+        "outcome": str(outcome),
+    }
+    state = getattr(result, "state", None)
+    if state is not None:
+        body["task_id"] = state.task_id
+        body["task"] = state.to_contract()
+    binding_id = getattr(result, "binding_id", None)
+    if binding_id is not None:
+        body["binding_id"] = binding_id
+    reason_code = getattr(result, "reason_code", None)
+    if reason_code is not None:
+        body["reason_code"] = reason_code
+    return body
 
 
 # -- reads ---------------------------------------------------------------
@@ -565,6 +720,14 @@ def _version(value: object) -> None:
 
 def _text(value: object) -> str:
     if not isinstance(value, str) or not 20 <= len(value) <= 240:
+        raise _Rejected("schema_invalid")
+    return value
+
+
+def _integer(value: object) -> int:
+    # ``type(...) is int`` rather than isinstance: a bool is an int in
+    # Python, and ``candidate_count: true`` is not a candidate count.
+    if type(value) is not int:
         raise _Rejected("schema_invalid")
     return value
 
