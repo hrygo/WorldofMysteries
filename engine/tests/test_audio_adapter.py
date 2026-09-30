@@ -2713,6 +2713,9 @@ async def test_adapter_output_section_satisfies_the_evidence_contract():
     output_validator = Draft202012Validator(
         {"$ref": "#/$defs/output_check", "$defs": schema["$defs"]}
     )
+    execution_validator = Draft202012Validator(
+        {"$ref": "#/$defs/execution", "$defs": schema["$defs"]}
+    )
 
     transport = _RecordingTransport(
         (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
@@ -2723,11 +2726,37 @@ async def test_adapter_output_section_satisfies_the_evidence_contract():
     )
 
     assert output_validator.is_valid(dict(result.evidence.output))
+    assert execution_validator.is_valid(dict(result.evidence.execution))
 
     # And the section names the validation that actually ran, rather than a
     # capability key the evidence contract does not carry.
     assert result.evidence.output["validation_id"] == "vv_" + "e" * 24
     assert "capability_key" not in result.evidence.output
+
+
+async def test_evidence_refuses_a_validation_with_no_catalogue_revision():
+    """The catalogue revision is what makes a later render checkable.
+
+    ``EXECUTION_MISMATCH`` compares the rendering call's catalogue revision
+    against the snapshot's. Two empty strings compare equal, so an empty
+    revision would let that check pass against any other empty one — the
+    evidence agreeing with itself. The field is also a required identifier in
+    the contract, so the bundle would be rejected downstream anyway; refusing
+    here names the fact that is missing.
+    """
+    candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
+    del candidate["validations"][0]["model_catalog_revision"]
+    transport = _RecordingTransport(
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.publish(
+            "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+        )
+
+    assert excinfo.value.code == "provider_contract_unsupported"
 
 
 @pytest.mark.parametrize(

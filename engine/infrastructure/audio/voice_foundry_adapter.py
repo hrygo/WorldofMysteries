@@ -555,6 +555,17 @@ class SpeechRailVoiceFoundryAdapter:
         artifact_revision = _text_field(source_model, "revision", "")
         if not artifact_revision:
             raise VoiceFoundryPortError("provider_contract_unsupported")
+        catalog_revision = _text_field(validation, "model_catalog_revision", "")
+        if not catalog_revision:
+            # The catalogue revision is what tells a current render from one
+            # aimed at an entry the service has since rolled past, and the
+            # gate refuses a synthesis whose catalogue revision differs from
+            # the snapshot's. Writing an empty one would produce evidence
+            # that passes that comparison against any other empty one, which
+            # is the check agreeing with itself. An empty field is also not
+            # an identifier, so the contract would reject the bundle anyway;
+            # refusing here names the fact that is missing instead.
+            raise VoiceFoundryPortError("provider_contract_unsupported")
         reference_audio = _digest_field(reference, "audio_sha256")
         evidence_digest = hashlib.sha256(
             json.dumps(
@@ -578,7 +589,7 @@ class SpeechRailVoiceFoundryAdapter:
                 "locale": _text_field(candidate, "language", ""),
                 "validation_policy_revision": policy.validation_policy_revision,
                 "processing_fingerprint": policy.processing_fingerprint,
-                "model_catalog_revision": _text_field(validation, "model_catalog_revision", ""),
+                "model_catalog_revision": catalog_revision,
             },
             reference={
                 "status": "pass",
