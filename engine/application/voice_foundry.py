@@ -410,6 +410,10 @@ class VoiceFoundryWorker:
                 validation_id=validation_id,
                 identity=identity,
                 naturalness=naturalness,
+                # The evidence has to name the audio this verdict is about.
+                # It was checked against the record a moment ago, so this is
+                # the digest of the asset the listener actually heard.
+                validation_audio_digest=validation_audio_digest,
             ),
             result_ref=lambda outcome: outcome.evidence_id,
             deadline_at=self._clock() + self._policy.deadline_seconds,
@@ -883,13 +887,35 @@ class VoiceFoundryWorker:
                 reason_code="machine_validation_failed",
             )
 
+        # The provider publishes no digest for a validation, so the audio's
+        # identity is established by reading the asset — the same rule, in the
+        # same place, that ``_confirm_reference`` follows for the reference.
+        # A promise that a cross-text check ran is not evidence that a file
+        # exists, and an empty digest recorded here would travel all the way
+        # to the repository, which refuses it as malformed without saying
+        # which layer produced it.
+        validation_asset = await self._port.read_asset(
+            AssetRequest(
+                candidate_id=candidate.provider_candidate_id,
+                candidate_revision=candidate.provider_candidate_revision,
+                validation_id=validation.validation_id,
+            )
+        )
+        if not validation_asset.audio:
+            raise VoiceFoundryPortError("validation_asset_empty")
+
         await self._repository.update_candidate(
             task.task_id,
             expected_revision=task.task_revision,
             candidate_id=candidate.candidate_id,
             state="reviewing",
-            validation_audio_digest=validation.audio_digest,
-            validation_text_digest=validation.text_digest,
+            validation_audio_digest=validation_asset.audio_digest,
+            # The digest of the text this engine asked the provider to speak,
+            # computed here for the same reason: the provider records it but
+            # does not publish it.
+            validation_text_digest=hashlib.sha256(
+                test_text.encode("utf-8")
+            ).hexdigest(),
         )
         task = await self._repository.load_task(task.task_id)
         return await self._repository.set_stage(

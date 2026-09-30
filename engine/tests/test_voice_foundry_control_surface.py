@@ -167,13 +167,22 @@ class _Port:
             audio=ASSET_AUDIO,
         )
 
-    async def review(self, candidate_id, *, validation_id, identity, naturalness):
+    async def review(
+        self,
+        candidate_id,
+        *,
+        validation_id,
+        identity,
+        naturalness,
+        validation_audio_digest="",
+    ):
         self.calls.append("review")
         self.review_arguments = {
             "candidate_id": candidate_id,
             "validation_id": validation_id,
             "identity": identity,
             "naturalness": naturalness,
+            "validation_audio_digest": validation_audio_digest,
         }
         return EvidenceBundle(
             evidence_id="ev_review",
@@ -343,7 +352,12 @@ async def _reviewed(repository, worker, handlers, port):
             command_id="cmd-validate",
         )
     )
-    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+    assert port.calls[-4:] == [
+        "confirm",
+        "read_asset",
+        "validate",
+        "read_asset",
+    ]
     return await repository.load_task("task-1")
 
 
@@ -744,7 +758,12 @@ async def test_a_casting_walks_the_two_explicit_steps_and_stops_at_the_listener(
         "listen_validation",
         "review",
     ]
-    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+    assert port.calls[-4:] == [
+        "confirm",
+        "read_asset",
+        "validate",
+        "read_asset",
+    ]
 
 
 async def test_a_verdict_reaches_the_provider_before_it_is_recorded(

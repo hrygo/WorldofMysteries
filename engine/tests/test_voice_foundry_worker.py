@@ -211,6 +211,7 @@ class RecordingPort:
         validation_id,
         identity,
         naturalness,
+        validation_audio_digest="",
     ) -> EvidenceBundle:
         self.calls.append("review")
         if self.review_error is not None:
@@ -220,6 +221,7 @@ class RecordingPort:
             "validation_id": validation_id,
             "identity": identity,
             "naturalness": naturalness,
+            "validation_audio_digest": validation_audio_digest,
         }
         return EvidenceBundle(
             evidence_id="ev_review",
@@ -551,7 +553,15 @@ async def test_a_selected_candidate_is_proved_on_text_it_has_not_heard(repositor
         task_spec().reference_text.encode("utf-8")
     ).hexdigest()
     assert candidate.validation_audio_digest == "d" * 64
-    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+    # The trailing read_asset is the cross-text audio being read back to
+    # establish its digest: the provider publishes none, so the identity of
+    # what a listener will hear has to come from the bytes themselves.
+    assert port.calls[-4:] == [
+        "confirm",
+        "read_asset",
+        "validate",
+        "read_asset",
+    ]
 
 
 async def test_confirming_the_reference_moves_the_recorded_revision(repository):
@@ -588,10 +598,16 @@ async def test_the_audition_is_read_at_the_revision_we_recorded(repository):
 
     await worker.advance("task-1")
 
+    # Both auditions are read at the recorded revision: the reference when it
+    # is bound, and the cross-text audio when the validation that produced it
+    # has to be given a digest. Neither read may drift to whatever revision
+    # the candidate happens to be at now.
     assert [request.candidate_revision for request in port.asset_requests] == [
-        CONFIRMED_REVISION
+        CONFIRMED_REVISION,
+        CONFIRMED_REVISION,
     ]
-    assert port.asset_requests[0].candidate_id == CANDIDATE_ID
+    assert all(request.candidate_id == CANDIDATE_ID for request in port.asset_requests)
+    assert port.asset_requests[1].validation_id is not None
 
 
 async def _drive_to_awaiting_review(repository, worker, port):
@@ -808,7 +824,12 @@ async def test_the_two_validation_steps_can_be_authorized_one_at_a_time(reposito
         "listen_validation",
         "review",
     )
-    assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
+    assert port.calls[-4:] == [
+        "confirm",
+        "read_asset",
+        "validate",
+        "read_asset",
+    ]
 
 
 async def test_asking_twice_does_not_bind_the_reference_twice(repository):
@@ -1117,6 +1138,33 @@ async def test_a_listener_verdict_reaches_the_provider_before_it_is_recorded(
     assert step.record.stage is VoiceFoundryStage.PUBLISHED
     candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
     assert candidate.state == "published"
+
+
+async def test_the_evidence_names_the_cross_text_audio_the_verdict_is_about(
+    repository,
+):
+    """A verdict that reaches the provider has to say what it is a verdict on.
+
+    The provider publishes no digest for a validation, so the evidence cannot
+    recover one from the reply — it used to, from a field the service does not
+    send, and published evidence that named a validation while saying nothing
+    about the audio a person approved. That is the one claim an evidence
+    bundle exists to make, so the digest travels in from the caller that read
+    the asset.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_awaiting_review(repository, worker, port)
+
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.validation_audio_digest == VALIDATION_AUDIO_DIGEST
+
+    await worker.submit_review(**_verdict())
+
+    assert (
+        port.review_arguments["validation_audio_digest"]
+        == candidate.validation_audio_digest
+    )
 
 
 async def test_a_rejected_verdict_ends_the_task_and_says_why(repository):

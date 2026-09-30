@@ -370,8 +370,17 @@ class VoiceFoundryPort(Protocol):
         validation_id: str,
         identity: FoundryReviewVerdict,
         naturalness: FoundryReviewVerdict,
+        validation_audio_digest: str = "",
     ) -> EvidenceBundle:
-        """Attach an explicit human verdict for one exact validation."""
+        """Attach an explicit human verdict for one exact validation.
+
+        ``validation_audio_digest`` is supplied by the caller rather than
+        recovered from the provider: a provider that publishes no digest for
+        a validation cannot report one, and the only value that describes the
+        audio a person approved is the one computed from the bytes that were
+        read. Evidence that carried an empty digest would name a validation
+        while proving nothing about what was heard.
+        """
         ...
 
     async def publish(
