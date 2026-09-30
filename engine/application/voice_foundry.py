@@ -679,6 +679,18 @@ class VoiceFoundryWorker:
             deadline_at=deadline_at,
         )
 
+        # ``confirm`` is where the provider moves the design to a new
+        # revision: its contract says editing the reference text produces a
+        # new candidate revision and clears the old validations, so the
+        # revision a caller may act on is never the one ``create`` handed
+        # out. It is read back from the journal rather than from the call's
+        # return, so a resume sees the same answer the first attempt did.
+        confirm = await self._repository.load_operation(
+            _operation_id("confirm", task.task_id, 0)
+        )
+        if confirm.status != "confirmed" or confirm.provider_result_ref is None:
+            raise VoiceFoundryPortError("foundry_outcome_unknown")
+
         reference_asset = await self._port.read_asset(
             AssetRequest(candidate_id=provider_candidate_id)
         )
@@ -687,6 +699,7 @@ class VoiceFoundryWorker:
             expected_revision=task.task_revision,
             candidate_id=candidate.candidate_id,
             state="validating",
+            provider_candidate_revision=confirm.provider_result_ref,
             reference_audio_digest=reference_asset.audio_digest,
             reference_text_digest=reference_text_digest,
         )
@@ -730,6 +743,16 @@ class VoiceFoundryWorker:
             # how a resume recovers the outcome instead of assuming one.
             reread_confirmed=True,
         )
+
+        # The provider is asked for the revision it is currently at, and it
+        # answers with one. If that is not the revision this engine recorded
+        # at ``confirm``, the design moved somewhere this engine has no
+        # durable record of, and every later step — the audition a listener
+        # judges, the evidence they sign — would describe a different voice.
+        # Stopping here says so; carrying the stale revision forward would
+        # not.
+        if validation.candidate_revision != candidate.provider_candidate_revision:
+            raise VoiceFoundryPortError("foundry_revision_advanced")
 
         if not validation.passed:
             # A cross-text failure is not a candidate a listener should be asked

@@ -173,7 +173,7 @@ class RecordingPort:
         self.calls.append("confirm")
         return CandidateState(
             candidate_id=candidate_id,
-            candidate_revision="vr_" + "c" * 32,
+            candidate_revision=CONFIRMED_REVISION,
             state="confirmed",
             reference_confirmed=True,
         )
@@ -183,7 +183,12 @@ class RecordingPort:
         return ValidationResult(
             validation_id="vv_" + "e" * 24,
             candidate_id=candidate_id,
-            candidate_revision=REVISION,
+            # The revision the candidate is at *now*. ``confirm`` advanced it
+            # upstream, and the provider answers with where the design
+            # actually is — not with the revision it was created at. A double
+            # that echoed the create-time revision hid the fact that the
+            # engine's candidate row never followed.
+            candidate_revision=CONFIRMED_REVISION,
             capability_key=capability_key,
             audio_digest="d" * 64,
             text_digest="e" * 64,
@@ -255,6 +260,10 @@ class RecordingPort:
 
 CANDIDATE_ID = "vd_" + "a" * 24
 REVISION = "vr_" + "b" * 32
+#: What ``confirm`` answers with. The provider moves the design to a new
+#: revision when the reference text is bound, and every later call has to
+#: report where the design is now.
+CONFIRMED_REVISION = "vr_" + "c" * 32
 #: What the recording port hands back for the cross-text pass, and the digests
 #: the audition assets actually carry. A review may only speak about these.
 VALIDATION_ID = "vv_" + "e" * 24
@@ -523,9 +532,60 @@ async def test_a_selected_candidate_is_proved_on_text_it_has_not_heard(repositor
     assert port.calls[-3:] == ["confirm", "read_asset", "validate"]
 
 
+async def test_confirming_the_reference_moves_the_recorded_revision(repository):
+    """The row has to follow the provider, not the other way round.
+
+    The provider's contract says binding the reference text produces a new
+    candidate revision and clears the old validations. The revision a caller
+    may act on is therefore never the one ``create`` handed out, and holding
+    that older value would make the publish step a guaranteed 409.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    step = await worker.advance("task-1")
+
+    assert step.record.stage is VoiceFoundryStage.AWAITING_REVIEW
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.provider_candidate_revision == CONFIRMED_REVISION
+
+
+async def test_a_design_that_moved_where_we_have_no_record_of_is_refused(
+    repository,
+):
+    """Every later step has to describe the voice the listener will hear.
+
+    If the provider reports a revision at validate that this engine never
+    recorded, the design moved somewhere unknown. The audition a listener is
+    about to judge, and the evidence they would sign, would describe a
+    different voice — so the run stops and says so.
+    """
+
+    class DriftingPort(RecordingPort):
+        async def validate(self, candidate_id, *, test_text, capability_key):
+            result = await super().validate(
+                candidate_id, test_text=test_text, capability_key=capability_key
+            )
+            return replace(result, candidate_revision="vr_" + "f" * 32)
+
+    port = DriftingPort()
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_validating(repository, worker, port)
+
+    with pytest.raises(VoiceFoundryPortError) as caught:
+        await worker.advance("task-1")
+
+    assert caught.value.code == "foundry_revision_advanced"
+    # Nothing was handed to a person on the strength of a voice whose
+    # revision nobody here can account for.
+    assert (await repository.load_task("task-1")).stage is VoiceFoundryStage.VALIDATING
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state != "reviewing"
+
+
 async def test_a_failed_cross_text_check_never_reaches_a_listener(repository):
     """A machine failure is not something to spend a human's attention on.
-
     Handing an unproven voice to the audition step would ask someone to approve
     a voice that already failed cross-text — and their approval would then be
     the only thing standing between it and a player.
@@ -821,8 +881,10 @@ async def test_publishing_and_binding_land_together(repository):
     )
 
     assert step.record.stage is VoiceFoundryStage.READY
-    # Publishing is guarded on the exact candidate revision that was reviewed.
-    assert port.published_revision == REVISION
+    # Publishing is conditional on the revision the design is at *now*, which
+    # is the one confirm produced — not the one create handed out. Sending the
+    # older one is a 409 from any provider that moves the revision.
+    assert port.published_revision == CONFIRMED_REVISION
     history = await repository.load_binding_history(task.scope.binding_identity)
     assert [(item.binding_revision, item.status) for item in history] == [
         (1, "reserved"),

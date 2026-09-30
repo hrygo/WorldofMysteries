@@ -47,10 +47,11 @@ from infrastructure.voice_foundry_repository import (
     VoiceFoundryTaskSpec,
 )
 
+#: What ``create`` answers with. The provider moves the design on when the
+#: reference text is bound, so this is never the revision a caller may act on.
+CREATED_REVISION = "vr_" + "b" * 32
+#: Where the candidate actually is once ``confirm`` has run.
 CANDIDATE_REVISION = "vr_" + "c" * 32
-#: What ``create`` answers with, and therefore what the candidate row carries.
-#: ``confirm`` moves the provider on to :data:`CANDIDATE_REVISION`.
-CANDIDATE_ROW_REVISION = "vr_" + "b" * 32
 PREVIEW_AUDIO_DIGEST = "b" * 64
 REFERENCE_AUDIO_DIGEST = "9" * 64
 VALIDATION_AUDIO_DIGEST = "d" * 64
@@ -116,7 +117,7 @@ class _Port:
         self.calls.append("create")
         return CandidateState(
             candidate_id="vd_" + "a" * 24,
-            candidate_revision=CANDIDATE_ROW_REVISION,
+            candidate_revision=CREATED_REVISION,
             state="created",
             reference_confirmed=False,
         )
@@ -137,7 +138,7 @@ class _Port:
         return ValidationResult(
             validation_id=VALIDATION_ID,
             candidate_id=candidate_id,
-            candidate_revision=CANDIDATE_ROW_REVISION,
+            candidate_revision=CANDIDATE_REVISION,
             capability_key=capability_key,
             audio_digest=VALIDATION_AUDIO_DIGEST,
             text_digest="e" * 64,
@@ -770,7 +771,7 @@ async def test_publishing_binds_the_voice_under_the_scope_it_was_cast_for(
             "task-1",
             task.task_revision,
             "publish",
-            {"provider_candidate_revision": CANDIDATE_ROW_REVISION},
+            {"provider_candidate_revision": CANDIDATE_REVISION},
             command_id="cmd-publish",
         )
     )
@@ -778,7 +779,7 @@ async def test_publishing_binds_the_voice_under_the_scope_it_was_cast_for(
     assert code is None
     assert body["task"]["stage"] == VoiceFoundryStage.READY.value
     assert port.calls[-1] == "publish"
-    assert port.published_revision == CANDIDATE_ROW_REVISION
+    assert port.published_revision == CANDIDATE_REVISION
 
 
 async def test_publishing_a_revision_nobody_approved_is_refused(
@@ -799,7 +800,10 @@ async def test_publishing_a_revision_nobody_approved_is_refused(
             "task-1",
             task.task_revision,
             "publish",
-            {"provider_candidate_revision": CANDIDATE_REVISION},
+            # The revision the design was *created* at. It is the one value a
+            # caller must not be able to publish: the provider moved the
+            # design past it when the reference text was bound.
+            {"provider_candidate_revision": CREATED_REVISION},
             command_id="cmd-publish",
         )
     )
