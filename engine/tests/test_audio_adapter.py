@@ -2852,3 +2852,56 @@ async def test_preview_auditions_without_registering_a_production_voice():
     }
     assert preview.audio_digest == hashlib.sha256(audio).hexdigest()
     assert preview.audio_bytes == len(audio)
+
+
+async def test_a_json_body_declares_its_content_type():
+    """Every JSON call must say it is JSON.
+
+    SpeechRail builds its request models from the declared media type, so a
+    serialized body sent without this header is rejected with 422 before any
+    provider logic runs. The failure looks like a rejected payload rather than
+    a missing header, and it hit all six body-carrying operations at once —
+    which is why the header is pinned at the single place bodies are built
+    instead of at each call site.
+    """
+    transport = _RecordingTransport(
+        (
+            200,
+            json.dumps(
+                {
+                    "audio_base64": base64.b64encode(b"RIFF----WAVEp").decode(),
+                    "duration_seconds": 3.5,
+                }
+            ).encode(),
+        )
+    )
+    adapter = _adapter(transport)
+
+    await adapter.preview(
+        PreviewRequest(
+            game_locale="zh-CN",
+            voice_description="克制而警觉的年轻男性声音。",
+            reference_text="这是用于确认音色的完整句子，必须足够长以通过校验。",
+            seed=7,
+        )
+    )
+
+    call = transport.calls[0]
+    assert call["body"] is not None
+    assert call["headers"]["Content-Type"] == "application/json"
+
+
+async def test_a_bodyless_asset_read_declares_no_content_type():
+    """Declaring JSON where there is no body would be its own lie."""
+    transport = _RecordingTransport((200, b"RIFF----WAVEfake"))
+    adapter = _adapter(transport)
+
+    await adapter.read_asset(
+        AssetRequest(
+            candidate_id="vd_" + "a" * 24, candidate_revision="vr_" + "b" * 32
+        )
+    )
+
+    call = transport.calls[0]
+    assert call["body"] is None
+    assert "Content-Type" not in call["headers"]

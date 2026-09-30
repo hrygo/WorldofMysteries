@@ -266,10 +266,16 @@ class SpeechRailVoiceFoundryAdapter:
             if payload is not None
             else None
         )
+        # A JSON body without its content type is not a JSON body as far as
+        # the provider is concerned: SpeechRail parses request models from the
+        # declared type, so every create/confirm/validate/review/publish came
+        # back 422 before reaching any provider logic. Declaring it here rather
+        # than per call site is what stops the next one from forgetting.
+        merged = {"Content-Type": "application/json", **(headers or {})}
         response = await self._fetch(
             method,
             self._url(suffix),
-            self._headers(headers),
+            self._headers(merged),
             body,
             MAX_JSON_BYTES,
             self._timeout,
