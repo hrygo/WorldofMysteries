@@ -409,3 +409,99 @@ def test_audio_batch_is_per_segment_and_does_not_reuse_single_delivery_contract(
     assert {"command_id", "payload_digest", "expected_generation"} <= set(
         prepare["required"]
     )
+
+
+def _binding_replace() -> dict:
+    return {
+        "schema_version": "1.0",
+        "command_id": "cmd_replace_1",
+        "payload_digest": "a" * 64,
+        "scope": _scope(),
+        "expected_binding_revision": 3,
+        "binding_id": "vb_klein",
+        "logical_voice_id": "voice_klein",
+        "persona_revision": "persona_2",
+        "provider_instance": "speechrail_local",
+        "voice_id": "klein_approved_v2",
+        "voice_revision": "wvr_2",
+        "model_artifact_revision": "qwen3_tts_2026_09_30",
+        "evidence_id": "ev_klein_2",
+        "evidence_digest": "b" * 64,
+    }
+
+
+def test_a_replacement_names_the_binding_and_the_voice_being_installed():
+    """The command cannot be carried out without all of these.
+
+    A replacement that omitted the binding it re-points, the game-side voice
+    identity, the persona revision, or the artifact the approval was heard on
+    would leave the implementation inventing one of them. Naming them here
+    keeps the wire and the domain from disagreeing about what is being
+    installed.
+    """
+    replace = FOUNDRY["$defs"]["binding_replace_request"]
+    assert {
+        "binding_id",
+        "logical_voice_id",
+        "persona_revision",
+        "model_artifact_revision",
+    } <= set(replace["required"])
+    assert replace["additionalProperties"] is False
+
+    validator = _validator(FOUNDRY, "binding_replace_request")
+    assert validator.is_valid(_binding_replace())
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "binding_id",
+        "logical_voice_id",
+        "persona_revision",
+        "model_artifact_revision",
+    ],
+)
+def test_a_replacement_without_its_identity_or_evidence_is_refused(missing):
+    request = _binding_replace()
+    del request[missing]
+    assert not _validator(FOUNDRY, "binding_replace_request").is_valid(request)
+
+
+def test_the_catalogue_revision_is_optional_and_the_artifact_revision_is_not():
+    """A catalogue entry may be absent; the artifact a person heard may not.
+
+    Folding the catalogue revision into the artifact revision is how an old
+    catalogue row ends up standing in for a voice nobody listened to, so the
+    artifact revision is required on its own.
+    """
+    validator = _validator(FOUNDRY, "binding_replace_request")
+
+    without_catalogue = _binding_replace()
+    assert validator.is_valid(without_catalogue)
+
+    null_catalogue = {**_binding_replace(), "model_catalog_revision": None}
+    assert validator.is_valid(null_catalogue)
+
+    assert not validator.is_valid({**_binding_replace(), "model_catalog_revision": 7})
+
+
+def test_a_replacement_cannot_smuggle_in_an_assurance_the_revision_contradicts():
+    """There is no separate assurance field to disagree with voice_revision.
+
+    ADR-005 D2 admits only voices with an immutable artifact revision; a
+    legacy provider voice is a UI hint, not a renderable identity. Encoding
+    that as a required non-nullable ``voice_revision`` means a caller cannot
+    assert an assurance the revision does not support, and the closed shape
+    means it cannot smuggle one in either.
+    """
+    replace = FOUNDRY["$defs"]["binding_replace_request"]
+    assert "assurance" not in replace["properties"]
+    assert "assurance" not in replace["required"]
+    assert "voice_revision" in replace["required"]
+    assert replace["properties"]["voice_revision"] == {"$ref": "#/$defs/identifier"}
+
+    validator = _validator(FOUNDRY, "binding_replace_request")
+    assert not validator.is_valid({**_binding_replace(), "assurance": "legacy"})
+    legacy = _binding_replace()
+    del legacy["voice_revision"]
+    assert not validator.is_valid(legacy)

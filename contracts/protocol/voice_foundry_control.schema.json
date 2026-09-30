@@ -297,7 +297,7 @@
       "additionalProperties": false
     },
     "binding_replace_request": {
-      "description": "Explicit user-commanded replacement of the future binding for one complete scope. Existing audio takes and previous binding revisions remain unchanged.",
+      "description": "Explicit user-commanded replacement of the future binding for one complete scope. Existing audio takes and previous binding revisions remain unchanged. A replacement carries its own review and never inherits the outgoing voice's: a listener approved one specific voice, so this request names the replacement's own identity and the evidence that approved it. voice_revision is required and non-nullable, which is what keeps a legacy provider voice off a production scope (ADR-005 D2 — a legacy pin is a UI hint, not a renderable identity); there is deliberately no separate assurance field that could disagree with it.",
       "type": "object",
       "required": [
         "schema_version",
@@ -305,9 +305,13 @@
         "payload_digest",
         "scope",
         "expected_binding_revision",
+        "binding_id",
+        "logical_voice_id",
+        "persona_revision",
         "provider_instance",
         "voice_id",
         "voice_revision",
+        "model_artifact_revision",
         "evidence_id",
         "evidence_digest"
       ],
@@ -316,15 +320,38 @@
         "command_id": {"$ref": "#/$defs/identifier"},
         "payload_digest": {"$ref": "#/$defs/digest"},
         "scope": {
-          "$ref": "voice_cast_request.schema.json#/$defs/scope"
+          "$ref": "https://mysterious.world/schemas/v1/voice_cast_request.schema.json#/$defs/scope"
         },
         "expected_binding_revision": {
           "type": "integer",
           "minimum": 1
         },
+        "binding_id": {
+          "description": "The binding this command re-points. The revision guard applies to it, so a stale command cannot overwrite a voice somebody else installed.",
+          "$ref": "#/$defs/identifier"
+        },
+        "logical_voice_id": {
+          "description": "Game-side identity of the replacement voice. Distinct from scope.presentation_identity, which names the character being voiced rather than the voice doing the voicing.",
+          "$ref": "#/$defs/identifier"
+        },
+        "persona_revision": {
+          "description": "Revision of the public voice profile the listener approved.",
+          "$ref": "#/$defs/identifier"
+        },
         "provider_instance": {"$ref": "#/$defs/identifier"},
         "voice_id": {"$ref": "#/$defs/identifier"},
         "voice_revision": {"$ref": "#/$defs/identifier"},
+        "model_catalog_revision": {
+          "description": "Catalogue entry the replacement was routed from. Optional and nullable on purpose: a catalogue entry describes what is offered now, and letting it stand in for the artifact revision would put an unheard voice behind a listener's signature.",
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "model_artifact_revision": {
+          "description": "The exact model artifact the approval was heard on.",
+          "$ref": "#/$defs/identifier"
+        },
         "evidence_id": {"$ref": "#/$defs/identifier"},
         "evidence_digest": {"$ref": "#/$defs/digest"}
       },
