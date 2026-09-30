@@ -55,7 +55,12 @@ def evidence(**overrides) -> VoiceEvidenceRecord:
             "model_catalog_revision": "cat-1",
         },
         "reference": {"status": "pass", "audio_digest": "b" * 64, "text_digest": "c" * 64},
-        "output": {"status": "pass", "capability_key": "quality.render"},
+        "output": {
+            "status": "pass",
+            "validation_id": "vv_1",
+            "audio_digest": "d" * 64,
+            "text_digest": None,
+        },
         "human": {
             "identity_status": "pass",
             "naturalness_status": "pass",
@@ -88,6 +93,53 @@ def test_missing_evidence_denies_synthesis():
     assert verdict.synthesis_allowed is False
     assert verdict.cached_playback_allowed is False
     assert verdict.reason is EvidenceRejection.MISSING
+
+
+@pytest.mark.parametrize("status", ["not_run", "pending", "fail", "", "unknown"])
+def test_a_voice_without_a_passed_output_check_cannot_synthesize(status):
+    """The output check is the only machine fact about unseen text.
+
+    Reference confirmation proves the voice reproduces its design sample; a
+    passed human review proves a person liked what they heard. Neither says
+    the voice can render the next line of dialogue, which is text nobody has
+    heard. Left ungated, a bundle whose revalidation never ran — the normal
+    state of a voice that has only ever been auditioned against its reference
+    — was admitted for synthesis while claiming a complete acceptance chain.
+    """
+    unverified = evidence(output={"status": status, "validation_id": "vv_1"})
+    verdict = gate().admit(unverified, requirements())
+    assert verdict.synthesis_allowed is False
+    assert verdict.reason is EvidenceRejection.OUTPUT_CHECK_INCOMPLETE
+
+
+def test_evidence_without_an_output_section_at_all_cannot_synthesize():
+    """A missing section is a fact about the evidence, not a pass.
+
+    Older snapshots predate the field. Reading absence as anything but
+    ``not_run`` would let every pre-existing bundle keep a synthesis right it
+    was never granted.
+    """
+    legacy = replace(evidence(), output={})
+    verdict = gate().admit(legacy, requirements())
+    assert verdict.synthesis_allowed is False
+    assert verdict.reason is EvidenceRejection.OUTPUT_CHECK_INCOMPLETE
+
+
+def test_a_failed_output_check_denies_cached_playback_too():
+    """An acceptance hole and trust decay are different, and split differently.
+
+    Expiry lets cached audio keep playing: the voice *was* accepted, and only
+    the acceptance aged out. A missing or failed output check says something
+    stronger — the chain that would have justified this voice never
+    completed, so cached audio from it has no acceptance behind it at all.
+    That is the same verdict an incomplete human review already produces, and
+    it is deliberately the harsher of the two.
+    """
+    failed = evidence(output={"status": "fail", "validation_id": "vv_1"})
+    verdict = gate().admit(failed, requirements())
+    assert verdict.synthesis_allowed is False
+    assert verdict.cached_playback_allowed is False
+    assert verdict.reason is EvidenceRejection.OUTPUT_CHECK_INCOMPLETE
 
 
 def test_expiry_blocks_new_synthesis_but_not_already_produced_audio():

@@ -31,6 +31,11 @@ from enum import StrEnum
 #: recorded separately and never fill this in.
 _HUMAN_PASS = "pass"
 
+#: The machine verdict for the cross-text revalidation. Same literal as the
+#: human one, but a separate constant: a machine pass is not a human pass, and
+#: the two are never interchangeable facts about a voice.
+_MACHINE_PASS = "pass"
+
 
 class EvidenceRejection(StrEnum):
     """Stable, machine-readable reason a voice was not admitted."""
@@ -40,6 +45,7 @@ class EvidenceRejection(StrEnum):
     IDENTITY_MISMATCH = "identity_mismatch"
     REVOKED = "revoked"
     EXPIRED = "expired"
+    OUTPUT_CHECK_INCOMPLETE = "output_check_incomplete"
     HUMAN_REVIEW_INCOMPLETE = "human_review_incomplete"
     EXECUTION_MISMATCH = "execution_mismatch"
     USAGE_NOT_GRANTED = "usage_not_granted"
@@ -165,6 +171,21 @@ class VoiceEvidenceGate:
         naturalness = _text(evidence.human.get("naturalness_status"))
         if identity != _HUMAN_PASS or naturalness != _HUMAN_PASS:
             return _denied(EvidenceRejection.HUMAN_REVIEW_INCOMPLETE)
+
+        # The reference check and the output check are separate facts, and
+        # synthesis depends on the second one. Reference confirmation says the
+        # voice reproduces the sample it was designed from; only a cross-text
+        # revalidation says it renders text nobody has heard yet, which is
+        # exactly what every line of dialogue is. A bundle carrying a passed
+        # reference and a passed human review but an unrun or failed output
+        # check describes a voice that has never been asked to speak.
+        #
+        # Reading this is what makes the field load-bearing. Left unread, a
+        # default of ``not_run`` passed the gate, so a cold voice with no
+        # synthesis-time verification could be rendered into the game while
+        # the evidence claimed a complete acceptance chain.
+        if _text(evidence.output.get("status")) != _MACHINE_PASS:
+            return _denied(EvidenceRejection.OUTPUT_CHECK_INCOMPLETE)
 
         execution = evidence.execution
         if (
