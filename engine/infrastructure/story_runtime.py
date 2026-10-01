@@ -26,6 +26,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol, cast
 
+from contracts import NarrativeBlock
+
 from ai.authorized_live_execution import AuthorizedLiveExecution
 from ai.golden_five_turn import GoldenFiveTurnCatalog, GoldenFiveTurnFactory
 from ai.live_turn_workers import LiveFirstTurnFactory, LiveTurnWorkerProfiles
@@ -59,6 +61,8 @@ from application.story_initialization import (
 )
 from application.story_session_facade import (
     PublicStorySessionView,
+    SegmentDeliveryView,
+    StorySessionSnapshotRecord,
     StorySessionFacade,
     SubmitAdviceCommand,
     TurnDeliveryView,
@@ -1215,48 +1219,128 @@ class _DeliveryCoordinator:
         if self._voice is None or self._audio is None or not self._voice_id:
             return TurnDeliveryView(state="unavailable", reason="voice_not_configured")
 
-        # The scope follows the segment rather than the session: a turn's
-        # audio belongs to whoever is speaking, and a resolver handed only
-        # the session would go looking for the protagonist's voice and report
-        # the wrong speaker as missing.
-        #
-        # Only character segments are candidates. The sealing boundary refuses
-        # a speakerless narration deliberately: until a NarrativeBlock carries
-        # an explicit narrator identity, a caller must not get to choose who
-        # narrates. Narration nevertheless leads every block, so taking the
-        # first *speakable* segment picked the one segment that can never be
-        # delivered — which silently cost the protagonist their voice, and
-        # cost the foundry the cast that would have supplied it.
-        candidates = [
-            (index, scope)
-            for index, item in enumerate(narrative.segments)
-            if item.type == "character"
-            and (scope := speaker_scope_for(snapshot.session, item)) is not None
-        ]
-        segment_index, scope = candidates[0] if candidates else (None, None)
-        if segment_index is None or scope is None:
+        units = await self._deliver_character_segments(
+            snapshot=snapshot,
+            narrative=narrative,
+            result=result,
+        )
+        ready_units = [unit for unit in units if unit.state == "ready"]
+        if not ready_units:
+            # Nothing could be voiced, so the turn has no audio to announce.
+            # The reason is the first segment's, because a turn-wide code would
+            # name a failure that belongs to one line.
             return TurnDeliveryView(
                 state="unavailable",
-                reason="narrative_has_no_character_segment",
+                reason=(
+                    units[0].reason
+                    if units and units[0].reason
+                    else "narrative_has_no_character_segment"
+                ),
             )
+        first = ready_units[0]
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id=narrative.id,
+            speech_unit_id=first.speech_unit_id,
+            spoken_text=first.spoken_text,
+            render_recipe=first.render_recipe,
+            speech_units=tuple(units),
+        )
 
-        try:
-            resolved = await resolve_voice_runtime(
-                repository=self._bindings,
-                session=snapshot.session,
-                config=self._audio,
-                voice_id=self._voice_id,
-                scope=scope,
-                fetch_json=self._fetch_json,
-            )
-        except VoiceBindingResolutionError as exc:
-            return TurnDeliveryView(state="unavailable", reason=exc.code)
-        except Exception:  # noqa: BLE001 - hide provider details after text publication
-            return TurnDeliveryView(
-                state="unavailable",
-                reason="voice_runtime_unavailable",
-            )
+    async def _deliver_character_segments(
+        self,
+        *,
+        snapshot: StorySessionSnapshotRecord,
+        narrative: NarrativeBlock,
+        result: StoryTurnCommitResult,
+    ) -> list[SegmentDeliveryView]:
+        """Voice every speakable segment of a block, and report on each one.
 
+        The scope follows the segment rather than the session: a turn's audio
+        belongs to whoever is speaking, and a resolver handed only the session
+        would go looking for the protagonist's voice and report the wrong
+        speaker as missing.
+
+        Only character segments are candidates. The sealing boundary refuses a
+        speakerless narration deliberately: until a NarrativeBlock carries an
+        explicit narrator identity, a caller must not get to choose who
+        narrates.
+
+        One segment failing does not stop the block. A speaker whose voice was
+        never bound, whose evidence was never admitted, or whose provider
+        refused costs *that* line its audio; the lines around it still play.
+        That is the difference between a turn with a gap and a turn with no
+        voice at all.
+        """
+        units: list[SegmentDeliveryView] = []
+        resolved_by_scope: dict[VoiceBindingScope, object] = {}
+
+        for segment_index, item in enumerate(narrative.segments):
+            if item.type != "character":
+                continue
+            scope = speaker_scope_for(snapshot.session, item)
+            if scope is None:
+                units.append(
+                    SegmentDeliveryView(
+                        segment_index=segment_index,
+                        state="unavailable",
+                        reason="segment_speaker_unresolved",
+                    )
+                )
+                continue
+
+            # Two lines from the same speaker are the same binding; resolving
+            # it twice would ask the provider catalog the same question twice
+            # and risk two revisions for one voice.
+            resolved = resolved_by_scope.get(scope)
+            if resolved is None:
+                try:
+                    resolved = await resolve_voice_runtime(
+                        repository=self._bindings,
+                        session=snapshot.session,
+                        config=self._audio,
+                        voice_id=self._voice_id,
+                        scope=scope,
+                        fetch_json=self._fetch_json,
+                    )
+                except VoiceBindingResolutionError as exc:
+                    units.append(
+                        SegmentDeliveryView(
+                            segment_index=segment_index,
+                            state="unavailable",
+                            reason=exc.code,
+                        )
+                    )
+                    continue
+                except Exception:  # noqa: BLE001 - hide provider details after text publication
+                    units.append(
+                        SegmentDeliveryView(
+                            segment_index=segment_index,
+                            state="unavailable",
+                            reason="voice_runtime_unavailable",
+                        )
+                    )
+                    continue
+                resolved_by_scope[scope] = resolved
+
+            unit = await self._deliver_one_segment(
+                resolved=resolved,
+                result=result,
+                narrative=narrative,
+                segment_index=segment_index,
+            )
+            units.append(unit)
+        return units
+
+    async def _deliver_one_segment(
+        self,
+        *,
+        resolved,
+        result: StoryTurnCommitResult,
+        narrative: NarrativeBlock,
+        segment_index: int,
+    ) -> SegmentDeliveryView:
+        """Seal and hand one segment over, turning any refusal into a report."""
         execution = render_execution(
             provider_instance=resolved.provider_instance,
             voice_id=resolved.binding.provider.voice_id,
@@ -1283,9 +1367,11 @@ class _DeliveryCoordinator:
         )
         if execution is None or evidence is None:
             # Text is already published; a voice without admitted evidence
-            # costs this turn its audio and nothing else.
-            return TurnDeliveryView(
-                state="unavailable", reason="voice_evidence_not_admitted"
+            # costs this segment its audio and nothing else.
+            return SegmentDeliveryView(
+                segment_index=segment_index,
+                state="unavailable",
+                reason="voice_evidence_not_admitted",
             )
 
         pipeline = TurnDeliveryPipeline(
@@ -1311,33 +1397,38 @@ class _DeliveryCoordinator:
             receipt = await pipeline.deliver(
                 TurnDeliveryOutcome(
                     turn_id=result.turn.id,
-                    session_id=command.session_id,
-                    story_revision=story_revision,
+                    session_id=result.turn.session_id,
+                    story_revision=result.turn.committed_story_revision,
                     state_delta_id=result.delta.id,
                     narrative=narrative,
                     segment_index=segment_index,
                 )
             )
-            if receipt is None:
-                return TurnDeliveryView(
-                    state="unavailable",
-                    reason="narrative_has_no_character_segment",
-                )
         except TurnDeliveryError as exc:
-            return TurnDeliveryView(state="unavailable", reason=exc.code)
+            return SegmentDeliveryView(
+                segment_index=segment_index,
+                state="unavailable",
+                reason=exc.code,
+            )
         except Exception:  # noqa: BLE001 - audio failures cannot unwind COMMIT
-            return TurnDeliveryView(
+            return SegmentDeliveryView(
+                segment_index=segment_index,
                 state="unavailable",
                 reason="voice_delivery_unavailable",
             )
-        return TurnDeliveryView(
+        if receipt is None:
+            return SegmentDeliveryView(
+                segment_index=segment_index,
+                state="unavailable",
+                reason="narrative_has_no_character_segment",
+            )
+        return SegmentDeliveryView(
+            segment_index=segment_index,
             state="ready",
-            narrative_block_id=receipt.narrative_block_id,
             speech_unit_id=receipt.speech_unit_id,
             spoken_text=receipt.spoken_text,
             render_recipe=receipt.render_recipe,
         )
-
 
 class _UnavailableNarrativeCompiler:
     async def compile(self, *, committed: str) -> NarrativeCandidate:

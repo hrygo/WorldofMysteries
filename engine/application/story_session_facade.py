@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from contracts import StorySession
 
@@ -91,6 +91,12 @@ class TurnDeliveryView(BaseModel):
     ``unavailable`` never means the turn was lost.  The Domain commit already
     succeeded and stays durable; only the audible rendering is missing, which is
     exactly the separation invariant 9 requires.
+
+    ``speech_units`` is the authoritative view: one entry per character segment
+    of the block, in block order.  The singular ``speech_unit_id`` /
+    ``spoken_text`` / ``render_recipe`` trio mirrors the first ready segment and
+    exists so a client that has not yet switched keeps working; it is removed
+    once every client reads the batch.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -104,6 +110,43 @@ class TurnDeliveryView(BaseModel):
     # ``voice.render``; the Engine rejects any drift, so a client can never
     # choose the voice, the revision or the speed for a committed turn.
     render_recipe: dict[str, object] | None = None
+    speech_units: tuple[SegmentDeliveryView, ...] = ()
+
+
+class SegmentDeliveryView(BaseModel):
+    """One narrative segment's audio state.
+
+    A segment that could not be voiced is reported rather than dropped.  That
+    is the whole point of the batch: a missing voice must cost that segment its
+    audio and nothing else, so the rest of the turn still plays and the player
+    can see which line was lost and why.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    segment_index: int = Field(ge=0, le=131071)
+    state: Literal["ready", "unavailable"]
+    speech_unit_id: str | None = None
+    spoken_text: str | None = None
+    render_recipe: dict[str, object] | None = None
+    reason: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def ready_segments_carry_their_own_recipe(self) -> SegmentDeliveryView:
+        if self.state == "ready":
+            if self.reason is not None:
+                raise ValueError("ready_segment_cannot_carry_a_reason")
+            if (
+                self.speech_unit_id is None
+                or self.spoken_text is None
+                or self.render_recipe is None
+            ):
+                raise ValueError("ready_segment_requires_its_own_recipe")
+        elif self.reason is None:
+            # An unavailable segment that does not say why is indistinguishable
+            # from one the Engine forgot to look at.
+            raise ValueError("unavailable_segment_requires_a_reason")
+        return self
 
 
 class AdviceSubmitView(BaseModel):

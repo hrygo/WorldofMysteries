@@ -1184,12 +1184,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
     repository, _live_first_turn, snapshot, result, command = (
         _committed_delivery_case(narrative=block)
     )
-    repository.turn = repository.turn.model_copy(
-        update={
-            "status": TurnStatus.NARRATIVE_READY,
-            "narrative_block_id": block.id,
-        }
-    )
+    _mark_published(repository, block)
 
     class Query:
         async def session(self, _session_id):
@@ -1253,12 +1248,7 @@ async def test_a_block_that_opens_with_narration_still_speaks_for_its_character(
     repository, _live_first_turn, snapshot, result, command = (
         _committed_delivery_case(narrative=block)
     )
-    repository.turn = repository.turn.model_copy(
-        update={
-            "status": TurnStatus.NARRATIVE_READY,
-            "narrative_block_id": block.id,
-        }
-    )
+    _mark_published(repository, block)
 
     asked_for = []
 
@@ -1295,6 +1285,261 @@ async def test_a_block_that_opens_with_narration_still_speaks_for_its_character(
     assert repository.narrative is block
     assert repository.load_turn_calls == 1
     assert repository.publish_calls == 0
+
+
+def _batch_block(*speakers: str):
+    """A published block with one narration segment and N character segments."""
+    from contracts import NarrativeBlock
+    from contracts.models import NarrativeSegment
+
+    segments = [NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。")]
+    for position, speaker in enumerate(speakers):
+        segments.append(
+            NarrativeSegment(
+                type="character",
+                speaker_id=speaker,
+                text=f"第 {position + 1} 句台词。",
+            )
+        )
+    return NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-batch",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=segments,
+        source_state_delta_id="delta-1",
+    )
+
+
+def _mark_published(repository, block):
+    """Point the turn at an already-published block, as the runtime would."""
+    from contracts import TurnStatus
+
+    repository.turn = repository.turn.model_copy(
+        update={
+            "status": TurnStatus.NARRATIVE_READY,
+            "narrative_block_id": block.id,
+        }
+    )
+    return repository
+
+
+def _fake_resolution(scope):
+    """The shape ``_deliver_one_segment`` reads, with nothing real in it."""
+    evidence = SimpleNamespace(
+        evidence_id="evidence-1", model_artifact_revision="artifact-1"
+    )
+    return SimpleNamespace(
+        provider_instance=SimpleNamespace(provider_id="speechrail"),
+        binding=SimpleNamespace(
+            provider=SimpleNamespace(
+                voice_id="voice-1", conditional_pin="revision-1"
+            ),
+            evidence=evidence,
+            binding_revision=1,
+        ),
+        execution_model_id="speechrail/qwen3-tts",
+        model_catalog_revision="catalog-1",
+        scope=scope,
+        performance="measured",
+        capabilities=SimpleNamespace(),
+    )
+
+
+def _batch_coordinator(monkeypatch, repository, snapshot, result, command, resolve):
+    """A coordinator whose voice stack is real code and whose answers are not."""
+    from infrastructure import story_runtime
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure.audio.voice_delivery import DeliveryReceipt
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    asked: list[str] = []
+    sealed: list[int] = []
+
+    async def fake_resolve(**kwargs):
+        asked.append(kwargs["scope"].presentation_identity)
+        return resolve(kwargs["scope"])
+
+    async def fake_evidence(*_args, **_kwargs):
+        return object()
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def deliver(self, outcome):
+            sealed.append(outcome.segment_index)
+            segment = outcome.narrative.segments[outcome.segment_index]
+            return DeliveryReceipt(
+                turn_id=outcome.turn_id,
+                narrative_block_id=outcome.narrative.id,
+                speech_unit_id=f"speech_unit_{outcome.segment_index}",
+                spoken_text=segment.text,
+                render_recipe={"segment_index": outcome.segment_index},
+            )
+
+    monkeypatch.setattr(story_runtime, "resolve_voice_runtime", fake_resolve)
+    monkeypatch.setattr(story_runtime, "render_execution", lambda **kwargs: object())
+    monkeypatch.setattr(story_runtime, "load_evidence_record", fake_evidence)
+    monkeypatch.setattr(story_runtime, "TurnDeliveryPipeline", FakePipeline)
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=object(),
+        audio_config=AudioProviderConfig(),
+        voice_id="klein-approved",
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
+        fetch_json=None,
+        evidence_store=object(),
+    )
+    return coordinator, asked, sealed
+
+
+@pytest.mark.asyncio
+async def test_every_speakable_segment_is_voiced_not_just_the_first(
+    monkeypatch,
+):
+    """One block, three speakers, three voices.
+
+    The delivery coordinator used to take ``candidates[0]`` and stop: a cast
+    could be bound, published and sealed, and the player would still hear one
+    voice for a conversation. This is the assertion that says a turn is voiced
+    per identity, which is what acceptance criterion 1 asks for.
+    """
+    block = _batch_block("npc_doctor_morris", "npc_stranger", "npc_doctor_morris")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris", "npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+    coordinator, asked, sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, _fake_resolution
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "ready"
+    assert [unit.segment_index for unit in delivery.speech_units] == [1, 2, 3]
+    assert [unit.state for unit in delivery.speech_units] == ["ready"] * 3
+    # Block order, not resolution order and not sorted-by-id.
+    assert sealed == [1, 2, 3]
+    # The same speaker twice is the same binding; the catalog is asked once.
+    assert asked == ["npc_doctor_morris", "npc_stranger"]
+    # The transitional mirror still describes the first ready segment.
+    assert delivery.speech_unit_id == "speech_unit_1"
+    assert delivery.speech_units[0].spoken_text == delivery.spoken_text
+
+
+@pytest.mark.asyncio
+async def test_one_missing_voice_costs_that_line_and_nothing_else(monkeypatch):
+    """Standard 3, as a delivery fact rather than a UI intention.
+
+    One speaker has no admitted binding. The other still speaks. The turn is
+    ready; the gap is reported on the segment that has it, so the App can
+    subtitle that line and play the rest.
+    """
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = _batch_block("npc_stranger", "npc_doctor_morris")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris", "npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(scope):
+        if scope.presentation_identity == "npc_stranger":
+            raise VoiceBindingResolutionError("voice_binding_not_found")
+        return _fake_resolution(scope)
+
+    coordinator, _asked, sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "ready"
+    assert [(unit.segment_index, unit.state) for unit in delivery.speech_units] == [
+        (1, "unavailable"),
+        (2, "ready"),
+    ]
+    assert delivery.speech_units[0].reason == "voice_binding_not_found"
+    assert delivery.speech_units[1].reason is None
+    # The stranger fails before any pipeline is built, so the sealed list only
+    # ever holds the doctor.
+    assert sealed == [2]
+    assert repository.publish_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_turn_where_nothing_can_be_voiced_is_unavailable(monkeypatch):
+    """When every segment fails there is no audio to announce, so say so."""
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = _batch_block("npc_stranger")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(_scope):
+        raise VoiceBindingResolutionError("voice_provider_not_ready")
+
+    coordinator, _asked, _sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "voice_provider_not_ready"
+    assert delivery.speech_units == ()
+
+
+@pytest.mark.asyncio
+async def test_a_block_with_only_narration_reports_no_character_segment(monkeypatch):
+    from contracts import NarrativeBlock
+    from contracts.models import NarrativeSegment
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-narration-only",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。")],
+        source_state_delta_id="delta-1",
+    )
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(_scope):
+        raise AssertionError("a narration-only block must not ask for a voice")
+
+    coordinator, asked, _sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "narrative_has_no_character_segment"
+    assert asked == []
 
 
 def _count_world_commits(root: Path) -> int:
