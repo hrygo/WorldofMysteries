@@ -258,12 +258,64 @@ def _source_key(source: CommittedNarrativeSource | None) -> str | None:
             "disclosed_facts": source.disclosed_facts,
             "input_turn_id": source.input_turn_id,
             "source_store_revision": source.source_store_revision,
+            # The roster is part of the source's identity because it decides who
+            # the block may speak for. Two attempts at one turn that disagree
+            # about the roster are not retries of the same publication — they
+            # would bind different voices — so they are refused rather than
+            # raced (ADR-006 D2, §4.1).
+            "present_character_ids": (
+                None
+                if source.present_character_ids is None
+                else list(source.present_character_ids)
+            ),
         },
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def turn_scene_roster(
+    *,
+    story_state: object,
+    committed_story_revision: int,
+) -> tuple[str, ...] | None:
+    """The scene roster *as of one turn*, or ``None`` when it cannot be known.
+
+    Two different questions are answered here and they must not be confused.
+
+    **Whose scene is this?** ``story_state_json`` holds only the *current*
+    state of a session, never its history. A post-COMMIT job may run long after
+    the turn it serves, by which point later turns have moved the roster on.
+    Reading it then would attribute this turn's speech to whoever is in the
+    room *now* — and nothing would report an error, because every value read
+    would be internally consistent. So the roster is taken only when the state
+    is provably the one this turn committed, and declined otherwise.
+
+    **Does the world declare a roster at all?** ``None`` and ``()`` stay
+    distinct: an empty scene is an assertion, an absent roster is the absence of
+    one. Both end up as ``None`` here only in the first case above — a
+    declined read is indistinguishable from a world that never said, and both
+    mean "publication keeps its historical single-speaker behaviour" rather
+    than "nobody may speak".
+
+    The caller supplies the state, so this stays a pure function: which frozen
+    state a given post-COMMIT job is allowed to see is that job's judgement, and
+    burying it here would make the unsafe read look like a safe one.
+    """
+    if story_state is None:
+        return None
+    revision = getattr(story_state, "revision", None)
+    if revision != committed_story_revision:
+        return None
+    scene = getattr(story_state, "scene", None)
+    active = getattr(scene, "active_character_ids", None)
+    if active is None:
+        return None
+    if not isinstance(active, (tuple, list)):
+        return None
+    return _character_roster(active)
 
 
 class CommittedNarrativeService:

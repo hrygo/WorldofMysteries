@@ -558,7 +558,7 @@ async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
         )
 
 
-def _committed_delivery_case(*, narrative=None):
+def _committed_delivery_case(*, narrative=None, active_character_ids=None):
     from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
 
     delta = StateDelta.model_validate(
@@ -646,6 +646,11 @@ def _committed_delivery_case(*, narrative=None):
     from contracts.models import StoryCommitments, StoryScene
 
     def _session():
+        scene = {"id": "scene-1"}
+        # `active_character_ids` may be omitted but not null, so the "world
+        # declares no roster" case has to be expressed by leaving the key out.
+        if active_character_ids is not None:
+            scene["active_character_ids"] = active_character_ids
         return StorySession(
             schema_version="1.0",
             id="session-1",
@@ -660,7 +665,7 @@ def _committed_delivery_case(*, narrative=None):
                 revision=1,
                 turn=1,
                 phase=StoryPhase.INVESTIGATION,
-                scene=StoryScene(id="scene-1"),
+                scene=StoryScene(**scene),
                 world_time="1349-06-12T21:40:00",
                 active_conflicts=[],
                 discovered_clue_ids=[],
@@ -681,7 +686,11 @@ def _committed_delivery_case(*, narrative=None):
     result = SimpleNamespace(
         turn=turn,
         delta=delta,
-        session=SimpleNamespace(protagonist_id="protagonist-1"),
+        # The commit result carries the session as this turn left it. That is
+        # where the coordinator reads the scene roster from, so it has to be a
+        # real session — a stand-in with only `protagonist_id` would make the
+        # roster lookup untestable rather than merely absent.
+        session=_session(),
         store_revision=2,
     )
     command = SimpleNamespace(
@@ -751,6 +760,109 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         ("narration", "诊室里的雨声渐渐停了。"),
         ("character", "我先看看预约簿。"),
     ]
+
+
+async def _publish_and_capture(monkeypatch, *, case):
+    """Run one delivery and hand back the source publication was given."""
+    from application.narrative_publication import CommittedNarrativeService
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    repository, first_turn, snapshot, result, command = case
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    captured = []
+    original = CommittedNarrativeService.ensure
+
+    async def capture(self, *, turn_id, source):
+        captured.append(source)
+        return await original(self, turn_id=turn_id, source=source)
+
+    monkeypatch.setattr(CommittedNarrativeService, "ensure", capture)
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=None,
+        audio_config=None,
+        voice_id=None,
+        workers=first_turn,
+        context_bindings=None,
+        fetch_json=None,
+        evidence_store=object(),
+    )
+    await coordinator.after_commit(command, result, None)
+    assert len(captured) == 1
+    return captured[0]
+
+
+@pytest.mark.asyncio
+async def test_publication_is_handed_the_scene_roster_of_the_committed_turn(monkeypatch):
+    """The last link before the roster can bind a voice.
+
+    Without it the publication layer has exactly one identity to bind and the
+    supply chain can only ever hear one voice, however many characters the world
+    knows about.
+    """
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=["protagonist-1", "npc_doctor_morris"]
+        ),
+    )
+
+    assert source.present_character_ids == ("protagonist-1", "npc_doctor_morris")
+
+
+@pytest.mark.asyncio
+async def test_a_scene_that_declares_nobody_reaches_publication_as_empty(
+    monkeypatch,
+):
+    """Empty is an answer, and it must not decay into "we have not asked"."""
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(active_character_ids=[]),
+    )
+
+    assert source.present_character_ids == ()
+
+
+@pytest.mark.asyncio
+async def test_a_world_that_declares_no_roster_reaches_publication_as_none(
+    monkeypatch,
+):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(active_character_ids=None),
+    )
+
+    assert source.present_character_ids is None
+
+
+@pytest.mark.asyncio
+async def test_a_session_that_moved_on_declines_the_roster_rather_than_reusing_it(
+    monkeypatch,
+):
+    """The guard that makes the safe read safe.
+
+    The commit result normally carries this turn's own state. A replayed commit
+    need not — and a state from a later turn would cast this one with whoever is
+    in the room now, without any error to show for it.
+    """
+    case = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"]
+    )
+    case[3].session = case[3].session.model_copy(
+        update={
+            "story_state": case[3].session.story_state.model_copy(update={"revision": 7})
+        }
+    )
+
+    source = await _publish_and_capture(monkeypatch, case=case)
+
+    assert source.present_character_ids is None
 
 
 @pytest.mark.asyncio

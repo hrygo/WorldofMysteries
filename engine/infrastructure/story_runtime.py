@@ -42,6 +42,7 @@ from application.narrative_publication import (
     CommittedNarrativeSource,
     NarrativeCandidate,
     NarrativePublicationError,
+    turn_scene_roster,
 )
 from application.post_commit_expression import PostCommitExpressionService
 from application.scenario_policy import TurnWorkerFactory
@@ -1154,6 +1155,12 @@ class _DeliveryCoordinator:
                     ),
                     input_turn_id=command.input_turn_id,
                     source_store_revision=result.store_revision,
+                    # The commit result carries the session as this turn left it,
+                    # so the roster is read from state that cannot have moved on.
+                    present_character_ids=turn_scene_roster(
+                        story_state=result.session.story_state,
+                        committed_story_revision=story_revision,
+                    ),
                 )
             else:
                 # Frozen turns publish their authored NarrativeBlock during

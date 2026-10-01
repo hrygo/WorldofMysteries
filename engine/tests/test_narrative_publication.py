@@ -734,3 +734,136 @@ def test_an_unusable_roster_is_refused(roster):
 
     with pytest.raises(NarrativePublicationError):
         _committed_source(present_character_ids=roster)
+
+
+# --- turn_scene_roster: whose scene is this? --------------------------------
+
+
+def _story_state(revision, active):
+    return SimpleNamespace(
+        revision=revision,
+        scene=SimpleNamespace(active_character_ids=active),
+    )
+
+
+def test_the_roster_is_read_when_the_state_is_still_the_turns_own():
+    from application.narrative_publication import turn_scene_roster
+
+    assert turn_scene_roster(
+        story_state=_story_state(4, ["klein", "audrey"]),
+        committed_story_revision=4,
+    ) == ("klein", "audrey")
+
+
+def test_a_state_that_has_moved_on_yields_no_roster():
+    """The load-bearing one.
+
+    ``story_state_json`` holds only the current state of a session. A durable
+    post-COMMIT job may run after later turns have moved the roster on, and
+    reading it then would cast this turn with whoever is in the room *now* —
+    silently, because every value read would be internally consistent. Declining
+    is the only answer that cannot be wrong.
+    """
+    from application.narrative_publication import turn_scene_roster
+
+    assert (
+        turn_scene_roster(
+            story_state=_story_state(9, ["someone_else"]),
+            committed_story_revision=4,
+        )
+        is None
+    )
+
+
+def test_a_state_one_revision_behind_is_also_refused():
+    """Not "greater than" — any disagreement means it is not this turn's state."""
+    from application.narrative_publication import turn_scene_roster
+
+    assert (
+        turn_scene_roster(
+            story_state=_story_state(3, ["klein"]),
+            committed_story_revision=4,
+        )
+        is None
+    )
+
+
+def test_no_state_at_all_yields_no_roster():
+    from application.narrative_publication import turn_scene_roster
+
+    assert turn_scene_roster(
+        story_state=None, committed_story_revision=4
+    ) is None
+
+
+def test_a_world_that_declares_no_roster_is_not_told_the_scene_is_empty():
+    from application.narrative_publication import turn_scene_roster
+
+    assert (
+        turn_scene_roster(
+            story_state=_story_state(4, None),
+            committed_story_revision=4,
+        )
+        is None
+    )
+
+
+def test_an_empty_scene_is_carried_as_an_empty_roster():
+    """The world saying "nobody is here" is a fact, and survives the trip."""
+    from application.narrative_publication import turn_scene_roster
+
+    assert (
+        turn_scene_roster(
+            story_state=_story_state(4, []),
+            committed_story_revision=4,
+        )
+        == ()
+    )
+
+
+def test_the_roster_is_normalised_on_the_way_in():
+    from application.narrative_publication import turn_scene_roster
+
+    assert turn_scene_roster(
+        story_state=_story_state(4, ["  klein  "]),
+        committed_story_revision=4,
+    ) == ("klein",)
+
+
+def test_a_roster_the_publication_layer_refuses_is_not_silently_accepted():
+    from application.narrative_publication import (
+        NarrativePublicationError,
+        turn_scene_roster,
+    )
+
+    with pytest.raises(NarrativePublicationError):
+        turn_scene_roster(
+            story_state=_story_state(4, ["klein", "klein"]),
+            committed_story_revision=4,
+        )
+
+
+def test_two_attempts_that_disagree_about_the_roster_are_not_the_same_publication():
+    """The roster decides who the block may speak for.
+
+    Two attempts at one turn that disagree about it are not retries — they would
+    bind different voices to the same text. They must be refused rather than
+    raced, which is only true if the roster is part of the source's identity.
+    """
+    assert _flights_key(
+        _committed_source(present_character_ids=("klein",))
+    ) != _flights_key(_committed_source(present_character_ids=("klein", "audrey")))
+    assert _flights_key(
+        _committed_source(present_character_ids=("klein",))
+    ) == _flights_key(_committed_source(present_character_ids=("klein",)))
+    # Declining a roster is a different publication from declaring one, too:
+    # the first casts a single speaker, the second may cast several.
+    assert _flights_key(_committed_source()) != _flights_key(
+        _committed_source(present_character_ids=())
+    )
+
+
+def _flights_key(source):
+    from application.narrative_publication import _source_key
+
+    return _source_key(source)
