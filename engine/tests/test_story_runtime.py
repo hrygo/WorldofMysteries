@@ -1434,9 +1434,13 @@ async def test_every_speakable_segment_is_voiced_not_just_the_first(
     assert sealed == [1, 2, 3]
     # The same speaker twice is the same binding; the catalog is asked once.
     assert asked == ["npc_doctor_morris", "npc_stranger"]
-    # The transitional mirror still describes the first ready segment.
-    assert delivery.speech_unit_id == "speech_unit_1"
-    assert delivery.speech_units[0].spoken_text == delivery.spoken_text
+    # Every unit carries its own recipe; there is no single summary left that
+    # could be mistaken for the whole turn.
+    assert [unit.speech_unit_id for unit in delivery.speech_units] == [
+        "speech_unit_1",
+        "speech_unit_2",
+        "speech_unit_3",
+    ]
 
 
 @pytest.mark.asyncio

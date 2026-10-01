@@ -92,25 +92,36 @@ class TurnDeliveryView(BaseModel):
     succeeded and stays durable; only the audible rendering is missing, which is
     exactly the separation invariant 9 requires.
 
-    ``speech_units`` is the authoritative view: one entry per character segment
-    of the block, in block order.  The singular ``speech_unit_id`` /
-    ``spoken_text`` / ``render_recipe`` trio mirrors the first ready segment and
-    exists so a client that has not yet switched keeps working; it is removed
-    once every client reads the batch.
+    ``speech_units`` is the only view: one entry per character segment of the
+    block, in block order.  The single-segment mirror that used to stand in for
+    it is gone — a field that can only ever describe one of several voices is a
+    field that will eventually describe the wrong one.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     state: Literal["ready", "unavailable"]
     narrative_block_id: str | None = None
-    speech_unit_id: str | None = None
-    spoken_text: str | None = None
     reason: str | None = Field(default=None, min_length=1, max_length=128)
-    # The exact sealed render recipe. The App replays it verbatim into
-    # ``voice.render``; the Engine rejects any drift, so a client can never
-    # choose the voice, the revision or the speed for a committed turn.
-    render_recipe: dict[str, object] | None = None
+    # One sealed render recipe per segment, carried inside its segment. The App
+    # replays each verbatim into ``voice.render``; the Engine rejects any
+    # drift, so a client can never choose the voice, the revision or the speed
+    # for a committed turn.
     speech_units: tuple[SegmentDeliveryView, ...] = ()
+
+    @model_validator(mode="after")
+    def a_ready_turn_names_at_least_one_voice(self) -> TurnDeliveryView:
+        """A turn with nothing sealed cannot claim to be ready.
+
+        Asserting it here rather than trusting the coordinator means a future
+        path that forgets to build the batch fails at the boundary instead of
+        shipping a ``ready`` the player hears silence for.
+        """
+        if self.state == "ready" and not any(
+            unit.state == "ready" for unit in self.speech_units
+        ):
+            raise ValueError("ready_delivery_requires_a_sealed_segment")
+        return self
 
 
 class SegmentDeliveryView(BaseModel):

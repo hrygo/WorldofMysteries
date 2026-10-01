@@ -1237,13 +1237,9 @@ class _DeliveryCoordinator:
                     else "narrative_has_no_character_segment"
                 ),
             )
-        first = ready_units[0]
         return TurnDeliveryView(
             state="ready",
             narrative_block_id=narrative.id,
-            speech_unit_id=first.speech_unit_id,
-            spoken_text=first.spoken_text,
-            render_recipe=first.render_recipe,
             speech_units=tuple(units),
         )
 

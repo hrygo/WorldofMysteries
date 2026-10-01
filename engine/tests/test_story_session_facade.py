@@ -470,7 +470,11 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
 
     async def after_commit(command, result, session):
         delivery_calls.append((command.input_turn_id, result.turn.id, session))
-        return TurnDeliveryView(state="ready")
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(_ready_unit(1),),
+        )
 
     facade = _facade(
         database,
@@ -797,7 +801,11 @@ async def test_same_session_admission_is_not_held_by_post_commit_delivery(tmp_pa
         del command, result, session
         delivery_started.set()
         await release_delivery.wait()
-        return TurnDeliveryView(state="ready")
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(_ready_unit(1),),
+        )
 
     facade = _facade(
         database,
@@ -1265,9 +1273,6 @@ def test_a_turn_keeps_its_segments_in_block_order():
     view = TurnDeliveryView(
         state="ready",
         narrative_block_id="narrative-01",
-        speech_unit_id="speech_unit_3",
-        spoken_text="别动那只表。",
-        render_recipe={"segment_index": 3},
         speech_units=(
             SegmentDeliveryView(segment_index=3, state="unavailable", reason="x"),
             _ready_unit(5),
@@ -1276,3 +1281,22 @@ def test_a_turn_keeps_its_segments_in_block_order():
     )
     assert [unit.segment_index for unit in view.speech_units] == [3, 5, 7]
     assert view.speech_units[0].state == "unavailable"
+
+
+def test_a_ready_turn_with_nothing_sealed_is_refused():
+    """``ready`` with no playable unit is a silence the player would blame on us.
+
+    The single-segment mirror used to make this unrepresentable; now that it is
+    gone, the batch itself has to carry the fact, and a coordinator that
+    forgets to build one fails here instead of shipping a hollow ``ready``.
+    """
+    with pytest.raises(ValidationError):
+        TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(
+                SegmentDeliveryView(segment_index=1, state="unavailable", reason="voice_binding_not_found"),
+            ),
+        )
+    with pytest.raises(ValidationError):
+        TurnDeliveryView(state="ready", narrative_block_id="narrative-01")
