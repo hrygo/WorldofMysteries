@@ -45,6 +45,7 @@ from application.voice_foundry_ports import (
     FoundryReviewVerdict,
     PreviewRequest,
     review_verdict_is_accepted,
+    ReusedVoice,
     VoiceFoundryPortError,
 )
 from application.voice_evidence import evidence_document
@@ -685,6 +686,9 @@ class VoiceFoundryWorker:
             task = await self._repository.load_task(task.task_id)
             candidate = await self._advance_candidate(task, candidate.candidate_id, "provisioning")
             task = await self._repository.load_task(task.task_id)
+            reused = await self._reuse_published(task, deadline_at)
+            if reused is not None:
+                return await self._adopt_published(task, candidate, reused)
             request = CreateRequest(
                 voice_id=_voice_id_for(task),
                 name=task.scope.presentation_identity,
@@ -728,6 +732,64 @@ class VoiceFoundryWorker:
             task.task_id,
             expected_revision=task.task_revision,
             stage="validating",
+            operation_status="confirmed",
+            required_actions=(),
+        )
+
+    async def _reuse_published(
+        self, task: "VoiceFoundryTaskRecord", deadline_at: float
+    ) -> ReusedVoice | None:
+        """Ask whether this identity was already cast, heard and published.
+
+        Read before the create, not after its failure. The provider answers a
+        repeated cast with ``409 Target voice ID already exists`` and no way
+        to say *which* voice it meant, so a task that asked afterwards would
+        be reacting to a refusal rather than choosing a course — and the
+        refusal carries no evidence to adopt.
+
+        This is a plain read and is deliberately not run through
+        :meth:`_perform`. An operation record exists so an unknown outcome can
+        be reconciled by replaying the request that might have landed; a read
+        has no such ambiguity, so recording one would only manufacture a
+        ``foundry_outcome_unknown`` that nothing knows how to settle. Retry
+        is still bounded, because a transient transport failure here is
+        ordinary rather than interesting.
+        """
+        return await self._call_with_retry(
+            lambda: self._port.find_published(_voice_id_for(task)),
+            deadline_at,
+        )
+
+    async def _adopt_published(
+        self,
+        task: "VoiceFoundryTaskRecord",
+        candidate: VoiceCandidateRecord,
+        reused: ReusedVoice,
+    ) -> "VoiceFoundryTaskRecord":
+        """Park this task on a voice the provider published in an earlier run.
+
+        The candidate ladder is walked by the repository one rung at a time,
+        and refusing to skip it is what stops a caller claiming publication
+        for a voice that was never provisioned, validated or reviewed. This
+        is the one case where all three did happen — before this task
+        existed, on the provider, and the evidence says so — so the skip goes
+        through its own named repository door rather than by loosening the
+        ladder for everyone.
+        """
+        await self._repository.adopt_published_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id=candidate.candidate_id,
+            provider_candidate_id=reused.candidate.candidate_id,
+            provider_candidate_revision=reused.candidate.candidate_revision,
+        )
+        # Recording the adoption advanced the task revision, so the stage move
+        # below has to speak for the revision that now exists.
+        task = await self._repository.load_task(task.task_id)
+        return await self._repository.set_stage(
+            task.task_id,
+            expected_revision=task.task_revision,
+            stage="published",
             operation_status="confirmed",
             required_actions=(),
         )

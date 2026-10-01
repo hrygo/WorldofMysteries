@@ -33,6 +33,7 @@ from application.voice_foundry_ports import (
     PreviewResult,
     ProviderLocaleMap,
     PublishResult,
+    ReusedVoice,
     ValidationResult,
     VoiceFoundryCapabilities,
 )
@@ -121,6 +122,12 @@ class _Port:
             recipe={"seed": request.seed},
             recipe_digest="c" * 64,
         )
+
+    async def find_published(self, voice_id: str) -> ReusedVoice | None:
+        # Nothing is catalogued in these walks: the surface always starts
+        # from an empty provider and casts for real.
+        self.calls.append("find_published")
+        return None
 
     async def create(self, request: CreateRequest) -> CandidateState:
         self.calls.append("create")

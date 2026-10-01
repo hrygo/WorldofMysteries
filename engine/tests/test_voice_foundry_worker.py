@@ -34,6 +34,7 @@ from application.voice_foundry_ports import (
     PreviewResult,
     ProviderLocaleMap,
     PublishResult,
+    ReusedVoice,
     ValidationResult,
     VoiceFoundryCapabilities,
     VoiceFoundryPortError,
@@ -146,6 +147,12 @@ class RecordingPort:
         self.create_error: Exception | None = None
         self.create_keys: list[str] = []
         self.created_identities: list[str] = []
+        #: What the provider already holds for this identity. ``None`` is the
+        #: ordinary answer — nothing cast yet — and the default keeps every
+        #: existing test on the create path.
+        self.reused: ReusedVoice | None = None
+        self.reuse_error: Exception | None = None
+        self.reuse_asked: list[str] = []
         self.review_arguments: dict[str, object] = {}
         self.capabilities = VoiceFoundryCapabilities(
             operations=frozenset(FoundryOperation),
@@ -189,6 +196,13 @@ class RecordingPort:
             state="created",
             reference_confirmed=False,
         )
+
+    async def find_published(self, voice_id: str) -> ReusedVoice | None:
+        self.calls.append("find_published")
+        self.reuse_asked.append(voice_id)
+        if self.reuse_error is not None:
+            raise self.reuse_error
+        return self.reused
 
     async def query(self, candidate_id: str) -> CandidateState:
         self.calls.append("query")
@@ -1559,3 +1573,151 @@ async def test_a_review_is_not_repeated_once_it_is_confirmed(repository):
 
     assert step.slot_consumed is False
     assert port.calls.count("review") == 1
+
+
+def _reused_voice() -> ReusedVoice:
+    """What a provider answers when the identity was already cast and heard."""
+    return ReusedVoice(
+        candidate=CandidateState(
+            candidate_id="vd_" + "f" * 24,
+            candidate_revision="vr_" + "1" * 32,
+            state="published",
+            reference_confirmed=True,
+        ),
+        voice_id="wom-e8ff97a61d588a62",
+        voice_revision="vr_" + "2" * 32,
+        evidence=EvidenceBundle(
+            evidence_id="ev_reused",
+            evidence_digest="6" * 64,
+            execution={"model_artifact_revision": "art-1"},
+            reference={"status": "pass"},
+            output={"status": "pass"},
+            human={"identity_status": "pass", "naturalness_status": "pass"},
+            publication={"state": "published"},
+            rights={"cleared": True},
+        ),
+    )
+
+
+async def _drive_to_provisioning(repository, worker, port):
+    """Walk a fresh task up to the point where a cast is about to happen."""
+    task = await repository.register_task(task_spec())
+    await worker.advance(task.task_id)
+    task = await repository.load_task(task.task_id)
+    await repository.update_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id=f"{task.task_id}:candidate:0",
+        state="selected",
+    )
+    task = await repository.load_task(task.task_id)
+    await repository.set_stage(
+        task.task_id,
+        expected_revision=task.task_revision,
+        stage="provisioning",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    return task
+
+
+async def test_a_voice_the_provider_already_published_is_adopted_not_cast_again(
+    repository,
+):
+    """The whole point of the catalog: a second supply run must not re-cast.
+
+    The provider refuses to mint a second voice under an id it already holds,
+    so a repeated run used to end in ``foundry_conflict`` with no way forward.
+    Reading first turns that refusal into a binding of the voice that is
+    already there — reviewed, published and carrying its evidence.
+    """
+    port = RecordingPort()
+    port.reused = _reused_voice()
+    worker, _, _ = make_worker(repository, port)
+    task = await _drive_to_provisioning(repository, worker, port)
+    port.calls.clear()
+
+    step = await worker.advance(task.task_id)
+
+    # The read is asked *before* the create, not after its refusal: the 409
+    # names no voice and carries no evidence, so reacting to it could only
+    # ever produce another failure.
+    assert port.calls == ["find_published"]
+    assert "create" not in port.calls
+    assert port.reuse_asked == ["wom-e8ff97a61d588a62"]
+
+    assert step.record.stage is VoiceFoundryStage.PUBLISHED
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "published"
+    # The upstream design is named, so a later audit can ask the provider for
+    # exactly the object this binding was adopted from.
+    assert candidate.provider_candidate_id == "vd_" + "f" * 24
+    assert candidate.provider_candidate_revision == "vr_" + "1" * 32
+
+
+async def test_an_absent_catalog_entry_falls_through_to_a_fresh_cast(repository):
+    """``None`` is the ordinary answer and must not be treated as a failure."""
+    port = RecordingPort()
+    port.reused = None
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_provisioning(repository, worker, port)
+    port.calls.clear()
+
+    step = await worker.advance("task-1")
+
+    assert port.calls == ["find_published", "create"]
+    assert step.record.stage is VoiceFoundryStage.VALIDATING
+    candidate = await repository.load_candidate("task-1", "task-1:candidate:0")
+    assert candidate.state == "provisioning"
+    assert candidate.provider_candidate_id == CANDIDATE_ID
+
+
+async def test_a_transient_failure_reading_the_catalog_is_retried(repository):
+    """A read that fails in transit is an interruption, not an answer.
+
+    Retrying it is safe precisely because it is a read: there is nothing
+    upstream to reconcile afterwards. Treating the failure as "nothing there"
+    would send the task into a create that can only collide.
+    """
+    port = RecordingPort()
+    port.reuse_error = VoiceFoundryPortError("foundry_transient")
+    worker, _, _ = make_worker(repository, port)
+    await _drive_to_provisioning(repository, worker, port)
+    port.calls.clear()
+
+    with pytest.raises(VoiceFoundryPortError):
+        await worker.advance("task-1")
+
+    # Three bounded attempts, no create, and no operation record left behind:
+    # the catalog read has no unknown outcome for a resume to settle.
+    assert port.calls == ["find_published"] * 3
+    with pytest.raises(Exception):
+        await repository.load_operation("reuse:task-1:0")
+
+
+async def test_a_task_that_already_cast_does_not_ask_the_catalog_again(repository):
+    """Reuse answers "is this identity already published?", once, before the cast.
+
+    After the candidate carries a provider id the answer is on record, so a
+    resume must go straight on to validation rather than re-reading a catalog
+    whose answer it would only discard.
+    """
+    port = RecordingPort()
+    worker, _, _ = make_worker(repository, port)
+    task = await _drive_to_provisioning(repository, worker, port)
+    await worker.advance(task.task_id)
+    before = list(port.calls)
+
+    task = await repository.load_task("task-1")
+    await repository.set_stage(
+        "task-1",
+        expected_revision=task.task_revision,
+        stage="provisioning",
+        operation_status="confirmed",
+        required_actions=(),
+    )
+    port.reuse_asked.clear()
+    await worker.advance("task-1")
+
+    assert port.reuse_asked == []
+    assert port.calls[len(before):] == []

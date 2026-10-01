@@ -38,6 +38,7 @@ class FoundryOperation(StrEnum):
     """The supply operations a Foundry adapter must be able to perform."""
 
     PREVIEW = "preview"
+    REUSE = "reuse"
     CREATE = "create"
     QUERY = "query"
     CONFIRM = "confirm"
@@ -294,6 +295,31 @@ class EvidenceBundle:
 
 
 @dataclass(frozen=True, slots=True)
+class ReusedVoice:
+    """A voice the provider has already cast, reviewed and published.
+
+    Reuse is a *read*, never a create. The provider refuses to mint a second
+    voice under an id it already holds, so a task that means to supply a voice
+    which already exists has exactly two honest outcomes: bind the one that is
+    there, or stop. This is the first, and it is offered only when the stored
+    publication carries the whole chain — reference confirmation, cross-text
+    validation and a human verdict — because a published record without those
+    is a voice nobody has listened to.
+
+    ``candidate`` names the provider's design, so a reused task stays
+    traceable to the exact upstream object an audit will ask for later. The
+    evidence travels with it because that chain *is* the proof: it was
+    gathered when the voice was first cast and heard, and re-gathering it
+    would re-listen to audio that has not changed.
+    """
+
+    candidate: CandidateState
+    voice_id: str
+    voice_revision: str
+    evidence: EvidenceBundle
+
+
+@dataclass(frozen=True, slots=True)
 class AssetRequest:
     """Read one exact asset so audition binds a real digest, not a promise.
 
@@ -358,6 +384,22 @@ class VoiceFoundryPort(Protocol):
 
     async def preview(self, request: PreviewRequest) -> PreviewResult:
         """Render audition media for one candidate recipe."""
+        ...
+
+    async def find_published(self, voice_id: str) -> ReusedVoice | None:
+        """Report whether ``voice_id`` is already cast, heard and published.
+
+        Returns ``None`` when the provider holds no such voice, which is the
+        ordinary answer and must never be an error. A voice that exists but
+        whose stored publication cannot be shown to be complete is *not*
+        ``None``: it raises, because silently reporting "nothing there" would
+        send the caller into a create that can only fail.
+
+        This is deliberately not folded into :meth:`create`. Create is
+        reconciled by replaying it under its original idempotency key, and a
+        create that sometimes adopts instead of creating would let a replay
+        bind a different voice than the one the first attempt minted.
+        """
         ...
 
     async def create(self, request: CreateRequest) -> CandidateState:
@@ -506,6 +548,7 @@ __all__ = [
     "PreviewResult",
     "ProviderLocaleMap",
     "PublishResult",
+    "ReusedVoice",
     "StrictRenderingDecision",
     "ValidationResult",
     "VoiceSupplyDriver",

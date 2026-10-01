@@ -177,6 +177,7 @@ def test_port_declares_every_operation_an_adapter_must_implement():
         "capabilities",
         "locale_map",
         "preview",
+        "find_published",
         "create",
         "query",
         "confirm",
@@ -188,6 +189,7 @@ def test_port_declares_every_operation_an_adapter_must_implement():
     # Every operation the capabilities enum can express must be reachable.
     assert {member.value for member in FoundryOperation} <= {
         "preview",
+        "reuse",
         "create",
         "query",
         "confirm",
