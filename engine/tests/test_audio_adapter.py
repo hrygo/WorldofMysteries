@@ -2449,6 +2449,18 @@ VOICE_DESIGN_CANDIDATE = {
 }
 
 
+def _not_published_yet():
+    """What the read publish makes before it acts answers.
+
+    Publish asks the provider where the design stands before publishing it,
+    so a design that is *already* published — one this engine adopted from
+    the provider catalog rather than cast — is reported instead of colliding.
+    Every publish test therefore has to say what that read answered, exactly
+    as it already has to say what the POST answered.
+    """
+    return (200, json.dumps({"candidate": {"state": "validating"}}).encode())
+
+
 class _RecordingTransport:
     """Capture requests and reply with canned bodies."""
 
@@ -2568,19 +2580,25 @@ async def test_create_sends_exactly_the_fields_speechrail_accepts_and_is_idempot
 
 async def test_publish_sends_the_candidate_revision_as_an_opaque_string():
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
     await adapter.publish(
         "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
     )
 
-    body = json.loads(transport.calls[0]["body"])
+    ask, publish = transport.calls
+    # The design is read before it is published, so an already-published one
+    # is adopted rather than collided with. The read names no revision and
+    # sends no body: it is a question, not a conditional write.
+    assert (ask["method"], ask["body"]) == ("GET", None)
+    assert ask["url"].endswith("/voice-designs/vd_" + "a" * 24)
+
+    body = json.loads(publish["body"])
     assert body == {"expected_candidate_revision": "vr_" + "b" * 32}
     assert isinstance(body["expected_candidate_revision"], str)
-    assert transport.calls[0]["url"].endswith(
-        "/voice-designs/vd_" + "a" * 24 + "/publish"
-    )
+    assert publish["url"].endswith("/voice-designs/vd_" + "a" * 24 + "/publish")
 
 
 async def test_unsupported_locale_is_refused_before_any_request_is_sent():
@@ -2657,7 +2675,8 @@ async def test_evidence_is_not_invented_when_upstream_cannot_supply_it():
     """A published voice whose execution section cannot be filled must fail
     closed rather than fabricate the fields our evidence contract requires."""
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode()),
     )
     adapter = _adapter(transport)  # no execution policy declared
     with pytest.raises(VoiceFoundryPortError) as excinfo:
@@ -2680,7 +2699,8 @@ async def test_evidence_refuses_a_model_the_service_did_not_render():
     candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
     candidate["source_model"]["artifact"] = "some-other-model"
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
 
@@ -2694,7 +2714,8 @@ async def test_evidence_refuses_a_model_the_service_did_not_render():
 
 async def test_publish_binds_evidence_to_the_actual_assets_and_execution_identity():
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
     result = await adapter.publish(
@@ -2741,7 +2762,8 @@ async def test_adapter_output_section_satisfies_the_evidence_contract():
     )
 
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": VOICE_DESIGN_CANDIDATE, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
     result = await adapter.publish(
@@ -2770,7 +2792,8 @@ async def test_evidence_refuses_a_validation_with_no_catalogue_revision():
     candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
     del candidate["validations"][0]["model_catalog_revision"]
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
 
@@ -2800,7 +2823,8 @@ async def test_output_status_is_normalised_onto_the_contract_enum(
     candidate = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
     candidate["validations"][0]["machine_status"] = machine_status
     transport = _RecordingTransport(
-        (201, json.dumps({"candidate": candidate, "voice": {}}).encode())
+        _not_published_yet(),
+        (201, json.dumps({"candidate": candidate, "voice": {}}).encode()),
     )
     adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
     result = await adapter.publish(
@@ -3310,3 +3334,170 @@ def test_usages_can_be_narrowed_but_not_invented():
             allowed_usages=frozenset({"resale"}),
             scope_ref="s",
         )
+
+
+def _published_design(**overrides):
+    """The shape a design has once it has been cast, heard and published."""
+    design = json.loads(json.dumps(VOICE_DESIGN_CANDIDATE))
+    design["state"] = "published"
+    design["published_voice_revision"] = "vr_" + "9" * 32
+    design.update(overrides)
+    return design
+
+
+def _catalog(*designs):
+    return (200, json.dumps({"object": "list", "data": list(designs)}).encode())
+
+
+async def test_the_catalog_answers_with_the_voice_that_is_already_there():
+    """Reuse starts by asking, so a repeated cast never reaches a refusal.
+
+    SpeechRail answers a second cast with ``409 Target voice ID already
+    exists`` and names neither the voice nor the design it meant. Reading the
+    catalog first is what turns that dead end into a binding of the voice
+    that is already published — with the evidence that says it was heard.
+    """
+    design = _published_design()
+    transport = _RecordingTransport(_catalog(design))
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    reused = await adapter.find_published("klein_visible")
+
+    assert transport.calls[0]["method"] == "GET"
+    assert transport.calls[0]["url"] == "http://127.0.0.1:8080/v1/voice-designs"
+    assert reused is not None
+    assert reused.voice_id == "klein_visible"
+    assert reused.voice_revision == "vr_" + "9" * 32
+    assert reused.candidate.candidate_id == "vd_" + "a" * 24
+    assert reused.candidate.candidate_revision == "vr_" + "b" * 32
+    assert reused.evidence.human["identity_status"] == "pass"
+    assert reused.evidence.human["naturalness_status"] == "pass"
+    assert reused.evidence.publication["state"] == "published"
+
+
+async def test_no_catalog_entry_is_an_answer_not_a_failure():
+    """The ordinary case, and it must stay cheap to say."""
+    transport = _RecordingTransport(_catalog())
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    assert await adapter.find_published("klein_visible") is None
+
+
+async def test_a_design_belonging_to_somebody_else_is_never_matched():
+    """One service, many consumers: the match is exact or it is nothing.
+
+    The listing route takes no filter, so the whole deployment's designs come
+    back in one page. A prefix or substring match would happily adopt another
+    consumer's voice for one of our characters.
+    """
+    transport = _RecordingTransport(
+        _catalog(
+            _published_design(target_voice_id="klein_visible_v2"),
+            _published_design(target_voice_id="someone-elses-voice"),
+        )
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    assert await adapter.find_published("klein_visible") is None
+
+
+async def test_a_design_that_is_not_published_yet_is_not_reusable():
+    """Existing is not the same as ready.
+
+    A design still casting, or one whose own review has not landed, holds the
+    identity without being a voice anyone may bind. Reporting it as absent
+    sends the caller into a create that collides with it, which is the honest
+    outcome: only a person can retire that design.
+    """
+    transport = _RecordingTransport(
+        _catalog(_published_design(state="validating"))
+    )
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    assert await adapter.find_published("klein_visible") is None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("identity_status", "not_reviewed"),
+        ("naturalness_status", "not_reviewed"),
+        ("machine_status", "warn"),
+    ],
+)
+async def test_a_published_voice_nobody_listened_to_is_not_reusable(
+    field, value
+):
+    """Published upstream means the voice exists, not that a person approved it.
+
+    Adopting such a record would put an unheard voice into the game on the
+    strength of a machine check alone, which is the one thing the review gate
+    exists to prevent. The refusal has to name itself, because "nothing in the
+    catalog" would be false and would send the caller into a collision.
+    """
+    design = _published_design()
+    design["validations"][0][field] = value
+    transport = _RecordingTransport(_catalog(design))
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.find_published("klein_visible")
+
+    assert excinfo.value.code == "foundry_reuse_unproven"
+
+
+async def test_reuse_verifies_the_execution_identity_the_way_publishing_does():
+    """A catalog entry cast by a different model is not this deployment's voice."""
+    design = _published_design()
+    design["source_model"]["artifact"] = "some-other-model"
+    transport = _RecordingTransport(_catalog(design))
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.find_published("klein_visible")
+
+    assert excinfo.value.code == "evidence_model_identity_mismatch"
+
+
+async def test_publishing_an_already_published_design_reports_it_instead_of_colliding():
+    """A voice adopted from the catalog was published before we ever saw it.
+
+    Posting to ``/publish`` for it would answer 409 and leave the task bound
+    to nothing, with no step left to retry. Reading first turns "already
+    published" into the same answer a fresh publication gives — the same
+    evidence, the same revisions — so a caller cannot tell the two apart, and
+    must not be able to.
+    """
+    design = _published_design()
+    transport = _RecordingTransport((200, json.dumps({"candidate": design}).encode()))
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    result = await adapter.publish(
+        "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+    )
+
+    assert [call["method"] for call in transport.calls] == ["GET"]
+    assert result.voice_id == "klein_visible"
+    assert result.voice_revision == "vr_" + "9" * 32
+    assert result.evidence.publication["state"] == "published"
+    assert result.evidence.human["identity_status"] == "pass"
+
+
+async def test_publishing_refuses_a_revision_the_published_design_is_no_longer_at():
+    """Publish is conditional on the revision; adoption must be too.
+
+    A design that moved on since it was read is not the object the caller
+    approved, and reporting its current publication would bind a voice whose
+    evidence describes a different state than the one that was asked for.
+    """
+    design = _published_design(revision="vr_" + "7" * 32)
+    transport = _RecordingTransport((200, json.dumps({"candidate": design}).encode()))
+    adapter = _adapter(transport, execution_policy=_EXECUTION_POLICY)
+
+    with pytest.raises(VoiceFoundryPortError) as excinfo:
+        await adapter.publish(
+            "vd_" + "a" * 24, expected_candidate_revision="vr_" + "b" * 32
+        )
+
+    assert excinfo.value.code == "foundry_conflict"
+    assert [call["method"] for call in transport.calls] == ["GET"]

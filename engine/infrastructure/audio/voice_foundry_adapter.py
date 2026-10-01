@@ -46,6 +46,7 @@ from application.voice_foundry_ports import (
     PreviewResult,
     ProviderLocaleMap,
     PublishResult,
+    ReusedVoice,
     ValidationResult,
     VoiceFoundryCapabilities,
     VoiceFoundryPortError,
@@ -373,6 +374,46 @@ class SpeechRailVoiceFoundryAdapter:
         )
         return _candidate_state(payload)
 
+    async def find_published(self, voice_id: str) -> ReusedVoice | None:
+        """Report whether this identity is already cast, heard and published.
+
+        SpeechRail's create is the reason this exists: it answers a repeated
+        cast with ``409 Target voice ID already exists`` and names neither the
+        voice nor the design it meant. A caller that reacts to the refusal is
+        left with nothing to adopt, so the catalog is read *first* instead.
+
+        The listing is unfiltered — the route takes no query parameters and
+        answers newest first — so the match is exact on ``target_voice_id``.
+        That matters: this deployment shares the table with every other
+        consumer of the same service, and a substring or prefix match would
+        happily adopt somebody else's voice.
+
+        ``None`` means no such voice. A design that exists and is published
+        but cannot be shown to carry the whole chain raises instead, because
+        reporting "nothing there" would send the caller into a create that can
+        only collide with the very voice that is already in the way.
+        """
+        self._capabilities.require(FoundryOperation.REUSE)
+        if not _VOICE_ID.match(voice_id):
+            raise VoiceFoundryPortError("foundry_rejected")
+        listing = await self._json("GET", "voice-designs")
+        designs = listing.get("data")
+        if not isinstance(designs, list):
+            raise VoiceFoundryPortError("provider_contract_unsupported")
+        for design in designs:
+            if not isinstance(design, Mapping):
+                raise VoiceFoundryPortError("provider_contract_unsupported")
+            if _text_field(design, "target_voice_id", "") != voice_id:
+                continue
+            if _text_field(design, "state", "") != "published":
+                # A design that exists but is not published (still casting,
+                # waiting on its own review, cancelled) is not this voice
+                # yet. Falling through leaves the create to collide, which is
+                # the honest outcome: only a person can retire that design.
+                continue
+            return self._reused_voice(design, voice_id)
+        return None
+
     async def query(self, candidate_id: str) -> CandidateState:
         self._capabilities.require(FoundryOperation.QUERY)
         _require_id(candidate_id, _CANDIDATE_ID, "foundry_not_found")
@@ -451,12 +492,35 @@ class SpeechRailVoiceFoundryAdapter:
         self._capabilities.require(FoundryOperation.PUBLISH)
         _require_id(candidate_id, _CANDIDATE_ID, "foundry_not_found")
         _require_id(expected_candidate_revision, _CANDIDATE_REVISION, "foundry_conflict")
+        # Publication is idempotent, and it has to be. A voice adopted from
+        # the catalog is published before this engine ever saw it, so the
+        # POST would answer 409 and leave the task bound to nothing, with no
+        # step left to retry. Asking first costs one read on a rare operation
+        # and turns "already published" into the same answer the POST gives.
+        existing = await self._json("GET", f"voice-designs/{_seg(candidate_id)}")
+        standing = _envelope_candidate(existing)
+        if _text_field(standing, "state", "") == "published":
+            if (
+                _text_field(standing, "revision", "")
+                != expected_candidate_revision
+            ):
+                raise VoiceFoundryPortError("foundry_conflict")
+            return self._published_result(standing)
         payload = await self._json(
             "POST",
             f"voice-designs/{_seg(candidate_id)}/publish",
             payload={"expected_candidate_revision": expected_candidate_revision},
         )
-        candidate = _nested_candidate(payload)
+        return self._published_result(_nested_candidate(payload))
+
+    def _published_result(self, candidate: Mapping[str, object]) -> PublishResult:
+        """Read one publication — freshly made or already standing — as a result.
+
+        Both routes converge here on purpose. A caller cannot tell whether a
+        voice was published by this call or by an earlier run, and it must not
+        be able to: the evidence, the revision and the voice id are the same
+        facts either way.
+        """
         state = _candidate_state(candidate)
         voice_id = _text_field(candidate, "target_voice_id", "")
         if not _VOICE_ID.match(voice_id):
@@ -521,6 +585,46 @@ class SpeechRailVoiceFoundryAdapter:
         )
 
     # -- evidence --------------------------------------------------------
+
+    def _reused_voice(
+        self, design: Mapping[str, object], voice_id: str
+    ) -> ReusedVoice:
+        """Adopt one published design only if it carries the whole chain.
+
+        "Published" upstream means the voice exists, not that anyone listened
+        to it: the record can sit at ``identity_status: not_reviewed`` and
+        still be published. Adopting that would bind a voice into the game on
+        the strength of a machine check alone, which is exactly what the
+        review gate exists to prevent. So the human block and the cross-text
+        result are read here, and a design that cannot show both are refused
+        with a reason that names what is missing.
+
+        Assembling the evidence is also what verifies the rest: the declared
+        model has to match the one the design was cast with, and the reference
+        and catalogue digests have to be real values rather than blanks.
+        """
+        published_revision = _optional_text(design, "published_voice_revision")
+        if published_revision is None:
+            raise VoiceFoundryPortError("provider_contract_unsupported")
+        evidence = self._evidence(
+            design,
+            identity_status=None,
+            naturalness_status=None,
+            review_id=None,
+            published_revision=published_revision,
+        )
+        if (
+            evidence.human.get("identity_status") != "pass"
+            or evidence.human.get("naturalness_status") != "pass"
+            or evidence.output.get("status") != "pass"
+        ):
+            raise VoiceFoundryPortError("foundry_reuse_unproven")
+        return ReusedVoice(
+            candidate=_candidate_state(design),
+            voice_id=voice_id,
+            voice_revision=published_revision,
+            evidence=evidence,
+        )
 
     def _evidence(
         self,
@@ -728,10 +832,21 @@ def _digest_field(payload: Mapping[str, object], key: str, *, required: bool = T
     return ""
 
 
-def _candidate_state(payload: Mapping[str, object]) -> CandidateState:
+def _envelope_candidate(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Unwrap ``{"candidate": {...}}``, or take the design as it already is.
+
+    Reads and single-resource replies nest the design under ``candidate``; the
+    listing puts each one straight into ``data``. Both shapes reach this
+    adapter, so the unwrapping is one named step rather than a shape check
+    repeated at each call site — the alternative is a reader that has to know
+    which of the two a given route uses.
+    """
     source = payload.get("candidate")
-    if not isinstance(source, Mapping):
-        source = payload
+    return source if isinstance(source, Mapping) else payload
+
+
+def _candidate_state(payload: Mapping[str, object]) -> CandidateState:
+    source = _envelope_candidate(payload)
     candidate_id = _text_field(source, "id", "")
     revision = _text_field(source, "revision", "")
     _require_id(candidate_id, _CANDIDATE_ID, "provider_contract_unsupported")
