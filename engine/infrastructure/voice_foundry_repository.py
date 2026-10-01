@@ -984,6 +984,93 @@ class SQLiteVoiceFoundryRepository:
 
         return await self.database.voice_foundry_write(apply)
 
+    async def adopt_published_candidate(
+        self,
+        task_id: str,
+        *,
+        expected_revision: int,
+        candidate_id: str,
+        provider_candidate_id: str,
+        provider_candidate_revision: str,
+    ) -> VoiceCandidateRecord:
+        """Park a candidate on a voice the provider published in an earlier run.
+
+        This is the one door out of the candidate ladder that does not walk it.
+        ``_require_forward_state`` exists so nobody can claim publication for a
+        voice that was never provisioned, validated and reviewed, and that
+        objection is correct for every caller that walks the ladder itself.
+        Reuse is the case it cannot see: the provisioning, the cross-text
+        validation and the human verdict all happened — upstream, before this
+        task existed, and the published evidence says so. So the skip is not a
+        loosened rule but a named operation with its own preconditions, which
+        is why it cannot be reached by passing a state to
+        :meth:`update_candidate`.
+
+        What it still refuses, because none of it is part of the exception:
+
+        * a candidate that is not mid-provisioning — adoption names the moment
+          it is meant to happen, and any other moment is a different claim;
+        * a candidate already bound to a provider identity — a re-adoption
+          under a different design would be a silent re-cast;
+        * a task whose revision has moved, which is the usual CAS guard.
+        """
+        task_id = _identifier(task_id, "task id")
+        expected_revision = _revision(expected_revision, "expected task revision")
+        candidate_id = _identifier(candidate_id, "candidate id")
+        provider_candidate_id = _identifier(
+            provider_candidate_id, "provider candidate id"
+        )
+        provider_candidate_revision = _identifier(
+            provider_candidate_revision, "provider candidate revision"
+        )
+
+        def apply(tx: VoiceFoundryTransaction):
+            current_task = self._require_task(tx, task_id)
+            self._require_revision(current_task, expected_revision)
+            rows = tx.execute(
+                "SELECT * FROM voice_foundry_candidates "
+                "WHERE task_id=? AND candidate_id=?",
+                (task_id, candidate_id),
+            )
+            if len(rows) != 1:
+                raise StorageError("Voice Foundry candidate not found")
+            current = _candidate_from_row(rows[0])
+            if current.state != "provisioning":
+                raise VoiceFoundryConflict(
+                    "Voice Foundry candidate is not awaiting adoption"
+                )
+            if current.provider_candidate_id is not None:
+                raise VoiceFoundryConflict(
+                    "Voice Foundry candidate identity is already bound"
+                )
+            now = _now()
+            tx.execute(
+                "UPDATE voice_foundry_candidates SET state='published',"
+                "provider_candidate_id=?,provider_candidate_revision=?,"
+                "updated_at=? WHERE task_id=? AND candidate_id=?",
+                (
+                    provider_candidate_id,
+                    provider_candidate_revision,
+                    now,
+                    task_id,
+                    candidate_id,
+                ),
+            )
+            tx.execute(
+                "UPDATE voice_foundry_tasks SET task_revision=?,updated_at=? "
+                "WHERE task_id=? AND task_revision=?",
+                (expected_revision + 1, now, task_id, expected_revision),
+            )
+            return _candidate_from_row(
+                tx.execute(
+                    "SELECT * FROM voice_foundry_candidates "
+                    "WHERE task_id=? AND candidate_id=?",
+                    (task_id, candidate_id),
+                )[0]
+            )
+
+        return await self.database.voice_foundry_write(apply)
+
     async def record_operation(
         self, intent: VoiceFoundryOperationIntent
     ) -> VoiceFoundryOperationRecord:

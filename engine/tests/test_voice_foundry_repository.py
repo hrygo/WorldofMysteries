@@ -1076,3 +1076,130 @@ async def test_load_tasks_page_covers_every_task_whatever_the_stage(database):
         VoiceFoundryStage.REQUESTED,
         VoiceFoundryStage.CANCELLED,
     }
+
+
+def _provisioning_candidate() -> VoiceCandidateRecord:
+    """A candidate at the moment a cast is about to be attempted."""
+    return VoiceCandidateRecord(
+        candidate_id="candidate-1",
+        slot=1,
+        seed=101,
+        state="provisioning",
+        preview_audio_digest="b" * 64,
+        recipe={"input": "instruction", "seed": 101},
+        recipe_digest="c" * 64,
+    )
+
+
+async def _provisioning_task(repo):
+    task = await repo.register_task(task_spec())
+    task = await repo.add_candidate(
+        task.task_id, expected_revision=task.task_revision, candidate=_provisioning_candidate()
+    )
+    return task
+
+
+async def test_the_generic_ladder_refuses_the_skip_adoption_makes(database):
+    """The rule adoption exists beside, stated as a rule of its own.
+
+    If this ever stops being refused, adoption has stopped being a named
+    exception and become a hole: any caller could walk a candidate straight
+    to published and claim a voice nobody provisioned, validated or reviewed.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _provisioning_task(repo)
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.update_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id="candidate-1",
+            state="published",
+        )
+
+
+async def test_adoption_parks_a_candidate_on_an_already_published_voice(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _provisioning_task(repo)
+
+    adopted = await repo.adopt_published_candidate(
+        task.task_id,
+        expected_revision=task.task_revision,
+        candidate_id="candidate-1",
+        provider_candidate_id="vd_" + "a" * 24,
+        provider_candidate_revision="vr_" + "b" * 32,
+    )
+
+    assert adopted.state == "published"
+    # The upstream design is named, so the binding stays traceable to the exact
+    # object it was adopted from rather than to nothing at all.
+    assert adopted.provider_candidate_id == "vd_" + "a" * 24
+    assert adopted.provider_candidate_revision == "vr_" + "b" * 32
+    reloaded = await repo.load_candidate(task.task_id, "candidate-1")
+    assert reloaded == adopted
+
+
+async def test_adoption_only_happens_at_the_moment_it_names(database):
+    """Every other point on the ladder is a different claim, and is refused."""
+    repo = SQLiteVoiceFoundryRepository(database)
+    for index, state in enumerate(("ready", "validating", "failed"), start=1):
+        task = await repo.register_task(task_spec(task_id=f"task-{index}"))
+        task = await repo.add_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate=replace(
+                _provisioning_candidate(),
+                candidate_id=f"candidate-{index}",
+                slot=index,
+                state=state,
+            ),
+        )
+        with pytest.raises(VoiceFoundryConflict):
+            await repo.adopt_published_candidate(
+                task.task_id,
+                expected_revision=task.task_revision,
+                candidate_id=f"candidate-{index}",
+                provider_candidate_id="vd_" + "a" * 24,
+                provider_candidate_revision="vr_" + "b" * 32,
+            )
+
+
+async def test_adoption_never_re_points_an_already_bound_candidate(database):
+    """A candidate that already names a design keeps naming that one.
+
+    Re-adopting under a different design id would be a silent re-cast wearing
+    the costume of a reuse, which is the one thing this door must not be.
+    """
+    repo = SQLiteVoiceFoundryRepository(database)
+    bound = replace(
+        _provisioning_candidate(),
+        provider_candidate_id="vd_" + "9" * 24,
+        provider_candidate_revision="vr_" + "9" * 32,
+    )
+    task = await repo.register_task(task_spec())
+    task = await repo.add_candidate(
+        task.task_id, expected_revision=task.task_revision, candidate=bound
+    )
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.adopt_published_candidate(
+            task.task_id,
+            expected_revision=task.task_revision,
+            candidate_id="candidate-1",
+            provider_candidate_id="vd_" + "a" * 24,
+            provider_candidate_revision="vr_" + "b" * 32,
+        )
+
+
+async def test_adoption_obeys_the_same_revision_guard_as_every_other_write(database):
+    repo = SQLiteVoiceFoundryRepository(database)
+    task = await _provisioning_task(repo)
+
+    with pytest.raises(VoiceFoundryConflict):
+        await repo.adopt_published_candidate(
+            task.task_id,
+            expected_revision=task.task_revision - 1,
+            candidate_id="candidate-1",
+            provider_candidate_id="vd_" + "a" * 24,
+            provider_candidate_revision="vr_" + "b" * 32,
+        )
