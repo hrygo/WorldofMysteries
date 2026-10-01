@@ -37,6 +37,13 @@ def apply_story_delta(state: StoryState, delta: StateDelta) -> StoryState:
         if clue_id not in clues:
             clues.append(clue_id)
 
+    roster_added = list(story.active_character_ids_add or ())
+    roster_removed = set(story.active_character_ids_remove or ())
+    if set(roster_added) & roster_removed:
+        raise StoryStateTransitionError(
+            "character cannot enter and leave the scene in one delta"
+        )
+
     secrets = dict(state.secret_states)
     for secret_id, new_state in (story.secret_state_updates or {}).items():
         if secret_id not in secrets:
@@ -62,6 +69,28 @@ def apply_story_delta(state: StoryState, delta: StateDelta) -> StoryState:
     scene = state.scene
     if story.scene_id is not None:
         scene = scene.model_copy(update={"id": story.scene_id})
+
+    if roster_added or roster_removed:
+        current_roster = list(scene.active_character_ids or ())
+        # An add is itself a declaration that the world knows who is here, so it
+        # materializes the roster from ``None``. A removal alone does not: it
+        # asserts that someone is absent, which says nothing about anyone else,
+        # so a session that never declared a roster stays undeclared. Collapsing
+        # the two would make "nobody has said" indistinguishable from "the scene
+        # is empty", and the first is an absence of a fact while the second is
+        # the fact.
+        if current_roster or roster_added:
+            roster = [cid for cid in current_roster if cid not in roster_removed]
+            # Append-only, and re-adding an absent character is what a delta
+            # that moves them out and back across two turns looks like. Both
+            # keep the roster a deterministic function of the committed deltas:
+            # the roster is hashed into block identity, so an order that
+            # depended on set iteration would make the same committed history
+            # publish under two different block ids.
+            for character_id in roster_added:
+                if character_id not in roster:
+                    roster.append(character_id)
+            scene = scene.model_copy(update={"active_character_ids": roster})
 
     world_time = state.world_time
     if story.world_time_delta_minutes is not None:
