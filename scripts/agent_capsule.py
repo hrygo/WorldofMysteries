@@ -448,6 +448,30 @@ def verify_capsule(
     # 验收流程要求「先提交、再 verify」（否则 changes_digest 是空 diff），若只看工作树，
     # 此时提交干净的工作区会让审计恒为空集，本地范围裁决静默失效、只剩 CI 一道防线。
     files = policy.changed_files(cwd=cwd, base_commit=base_commit)
+    # 空变更范围守卫
+    #
+    # 历史缺陷：在提交代码**之后**重打包胶囊，base_sha 会指向代码提交本身，于是
+    # base...HEAD 落在空 diff 上，`changes_digest` 等于 sha256("")，而验收照样判定
+    # passed —— 签发出一份什么都没认证的凭单。凭单的全部价值在于它绑定了实际被门禁
+    # 验过的那份内容，空摘要必须拒绝而不是照发。
+    #
+    # 事故实例：VF-85A 首次验收时 base_commit == head_commit == 42e30fcd，
+    # diff_digest=sha256:e3b0c442…（空串的 SHA-256），verdict 仍为 passed。
+    #
+    # `changed_files` 与 `changes_digest` 共用同一套证据文件豁免规则，所以此处判空与
+    # 摘要判空严格等价，两处口径不会随时间漂移。
+    if not files:
+        print(
+            "\n 拒绝签发：胶囊 base_sha 未覆盖任何实质改动，凭单将绑定空摘要"
+            "（sha256(\"\")) 而无法证明任何内容被验收过。\n"
+            " 请在改动发生前、于合入目标（main）上 pack，再把胶囊带入工作区验收。"
+        )
+        empty_audit = {"changed_files": [], "violations": [], "escalations": [], "privileged_uses": []}
+        return _emit_failed_receipt(
+            capsule, capsule_digest, started_at, cwd, head_commit, target_ref,
+            target_sha_now, stale_context, empty_audit,
+            "空变更范围：base_sha 未覆盖实际改动",
+        )
     audit = policy.audit_scope(capsule, files)
     print(f"\n️  Scope audit · changed files: {len(files)}")
     for violation in audit["violations"]:

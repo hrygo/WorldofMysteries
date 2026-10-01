@@ -31,7 +31,7 @@
     "diff_digest": {
       "type": "string",
       "pattern": "^(|sha256:[0-9a-f]{64})$",
-      "description": "验收所绑定变更集的内容摘要（`.agents/capsules/`、`.agents/receipts/` 不计入）；变更集为空时为空串。"
+      "description": "验收所绑定变更集的内容摘要（`.agents/capsules/`、`.agents/receipts/` 不计入）。空串只在凭单本身即为拒绝结论时出现（如陈旧上下文、范围裁决未通过、空变更范围）；签发通过的凭单必须绑定非空变更集——空摘要的 passed 凭单无法证明任何内容被门禁验过。"
     },
     "assigned_role": { "type": "string" },
     "risk_class": { "type": "string", "enum": ["low", "medium", "high", "privileged"] },

@@ -818,8 +818,9 @@ def _gate_evolution_workspace(tmp_path: Path, *, registry_digest: str) -> tuple[
     _git(workspace, "commit", "-q", "-m", "base with gates")
     base_sha = _git(workspace, "rev-parse", "HEAD").stdout.strip()
 
-    # 第二个提交提供非空变更集：凭单的 diff_digest 契约要求 sha256:<64hex>，
-    # 空变更集会写出空摘要而无法通过 schema 校验。
+    # 第二个提交提供非空变更集。凭单必须绑定实际被门禁验过的那份内容：空变更集曾被
+    # schema 放行（sha256("") 也是合法摘要），签出的是一份什么都没认证的绿色凭单，
+    # 该路径现由 verify 的空变更范围守卫拒绝。
     (workspace / "app.txt").write_text("gate evolution v2\n", encoding="utf-8")
     _git(workspace, "add", ".")
     _git(workspace, "commit", "-q", "-m", "evolve gates")
@@ -904,6 +905,38 @@ def test_verify_rejects_gate_evolution_without_registry_sync(tmp_path, monkeypat
     )
     assert receipt["verdict"] == "failed"
     assert "gate profile digest mismatch" in receipt["coverage_gaps"]
+
+
+def test_verify_refuses_to_certify_an_empty_change_range(tmp_path, monkeypatch):
+    """回归：base_sha 落在改动之后时，不得签发绑定空摘要的绿色凭单。
+
+    事故实例：VF-85A 首次验收时 base_commit == head_commit == 42e30fcd，
+    diff_digest=sha256:e3b0c442…（空串的 SHA-256），verdict 仍是 passed。
+    成因是在提交代码之后才重打包胶囊，base 指向了代码提交自身。
+
+    一份不绑定任何内容的凭单比没有凭单更危险：它看上去像一次授权。
+    """
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, capsule_path, head = _gate_evolution_workspace(
+        tmp_path, registry_digest=EVOLVED_PROFILE_DIGEST
+    )
+    monkeypatch.setattr(gate_profile, "run_profile", _fake_gate_run(EVOLVED_PROFILE_DIGEST))
+
+    # 把 base 挪到 HEAD，精确复现「提交之后才打包」的顺序错误。
+    capsule = json.loads(capsule_path.read_text(encoding="utf-8"))
+    capsule["base"]["base_sha"] = head
+    capsule_path.write_text(json.dumps(capsule, indent=2), encoding="utf-8")
+
+    assert agent_capsule.verify_capsule(capsule_path, cwd=workspace) is False
+
+    receipt = json.loads(
+        (workspace / ".agents" / "receipts" / "T-GOV-EVOLUTION" / f"{head[:12]}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt["verdict"] == "failed"
+    assert any("空变更范围" in note for note in receipt["notes"])
+    assert receipt["gate_result"] == "not_run"
 
 
 def test_workspace_lease_keeps_af_unix_paths_short(tmp_path, monkeypatch):
