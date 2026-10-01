@@ -10,6 +10,7 @@ from application.narrative_publication import (
     CommittedNarrativeService,
     CommittedNarrativeSource,
     NarrativePublicationError,
+    turn_scene_roster,
 )
 from application.post_commit_expression import (
     CommittedExpressionInput,
@@ -22,12 +23,13 @@ from application.post_commit_work import (
     PostCommitWorkSource,
 )
 from application.speech_unit import SealedSpeechUnit, SpeechUnitSealingService
-from application.story_disclosure import disclosed_turn_facts
+from application.story_disclosure import disclosed_castable_roster, disclosed_turn_facts
 from application.story_initialization import StorySessionBootstrap
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import TurnContextBindingPort
 from application.voice_evidence import load_evidence_record, render_execution
-from contracts import NarrativeBlock, TurnStatus
+from contracts import NarrativeBlock, StateDelta, TurnStatus
+from domain.story_state_reducer import StoryStateTransitionError, apply_story_delta
 
 from ..audio.config import AudioProviderConfig
 from ..audio.foundry_policy import DEFAULT_VARIANT
@@ -126,6 +128,52 @@ async def _load_committed_turn(
         raise _PostCommitSourceError()
     bootstrap = await bootstraps.require(source.session_id)
     return _CommittedTurn(turn=turn, delta=delta, bootstrap=bootstrap)
+
+
+async def _replay_committed_story_state(
+    *,
+    database: DatabaseManager,
+    source: PostCommitWorkSource,
+    committed: _CommittedTurn,
+) -> Any | None:
+    """Rebuild the story state this turn committed, or ``None`` if unknowable.
+
+    A post-COMMIT job can run long after its turn, by which point
+    ``story_state_json`` has moved on — and reading it then would attribute this
+    turn's speech to whoever is in the room *now*, with nothing reporting an
+    error. So the state is rebuilt from committed facts only: the session's
+    revision-0 state, which the bootstrap already carries, plus every committed
+    delta up to and including this turn's revision.
+
+    The result is not trusted on its own. ``turn_scene_roster`` hands back a
+    roster only when the state's own revision is the frozen one, so a replay
+    that fails to reach it yields ``None`` — publication keeps its historical
+    behaviour instead of binding speakers against a roster it is not sure of.
+    """
+    try:
+        state = committed.bootstrap.initial_session.story_state  # type: ignore[union-attr]
+        rows = await database.read_world(
+            "SELECT payload_json FROM story_state_deltas "
+            "WHERE session_id=? AND story_revision<=? ORDER BY story_revision",
+            (source.session_id, source.source_story_revision),
+        )
+        for row in rows:
+            state = apply_story_delta(
+                state, StateDelta.model_validate(json.loads(row["payload_json"]))
+            )
+    except (
+        AttributeError,
+        StorageError,
+        TypeError,
+        ValueError,
+        StoryStateTransitionError,
+    ):
+        # A bootstrap that cannot hand back its revision-0 state, or a delta
+        # chain that will not apply cleanly, leaves the roster unknowable. That
+        # is a decline, not a failure: publication keeps its historical
+        # behaviour rather than binding speakers against a roster it doubts.
+        return None
+    return state
 
 
 def _validate_narrative(
@@ -233,6 +281,20 @@ class ScenarioNarrativePublishHandler:
             return _blocked("recipe_unavailable")
         delta = committed.delta
         story_delta = delta.story_delta
+        # The scene roster this turn committed, rebuilt from committed facts —
+        # not read from current state, which a later turn may already have moved
+        # on. See ADR-006 §4.2 第 5b 步.
+        scene_state = await _replay_committed_story_state(
+            database=self._database, source=source, committed=committed
+        )
+        scene_roster = (
+            None
+            if scene_state is None
+            else turn_scene_roster(
+                story_state=scene_state,
+                committed_story_revision=source.source_story_revision,
+            )
+        )
         narrative_source = CommittedNarrativeSource(
             turn_id=source.turn_id,
             session_id=source.session_id,
@@ -247,6 +309,21 @@ class ScenarioNarrativePublishHandler:
             ),
             input_turn_id=frozen_input.input_turn_id,
             source_store_revision=source.source_world_revision,
+            present_character_ids=scene_roster,
+            # Narrowed by ADR-006 D5 from the same public-name allowlist the
+            # live path uses — one table, two consumers, no second source of who
+            # is called what.
+            castable_character_labels=(
+                None
+                if scene_roster is None
+                else disclosed_castable_roster(
+                    active_character_ids=scene_roster,
+                    protagonist_id=committed.bootstrap.initial_session.protagonist_id,
+                    character_display_names=(
+                        committed.bootstrap.presentation.character_display_names
+                    ),
+                )
+            ),
         )
         publication = CommittedNarrativeService(
             reads=self._narratives,

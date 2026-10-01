@@ -11,7 +11,7 @@ from application.post_commit_work import (
     PostCommitResultState,
     PostCommitWorkSource,
 )
-from contracts import StateDelta
+from contracts import StateDelta, StoryState
 from infrastructure.scenarios.post_commit_handlers import (
     ScenarioAudioPrepareHandler,
     ScenarioNarrativePublishHandler,
@@ -41,10 +41,58 @@ def _delta() -> StateDelta:
             "story_delta": {
                 "scene_id": "scene-at-turn-one",
                 "world_time_delta_minutes": 5,
+                "active_character_ids_add": ["doctor-1"],
                 "clue_ids_add": [
                     "clue_turn_one",
                     "clue_with_no_display_name",
                 ],
+            },
+            "character_deltas": [],
+            "world_event_candidates": [],
+            "evidence_ids": [],
+        }
+    )
+
+
+def _story_state(*, revision: int, active_character_ids: list[str]) -> StoryState:
+    return StoryState.model_validate(
+        {
+            "schema_version": "1.0",
+            "story_session_id": "session-1",
+            "revision": revision,
+            "turn": revision,
+            "phase": "discovery",
+            "scene": {
+                "id": "scene-at-turn-one",
+                "location_id": "location-clinic",
+                "active_character_ids": active_character_ids,
+            },
+            "world_time": "1890-01-01T00:00:00",
+            "protagonist_goal": "求诊",
+            "active_conflicts": ["诊所里的不对劲"],
+            "discovered_clue_ids": [],
+            "secret_states": {},
+            "commitments": {"hard_ids": [], "soft_ids": []},
+            "local_state": {},
+            "pressure": {"suspicion": 0.2},
+            "last_state_delta_id": None,
+        }
+    )
+
+
+def _later_delta() -> StateDelta:
+    """A *later* turn's delta: its roster change must never reach turn one."""
+    return StateDelta.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": "delta-2",
+            "turn_id": "turn-2",
+            "outcome": "clean_success",
+            "story_delta": {
+                "scene_id": "scene-from-turn-two",
+                "world_time_delta_minutes": 5,
+                "active_character_ids_add": ["intruder-2"],
+                "clue_ids_add": [],
             },
             "character_deltas": [],
             "world_event_candidates": [],
@@ -73,8 +121,14 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
     bootstrap = SimpleNamespace(
         presentation=SimpleNamespace(
             clue_display_names={"clue_turn_one": "第一轮发现"},
+            character_display_names={"doctor-1": "哈维医生"},
         ),
-        initial_session=SimpleNamespace(protagonist_id="protagonist-1"),
+        initial_session=SimpleNamespace(
+            protagonist_id="protagonist-1",
+            story_state=_story_state(
+                revision=0, active_character_ids=["protagonist-1"]
+            ),
+        ),
     )
     frozen_input = SimpleNamespace(
         input_turn_id="input-turn-one",
@@ -84,7 +138,17 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
     )
 
     class Database:
-        async def read_world(self, _sql, _parameters):
+        async def read_world(self, _sql, parameters):
+            if "story_state_deltas" in _sql:
+                # Honour the revision bound the query carries, so the later
+                # turn's delta is genuinely excluded rather than merely absent.
+                bound = parameters[1]
+                rows = ((1, _delta()), (2, _later_delta()))
+                return [
+                    {"payload_json": item.model_dump_json(exclude_none=True)}
+                    for revision, item in rows
+                    if revision <= bound
+                ]
             return [{"committed_world_revision": source.source_world_revision}]
 
     class Story:
@@ -175,6 +239,11 @@ async def test_live_narrative_rebuild_uses_the_job_delta_after_later_session_cha
     assert "scene-from-turn-two" not in committed_source.disclosed_facts
     assert "clue_turn_two" not in committed_source.disclosed_facts
     assert story.latest_session_reads == 0
+    # The roster is rebuilt for THIS turn, from committed facts only: turn one
+    # committed the doctor, and turn two's arrival must not reach back into it.
+    assert committed_source.present_character_ids == ("protagonist-1", "doctor-1")
+    # D5: the player avatar is never cast, so the public roster is narrower.
+    assert committed_source.castable_character_labels == (("doctor-1", "哈维医生"),)
 
 
 @pytest.mark.asyncio
