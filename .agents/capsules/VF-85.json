@@ -1,0 +1,176 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-VF-85",
+  "capsule_revision": 1,
+  "task_id": "VF-85",
+  "title": "turn_delivery 契约移除单数镜像",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-10-01T15:56:01.237774+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "1f584914c04776ac2886007d57f2fde5de591bc9",
+    "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+    "context_snapshot": "sha256:d8145a4c3d4881d2088cf9b5726f08d9d055808e2678e41fab671dc5e36c6a8e"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py",
+      "engine/contracts/",
+      "engine/tests/test_bundle_engine.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:_validator_for@contracts/tests/test_story_session_control.py:25",
+      "symbol:test_story_session_control_fixture@contracts/tests/test_story_session_control.py:36",
+      "symbol:test_supported_advice_is_the_exact_server_frozen_text@contracts/tests/test_story_session_control.py:40",
+      "symbol:test_public_view_is_an_allowlist_without_hidden_domain_state@contracts/tests/test_story_session_control.py:50",
+      "symbol:test_revision_boundaries_are_explicit@contracts/tests/test_story_session_control.py:80",
+      "symbol:test_committed_receipt_requires_both_revision_tokens@contracts/tests/test_story_session_control.py:87",
+      "symbol:test_unknown_response_fields_are_rejected@contracts/tests/test_story_session_control.py:100",
+      "symbol:_recipe@contracts/tests/test_story_session_control.py:114",
+      "symbol:_delivery@contracts/tests/test_story_session_control.py:138",
+      "symbol:test_a_partially_voiced_turn_is_still_a_deliverable_turn@contracts/tests/test_story_session_control.py:149",
+      "symbol:test_a_segment_that_is_ready_must_carry_its_own_recipe@contracts/tests/test_story_session_control.py:175",
+      "symbol:test_a_missing_segment_voice_must_say_why@contracts/tests/test_story_session_control.py:187",
+      "symbol:test_a_segment_cannot_carry_a_voice_the_server_did_not_choose@contracts/tests/test_story_session_control.py:192",
+      "symbol:test_a_recipe_carries_the_evidence_it_was_reviewed_against@contracts/tests/test_story_session_control.py:207",
+      "symbol:test_the_single_segment_mirror_is_not_a_delivery_shape@contracts/tests/test_story_session_control.py:239",
+      "symbol:test_a_ready_turn_must_carry_a_non_empty_batch@contracts/tests/test_story_session_control.py:258",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206",
+      "symbol:main@docs/05_UI/artwork/delivery/intake.py:244",
+      "symbol:DeliveryRecordsTests@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:13",
+      "symbol:test_crop_source_binding@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:14",
+      "symbol:test_wide_crop_geometry@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:26"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 868,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "_validator_for",
+      "test_story_session_control_fixture",
+      "test_supported_advice_is_the_exact_server_frozen_text",
+      "test_public_view_is_an_allowlist_without_hidden_domain_state",
+      "test_revision_boundaries_are_explicit",
+      "test_committed_receipt_requires_both_revision_tokens",
+      "test_unknown_response_fields_are_rejected",
+      "_recipe",
+      "_delivery",
+      "test_a_partially_voiced_turn_is_still_a_deliverable_turn",
+      "test_a_segment_that_is_ready_must_carry_its_own_recipe",
+      "test_a_missing_segment_voice_must_say_why",
+      "test_a_segment_cannot_carry_a_voice_the_server_did_not_choose",
+      "test_a_recipe_carries_the_evidence_it_was_reviewed_against",
+      "test_the_single_segment_mirror_is_not_a_delivery_shape",
+      "test_a_ready_turn_must_carry_a_non_empty_batch",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources",
+      "main",
+      "DeliveryRecordsTests",
+      "test_crop_source_binding",
+      "test_wide_crop_geometry"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}

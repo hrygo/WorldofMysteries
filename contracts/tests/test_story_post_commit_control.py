@@ -99,9 +99,15 @@ def _delivery() -> dict:
     return {
         "state": "ready",
         "narrative_block_id": "narrative_01",
-        "speech_unit_id": "speech_unit_01",
-        "spoken_text": "蒸汽管在墙后低鸣。",
-        "render_recipe": recipe,
+        "speech_units": [
+            {
+                "segment_index": 0,
+                "state": "ready",
+                "speech_unit_id": "speech_unit_01",
+                "spoken_text": "蒸汽管在墙后低鸣。",
+                "render_recipe": recipe,
+            }
+        ],
     }
 
 
@@ -400,7 +406,7 @@ def test_each_audio_state_has_its_own_handoff_binding(
 
     invalid = copy.deepcopy(valid)
     if needs_delivery:
-        invalid["delivery"].pop("render_recipe")
+        invalid["delivery"]["speech_units"][0].pop("render_recipe")
     elif needs_reason:
         invalid.pop("audio_reason")
     else:
@@ -413,14 +419,16 @@ def test_each_audio_state_has_its_own_handoff_binding(
         assert not validator.is_valid(missing_reason)
 
 
-def test_audio_ready_requires_complete_old_turn_delivery_view():
+def test_audio_ready_requires_complete_turn_delivery_view():
     response = _work_response(audio_state="ready")
     assert SCHEMA["$defs"]["turn_delivery_view"] == {
         "$ref": "story_session_control.schema.json#/$defs/turn_delivery"
     }
     assert _validator_for("work_get_response").is_valid(response)
     assert response["delivery"]["state"] == "ready"
-    assert set(response["delivery"]["render_recipe"]) == {
+    segment = response["delivery"]["speech_units"][0]
+    assert segment["state"] == "ready"
+    assert set(segment["render_recipe"]) == {
         "speech_unit_id",
         "turn_id",
         "story_revision",

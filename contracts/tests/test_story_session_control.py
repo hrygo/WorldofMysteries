@@ -234,3 +234,34 @@ def test_a_recipe_carries_the_evidence_it_was_reviewed_against():
         malformed = copy.deepcopy(delivery)
         malformed["speech_units"][0]["render_recipe"]["evidence_digest"] = bad_digest
         assert not _validator_for("turn_delivery").is_valid(malformed), bad_digest
+
+
+def test_the_single_segment_mirror_is_not_a_delivery_shape():
+    """The mirror is gone from both ends, so the contract must stop offering it.
+
+    The Engine seals batches and can only emit ``speech_units``; the App decodes
+    batches and rejects any other key. A schema that still accepts the mirror is
+    a contract that certifies payloads the only client will reject — a gap no
+    runtime test can catch, because producer and consumer are both already
+    correct and simply disagree with the document between them.
+    """
+    delivery = {
+        "state": "ready",
+        "narrative_block_id": "narrative_01",
+        "speech_unit_id": "speech_unit_01",
+        "spoken_text": "别动那只表。",
+        "render_recipe": _recipe(1, "speech_unit_01"),
+    }
+    assert not _validator_for("turn_delivery").is_valid(delivery)
+
+
+def test_a_ready_turn_must_carry_a_non_empty_batch():
+    """``ready`` with an empty ``speech_units`` is the mirror's old failure mode.
+
+    It used to be legal to say ``ready`` while naming a single voice at the top
+    level. With the batch as the only view, an empty one means the same thing: a
+    turn that claims to be audible and is not.
+    """
+    assert not _validator_for("turn_delivery").is_valid(
+        {"state": "ready", "narrative_block_id": "narrative_01", "speech_units": []}
+    )
