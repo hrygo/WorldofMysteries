@@ -203,7 +203,7 @@ def _roster(present, *, names=None):
     return disclosed_castable_roster(
         active_character_ids=present,
         protagonist_id=PROTAGONIST,
-        bootstrap=_bootstrap({}, NAMES if names is None else names),
+        character_display_names=NAMES if names is None else names,
     )
 
 

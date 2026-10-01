@@ -15,7 +15,7 @@ So there is one function, and both paths call it.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .story_initialization import StorySessionBootstrap
@@ -56,7 +56,7 @@ def disclosed_castable_roster(
     *,
     active_character_ids: Sequence[str] | None,
     protagonist_id: str,
-    bootstrap: StorySessionBootstrap,
+    character_display_names: Mapping[str, str],
 ) -> tuple[tuple[str, str], ...] | None:
     """Project the world roster onto who may be *heard* this turn.
 
@@ -70,9 +70,9 @@ def disclosed_castable_roster(
     1. The player-avatar character is never cast — the player speaks in their
        own voice. This is product setting, not a permission.
     2. A character with no entry in ``character_display_names`` is omitted.
-       This is the same fail-closed rule ``clue_display_names`` already obeys:
-       having no public label means there is nothing to disclose, and emitting
-       the canonical id instead would turn a missing label into a disclosure.
+        This is the same fail-closed rule ``clue_display_names`` already obeys:
+        having no public label means there is nothing to disclose, and emitting
+        the canonical id instead would turn a missing label into a disclosure.
 
     Returns ``(canonical_id, public_label)`` pairs in scene order. The
     canonical id stays on the trusted side of the boundary — it is what the
@@ -85,19 +85,24 @@ def disclosed_castable_roster(
     is there; collapsing them would make "we have not asked" indistinguishable
     from "nobody is here", and only one of those is a claim.
 
-    Pure in committed state and the immutable bootstrap, so a retry of the
-    expression layer cannot change who may speak — which is what lets the
-    roster be hashed into published identity without becoming non-deterministic
-    under retry.
+    The parameter is the public-name table itself rather than the bootstrap that
+    carries it. That table is the whole of what this projection reads, and the
+    world-side reader holds it as plain data: taking ``StorySessionBootstrap``
+    would force that reader to fabricate a domain model it has no business
+    building, and a fabricated one would be a second, unreviewed source of the
+    same names.
+
+    Pure in committed state and that table, so a retry of the expression layer
+    cannot change who may speak — which is what lets the roster be hashed into
+    published identity without becoming non-deterministic under retry.
     """
     if active_character_ids is None:
         return None
-    names = bootstrap.presentation.character_display_names
     roster: list[tuple[str, str]] = []
     for character_id in active_character_ids:
         if character_id == protagonist_id:
             continue
-        label = names.get(character_id)
+        label = character_display_names.get(character_id)
         if label is None:
             continue
         roster.append((character_id, label))
