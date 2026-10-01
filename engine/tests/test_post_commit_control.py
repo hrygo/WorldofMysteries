@@ -1,10 +1,13 @@
 """Public post-COMMIT work projection and explicit-retry boundary tests."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sqlite3 as stdlib_sqlite3
 
 import pytest
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 from application.speech_unit import SealedSpeechUnit
 from application.story_expression import (
@@ -29,6 +32,7 @@ from infrastructure.post_commit_job_repository import (
 from infrastructure.sqlite_runtime import sqlite3
 
 CODEC = SealedSpeechUnitCodec()
+CONTRACTS_ROOT = Path(__file__).resolve().parents[2]
 
 
 # --------------------------------------------------------------- fixtures
@@ -325,9 +329,18 @@ async def test_work_get_reports_audio_ready_only_with_a_live_handoff_unit(tmp_pa
     assert "audio_reason" not in payload
     delivery = payload["delivery"]
     assert delivery["state"] == "ready"
-    assert delivery["speech_unit_id"] == unit.unit_id
-    assert delivery["render_recipe"]["expected_voice_revision"] == unit.voice_revision
-    assert delivery["render_recipe"]["spoken_text"] == unit.spoken_text
+    # The v1 read path carries the batch shape too. It used to name the segment
+    # at the top level, which the App stopped accepting when the mirror was
+    # removed — this assertion is the one that would have caught a live path no
+    # client can decode.
+    assert "speech_unit_id" not in delivery
+    assert "render_recipe" not in delivery
+    (segment,) = delivery["speech_units"]
+    assert segment["state"] == "ready"
+    assert segment["segment_index"] == unit.segment_index
+    assert segment["speech_unit_id"] == unit.unit_id
+    assert segment["render_recipe"]["expected_voice_revision"] == unit.voice_revision
+    assert segment["render_recipe"]["spoken_text"] == unit.spoken_text
 
 
 @pytest.mark.asyncio
@@ -587,3 +600,64 @@ async def test_retry_refuses_unknown_kind_and_unknown_work(tmp_path):
             retry_request_id="retry-y",
         )
     assert missing.value.code == "work_not_found"
+
+
+# ------------------------------------------------- producer <-> contract parity
+
+
+def _work_get_validator() -> Draft202012Validator:
+    """Validate what this producer emits against the contract it claims to speak.
+
+    The App decodes this payload, and so will every future client. A producer
+    test that only compares Python dicts cannot notice when the two drift apart
+    — which is how a delivery shape outlived the client that was supposed to
+    read it, with every unit test still green.
+    """
+    schemas = [
+        json.loads(
+            (CONTRACTS_ROOT / "contracts/protocol" / f"{name}.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for name in (
+            "story_post_commit_control",
+            "story_session_control",
+            "story_expression_control",
+        )
+    ]
+    post_commit = schemas[0]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    return Draft202012Validator(
+        {
+            "$schema": post_commit["$schema"],
+            "$id": post_commit["$id"],
+            "$ref": "#/$defs/work_get_response",
+            "$defs": post_commit["$defs"],
+        },
+        registry=registry,
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_ready_delivery_we_publish_is_the_delivery_the_contract_describes(
+    tmp_path,
+):
+    database = await _open_database(tmp_path)
+    await _seed_jobs(
+        database,
+        {"job_id": "a1", "kind": "audio_prepare", "state": "succeeded"},
+    )
+    unit = sealed_unit()
+    await _store_sealed_result(database, "a1", unit)
+    registry = SealedSpeechUnitRegistry(ttl_seconds=60)
+    registry.publish(unit)
+    service = _service(database, FakeExpression(), registry)
+
+    payload = (
+        await service.get_work(session_id="session-1", turn_id="turn-1")
+    ).to_payload()
+
+    errors = sorted(_work_get_validator().iter_errors(payload), key=lambda e: list(e.path))
+    assert not errors, [f"{list(e.path)}: {e.message}" for e in errors]
