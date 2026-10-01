@@ -563,6 +563,7 @@ def _committed_delivery_case(
     narrative=None,
     active_character_ids=None,
     character_display_names=None,
+    lines="default",
 ):
     from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
 
@@ -623,11 +624,26 @@ def _committed_delivery_case(
 
     class FirstTurnWithNarrativeCompiler:
         def __init__(self):
-            from application.narrative_publication import NarrativeCandidate
+            from application.narrative_publication import (
+                NarrativeCandidate,
+                NarrativeLine,
+            )
+
+            # The fake model may only name someone the world put in the room.
+            # Callers whose roster is empty or undeclared say so explicitly
+            # rather than letting this default speak for them.
+            proposed = (
+                (("莫里斯医生", "我先看看预约簿。"),)
+                if lines == "default"
+                else tuple(lines)
+            )
 
             self.candidate = NarrativeCandidate(
                 narration="诊室里的雨声渐渐停了。",
-                speech="我先看看预约簿。",
+                lines=tuple(
+                    NarrativeLine(speaker=speaker, text=text)
+                    for speaker, text in proposed
+                ),
             )
             self.compile_calls = []
 
@@ -718,7 +734,10 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
     from application.story_expression import StoryExpressionQueryService
     from infrastructure.story_runtime import _DeliveryCoordinator
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
 
     class Query:
         async def session(self, _session_id):
@@ -868,6 +887,7 @@ async def test_an_empty_scene_casts_nobody_rather_than_casting_the_protagonist(
         case=_committed_delivery_case(
             active_character_ids=[],
             character_display_names=CAST,
+            lines=(),
         ),
     )
 
@@ -881,6 +901,7 @@ async def test_no_declared_roster_means_no_castable_roster(monkeypatch):
         case=_committed_delivery_case(
             active_character_ids=None,
             character_display_names=CAST,
+            lines=(),
         ),
     )
 
@@ -894,7 +915,7 @@ async def test_a_scene_that_declares_nobody_reaches_publication_as_empty(
     """Empty is an answer, and it must not decay into "we have not asked"."""
     source = await _publish_and_capture(
         monkeypatch,
-        case=_committed_delivery_case(active_character_ids=[]),
+        case=_committed_delivery_case(active_character_ids=[], lines=()),
     )
 
     assert source.present_character_ids == ()
@@ -906,7 +927,7 @@ async def test_a_world_that_declares_no_roster_reaches_publication_as_none(
 ):
     source = await _publish_and_capture(
         monkeypatch,
-        case=_committed_delivery_case(active_character_ids=None),
+        case=_committed_delivery_case(active_character_ids=None, lines=()),
     )
 
     assert source.present_character_ids is None
@@ -943,7 +964,10 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
     from infrastructure.story_runtime import _DeliveryCoordinator
     from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
 
     class Query:
         async def session(self, _session_id):
@@ -1103,7 +1127,10 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
     from contracts import TurnStatus
     from infrastructure.story_runtime import _DeliveryCoordinator
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
     committed_turn = result.turn
 
     async def fail_publish(**_kwargs):

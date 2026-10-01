@@ -117,17 +117,10 @@ class NarrativeCandidate:
     Who speaks is named by public label in ``lines``; only the trusted
     committed source may turn a label into a bound speaker, and only for
     someone its castable roster admits.
-
-    ``speech`` is a **migration seam**, not a second way to say the same thing.
-    It is the pre-D3 single-unattributed-line shape and is honoured only when
-    the source declares no castable roster at all. Once a roster exists the
-    legacy field is refused, so the two shapes can never both apply. Removal
-    slice: VF-83D, after VF-83C switches the model onto ``lines``.
     """
 
     narration: str
     lines: tuple[NarrativeLine, ...] = ()
-    speech: str = ""
     context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
@@ -138,16 +131,6 @@ class NarrativeCandidate:
                 self.narration,
                 field="narration",
                 limit=_MAX_NARRATIVE_CHARS,
-            ),
-        )
-        object.__setattr__(
-            self,
-            "speech",
-            _bounded_text(
-                self.speech,
-                field="speech",
-                limit=_MAX_NARRATIVE_CHARS,
-                allow_empty=True,
             ),
         )
         if not isinstance(self.lines, tuple) or any(
@@ -371,10 +354,11 @@ def _bound_dialogue(
 
     Three roster states, three answers:
 
-    * ``None`` — the world declared no castable roster. Nothing is authorised,
-      so no label can be bound; the pre-D3 single ``speech`` is honoured
-      instead, bound to the protagonist. This is the migration seam and it is
-      wrong under ADR-006 D5; VF-83D removes it with the model-side switch.
+    * ``None`` — the world declared no castable roster, so nothing is
+      authorised and no line may be bound. This is not "fall back to the
+      protagonist": under D5 the player-avatar has no cast voice, and a
+      fallback would hand the one voice the world withheld to the one
+      character the design refuses to voice. Narration only.
     * ``()`` — the world declared a roster and it casts nobody. Narration
       only. Any proposed dialogue is a contradiction of what the world said.
     * non-empty — authoritative. Every line must resolve, and at least one
@@ -385,20 +369,13 @@ def _bound_dialogue(
     if roster is None:
         if candidate.lines:
             raise NarrativePublicationError("speaker_without_roster")
-        if not candidate.speech:
-            return []
-        return [(source.protagonist_id, candidate.speech)]
+        return []
 
     if not roster:
-        if candidate.lines or candidate.speech:
+        if candidate.lines:
             raise NarrativePublicationError("speaker_not_castable")
         return []
 
-    if candidate.speech:
-        # A roster exists, so the legacy unattributed line has nowhere to bind.
-        # Honouring it would put every turn's dialogue on the protagonist
-        # regardless of who the world put in the room.
-        raise NarrativePublicationError("legacy_speech_without_roster")
     if not candidate.lines:
         raise NarrativePublicationError("missing_character_speech")
 

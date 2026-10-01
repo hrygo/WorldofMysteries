@@ -227,11 +227,11 @@ def _live_narrative_worker(payload, source, *, expected_overrides=None):
 
 class CountingCompiler:
     def __init__(self, candidate=None):
-        from application.narrative_publication import NarrativeCandidate
+        from application.narrative_publication import NarrativeCandidate, NarrativeLine
 
         self.candidate = candidate or NarrativeCandidate(
             narration="雨落在诊所的窗外。",
-            speech="我先看看预约簿。",
+            lines=(NarrativeLine(speaker="莫里斯医生", text="我先看看预约簿。"),),
         )
         self.calls: list[str] = []
 
@@ -286,7 +286,7 @@ async def test_repeated_ensure_is_idempotent_and_does_not_advance_world_revision
         publisher=repository,
         compiler=compiler,
     )
-    source = _committed_source()
+    source = _committed_source(castable_character_labels=ROSTER)
 
     first = await service.ensure(turn_id="turn-1", source=source)
     second = await service.ensure(turn_id="turn-1", source=source)
@@ -302,6 +302,7 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
     from application.narrative_publication import (
         CommittedNarrativeService,
         NarrativeCandidate,
+        NarrativeLine,
         NarrativePublicationError,
     )
 
@@ -317,7 +318,7 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
             await self.release.wait()
             return NarrativeCandidate(
                 narration="雨落在诊所的窗外。",
-                speech="我先看看预约簿。",
+                lines=(NarrativeLine(speaker="莫里斯医生", text="我先看看预约簿。"),),
             )
 
     repository = MemoryNarrativeRepository()
@@ -328,7 +329,7 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
         compiler=compiler,
         max_single_flight_turns=1,
     )
-    source = _committed_source()
+    source = _committed_source(castable_character_labels=ROSTER)
 
     first = asyncio.create_task(service.ensure(turn_id="turn-1", source=source))
     await compiler.started.wait()
@@ -346,7 +347,13 @@ async def test_concurrent_ensure_calls_share_one_bounded_single_flight():
 
 
 @pytest.mark.asyncio
-async def test_candidate_publishes_narration_then_character_with_trusted_speaker():
+async def test_candidate_publishes_narration_then_character_with_the_roster_speaker():
+    """The trusted speaker is the one the roster admits, not the avatar.
+
+    Before D5 this assertion read ``protagonist-1``: the publication layer had
+    exactly one identity to bind and used it. The roster is what makes a
+    different identity bindable, and the protagonist is what D5 keeps out of it.
+    """
     from application.narrative_publication import CommittedNarrativeService
 
     repository = MemoryNarrativeRepository()
@@ -358,7 +365,7 @@ async def test_candidate_publishes_narration_then_character_with_trusted_speaker
     )
 
     block = await service.ensure(
-        turn_id="turn-1", source=_committed_source()
+        turn_id="turn-1", source=_committed_source(castable_character_labels=ROSTER)
     )
 
     assert [(segment.type, segment.text) for segment in block.segments] == [
@@ -366,7 +373,7 @@ async def test_candidate_publishes_narration_then_character_with_trusted_speaker
         ("character", "我先看看预约簿。"),
     ]
     assert block.segments[0].speaker_id is None
-    assert block.segments[1].speaker_id == "protagonist-1"
+    assert block.segments[1].speaker_id == "npc_doctor_morris"
     assert not hasattr(compiler.candidate, "speaker_id")
 
 
@@ -376,7 +383,10 @@ async def test_compiler_receives_only_the_disclosed_summary_not_hidden_delta_fie
 
     repository = MemoryNarrativeRepository()
     compiler = CountingCompiler()
-    source = _committed_source(state_delta=_delta(hidden_fact="secret_hidden_0"))
+    source = _committed_source(
+        state_delta=_delta(hidden_fact="secret_hidden_0"),
+        castable_character_labels=ROSTER,
+    )
     service = CommittedNarrativeService(
         reads=repository,
         publisher=repository,
@@ -419,7 +429,7 @@ async def test_publish_conflict_reuses_same_turn_block_without_overwriting_text(
         compiler=CountingCompiler(),
     )
 
-    result = await service.ensure(turn_id="turn-1", source=_committed_source())
+    result = await service.ensure(turn_id="turn-1", source=_committed_source(castable_character_labels=ROSTER))
 
     assert result.id == "narrative-published-by-peer"
     assert result.segments[0].text == "另一个进程先发布的叙事。"
@@ -443,7 +453,7 @@ async def test_publish_failure_without_durable_winner_is_not_swallowed():
     )
 
     with pytest.raises(RuntimeError, match="storage unavailable"):
-        await service.ensure(turn_id="turn-1", source=_committed_source())
+        await service.ensure(turn_id="turn-1", source=_committed_source(castable_character_labels=ROSTER))
 
     assert repository.turn.narrative_block_id is None
     assert compiler.calls == ["已提交结果：预约簿缺少一页。"]
@@ -1080,7 +1090,7 @@ def _bind(roster, candidate):
     return _bound_dialogue(source=_source_with_castable(roster), candidate=candidate)
 
 
-def _candidate(*lines, speech=""):
+def _candidate(*lines):
     from application.narrative_publication import NarrativeCandidate, NarrativeLine
 
     return NarrativeCandidate(
@@ -1088,7 +1098,6 @@ def _candidate(*lines, speech=""):
         lines=tuple(
             NarrativeLine(speaker=speaker, text=text) for speaker, text in lines
         ),
-        speech=speech,
     )
 
 
@@ -1174,16 +1183,6 @@ def test_a_castable_turn_with_no_dialogue_is_refused():
         _bind(ROSTER, _candidate())
 
 
-def test_the_legacy_unattributed_line_cannot_fire_once_a_roster_exists():
-    """Otherwise every turn's dialogue lands on the protagonist regardless."""
-    from application.narrative_publication import NarrativePublicationError
-
-    with pytest.raises(
-        NarrativePublicationError, match="legacy_speech_without_roster"
-    ):
-        _bind(ROSTER, _candidate(speech="我先看看预约簿。"))
-
-
 def test_a_line_without_any_roster_is_refused():
     from application.narrative_publication import NarrativePublicationError
 
@@ -1191,11 +1190,13 @@ def test_a_line_without_any_roster_is_refused():
         _bind(None, _candidate(("莫里斯医生", "一。")))
 
 
-def test_without_a_roster_the_legacy_line_still_binds_to_the_protagonist():
-    """The migration seam, stated so its removal is a deliberate act (VF-83D)."""
-    assert _bind(None, _candidate(speech="我先看看预约簿。")) == [
-        ("protagonist-1", "我先看看预约簿。")
-    ]
+def test_without_a_roster_nothing_is_bound_and_the_protagonist_never_is():
+    """D5 end state: an undeclared roster means narration, never the avatar.
+
+    This used to fall back to binding the protagonist, which is the one
+    outcome D5 forbids. The seam is gone, so there is no longer any input —
+    roster or no roster — that produces a voice for the player-avatar.
+    """
     assert _bind(None, _candidate()) == []
 
 
