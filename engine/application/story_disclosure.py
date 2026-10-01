@@ -15,6 +15,7 @@ So there is one function, and both paths call it.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from .story_initialization import StorySessionBootstrap
@@ -51,4 +52,56 @@ def disclosed_turn_facts(
     return "\n".join(parts)
 
 
-__all__ = ["disclosed_turn_facts"]
+def disclosed_castable_roster(
+    *,
+    active_character_ids: Sequence[str] | None,
+    protagonist_id: str,
+    bootstrap: StorySessionBootstrap,
+) -> tuple[tuple[str, str], ...] | None:
+    """Project the world roster onto who may be *heard* this turn.
+
+    The world roster says who is physically in the scene. This says who in
+    that scene may speak aloud, which is a narrower question with a different
+    answer, and the two are kept apart deliberately (ADR-006 D5).
+
+    Two narrowings apply, for two unrelated reasons, and they must not share a
+    switch:
+
+    1. The player-avatar character is never cast — the player speaks in their
+       own voice. This is product setting, not a permission.
+    2. A character with no entry in ``character_display_names`` is omitted.
+       This is the same fail-closed rule ``clue_display_names`` already obeys:
+       having no public label means there is nothing to disclose, and emitting
+       the canonical id instead would turn a missing label into a disclosure.
+
+    Returns ``(canonical_id, public_label)`` pairs in scene order. The
+    canonical id stays on the trusted side of the boundary — it is what the
+    publication layer binds a voice to — while the label is what the narrator
+    is given. Handing the narrator an id is the leak this whole projection
+    exists to prevent.
+
+    ``None`` in, ``None`` out. The world not having declared a roster is an
+    absence of a fact, and the scene being empty is the assertion that nobody
+    is there; collapsing them would make "we have not asked" indistinguishable
+    from "nobody is here", and only one of those is a claim.
+
+    Pure in committed state and the immutable bootstrap, so a retry of the
+    expression layer cannot change who may speak — which is what lets the
+    roster be hashed into published identity without becoming non-deterministic
+    under retry.
+    """
+    if active_character_ids is None:
+        return None
+    names = bootstrap.presentation.character_display_names
+    roster: list[tuple[str, str]] = []
+    for character_id in active_character_ids:
+        if character_id == protagonist_id:
+            continue
+        label = names.get(character_id)
+        if label is None:
+            continue
+        roster.append((character_id, label))
+    return tuple(roster)
+
+
+__all__ = ["disclosed_castable_roster", "disclosed_turn_facts"]

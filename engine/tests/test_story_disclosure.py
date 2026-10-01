@@ -11,7 +11,10 @@ import ast
 from types import SimpleNamespace
 from pathlib import Path
 
-from application.story_disclosure import disclosed_turn_facts
+from application.story_disclosure import (
+    disclosed_castable_roster,
+    disclosed_turn_facts,
+)
 from contracts import StateDelta
 
 ENGINE_ROOT = Path(__file__).resolve().parents[1]
@@ -75,9 +78,15 @@ def test_both_post_commit_paths_call_the_shared_projection():
         assert "disclosed_turn_facts" in source, f"{relative} 未调用共享投影"
 
 
-def _bootstrap(clue_display_names: dict[str, str]):
+def _bootstrap(
+    clue_display_names: dict[str, str],
+    character_display_names: dict[str, str] | None = None,
+):
     return SimpleNamespace(
-        presentation=SimpleNamespace(clue_display_names=clue_display_names)
+        presentation=SimpleNamespace(
+            clue_display_names=clue_display_names,
+            character_display_names=character_display_names or {},
+        )
     )
 
 
@@ -173,3 +182,104 @@ def test_an_unchanged_scene_and_clock_add_no_lines():
     )
 
     assert text == "结果判定：clean_success"
+
+
+# --- castable roster (ADR-006 D2 / D5) -------------------------------------
+
+
+PROTAGONIST = "char_evelyn_gray"
+NAMES = {
+    # The protagonist is given a public label on purpose. Without one the
+    # label filter would drop them first and the D5 exclusion would never be
+    # exercised — the test would pass for the wrong reason, and removing the
+    # exclusion entirely would leave it green.
+    "char_evelyn_gray": "爱伦·格雷",
+    "npc_doctor_morris": "莫里斯医生",
+    "npc_jonathan_vale": "Jonathan",
+}
+
+
+def _roster(present, *, names=None):
+    return disclosed_castable_roster(
+        active_character_ids=present,
+        protagonist_id=PROTAGONIST,
+        bootstrap=_bootstrap({}, NAMES if names is None else names),
+    )
+
+
+def test_the_protagonist_stays_otherwise_eligible_for_the_cast():
+    """Fixture precondition for the D5 test below.
+
+    ``test_the_player_avatar_is_never_cast`` proves one thing: the protagonist
+    is dropped despite being present. It can only prove that while the
+    protagonist would otherwise pass the label filter. Drop their entry from
+    ``NAMES`` and the test keeps passing — for the wrong reason — while the
+    exclusion it exists to guard is never exercised. This assertion is what
+    stops that from happening quietly.
+    """
+    assert PROTAGONIST in NAMES, (
+        "主角需要保留公开名，否则 D5 排除测试会退化为假阳性"
+    )
+
+
+def test_an_undeclared_roster_stays_undeclared():
+    """``None`` means the world has not said who is here.
+
+    It is not the same claim as an empty scene, and the projection must not
+    turn "we have not asked" into "nobody is here".
+    """
+    assert _roster(None) is None
+
+
+def test_an_empty_scene_yields_an_empty_roster_not_none():
+    assert _roster([]) == ()
+
+
+def test_the_player_avatar_is_never_cast():
+    """ADR-006 D5: the player speaks in their own voice.
+
+    The protagonist stays in the world roster — they are in the room — and is
+    dropped only here, at the boundary between being present and being heard.
+    """
+    assert _roster([PROTAGONIST, "npc_doctor_morris"]) == (
+        ("npc_doctor_morris", "莫里斯医生"),
+    )
+
+
+def test_a_character_with_no_public_label_is_omitted_rather_than_disclosed_by_id():
+    """The authorization half, and the same fail-closed rule the clues obey."""
+    assert _roster(["npc_stranger_with_no_label"]) == ()
+
+
+def test_scene_order_is_preserved():
+    assert _roster(["npc_jonathan_vale", "npc_doctor_morris"]) == (
+        ("npc_jonathan_vale", "Jonathan"),
+        ("npc_doctor_morris", "莫里斯医生"),
+    )
+
+
+def test_an_empty_label_table_casts_nobody():
+    """A bundle written before this table existed keeps its old behaviour."""
+    assert _roster(["npc_doctor_morris", "npc_jonathan_vale"], names={}) == ()
+
+
+def test_the_projection_is_deterministic_for_the_same_committed_roster():
+    """The property publication relies on.
+
+    The roster is hashed into block identity, so if anything time-varying could
+    reach this projection the same committed history would publish under two
+    identities. It reads committed state and an immutable bootstrap, and
+    nothing else — in particular nothing from the expression attempt.
+    """
+    present = [PROTAGONIST, "npc_doctor_morris", "npc_jonathan_vale"]
+
+    assert _roster(present) == _roster(present)
+
+
+def test_order_follows_the_scene_rather_than_the_caller():
+    """Scene order is part of the committed fact, so it is preserved verbatim."""
+    forward = _roster(["npc_doctor_morris", "npc_jonathan_vale"])
+    backward = _roster(["npc_jonathan_vale", "npc_doctor_morris"])
+
+    assert forward != backward
+    assert [cid for cid, _ in forward] == ["npc_doctor_morris", "npc_jonathan_vale"]

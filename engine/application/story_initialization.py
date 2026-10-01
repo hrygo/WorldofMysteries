@@ -40,6 +40,16 @@ GOLDEN_CLUE_DISPLAY_NAMES = {
     "clue_basement_powder": "门框黑粉",
     "clue_jonathan_note": "Jonathan 的纸片",
 }
+#: Public labels for the Golden scenario's castable roster.
+#:
+#: Values are the scenario's product content, not derived from the ids. They
+#: are the same vocabulary ``GOLDEN_CLUE_DISPLAY_NAMES`` already established:
+#: the clinic is ``loc_morris_clinic`` and its clue reads 「医生的停顿」, and the
+#: other actor is named outright in 「Jonathan 的纸片」.
+GOLDEN_CHARACTER_DISPLAY_NAMES = {
+    "npc_doctor_morris": "莫里斯医生",
+    "npc_jonathan_vale": "Jonathan",
+}
 SCENARIO_TITLE = "不存在的预约"
 DOCTOR_ACTOR_ID = "npc_doctor_morris"
 _MAX_TEXT = 256
@@ -60,6 +70,16 @@ class ScenarioPresentation(BaseModel):
     scenario_title: str = Field(min_length=1, max_length=_MAX_TEXT)
     scene_display_name: str = Field(min_length=1, max_length=_MAX_TEXT)
     clue_display_names: dict[str, str]
+    #: Public labels for characters who may be heard, keyed by canonical id.
+    #:
+    #: The same allowlist ``clue_display_names`` already is, and with the same
+    #: consequence: a character absent from this table has no public name, so
+    #: the projection that builds the castable roster omits them rather than
+    #: offering a canonical identifier. Defaults to empty so every bundle
+    #: written before this field existed keeps validating — and keeps
+    #: producing no castable characters, which is exactly what it produced
+    #: before.
+    character_display_names: dict[str, str] = {}
 
 
 class StorySessionBootstrap(BaseModel):
@@ -363,6 +383,12 @@ def _validate_presentation(presentation: ScenarioPresentation) -> None:
         or presentation.scene_display_name != SCENE_DISPLAY_NAME
         or presentation.clue_display_names
         not in (legacy_clue_names, GOLDEN_CLUE_DISPLAY_NAMES)
+        # Both the empty table and the Golden roster are accepted. A bundle
+        # written before the roster existed validates unchanged and casts
+        # nobody, which is what it did before; anything else is content this
+        # build has not reviewed.
+        or presentation.character_display_names
+        not in ({}, GOLDEN_CHARACTER_DISPLAY_NAMES)
     ):
         raise StoryInitializationError("unsupported_presentation")
 
