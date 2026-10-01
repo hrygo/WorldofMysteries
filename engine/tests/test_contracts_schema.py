@@ -55,6 +55,49 @@ def load_schema(schema_name: str) -> dict:
         return json.load(f)
 
 
+def test_the_documented_schema_mirror_is_identical_to_the_contract_source():
+    """``docs/03_工程规范/schemas/`` 是 ``contracts/schemas/`` 的人工镜像。
+
+    这份镜像是**部分**的——并非每个契约都有文档副本，所以本断言只做单向
+    检查：存在的镜像必须与源逐字相同。反向不成立：「补齐每份镜像」是文档
+    工作，不是契约不变量，不该由测试逼迫。
+
+    值得守的是另一半：契约源改动后，镜像会静默停在旧版，而读文档的人据此
+    以为字段不存在。差异必须报错，而不是等人来发现。
+    """
+    mirror_dir = REPO_ROOT / "docs" / "03_工程规范" / "schemas"
+    assert mirror_dir.is_dir()
+    mirrors = sorted(mirror_dir.glob("*.schema.json"))
+    assert mirrors, "文档镜像目录不应为空，否则本断言形同虚设"
+
+    for mirror in mirrors:
+        schema_file = SCHEMAS_DIR / mirror.name
+        assert schema_file.is_file(), f"文档镜像没有对应契约源：{mirror.name}"
+        assert mirror.read_text(encoding="utf-8") == schema_file.read_text(
+            encoding="utf-8"
+        ), f"契约源与文档镜像已漂移：{mirror.name}"
+
+
+def test_story_delta_model_and_schema_declare_the_same_story_fields():
+    """``StoryDelta`` 的 Python 镜像与 JSON Schema 必须声明同一组字段。
+
+    ``story_delta`` 上 ``additionalProperties`` 是 false，所以 schema 少一个
+    字段就是「模型能写、线上被拒」，schema 多一个字段就是「线上能过、
+    模型读不到」。两种漂移都不会让任何现有测试变红——夹具不经过这条路径。
+    """
+    from contracts.models import StoryDelta
+
+    declared = set(
+        load_schema("state_delta.schema.json")["properties"]["story_delta"]["properties"]
+    )
+    modelled = set(StoryDelta.model_fields)
+
+    assert declared == modelled, (
+        f"StoryDelta 字段漂移：仅 schema 有 {sorted(declared - modelled)}，"
+        f"仅模型有 {sorted(modelled - declared)}"
+    )
+
+
 def test_golden_001_character_matches_schema():
     schema = load_schema("character.schema.json")
     validator = Draft202012Validator(schema)
