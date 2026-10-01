@@ -8,7 +8,7 @@ import pytest_asyncio
 
 from ai.prompt_renderer import PromptRenderer
 from application.context_compiler import CacheAwareContextCompiler
-from application.context_plan import Layer, WorkerProfile
+from application.context_plan import ContextError, Layer, WorkerProfile
 from application.gameplay_context import (
     GameplayCall,
     GameplayContextCoordinator,
@@ -67,8 +67,54 @@ def _story_state() -> dict[str, object]:
     }
 
 
+def _bootstrap_payload(presentation: object = ...) -> dict[str, object]:
+    """The bootstrap fixture, with its public-name allowlist overridable.
+
+    ``...`` keeps the original payload, which declares no ``presentation`` at
+    all — so the canary in the scene has no public name and the roster is empty.
+    """
+    payload: dict[str, object] = {
+        "character": {
+            "identity": {"id": PROTAGONIST_ID, "display_name": "Protagonist"},
+            "private_dossier": "bootstrap.hidden-canary",
+        }
+    }
+    if presentation is not ...:
+        payload["presentation"] = presentation
+    return payload
+
+
+def _scene(*active_character_ids: str) -> dict[str, object]:
+    return {
+        "id": "scene.current",
+        "location_id": "location.harbor",
+        "active_character_ids": list(active_character_ids),
+    }
+
+
 @pytest_asyncio.fixture
 async def committed_story_database(tmp_path: Path):
+    database = await _open_story_database(tmp_path)
+    try:
+        yield database
+    finally:
+        await database.close()
+
+
+async def _open_story_database(
+    tmp_path: Path,
+    *,
+    scene: dict[str, object] | None = None,
+    presentation: object = ...,
+) -> DatabaseManager:
+    """Build the committed-session fixture, with the roster inputs overridable.
+
+    ``scene`` replaces the whole scene mapping and ``presentation`` replaces the
+    bootstrap's ``presentation`` object; ``...`` means "leave as declared". Both
+    are parameters because the roster projection reads exactly these two inputs
+    and nothing else, and a fixture that cannot vary them can only ever test the
+    one case where nobody is castable.
+    """
     paths = DatabasePaths.for_world(tmp_path / "app-support", WORLD_ID)
     paths.canon.parent.mkdir(parents=True)
     with sqlite3.connect(paths.canon) as canon:
@@ -117,7 +163,10 @@ async def committed_story_database(tmp_path: Path):
                 0,
                 2,
                 "active",
-                json.dumps(_story_state(), sort_keys=True),
+                json.dumps(
+                    _story_state() if scene is None else {**_story_state(), "scene": scene},
+                    sort_keys=True,
+                ),
                 7,
             ),
         )
@@ -131,18 +180,7 @@ async def committed_story_database(tmp_path: Path):
                 "scenario.state-test",
                 "v1",
                 "a" * 64,
-                json.dumps(
-                    {
-                        "character": {
-                            "identity": {
-                                "id": PROTAGONIST_ID,
-                                "display_name": "Protagonist",
-                            },
-                            "private_dossier": "bootstrap.hidden-canary",
-                        }
-                    },
-                    sort_keys=True,
-                ),
+                json.dumps(_bootstrap_payload(presentation), sort_keys=True),
                 7,
             ),
         )
@@ -155,10 +193,7 @@ async def committed_story_database(tmp_path: Path):
     finally:
         connection.close()
 
-    try:
-        yield database
-    finally:
-        await database.close()
+    return database
 
 
 class _Profiles:
@@ -200,6 +235,27 @@ def _coordinator(repository: SQLiteGameplayContextRepository) -> GameplayContext
         character=repository.character_port,
         story=repository.story_port,
         memory=repository.memory_port,
+    )
+
+
+async def _state_evidence(
+    repository: SQLiteGameplayContextRepository,
+    *,
+    mode: GameplayMode,
+    tag: str,
+) -> list:
+    coordinator = _coordinator(repository)
+    prepared = await coordinator.prepare(_call(mode=mode, request_id=f"request.{tag}"))
+    authorization = await repository.authorize(prepared.request, prepared.recipe)
+    plan = CacheAwareContextCompiler().compile(
+        prepared.request, authorization, prepared.profile
+    )
+    return [item for item in plan.ordered_evidence if item.layer == Layer.STATE]
+
+
+async def _roster_database(tmp_path: Path, *, scene, presentation) -> DatabaseManager:
+    return await _open_story_database(
+        tmp_path, scene=scene, presentation=presentation
     )
 
 
@@ -279,15 +335,25 @@ async def test_committed_state_flows_through_domain_policy_and_compiler_without_
     for mode, tag in ((GameplayMode.NARRATIVE_COMPILATION, "narrative"),):
         player = await coordinator.prepare(_call(mode=mode, request_id=f"request.{tag}"))
         player_state = [item for item in player.request.evidence if item.layer == Layer.STATE]
-        assert len(player_state) == 1, tag
+        # checkpoint + scene_roster. The roster is its own evidence on purpose;
+        # see `test_the_scene_roster_rides_its_own_evidence_and_not_the_checkpoint`.
+        assert [item.kind for item in player_state] == ["checkpoint", "scene_roster"], tag
 
         player_authorization = await repository.authorize(player.request, player.recipe)
         player_plan = CacheAwareContextCompiler().compile(
             player.request, player_authorization, player.profile
         )
-        assert [
+        # The compiler imposes its own order, so compare as a multiset: the claim
+        # is that it kept exactly the state evidence it was handed, not that it
+        # kept it in the order it arrived.
+        planned_state = [
             item for item in player_plan.ordered_evidence if item.layer == Layer.STATE
-        ] == player_state, tag
+        ]
+        assert sorted(
+            json.dumps(item.model_value(), sort_keys=True) for item in planned_state
+        ) == sorted(
+            json.dumps(item.model_value(), sort_keys=True) for item in player_state
+        ), tag
 
         player_rendered = PromptRenderer(b"p" * 32).render(player_plan)
         assert all(canary not in player_rendered.messages_json for canary in CANARIES), tag
@@ -329,3 +395,316 @@ async def test_advice_interpreter_reaches_the_model_with_its_own_state_projectio
 
     # The narrative checkpoint stays out of the interpreter's evidence entirely.
     assert all(item.kind != "checkpoint" for item in plan.ordered_evidence)
+
+
+# --- scene_roster (ADR-006 D2 / D5) ------------------------------------------
+
+NAMES = {
+    "char.state-test": "Player",
+    "npc_doctor_morris": "莫里斯医生",
+    "npc_jonathan_vale": "Jonathan",
+}
+
+
+@pytest.mark.asyncio
+async def test_the_castable_roster_reaches_the_narrative_compiler_as_public_labels(
+    tmp_path: Path,
+) -> None:
+    """The roster is what D3 will bind speech lines to, so it must arrive.
+
+    And it must arrive as labels. The publication layer binds a voice by
+    canonical id, but handing that id to the model would make every canonical
+    identifier a prompt away from the narrator — the same leak
+    ``disclosed_turn_facts`` exists to prevent for clues.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("char.state-test", "npc_doctor_morris", "npc_jonathan_vale"),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-labels",
+        )
+    finally:
+        await database.close()
+
+    roster = [item for item in state if item.kind == "scene_roster"]
+    assert len(roster) == 1
+    content = json.loads(roster[0].content_json)
+    assert content["castable"] == ["莫里斯医生", "Jonathan"]
+    assert content["scene_id"] == "scene.current"
+    for character_id in NAMES:
+        assert character_id not in roster[0].content_json
+
+
+@pytest.mark.asyncio
+async def test_the_trusted_side_keeps_the_ids_the_publication_layer_binds_by(
+    tmp_path: Path,
+) -> None:
+    """Labels reach the model; ids stay where the voice is bound.
+
+    Without the id on the authorized side there is nothing for the publication
+    layer to attach a voice to, and the roster would be decoration.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("npc_doctor_morris"),
+        presentation={"character_display_names": NAMES},
+    )
+    call = _call(mode=GameplayMode.NARRATIVE_COMPILATION, request_id="request.trusted")
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        await _coordinator(repository).prepare(call)
+        invocation = next(
+            state
+            for state in repository._invocations.values()
+            if state.materialized.call == call
+        )
+        projected = next(
+            item
+            for item in invocation.materialized.facts
+            if item.evidence.kind == "scene_roster"
+        )
+    finally:
+        await database.close()
+
+    assert json.loads(projected.fact.content_json)["castable"] == [
+        {"character_id": "npc_doctor_morris", "label": "莫里斯医生"}
+    ]
+    assert projected.fact.known_by_subject_ids == (PROTAGONIST_ID,)
+    assert projected.fact.public is False
+    assert projected.fact.disclosed_to_owner is True
+
+
+@pytest.mark.asyncio
+async def test_no_consumer_but_the_narrative_compiler_is_offered_the_roster(
+    tmp_path: Path,
+) -> None:
+    """Invariant 6, enforced by construction rather than by convention.
+
+    Every other consumer of ``checkpoint`` would learn who else is in the room.
+    A character may not know that, so the roster is admitted by one consumer
+    only — and this is the test that would catch a second one appearing.
+
+    The sweep is exhaustive over ``GameplayMode`` and the expected mapping is
+    spelled out whole. Modes this fixture cannot serve are skipped by their
+    ``ContextError``; had the assertion been "nobody else has it", a mode that
+    silently stopped producing state at all would have passed unnoticed. Naming
+    all three state-bearing modes means a fourth one appearing fails here.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("char.state-test", "npc_doctor_morris"),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        coordinator = _coordinator(repository)
+        offered: dict[GameplayMode, list[str]] = {}
+        for mode in GameplayMode:
+            try:
+                prepared = await coordinator.prepare(
+                    _call(mode=mode, request_id=f"roster-sweep-{mode.value}")
+                )
+            except ContextError:
+                continue
+            kinds = [
+                item.kind
+                for item in prepared.request.evidence
+                if item.layer == Layer.STATE
+            ]
+            if kinds:
+                offered[mode] = kinds
+    finally:
+        await database.close()
+
+    # The other two keep their scene: the roster is withheld, not the state.
+    assert offered == {
+        GameplayMode.ADVICE_INTERPRETATION: ["observation"],
+        GameplayMode.CHARACTER_REASONING: ["checkpoint"],
+        GameplayMode.NARRATIVE_COMPILATION: ["checkpoint", "scene_roster"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_the_roster_never_rides_the_shared_checkpoint(tmp_path: Path) -> None:
+    """The reason the roster is its own evidence, stated as a test.
+
+    Were it folded into ``checkpoint``, the assertions in
+    ``test_no_consumer_but_the_narrative_compiler_is_offered_the_roster`` would
+    still pass — the other consumers would simply be handed the roster along
+    with the scene. This is the assertion that fails first.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("npc_doctor_morris"),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-separate",
+        )
+    finally:
+        await database.close()
+
+    checkpoint = next(item for item in state if item.kind == "checkpoint")
+    assert "active_character_ids" not in checkpoint.content_json
+    assert "castable" not in checkpoint.content_json
+    assert "莫里斯医生" not in checkpoint.content_json
+
+
+@pytest.mark.asyncio
+async def test_an_undeclared_roster_projects_no_roster_evidence(tmp_path: Path) -> None:
+    """Absent is not empty.
+
+    A session that never declared a roster has not said "nobody is here", and
+    projecting an empty one would tell the model exactly that.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene={"id": "scene.current", "location_id": "location.harbor"},
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-undeclared",
+        )
+    finally:
+        await database.close()
+
+    assert [item.kind for item in state] == ["checkpoint"]
+
+
+@pytest.mark.asyncio
+async def test_an_empty_scene_still_projects_an_empty_roster(tmp_path: Path) -> None:
+    """The other half of absent-is-not-empty: this one *is* a claim."""
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene(),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-empty",
+        )
+    finally:
+        await database.close()
+
+    roster = next(item for item in state if item.kind == "scene_roster")
+    assert json.loads(roster.content_json)["castable"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_character_with_no_public_name_is_omitted_rather_than_named_by_id(
+    tmp_path: Path,
+) -> None:
+    """Fail-closed, exactly as the clue projection is.
+
+    The scene here names someone the content pack gives no public name for.
+    Emitting their canonical id would put ``actor.hidden-canary`` in front of
+    the narrator — turning a missing label into a disclosure.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("npc_doctor_morris", "actor.hidden-canary"),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-unnamed",
+        )
+        rendered = None
+        coordinator = _coordinator(repository)
+        prepared = await coordinator.prepare(
+            _call(
+                mode=GameplayMode.NARRATIVE_COMPILATION, request_id="request.roster-render"
+            )
+        )
+        authorization = await repository.authorize(prepared.request, prepared.recipe)
+        plan = CacheAwareContextCompiler().compile(
+            prepared.request, authorization, prepared.profile
+        )
+        rendered = PromptRenderer(b"r" * 32).render(plan).messages_json
+    finally:
+        await database.close()
+
+    roster = next(item for item in state if item.kind == "scene_roster")
+    assert json.loads(roster.content_json)["castable"] == ["莫里斯医生"]
+    assert "actor.hidden-canary" not in rendered
+
+
+@pytest.mark.asyncio
+async def test_the_player_avatar_is_excluded_from_the_projected_roster(
+    tmp_path: Path,
+) -> None:
+    """ADR-006 D5, at the boundary the model actually sees.
+
+    The protagonist is given a public name in ``NAMES`` on purpose. Without one
+    the label filter would drop them first, the exclusion would never run, and
+    this test would pass for the wrong reason — removing the exclusion entirely
+    would leave it green.
+    """
+    assert PROTAGONIST_ID in NAMES
+
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("char.state-test", "npc_doctor_morris"),
+        presentation={"character_display_names": NAMES},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-d5",
+        )
+    finally:
+        await database.close()
+
+    roster = next(item for item in state if item.kind == "scene_roster")
+    assert json.loads(roster.content_json)["castable"] == ["莫里斯医生"]
+
+
+@pytest.mark.asyncio
+async def test_a_malformed_name_table_casts_nobody_rather_than_failing_the_read(
+    tmp_path: Path,
+) -> None:
+    """Fail-closed at the reader, not fail-open at the model.
+
+    Anything that is not a string-to-string table yields an empty one, so the
+    worst outcome is a silent narrator. Trusting a malformed table instead would
+    put ``None`` or an int in front of the model as somebody's name.
+    """
+    database = await _roster_database(
+        tmp_path,
+        scene=_scene("npc_doctor_morris"),
+        presentation={"character_display_names": {"npc_doctor_morris": 7}},
+    )
+    try:
+        repository = SQLiteGameplayContextRepository(database)
+        state = await _state_evidence(
+            repository,
+            mode=GameplayMode.NARRATIVE_COMPILATION,
+            tag="roster-malformed",
+        )
+    finally:
+        await database.close()
+
+    roster = next(item for item in state if item.kind == "scene_roster")
+    assert json.loads(roster.content_json)["castable"] == []
