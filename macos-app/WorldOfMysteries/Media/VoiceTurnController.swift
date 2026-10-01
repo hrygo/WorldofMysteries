@@ -196,7 +196,7 @@ public final class VoiceTurnController {
         guard let committed,
               let delivery = committed.delivery,
               delivery.state == .ready,
-              let recipe = delivery.renderRecipe else {
+              !delivery.playableRecipes.isEmpty else {
             // The turn committed. Only the audible rendering is missing, and the
             // Engine said so explicitly rather than pretending it succeeded.
             busy = false
@@ -208,18 +208,10 @@ public final class VoiceTurnController {
             return transcript
         }
 
-        phase = .rendering
-        do {
-            if let renderDelivery {
-                try await renderDelivery(recipe)
-            } else {
-                try await renderAndPlay(recipe: recipe)
-            }
-            lastSpokenText = recipe.spokenText
-            phase = .idle
-        } catch {
-            phase = .unavailable(reason: "render_failed")
-        }
+        // Every voice the Engine sealed for this turn, not just one of them:
+        // this path used to speak the first recipe it found, which made a
+        // three-speaker conversation sound like one person talking to nobody.
+        await playPendingRecipes(delivery.playableRecipes)
         busy = false
         return transcript
     }
@@ -260,6 +252,14 @@ public final class VoiceTurnController {
     public func speakDelivery(_ recipes: [VoiceRenderRecipeDTO]) async {
         // Never talk over the player, and never render two things at once.
         guard captureSession == nil, !busy else { return }
+        await playPendingRecipes(recipes)
+    }
+
+    /// Render and play each unit once, in order, tolerating individual failures.
+    ///
+    /// The caller owns the "may I play at all" decision; this owns the loop, so
+    /// both entry points behave identically once they have decided to speak.
+    private func playPendingRecipes(_ recipes: [VoiceRenderRecipeDTO]) async {
         let pending = recipes.filter { !spokenSpeechUnits.contains($0.speechUnitId) }
         guard !pending.isEmpty else { return }
         for recipe in pending {
