@@ -289,7 +289,7 @@
       "additionalProperties": false
     },
     "turn_delivery": {
-      "description": "Post-COMMIT expression state. unavailable never means the turn was lost: the Domain commit already succeeded and stays durable, and only the audible rendering is missing.",
+      "description": "Post-COMMIT expression state. unavailable never means the turn was lost: the Domain commit already succeeded and stays durable, and only the audible rendering is missing. speech_units is the authoritative per-segment view and is ordered by segment_index; the singular speech_unit_id/spoken_text/render_recipe trio is a transitional mirror of the first ready segment, kept so a client that has not yet switched keeps working, and is removed once every client reads speech_units.",
       "type": "object",
       "required": ["state"],
       "properties": {
@@ -298,12 +298,50 @@
         "speech_unit_id": {"$ref": "#/$defs/identifier"},
         "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
         "reason": {"type": "string", "minLength": 1, "maxLength": 128},
-        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"}
+        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"},
+        "speech_units": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/segment_delivery"},
+          "maxItems": 64
+        }
       },
       "allOf": [
         {
           "if": {"properties": {"state": {"const": "ready"}}, "required": ["state"]},
-          "then": {"required": ["narrative_block_id", "speech_unit_id", "spoken_text", "render_recipe"]}
+          "then": {
+            "required": ["narrative_block_id"],
+            "anyOf": [
+              {"required": ["speech_unit_id", "spoken_text", "render_recipe"]},
+              {
+                "required": ["speech_units"],
+                "properties": {"speech_units": {"minItems": 1}}
+              }
+            ]
+          }
+        },
+        {
+          "if": {"properties": {"state": {"const": "unavailable"}}, "required": ["state"]},
+          "then": {"required": ["reason"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "segment_delivery": {
+      "description": "One persisted narrative segment's audio state. A segment that could not be voiced is reported here rather than dropped: a missing voice must cost that segment its audio and nothing else, so the rest of the turn still plays.",
+      "type": "object",
+      "required": ["segment_index", "state"],
+      "properties": {
+        "segment_index": {"type": "integer", "minimum": 0, "maximum": 131071},
+        "state": {"enum": ["ready", "unavailable"]},
+        "speech_unit_id": {"$ref": "#/$defs/identifier"},
+        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 128}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "ready"}}, "required": ["state"]},
+          "then": {"required": ["speech_unit_id", "spoken_text", "render_recipe"]}
         },
         {
           "if": {"properties": {"state": {"const": "unavailable"}}, "required": ["state"]},
