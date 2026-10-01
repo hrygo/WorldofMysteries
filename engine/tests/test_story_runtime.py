@@ -558,7 +558,12 @@ async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
         )
 
 
-def _committed_delivery_case(*, narrative=None, active_character_ids=None):
+def _committed_delivery_case(
+    *,
+    narrative=None,
+    active_character_ids=None,
+    character_display_names=None,
+):
     from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
 
     delta = StateDelta.model_validate(
@@ -680,7 +685,13 @@ def _committed_delivery_case(*, narrative=None, active_character_ids=None):
     snapshot = SimpleNamespace(
         session=_session(),
         bootstrap=SimpleNamespace(
-            presentation=SimpleNamespace(clue_display_names={})
+            presentation=SimpleNamespace(
+                clue_display_names={},
+                # The delivery coordinator narrows the world roster with this
+                # table, so a bootstrap without it makes every rostered turn
+                # fail as "narrative_unavailable" rather than say why.
+                character_display_names=character_display_names or {},
+            )
         ),
     )
     result = SimpleNamespace(
@@ -798,6 +809,12 @@ async def _publish_and_capture(monkeypatch, *, case):
     return captured[0]
 
 
+CAST = {
+    "protagonist-1": "克莱恩",
+    "npc_doctor_morris": "莫里斯医生",
+}
+
+
 @pytest.mark.asyncio
 async def test_publication_is_handed_the_scene_roster_of_the_committed_turn(monkeypatch):
     """The last link before the roster can bind a voice.
@@ -809,11 +826,65 @@ async def test_publication_is_handed_the_scene_roster_of_the_committed_turn(monk
     source = await _publish_and_capture(
         monkeypatch,
         case=_committed_delivery_case(
-            active_character_ids=["protagonist-1", "npc_doctor_morris"]
+            active_character_ids=["protagonist-1", "npc_doctor_morris"],
+            character_display_names=CAST,
         ),
     )
 
     assert source.present_character_ids == ("protagonist-1", "npc_doctor_morris")
+    # The protagonist is in the room and is not in the cast: ADR-006 D5 keeps
+    # those two facts apart, and the publication layer may only bind the second.
+    assert source.castable_character_labels == (
+        ("npc_doctor_morris", "莫里斯医生"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_character_with_no_public_name_is_present_but_not_castable(monkeypatch):
+    """The second narrowing, and it is not the first one.
+
+    Someone can be in the room and still have nothing to disclose. Emitting
+    their canonical id as a label instead would hand the narrator exactly the
+    identifier this projection exists to withhold.
+    """
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=["npc_doctor_morris", "npc_stranger"],
+            character_display_names=CAST,
+        ),
+    )
+
+    assert source.present_character_ids == ("npc_doctor_morris", "npc_stranger")
+    assert source.castable_character_labels == (("npc_doctor_morris", "莫里斯医生"),)
+
+
+@pytest.mark.asyncio
+async def test_an_empty_scene_casts_nobody_rather_than_casting_the_protagonist(
+    monkeypatch,
+):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=[],
+            character_display_names=CAST,
+        ),
+    )
+
+    assert source.castable_character_labels == ()
+
+
+@pytest.mark.asyncio
+async def test_no_declared_roster_means_no_castable_roster(monkeypatch):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=None,
+            character_display_names=CAST,
+        ),
+    )
+
+    assert source.castable_character_labels is None
 
 
 @pytest.mark.asyncio

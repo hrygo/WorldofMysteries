@@ -155,6 +155,29 @@ class CommittedNarrativeSource:
     #: authorised to know (ADR-006 D2).
     present_character_ids: tuple[str, ...] | None = None
 
+    #: Who may be *heard*, as ``(canonical_id, public_label)`` pairs — the
+    #: world roster above, narrowed by ADR-006 D5.
+    #:
+    #: This is a second field rather than a replacement, and the two are not
+    #: redundant. ``present_character_ids`` is a world fact: who was in the
+    #: room, protagonist included. This is a presentation fact: who the
+    #: publication layer may bind a voice to, which excludes the protagonist
+    #: (product setting) and anyone without a public name (semantic
+    #: authorisation). Collapsing them would erase the distinction ADR-006 D5
+    #: is built on, and would leave no record that the protagonist *was*
+    #: present.
+    #:
+    #: The model is given labels only, so a line it proposes can be bound back
+    #: to a canonical id through this table alone. That is why it travels with
+    #: the source rather than being re-derived at publication time: the
+    #: publication layer would otherwise need the bootstrap's name table, and a
+    #: second reader of it is a second unreviewed source of who is called what.
+    #:
+    #: Same three states as ``present_character_ids``: ``None`` means no roster
+    #: was declared at all, ``()`` means the world declared one and it cast
+    #: nobody, and a non-empty tuple is authoritative.
+    castable_character_labels: tuple[tuple[str, str], ...] | None = None
+
     def __post_init__(self) -> None:
         for field in ("turn_id", "session_id", "state_delta_id", "protagonist_id"):
             object.__setattr__(
@@ -213,6 +236,51 @@ class CommittedNarrativeSource:
                 "present_character_ids",
                 _character_roster(self.present_character_ids),
             )
+        if self.castable_character_labels is not None:
+            object.__setattr__(
+                self,
+                "castable_character_labels",
+                _castable_labels(self.castable_character_labels),
+            )
+            # The castable roster claims to be the world roster, narrowed. If it
+            # is not, something upstream invented a speaker who was never in the
+            # room — and nothing downstream would report it, because every id
+            # would still resolve. That is the whole failure mode this design
+            # exists to prevent, so it is refused at construction.
+            if self.present_character_ids is not None:
+                absent = {
+                    character_id
+                    for character_id, _ in self.castable_character_labels
+                } - set(self.present_character_ids)
+                if absent:
+                    raise NarrativePublicationError("castable_outside_scene")
+
+
+def _castable_labels(value: object) -> tuple[tuple[str, str], ...]:
+    """Normalise ``(canonical_id, public_label)`` pairs, refusing ambiguity.
+
+    Two labels for one character, or one id wearing two labels, both mean the
+    projection is ambiguous about who is speaking. Binding a line to the wrong
+    one would cast the wrong person's voice, so neither is collapsed or
+    resolved here — the roster is refused and the turn keeps its historical
+    single-speaker behaviour.
+    """
+    if not isinstance(value, (tuple, list)):
+        raise NarrativePublicationError("invalid_castable_character_labels")
+    pairs: list[tuple[str, str]] = []
+    for item in value:
+        if not isinstance(item, (tuple, list)) or len(item) != 2:
+            raise NarrativePublicationError("invalid_castable_character_labels")
+        character_id = _bounded_text(
+            item[0], field="castable_character", limit=256
+        )
+        label = _bounded_text(item[1], field="castable_label", limit=256)
+        pairs.append((character_id, label))
+    if len({character_id for character_id, _ in pairs}) != len(pairs):
+        raise NarrativePublicationError("duplicate_castable_character")
+    if len({label for _, label in pairs}) != len(pairs):
+        raise NarrativePublicationError("duplicate_castable_label")
+    return tuple(pairs)
 
 
 class NarrativeCompilerPort(Protocol):
@@ -267,6 +335,11 @@ def _source_key(source: CommittedNarrativeSource | None) -> str | None:
                 None
                 if source.present_character_ids is None
                 else list(source.present_character_ids)
+            ),
+            "castable_character_labels": (
+                None
+                if source.castable_character_labels is None
+                else [list(pair) for pair in source.castable_character_labels]
             ),
         },
         ensure_ascii=False,

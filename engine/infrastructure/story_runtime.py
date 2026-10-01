@@ -47,7 +47,10 @@ from application.narrative_publication import (
 from application.post_commit_expression import PostCommitExpressionService
 from application.scenario_policy import TurnWorkerFactory
 from application.speech_unit import SpeechUnitSealingService
-from application.story_disclosure import disclosed_turn_facts
+from application.story_disclosure import (
+    disclosed_castable_roster,
+    disclosed_turn_facts,
+)
 from application.story_expression import StoryExpressionQueryService
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
@@ -1141,6 +1144,10 @@ class _DeliveryCoordinator:
                     raise NarrativePublicationError(
                         "committed_story_revision_missing"
                     )
+                scene_roster = turn_scene_roster(
+                    story_state=result.session.story_state,
+                    committed_story_revision=story_revision,
+                )
                 source = CommittedNarrativeSource(
                     turn_id=result.turn.id,
                     session_id=result.turn.session_id,
@@ -1157,9 +1164,17 @@ class _DeliveryCoordinator:
                     source_store_revision=result.store_revision,
                     # The commit result carries the session as this turn left it,
                     # so the roster is read from state that cannot have moved on.
-                    present_character_ids=turn_scene_roster(
-                        story_state=result.session.story_state,
-                        committed_story_revision=story_revision,
+                    present_character_ids=scene_roster,
+                    # Narrowed from the world roster by D5, using the same
+                    # public-name allowlist the model's roster evidence was
+                    # built from — one table, two consumers, no second source
+                    # of who is called what.
+                    castable_character_labels=disclosed_castable_roster(
+                        active_character_ids=scene_roster,
+                        protagonist_id=result.session.protagonist_id,
+                        character_display_names=(
+                            snapshot.bootstrap.presentation.character_display_names
+                        ),
                     ),
                 )
             else:

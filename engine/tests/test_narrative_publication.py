@@ -867,3 +867,180 @@ def _flights_key(source):
     from application.narrative_publication import _source_key
 
     return _source_key(source)
+
+
+# --- castable_character_labels ----------------------------------------------
+
+
+def _source_with_castable(value):
+    from application.narrative_publication import CommittedNarrativeSource
+
+    return CommittedNarrativeSource(
+        turn_id="turn-1",
+        session_id="session-1",
+        story_revision=4,
+        state_delta_id="delta-1",
+        state_delta=_delta(),
+        scene_id="scene-1",
+        protagonist_id="protagonist-1",
+        disclosed_facts="已提交结果：预约簿缺少一页。",
+        input_turn_id="input-1",
+        source_store_revision=8,
+        castable_character_labels=value,
+    )
+
+
+def test_a_castable_roster_carries_ids_and_labels_together():
+    """The model is given labels; only this table can bind them back to ids."""
+    assert _source_with_castable(
+        [("klein", "克莱恩"), ("audrey", "奥黛丽")]
+    ).castable_character_labels == (("klein", "克莱恩"), ("audrey", "奥黛丽"))
+
+
+def test_castable_pairs_are_normalised():
+    assert _source_with_castable(
+        [["  klein  ", "  克莱恩  "]]
+    ).castable_character_labels == (("klein", "克莱恩"),)
+
+
+def test_nobody_castable_is_still_an_answer():
+    assert _source_with_castable([]).castable_character_labels == ()
+
+
+def test_no_castable_roster_declared_is_not_the_same_as_nobody():
+    """The distinction the publication layer will branch on."""
+    assert _source_with_castable(None).castable_character_labels is None
+    assert _source_with_castable([]).castable_character_labels == ()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        # One character wearing two names: a line could bind either way.
+        [("klein", "克莱恩"), ("klein", "克莱")],
+        # Two characters sharing one name: a line naming it binds to nobody in
+        # particular, and picking the first would cast the wrong person's voice.
+        [("klein", "克莱恩"), ("audrey", "克莱恩")],
+        # Same id, different spellings — still two entries for one person.
+        [("klein", "克莱恩"), ("  klein  ", "克莱")],
+        ["klein-克莱恩"],
+        [("klein",)],
+        [("klein", "克莱恩", "extra")],
+        [("klein", "")],
+        [("klein", "   ")],
+        [("klein", 7)],
+        [(7, "克莱恩")],
+        [("klein", "with\x00nul")],
+        [("x" * 257, "克莱恩")],
+        [("klein", "y" * 257)],
+        "klein",
+        7,
+    ],
+)
+def test_an_unusable_castable_roster_is_refused(value):
+    """Every one of these would bind a voice to the wrong character."""
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError):
+        _source_with_castable(value)
+
+
+def test_the_castable_roster_is_part_of_the_publication_identity():
+    """Two attempts disagreeing about who may speak are not retries.
+
+    They would bind different voices to the same text, so they must be refused
+    rather than raced.
+    """
+    from application.narrative_publication import _source_key
+
+    def key(value):
+        return _source_key(_source_with_castable(value))
+
+    assert key([("klein", "克莱恩")]) != key([("klein", "克莱恩"), ("audrey", "奥黛丽")])
+    assert key([("klein", "克莱恩")]) == key([("klein", "克莱恩")])
+    # Same cast, different spelling of a name: still a different publication.
+    assert key([("klein", "克莱恩")]) != key([("klein", "克莱")])
+    # Declining a roster differs from declaring one that casts nobody.
+    assert key(None) != key([])
+
+
+def test_the_world_roster_and_the_castable_roster_are_both_carried():
+    """Not redundant: one is who was there, the other is who may be heard.
+
+    Collapsing them would erase ADR-006 D5's distinction and leave no record
+    that the protagonist was present but deliberately not cast.
+    """
+    from application.narrative_publication import CommittedNarrativeSource
+
+    source = CommittedNarrativeSource(
+        turn_id="turn-1",
+        session_id="session-1",
+        story_revision=4,
+        state_delta_id="delta-1",
+        state_delta=_delta(),
+        scene_id="scene-1",
+        protagonist_id="protagonist-1",
+        disclosed_facts="已提交结果：预约簿缺少一页。",
+        input_turn_id="input-1",
+        source_store_revision=8,
+        present_character_ids=("protagonist-1", "klein"),
+        castable_character_labels=(("klein", "克莱恩"),),
+    )
+
+    assert "protagonist-1" in source.present_character_ids
+    assert all(
+        character_id != "protagonist-1"
+        for character_id, _ in source.castable_character_labels
+    )
+
+
+def test_a_castable_roster_naming_someone_absent_is_refused():
+    """The castable roster is a narrowing, and a narrowing cannot add.
+
+    An id that is not in the world roster means a speaker was invented upstream.
+    Every id would still resolve and every label would still bind, so nothing
+    downstream would ever report it — the block would simply be voiced by
+    someone who was never in the room.
+    """
+    from application.narrative_publication import (
+        CommittedNarrativeSource,
+        NarrativePublicationError,
+    )
+
+    with pytest.raises(NarrativePublicationError, match="castable_outside_scene"):
+        CommittedNarrativeSource(
+            turn_id="turn-1",
+            session_id="session-1",
+            story_revision=4,
+            state_delta_id="delta-1",
+            state_delta=_delta(),
+            scene_id="scene-1",
+            protagonist_id="protagonist-1",
+            disclosed_facts="已提交结果：预约簿缺少一页。",
+            input_turn_id="input-1",
+            source_store_revision=8,
+            present_character_ids=("klein",),
+            castable_character_labels=(("klein", "克莱恩"), ("audrey", "奥黛丽")),
+        )
+
+
+def test_a_narrowed_roster_that_drops_everyone_is_fine():
+    """D5 may legitimately leave nobody castable; that is not an error."""
+    from application.narrative_publication import CommittedNarrativeSource
+
+    source = CommittedNarrativeSource(
+        turn_id="turn-1",
+        session_id="session-1",
+        story_revision=4,
+        state_delta_id="delta-1",
+        state_delta=_delta(),
+        scene_id="scene-1",
+        protagonist_id="protagonist-1",
+        disclosed_facts="已提交结果：预约簿缺少一页。",
+        input_turn_id="input-1",
+        source_store_revision=8,
+        present_character_ids=("protagonist-1",),
+        castable_character_labels=(),
+    )
+
+    assert source.castable_character_labels == ()
