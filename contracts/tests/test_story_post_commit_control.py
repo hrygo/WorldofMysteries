@@ -89,6 +89,12 @@ def _delivery() -> dict:
         "expected_model_revision": None,
         "speed": 1.0,
         "language": "zh-CN",
+        # Same four pins as the Engine seals: the reviewed evidence and the
+        # exact artifact it was reviewed against.
+        "evidence_id": "evidence_01",
+        "evidence_digest": "b" * 64,
+        "expected_model_artifact_revision": "model_artifact_01",
+        "expected_model_catalog_revision": "qwen3-tts-20260929",
     }
     return {
         "state": "ready",
@@ -425,6 +431,10 @@ def test_audio_ready_requires_complete_old_turn_delivery_view():
         "voice_id",
         "expected_voice_revision",
         "expected_model_revision",
+        "evidence_id",
+        "evidence_digest",
+        "expected_model_artifact_revision",
+        "expected_model_catalog_revision",
         "speed",
         "language",
     }

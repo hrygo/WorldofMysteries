@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -124,6 +125,13 @@ def _recipe(segment_index: int, unit_id: str, *, voice_id: str = "voice_01") -> 
         "expected_model_revision": None,
         "speed": 1.0,
         "language": "zh-CN",
+        # The recipe pins what a human approved and the exact artifact they
+        # heard. A delivery that omits these cannot be rendered under the same
+        # evidence, so the contract must refuse to describe it.
+        "evidence_id": "evidence_01",
+        "evidence_digest": "a" * 64,
+        "expected_model_artifact_revision": "model_artifact_01",
+        "expected_model_catalog_revision": "qwen3-tts-20260929",
     }
 
 
@@ -195,3 +203,34 @@ def test_a_segment_cannot_carry_a_voice_the_server_did_not_choose():
     )
     assert not _validator_for("turn_delivery").is_valid(delivery)
 
+
+def test_a_recipe_carries_the_evidence_it_was_reviewed_against():
+    """The contract has to allow the evidence the Engine already seals.
+
+    Both ends emit these four fields, and ``additionalProperties: false`` meant
+    the contract rejected the very payloads the App receives — a three-way
+    disagreement in which the two implementations were right and only the
+    document was wrong.
+    """
+    delivery = _delivery(
+        {
+            "segment_index": 1,
+            "state": "ready",
+            "speech_unit_id": "speech_unit_01",
+            "spoken_text": "别动那只表。",
+            "render_recipe": _recipe(1, "speech_unit_01"),
+        }
+    )
+    assert _validator_for("turn_delivery").is_valid(delivery)
+
+    # Declaring the fields must not turn the recipe into a free-for-all: an
+    # unknown key is still a protocol violation, and a malformed digest is a
+    # different claim rather than a variant of the same one.
+    invented = copy.deepcopy(delivery)
+    invented["speech_units"][0]["render_recipe"]["evidence_body"] = "the whole record"
+    assert not _validator_for("turn_delivery").is_valid(invented)
+
+    for bad_digest in ("", "not-a-digest", "A" * 64):
+        malformed = copy.deepcopy(delivery)
+        malformed["speech_units"][0]["render_recipe"]["evidence_digest"] = bad_digest
+        assert not _validator_for("turn_delivery").is_valid(malformed), bad_digest
