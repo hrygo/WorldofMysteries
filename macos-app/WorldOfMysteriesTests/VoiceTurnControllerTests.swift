@@ -313,7 +313,149 @@ struct VoiceTurnControllerTests {
         // Without this the sealed recipe is rendered by nobody and the player
         // only ever reads the turn.
         #expect(panel.contains("work.audioState == .ready"))
-        #expect(panel.contains("voice.speakDelivery(recipe)"))
+        #expect(panel.contains("work.delivery?.playableRecipes"))
+        #expect(panel.contains("voice.speakDelivery(recipes)"))
+    }
+
+    // MARK: - A turn is several voices, not one
+
+    private func segmentRecipe(
+        speechUnitId: String,
+        segmentIndex: Int,
+        spokenText: String
+    ) throws -> VoiceRenderRecipeDTO {
+        try JSONDecoder().decode(
+            VoiceRenderRecipeDTO.self,
+            from: Data(
+                """
+                {
+                  "speech_unit_id": "\(speechUnitId)",
+                  "turn_id": "turn_first_001",
+                  "story_revision": 1,
+                  "narrative_block_id": "narrative_1",
+                  "segment_index": \(segmentIndex),
+                  "performance_plan_id": "plan_\(segmentIndex)",
+                  "spoken_text": "\(spokenText)",
+                  "voice_id": "voice_\(segmentIndex)",
+                  "expected_voice_revision": "voice_revision_1",
+                  "expected_model_revision": "model_revision_1",
+                  "speed": 1.0,
+                  "language": "zh-CN"
+                }
+                """.utf8
+            )
+        )
+    }
+
+    @Test("A block with three speakers plays three voices, in block order")
+    func everySealedSegmentIsSpoken() async throws {
+        let rendered = RenderLog()
+        let (controller, _) = makeController(
+            client: VoiceSubmissionClient(result: nil),
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in rendered.append(recipe) }
+        )
+        let units = try [
+            SegmentDeliveryDTO(
+                segmentIndex: 1,
+                state: .ready,
+                speechUnitId: "speech_1",
+                spokenText: "别动那只表。",
+                renderRecipe: try segmentRecipe(
+                    speechUnitId: "speech_1", segmentIndex: 1, spokenText: "别动那只表。"
+                )
+            ),
+            SegmentDeliveryDTO(
+                segmentIndex: 2,
+                state: .unavailable,
+                reason: "voice_binding_not_found"
+            ),
+            SegmentDeliveryDTO(
+                segmentIndex: 3,
+                state: .ready,
+                speechUnitId: "speech_3",
+                spokenText: "我什么也没看见。",
+                renderRecipe: try segmentRecipe(
+                    speechUnitId: "speech_3", segmentIndex: 3, spokenText: "我什么也没看见。"
+                )
+            ),
+        ]
+        let delivery = try StoryTurnDeliveryDTO(
+            state: .ready,
+            narrativeBlockId: "narrative_1",
+            speechUnits: units
+        )
+
+        // The silent segment is reported, not hidden, and the other two speak.
+        #expect(delivery.silentSegments.map(\.segmentIndex) == [2])
+        #expect(delivery.playableRecipes.map(\.speechUnitId) == ["speech_1", "speech_3"])
+
+        await controller.speakDelivery(delivery.playableRecipes)
+
+        #expect(rendered.recipes.map(\.segmentIndex) == [1, 3])
+        #expect(controller.phase == .idle)
+    }
+
+    @Test("One failed segment does not silence the rest of the turn")
+    func aFailedSegmentCostsOnlyItself() async throws {
+        let rendered = RenderLog()
+        let (controller, _) = makeController(
+            client: VoiceSubmissionClient(result: nil),
+            journal: VoiceJournal(),
+            renderDelivery: { recipe in
+                rendered.append(recipe)
+                if recipe.segmentIndex == 1 { throw EngineConnectionError.timedOut }
+            }
+        )
+        let recipes = try [
+            segmentRecipe(speechUnitId: "speech_1", segmentIndex: 1, spokenText: "一。"),
+            segmentRecipe(speechUnitId: "speech_2", segmentIndex: 2, spokenText: "二。"),
+        ]
+
+        await controller.speakDelivery(recipes)
+
+        #expect(rendered.recipes.count == 2)
+        #expect(controller.phase == .idle)
+    }
+
+    @Test("An Engine that has not shipped the batch still plays")
+    func theSingleSegmentMirrorStillWorks() throws {
+        let delivery = try readyDelivery()
+
+        #expect(delivery.speechUnits.isEmpty)
+        #expect(delivery.playableRecipes.map(\.speechUnitId) == ["speech_1"])
+    }
+
+    @Test("A ready turn whose batch sealed nothing is refused")
+    func aReadyTurnWithNothingSealedIsRefused() throws {
+        #expect(throws: StoryControlError.self) {
+            try StoryTurnDeliveryDTO(
+                state: .ready,
+                narrativeBlockId: "narrative_1",
+                speechUnits: [
+                    SegmentDeliveryDTO(segmentIndex: 1, state: .unavailable, reason: "voice_binding_not_found")
+                ]
+            )
+        }
+    }
+
+    @Test("A ready segment with no sealed recipe is refused")
+    func aReadySegmentWithoutARecipeIsRefused() throws {
+        #expect(throws: StoryControlError.self) {
+            try SegmentDeliveryDTO(
+                segmentIndex: 1,
+                state: .ready,
+                speechUnitId: "speech_1",
+                spokenText: "一。"
+            )
+        }
+    }
+
+    @Test("A silent segment must say why")
+    func aSilentSegmentMustSayWhy() throws {
+        #expect(throws: StoryControlError.self) {
+            try SegmentDeliveryDTO(segmentIndex: 1, state: .unavailable)
+        }
     }
 
     private static func recipe(

@@ -671,6 +671,95 @@ public nonisolated enum StoryInputMode: String, Codable, Sendable, Equatable {
 ///
 /// `unavailable` never means the turn was lost: the Domain commit already
 /// succeeded and stays durable, and only the audible rendering is missing.
+/// One narrative segment's audio state.
+///
+/// A segment that could not be voiced is reported rather than dropped: the
+/// player sees which line lost its audio and the rest of the turn still plays.
+public nonisolated struct SegmentDeliveryDTO: Codable, Sendable, Equatable {
+    public enum State: String, Codable, Sendable, Equatable {
+        case ready
+        case unavailable
+    }
+
+    public let segmentIndex: Int
+    public let state: State
+    public let speechUnitId: String?
+    public let spokenText: String?
+    public let reason: String?
+    public let renderRecipe: VoiceRenderRecipeDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case segmentIndex = "segment_index"
+        case state
+        case speechUnitId = "speech_unit_id"
+        case spokenText = "spoken_text"
+        case reason
+        case renderRecipe = "render_recipe"
+    }
+
+    public init(
+        segmentIndex: Int,
+        state: State,
+        speechUnitId: String? = nil,
+        spokenText: String? = nil,
+        reason: String? = nil,
+        renderRecipe: VoiceRenderRecipeDTO? = nil
+    ) throws {
+        guard segmentIndex >= 0, segmentIndex <= 131_071 else {
+            throw StoryControlError.invalidPayload
+        }
+        self.segmentIndex = segmentIndex
+        self.state = state
+        self.speechUnitId = try speechUnitId.map { try StoryControl.identifier($0) }
+        self.spokenText = try spokenText.map { try StoryControl.spokenText($0) }
+        self.reason = try reason.map { try StoryControl.reason($0) }
+        self.renderRecipe = renderRecipe
+        switch state {
+        case .ready:
+            // A ready segment with no recipe is a promise the App cannot keep:
+            // honouring it would mean inventing a voice, which is the one thing
+            // the sealed recipe exists to prevent.
+            guard let renderRecipe, renderRecipe.segmentIndex == segmentIndex else {
+                throw StoryControlError.invalidPayload
+            }
+            guard speechUnitId == nil || (speechUnitId == renderRecipe.speechUnitId
+                  && spokenText == renderRecipe.spokenText) else {
+                throw StoryControlError.invalidPayload
+            }
+        case .unavailable:
+            guard reason != nil else { throw StoryControlError.invalidPayload }
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["segment_index", "state", "speech_unit_id", "spoken_text",
+                      "reason", "render_recipe"],
+            required: ["segment_index", "state"]
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            segmentIndex: try container.decode(Int.self, forKey: .segmentIndex),
+            state: try container.decode(State.self, forKey: .state),
+            speechUnitId: try container.decodeIfPresent(String.self, forKey: .speechUnitId),
+            spokenText: try container.decodeIfPresent(String.self, forKey: .spokenText),
+            reason: try container.decodeIfPresent(String.self, forKey: .reason),
+            renderRecipe: try container.decodeIfPresent(VoiceRenderRecipeDTO.self, forKey: .renderRecipe)
+        )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(segmentIndex, forKey: .segmentIndex)
+        try container.encode(state, forKey: .state)
+        try container.encodeIfPresent(speechUnitId, forKey: .speechUnitId)
+        try container.encodeIfPresent(spokenText, forKey: .spokenText)
+        try container.encodeIfPresent(reason, forKey: .reason)
+        try container.encodeIfPresent(renderRecipe, forKey: .renderRecipe)
+    }
+}
+
 public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
     public enum State: String, Codable, Sendable, Equatable {
         case ready
@@ -685,6 +774,9 @@ public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
     /// Present exactly when `state == .ready`. It is the sealed recipe the App
     /// must replay into `voice.render`; the Engine rejects any drift.
     public let renderRecipe: VoiceRenderRecipeDTO?
+    /// The authoritative per-segment view, in block order. Empty only while an
+    /// older Engine still answers with the single-segment shape.
+    public let speechUnits: [SegmentDeliveryDTO]
 
     enum CodingKeys: String, CodingKey {
         case state
@@ -693,6 +785,7 @@ public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
         case spokenText = "spoken_text"
         case reason
         case renderRecipe = "render_recipe"
+        case speechUnits = "speech_units"
     }
 
     public init(
@@ -701,7 +794,8 @@ public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
         speechUnitId: String? = nil,
         spokenText: String? = nil,
         reason: String? = nil,
-        renderRecipe: VoiceRenderRecipeDTO? = nil
+        renderRecipe: VoiceRenderRecipeDTO? = nil,
+        speechUnits: [SegmentDeliveryDTO] = []
     ) throws {
         self.state = state
         self.narrativeBlockId = try narrativeBlockId.map { try StoryControl.identifier($0) }
@@ -709,28 +803,65 @@ public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
         self.spokenText = try spokenText.map { try StoryControl.spokenText($0) }
         self.reason = try reason.map { try StoryControl.reason($0) }
         self.renderRecipe = renderRecipe
+        self.speechUnits = speechUnits
         switch state {
         case .ready:
-            guard narrativeBlockId != nil, speechUnitId != nil, spokenText != nil,
-                  let renderRecipe else {
+            guard narrativeBlockId != nil else {
                 throw StoryControlError.invalidPayload
             }
-            // The recipe must describe the very segment this delivery names;
-            // otherwise a client could play one unit while reporting another.
-            guard renderRecipe.narrativeBlockId == narrativeBlockId,
-                  renderRecipe.spokenText == spokenText else {
-                throw StoryControlError.invalidPayload
+            if speechUnits.isEmpty {
+                guard speechUnitId != nil, spokenText != nil, let renderRecipe else {
+                    throw StoryControlError.invalidPayload
+                }
+                // The recipe must describe the very segment this delivery names;
+                // otherwise a client could play one unit while reporting another.
+                guard renderRecipe.narrativeBlockId == narrativeBlockId,
+                      renderRecipe.spokenText == spokenText else {
+                    throw StoryControlError.invalidPayload
+                }
+            } else {
+                // A ready turn that sealed nothing is a contradiction. Falling
+                // back to the mirror here would replay a unit the Engine has
+                // already stopped standing behind.
+                guard speechUnits.contains(where: { $0.state == .ready }) else {
+                    throw StoryControlError.invalidPayload
+                }
+                for unit in speechUnits where unit.state == .ready {
+                    guard let recipe = unit.renderRecipe,
+                          recipe.narrativeBlockId == narrativeBlockId else {
+                        throw StoryControlError.invalidPayload
+                    }
+                }
             }
         case .unavailable:
             guard reason != nil else { throw StoryControlError.invalidPayload }
         }
     }
 
+    /// The recipes this delivery can actually play, in the block's order.
+    ///
+    /// The batch when the Engine sent one; otherwise the single-segment mirror,
+    /// so the App still works against an Engine that has not shipped it yet.
+    public var playableRecipes: [VoiceRenderRecipeDTO] {
+        guard !speechUnits.isEmpty else {
+            return renderRecipe.map { [$0] } ?? []
+        }
+        return speechUnits.compactMap { unit in
+            unit.state == .ready ? unit.renderRecipe : nil
+        }
+    }
+
+    /// Segments the Engine could not voice, so the UI can name the silent line
+    /// instead of leaving the player to wonder which one it was.
+    public var silentSegments: [SegmentDeliveryDTO] {
+        speechUnits.filter { $0.state == .unavailable }
+    }
+
     public init(from decoder: any Decoder) throws {
         try checkWireKeys(
             decoder,
             allowed: ["state", "narrative_block_id", "speech_unit_id", "spoken_text",
-                      "reason", "render_recipe"],
+                      "reason", "render_recipe", "speech_units"],
             required: ["state"]
         )
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -740,7 +871,8 @@ public nonisolated struct StoryTurnDeliveryDTO: Codable, Sendable, Equatable {
             speechUnitId: try container.decodeIfPresent(String.self, forKey: .speechUnitId),
             spokenText: try container.decodeIfPresent(String.self, forKey: .spokenText),
             reason: try container.decodeIfPresent(String.self, forKey: .reason),
-            renderRecipe: try container.decodeIfPresent(VoiceRenderRecipeDTO.self, forKey: .renderRecipe)
+            renderRecipe: try container.decodeIfPresent(VoiceRenderRecipeDTO.self, forKey: .renderRecipe),
+            speechUnits: try container.decodeIfPresent([SegmentDeliveryDTO].self, forKey: .speechUnits) ?? []
         )
     }
 

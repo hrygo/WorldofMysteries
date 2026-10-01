@@ -247,24 +247,45 @@ public final class VoiceTurnController {
     /// own polling cadence — a renderer that is failing must not be hammered
     /// once a second, and the text has to keep working regardless.
     public func speakDelivery(_ recipe: VoiceRenderRecipeDTO) async {
+        await speakDelivery([recipe])
+    }
+
+    /// Speak a turn's already-committed delivery, one segment at a time.
+    ///
+    /// A turn can carry several speakers, and a block that cast three people
+    /// must not be heard as one. Each unit is attempted once, in block order,
+    /// and a unit that fails costs only itself: the turn is reported unavailable
+    /// only when nothing at all could be played, so one silent line never
+    /// silences the conversation.
+    public func speakDelivery(_ recipes: [VoiceRenderRecipeDTO]) async {
         // Never talk over the player, and never render two things at once.
         guard captureSession == nil, !busy else { return }
-        guard !spokenSpeechUnits.contains(recipe.speechUnitId) else { return }
-        spokenSpeechUnits.append(recipe.speechUnitId)
+        let pending = recipes.filter { !spokenSpeechUnits.contains($0.speechUnitId) }
+        guard !pending.isEmpty else { return }
+        for recipe in pending {
+            spokenSpeechUnits.append(recipe.speechUnitId)
+        }
         if spokenSpeechUnits.count > Self.spokenHistoryLimit {
             spokenSpeechUnits.removeFirst(spokenSpeechUnits.count - Self.spokenHistoryLimit)
         }
-        phase = .rendering
-        do {
-            if let renderDelivery {
-                try await renderDelivery(recipe)
-            } else {
-                try await renderAndPlay(recipe: recipe)
+        var failures = 0
+        for recipe in pending {
+            phase = .rendering
+            do {
+                if let renderDelivery {
+                    try await renderDelivery(recipe)
+                } else {
+                    try await renderAndPlay(recipe: recipe)
+                }
+                lastSpokenText = recipe.spokenText
+            } catch {
+                failures += 1
             }
-            lastSpokenText = recipe.spokenText
-            phase = .idle
-        } catch {
+        }
+        if failures == pending.count {
             phase = .unavailable(reason: "render_failed")
+        } else {
+            phase = .idle
         }
     }
 

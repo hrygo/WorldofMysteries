@@ -56,14 +56,18 @@ public struct StorySessionPanel: View {
     /// Start the turn's audio as soon as the Engine has sealed it.
     ///
     /// The controller refuses to speak the same sealed unit twice, so the
-    /// repeated re-reads that keep the projection fresh cannot replay it.
+    /// repeated re-reads that keep the projection fresh cannot replay it. Every
+    /// sealed segment is handed over, not just the first: a turn with three
+    /// speakers is three voices, and a segment the Engine could not voice is
+    /// left to the subtitle rather than silently swallowing the rest.
     private func playDeliveryIfReady(_ work: StoryTurnWorkGetResponseDTO) {
         guard let voice,
               work.audioState == .ready,
-              let recipe = work.delivery?.renderRecipe else {
+              let recipes = work.delivery?.playableRecipes,
+              !recipes.isEmpty else {
             return
         }
-        Task { await voice.speakDelivery(recipe) }
+        Task { await voice.speakDelivery(recipes) }
     }
 
     private var header: some View {
