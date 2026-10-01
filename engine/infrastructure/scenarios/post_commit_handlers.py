@@ -22,6 +22,7 @@ from application.post_commit_work import (
     PostCommitWorkSource,
 )
 from application.speech_unit import SealedSpeechUnit, SpeechUnitSealingService
+from application.story_disclosure import disclosed_turn_facts
 from application.story_initialization import StorySessionBootstrap
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import TurnContextBindingPort
@@ -141,32 +142,6 @@ def _validate_narrative(
         raise _PostCommitSourceError()
 
 
-def _disclosed_facts(
-    *,
-    delta: Any,
-    bootstrap: StorySessionBootstrap,
-) -> str:
-    """Rebuild only the committed, player-disclosable facts for this turn."""
-    names = bootstrap.presentation.clue_display_names
-    # This is a post-COMMIT expression path. A clue without an explicit
-    # presentation label is omitted; expression failure must not unwind the
-    # committed turn, and a canonical identifier must never reach the narrator.
-    added = [
-        name
-        for clue_id in delta.story_delta.clue_ids_add or ()
-        if (name := names.get(clue_id)) is not None
-    ]
-    parts = [f"结果判定：{delta.outcome}"]
-    if added:
-        parts.append("玩家发现了：" + "、".join(added))
-    story_delta = delta.story_delta
-    if story_delta.scene_id:
-        parts.append(f"场景转为：{story_delta.scene_id}")
-    if story_delta.world_time_delta_minutes:
-        parts.append(f"世界时间推进：{story_delta.world_time_delta_minutes} 分钟")
-    return "\n".join(parts)
-
-
 class ScenarioNarrativePublishHandler:
     """Publish one frozen or live NarrativeBlock from its committed source."""
 
@@ -266,7 +241,7 @@ class ScenarioNarrativePublishHandler:
             state_delta=delta,
             scene_id=story_delta.scene_id,
             protagonist_id=committed.bootstrap.initial_session.protagonist_id,
-            disclosed_facts=_disclosed_facts(
+            disclosed_facts=disclosed_turn_facts(
                 delta=delta,
                 bootstrap=committed.bootstrap,
             ),

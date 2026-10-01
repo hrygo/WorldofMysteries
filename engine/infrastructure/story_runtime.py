@@ -46,6 +46,7 @@ from application.narrative_publication import (
 from application.post_commit_expression import PostCommitExpressionService
 from application.scenario_policy import TurnWorkerFactory
 from application.speech_unit import SpeechUnitSealingService
+from application.story_disclosure import disclosed_turn_facts
 from application.story_expression import StoryExpressionQueryService
 from application.story_initialization import (
     GOLDEN_SCENARIO_ID,
@@ -1147,7 +1148,10 @@ class _DeliveryCoordinator:
                     state_delta=result.delta,
                     scene_id=result.delta.story_delta.scene_id,
                     protagonist_id=result.session.protagonist_id,
-                    disclosed_facts=_outcome_summary(result, snapshot.bootstrap),
+                    disclosed_facts=disclosed_turn_facts(
+                        delta=result.delta,
+                        bootstrap=snapshot.bootstrap,
+                    ),
                     input_turn_id=command.input_turn_id,
                     source_store_revision=result.store_revision,
                 )
@@ -1330,33 +1334,6 @@ def _delivery_failure_code(error: Exception, fallback: str) -> str:
     ):
         return code
     return fallback
-
-
-def _outcome_summary(result: StoryTurnCommitResult, bootstrap) -> str:
-    """Describe only committed, already-disclosed facts.
-
-    Clue identifiers are rendered through the scenario's display-name table, so
-    the narrator never receives a canonical or hidden identifier.
-    """
-    names = bootstrap.presentation.clue_display_names
-    delta = result.delta
-    # COMMIT has already happened. Omit a clue whose public display label is
-    # absent instead of leaking its canonical identifier into the expression
-    # request or failing the committed turn.
-    added = [
-        name
-        for clue_id in delta.story_delta.clue_ids_add or ()
-        if (name := names.get(clue_id)) is not None
-    ]
-    parts = [f"结果判定：{delta.outcome}"]
-    if added:
-        parts.append("玩家发现了：" + "、".join(added))
-    story = delta.story_delta
-    if story.scene_id:
-        parts.append(f"场景转为：{story.scene_id}")
-    if story.world_time_delta_minutes:
-        parts.append(f"世界时间推进：{story.world_time_delta_minutes} 分钟")
-    return "\n".join(parts)
 
 
 __all__ = [
