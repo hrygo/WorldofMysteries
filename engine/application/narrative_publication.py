@@ -81,16 +81,53 @@ def _character_roster(value: object) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True, slots=True)
+class NarrativeLine:
+    """One proposed line of dialogue, attributed by **public label**.
+
+    The speaker is a label, never a canonical id. The model is given labels
+    only — that is the whole point of the disclosure projection — so it cannot
+    propose an id even if it wanted to. Turning a label into the id a voice
+    binds to is the publication layer's job, against the trusted roster.
+
+    A character may speak more than once in a turn, so duplicate speakers are
+    legitimate here. What is not legitimate is a speaker absent from the
+    roster, and that is refused at binding time rather than filtered.
+    """
+
+    speaker: str
+    text: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "speaker",
+            _bounded_text(self.speaker, field="line_speaker", limit=256),
+        )
+        object.__setattr__(
+            self,
+            "text",
+            _bounded_text(self.text, field="line_text", limit=_MAX_NARRATIVE_CHARS),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class NarrativeCandidate:
     """Model-produced expression with narration and dialogue kept distinct.
 
-    The speaker is intentionally absent: only the trusted committed source may
-    bind a character segment. A missing/blank speech value means there is no
-    dialogue to publish or send to audio.
+    Who speaks is named by public label in ``lines``; only the trusted
+    committed source may turn a label into a bound speaker, and only for
+    someone its castable roster admits.
+
+    ``speech`` is a **migration seam**, not a second way to say the same thing.
+    It is the pre-D3 single-unattributed-line shape and is honoured only when
+    the source declares no castable roster at all. Once a roster exists the
+    legacy field is refused, so the two shapes can never both apply. Removal
+    slice: VF-83D, after VF-83C switches the model onto ``lines``.
     """
 
     narration: str
-    speech: str
+    lines: tuple[NarrativeLine, ...] = ()
+    speech: str = ""
     context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
@@ -113,6 +150,10 @@ class NarrativeCandidate:
                 allow_empty=True,
             ),
         )
+        if not isinstance(self.lines, tuple) or any(
+            not isinstance(line, NarrativeLine) for line in self.lines
+        ):
+            raise NarrativePublicationError("invalid_narrative_candidate")
         if self.context_binding is not None and not isinstance(
             self.context_binding, AuthorizedTurnContextBinding
         ):
@@ -309,6 +350,71 @@ class NarrativePublishPort(Protocol):
     async def publish(
         self, *, turn_id: str, narrative: NarrativeBlock
     ) -> object: ...
+
+
+def _bound_dialogue(
+    *,
+    source: CommittedNarrativeSource,
+    candidate: NarrativeCandidate,
+) -> list[tuple[str, str]]:
+    """Bind proposed lines to the speakers the trusted roster admits.
+
+    The model may only name a **public label**; this is where a label becomes
+    the canonical id a voice binds to, and the roster is the only thing that
+    makes that conversion legitimate.
+
+    Every refusal here is a refusal to publish, never a silent drop. A line
+    naming someone outside the roster is not "dialogue we chose not to say" —
+    it is a proposal to put words in a mouth the world did not open, and
+    dropping it would publish a block that silently disagrees with the model
+    about what was said.
+
+    Three roster states, three answers:
+
+    * ``None`` — the world declared no castable roster. Nothing is authorised,
+      so no label can be bound; the pre-D3 single ``speech`` is honoured
+      instead, bound to the protagonist. This is the migration seam and it is
+      wrong under ADR-006 D5; VF-83D removes it with the model-side switch.
+    * ``()`` — the world declared a roster and it casts nobody. Narration
+      only. Any proposed dialogue is a contradiction of what the world said.
+    * non-empty — authoritative. Every line must resolve, and at least one
+      line is required so a committed turn stays speakable.
+    """
+    roster = source.castable_character_labels
+
+    if roster is None:
+        if candidate.lines:
+            raise NarrativePublicationError("speaker_without_roster")
+        if not candidate.speech:
+            return []
+        return [(source.protagonist_id, candidate.speech)]
+
+    if not roster:
+        if candidate.lines or candidate.speech:
+            raise NarrativePublicationError("speaker_not_castable")
+        return []
+
+    if candidate.speech:
+        # A roster exists, so the legacy unattributed line has nowhere to bind.
+        # Honouring it would put every turn's dialogue on the protagonist
+        # regardless of who the world put in the room.
+        raise NarrativePublicationError("legacy_speech_without_roster")
+    if not candidate.lines:
+        raise NarrativePublicationError("missing_character_speech")
+
+    by_label = {label: character_id for character_id, label in roster}
+    dialogue: list[tuple[str, str]] = []
+    for line in candidate.lines:
+        character_id = by_label.get(line.speaker)
+        if character_id is None:
+            raise NarrativePublicationError("speaker_not_castable")
+        # D5 already removed the protagonist from the castable roster upstream.
+        # Re-checking here costs one comparison and closes the last path by
+        # which the player-avatar could acquire a cast voice.
+        if character_id == source.protagonist_id:
+            raise NarrativePublicationError("protagonist_not_castable")
+        dialogue.append((character_id, line.text))
+    return dialogue
 
 
 def _source_key(source: CommittedNarrativeSource | None) -> str | None:
@@ -534,13 +640,17 @@ class CommittedNarrativeService:
         if not isinstance(candidate, NarrativeCandidate):
             raise NarrativePublicationError("invalid_narrative_candidate")
 
+        dialogue = _bound_dialogue(source=source, candidate=candidate)
         identity = {
             "turn_id": turn.id,
             "session_id": turn.session_id,
             "story_revision": turn.committed_story_revision,
             "state_delta_id": turn.state_delta_id,
             "narration": candidate.narration,
-            "speech": candidate.speech,
+            # The *bound* dialogue, not the proposal: two attempts that agree
+            # on the words but disagree on who says them publish under
+            # different identities, because they are different blocks.
+            "dialogue": [[speaker_id, text] for speaker_id, text in dialogue],
         }
         block_id = "narrative_" + hashlib.sha256(
             json.dumps(
@@ -553,12 +663,12 @@ class CommittedNarrativeService:
         segments = [
             NarrativeSegment(type="narration", text=candidate.narration)
         ]
-        if candidate.speech:
+        for speaker_id, text in dialogue:
             segments.append(
                 NarrativeSegment(
                     type="character",
-                    speaker_id=source.protagonist_id,
-                    text=candidate.speech,
+                    speaker_id=speaker_id,
+                    text=text,
                 )
             )
         try:
@@ -681,6 +791,7 @@ __all__ = [
     "CommittedNarrativeSource",
     "NarrativeCandidate",
     "NarrativeCompilerPort",
+    "NarrativeLine",
     "NarrativePublicationError",
     "NarrativePublishPort",
     "NarrativeReadPort",

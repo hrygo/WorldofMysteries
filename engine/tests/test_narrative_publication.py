@@ -133,6 +133,7 @@ def _committed_source(
     *,
     state_delta: StateDelta | None = None,
     present_character_ids=None,
+    castable_character_labels=None,
 ):
     from application.narrative_publication import CommittedNarrativeSource
 
@@ -148,6 +149,7 @@ def _committed_source(
         input_turn_id="input-1",
         source_store_revision=8,
         present_character_ids=present_character_ids,
+        castable_character_labels=castable_character_labels,
     )
 
 
@@ -867,6 +869,193 @@ def _flights_key(source):
     from application.narrative_publication import _source_key
 
     return _source_key(source)
+
+
+# --- per-speaker binding (ADR-006 D3) ---------------------------------------
+
+
+def _bind(roster, candidate):
+    from application.narrative_publication import _bound_dialogue
+
+    return _bound_dialogue(source=_source_with_castable(roster), candidate=candidate)
+
+
+def _candidate(*lines, speech=""):
+    from application.narrative_publication import NarrativeCandidate, NarrativeLine
+
+    return NarrativeCandidate(
+        narration="雨落在诊所的窗外。",
+        lines=tuple(
+            NarrativeLine(speaker=speaker, text=text) for speaker, text in lines
+        ),
+        speech=speech,
+    )
+
+
+ROSTER = (("npc_doctor_morris", "莫里斯医生"), ("npc_jonathan_vale", "Jonathan"))
+
+
+def test_a_label_becomes_the_id_the_voice_binds_to():
+    """The whole point of the roster: the model names, the source binds."""
+    assert _bind(ROSTER, _candidate(("莫里斯医生", "别动那只表。"))) == [
+        ("npc_doctor_morris", "别动那只表。")
+    ]
+
+
+def test_two_characters_each_speak_for_themselves():
+    assert _bind(
+        ROSTER,
+        _candidate(("莫里斯医生", "别动那只表。"), ("Jonathan", "我什么也没看见。")),
+    ) == [
+        ("npc_doctor_morris", "别动那只表。"),
+        ("npc_jonathan_vale", "我什么也没看见。"),
+    ]
+
+
+def test_scene_order_of_the_dialogue_is_preserved():
+    """Who speaks first is part of what was said, not an implementation detail."""
+    forward = _bind(ROSTER, _candidate(("莫里斯医生", "一。"), ("Jonathan", "二。")))
+    backward = _bind(ROSTER, _candidate(("Jonathan", "二。"), ("莫里斯医生", "一。")))
+    assert forward != backward
+    assert forward[0][0] == "npc_doctor_morris"
+
+
+def test_one_character_may_speak_twice():
+    assert _bind(
+        ROSTER, _candidate(("莫里斯医生", "一。"), ("莫里斯医生", "二。"))
+    ) == [("npc_doctor_morris", "一。"), ("npc_doctor_morris", "二。")]
+
+
+def test_a_speaker_outside_the_roster_is_refused_not_dropped():
+    """Dropping it would publish a block that silently omits what was said."""
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="speaker_not_castable"):
+        _bind(ROSTER, _candidate(("陌生人的名字", "我不在这个房间里。")))
+
+
+def test_one_bad_line_refuses_the_whole_turn():
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="speaker_not_castable"):
+        _bind(
+            ROSTER,
+            _candidate(("莫里斯医生", "一。"), ("陌生人", "二。")),
+        )
+
+
+def test_the_protagonist_cannot_be_cast_even_by_a_buggy_roster():
+    """D5's last line of defence, one comparison above the publication layer."""
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="protagonist_not_castable"):
+        _bind(
+            (("protagonist-1", "克莱恩"),),
+            _candidate(("克莱恩", "我不该被铸色。")),
+        )
+
+
+def test_a_roster_that_casts_nobody_yields_narration_only():
+    assert _bind((), _candidate()) == []
+
+
+def test_dialogue_proposed_against_an_empty_roster_is_a_contradiction():
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="speaker_not_castable"):
+        _bind((), _candidate(("莫里斯医生", "这里没有人。")))
+
+
+def test_a_castable_turn_with_no_dialogue_is_refused():
+    """A committed turn must stay speakable, or its block can never be voiced."""
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="missing_character_speech"):
+        _bind(ROSTER, _candidate())
+
+
+def test_the_legacy_unattributed_line_cannot_fire_once_a_roster_exists():
+    """Otherwise every turn's dialogue lands on the protagonist regardless."""
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(
+        NarrativePublicationError, match="legacy_speech_without_roster"
+    ):
+        _bind(ROSTER, _candidate(speech="我先看看预约簿。"))
+
+
+def test_a_line_without_any_roster_is_refused():
+    from application.narrative_publication import NarrativePublicationError
+
+    with pytest.raises(NarrativePublicationError, match="speaker_without_roster"):
+        _bind(None, _candidate(("莫里斯医生", "一。")))
+
+
+def test_without_a_roster_the_legacy_line_still_binds_to_the_protagonist():
+    """The migration seam, stated so its removal is a deliberate act (VF-83D)."""
+    assert _bind(None, _candidate(speech="我先看看预约簿。")) == [
+        ("protagonist-1", "我先看看预约簿。")
+    ]
+    assert _bind(None, _candidate()) == []
+
+
+@pytest.mark.asyncio
+async def test_each_bound_speaker_becomes_its_own_segment():
+    """End to end: two speakers in, two voice-bearing segments out."""
+    from application.narrative_publication import CommittedNarrativeService
+
+    repository = MemoryNarrativeRepository()
+    block = await CommittedNarrativeService(
+        reads=repository,
+        publisher=repository,
+        compiler=CountingCompiler(
+            _candidate(("莫里斯医生", "别动那只表。"), ("Jonathan", "我什么也没看见。"))
+        ),
+    ).ensure(
+        turn_id="turn-1",
+        source=_committed_source(castable_character_labels=ROSTER),
+    )
+
+    assert [
+        (segment.type, segment.speaker_id, segment.text)
+        for segment in block.segments
+    ] == [
+        ("narration", None, "雨落在诊所的窗外。"),
+        ("character", "npc_doctor_morris", "别动那只表。"),
+        ("character", "npc_jonathan_vale", "我什么也没看见。"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_two_attempts_binding_differently_publish_under_different_identities():
+    """Same words, different mouths: a different block, so a different id."""
+    from application.narrative_publication import CommittedNarrativeService
+
+    async def publish(speaker):
+        repository = MemoryNarrativeRepository()
+        block = await CommittedNarrativeService(
+            reads=repository,
+            publisher=repository,
+            compiler=CountingCompiler(_candidate((speaker, "同一句话。"))),
+        ).ensure(
+            turn_id="turn-1",
+            source=_committed_source(castable_character_labels=ROSTER),
+        )
+        return block
+
+    assert (await publish("莫里斯医生")).id != (await publish("Jonathan")).id
+
+
+def test_a_line_must_carry_text_and_a_speaker():
+    from application.narrative_publication import (
+        NarrativeLine,
+        NarrativePublicationError,
+    )
+
+    with pytest.raises(NarrativePublicationError):
+        NarrativeLine(speaker="  ", text="有话说。")
+    with pytest.raises(NarrativePublicationError):
+        NarrativeLine(speaker="莫里斯医生", text="   ")
 
 
 # --- castable_character_labels ----------------------------------------------
