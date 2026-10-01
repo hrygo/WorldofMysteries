@@ -503,7 +503,7 @@ async def test_live_runtime_composes_authorized_workers_over_sqlite_context_port
         ).prompt_revision == "wom-live-proposer-v2"
         assert profiles.profile(
             GameplayMode.NARRATIVE_COMPILATION, "narrative_compiler"
-        ).prompt_revision == "wom-live-narrative-v2"
+        ).prompt_revision == "wom-live-narrative-v3"
 
         assert isinstance(execution.renderer, PromptRenderer)
         assert isinstance(execution.transport, OpenAICompatibleChatTransport)

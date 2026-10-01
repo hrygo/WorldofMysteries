@@ -44,6 +44,7 @@ from application.narrative_publication import (
     CommittedNarrativeSource,
     NarrativeCandidate,
     NarrativeCompilerPort,
+    NarrativeLine,
     NarrativePublicationError,
 )
 from application.scenario_policy import ActionSignature
@@ -63,6 +64,14 @@ from .authorized_live_execution import (
 _MAX_ACTIONS = 8
 _MAX_SECONDARY_INTENTS = 8
 _MAX_NARRATIVE_CHARS = 1200
+
+#: A public label, not a canonical id. The ceiling exists so a model cannot
+#: smuggle a paragraph into the speaker slot and have it read as a name.
+_MAX_NARRATIVE_SPEAKER_CHARS = 128
+
+#: Lines per turn. A scene is not a parliament; past this the block stops
+#: being a turn and starts being a transcript.
+_MAX_NARRATIVE_LINES = 8
 
 
 class LiveWorkerError(RuntimeError):
@@ -116,6 +125,49 @@ def _bounded_text(value: object, limit: int, *, field: str, required: bool = Tru
     ):
         raise LiveWorkerError(f"invalid_{field}")
     return value.strip()
+
+
+def _narrative_lines_schema_overrides(
+    castable_character_labels: tuple[tuple[str, str], ...] | None,
+) -> dict[str, dict[str, Any]]:
+    """Narrow ``lines`` to what this world's roster can actually carry.
+
+    Two failure modes, opposite fixes. If the roster casts nobody, any line
+    the model writes is unauthorised, and the only honest value is the empty
+    array — so ``maxItems`` drops to 0 and the constraint is satisfiable only
+    by silence. If the roster casts someone, a turn where nobody speaks is a
+    turn the delivery stage cannot seal, so ``minItems`` rises to 1.
+
+    Membership of ``speaker`` is deliberately **not** narrowed here: the
+    publication layer is the one authority on which label may be bound, and a
+    second copy of that rule would be a second place to drift.
+    """
+    if castable_character_labels:
+        return {"properties.lines": {"minItems": 1}}
+    return {"properties.lines": {"maxItems": 0}}
+
+
+def _proposed_lines(value: object) -> tuple[NarrativeLine, ...]:
+    """Validate the model's proposed lines into application-owned objects.
+
+    Shape only. Whether a label may be *bound* to a voice is decided by the
+    publication layer against the trusted roster; this function's whole job
+    is to refuse a reply that is not a well-formed list of attributed lines
+    before it reaches a durable block.
+    """
+    if not isinstance(value, list) or len(value) > _MAX_NARRATIVE_LINES:
+        raise LiveWorkerError("invalid_lines")
+    lines: list[NarrativeLine] = []
+    for raw in value:
+        if not isinstance(raw, Mapping) or set(raw) != {"speaker", "text"}:
+            raise LiveWorkerError("invalid_lines")
+        speaker = _bounded_text(
+            raw["speaker"], _MAX_NARRATIVE_SPEAKER_CHARS, field="line_speaker"
+        )
+        text = _bounded_text(raw["text"], _MAX_NARRATIVE_CHARS, field="line_text")
+        assert speaker is not None and text is not None
+        lines.append(NarrativeLine(speaker=speaker, text=text))
+    return tuple(lines)
 
 
 def _bounded_number(value: object, *, field: str, minimum: float, maximum: float) -> float:
@@ -287,12 +339,16 @@ _PROFILE_SPECS: dict[
     ),
     "narrative_compiler": (
         GameplayMode.NARRATIVE_COMPILATION,
-        "wom-live-narrative-v2",
+        "wom-live-narrative-v3",
         (
             "你是《诡秘世界》叙事编译器。只转述已提交且当前授权披露的事实，"
             "不得引入新线索、改变结果或替玩家说话。"
-            "speech 是角色实际说出口的话，narration 是场景与反应的客观描写。"
-            "每个已提交的回合都必须由角色说出一句话，speech 不得为空："
+            "narration 是场景与反应的客观描写；"
+            "lines 是角色实际说出口的话，一行一句，每行都要指明是谁在说话。"
+            "每行的 speaker 只能取本次授权名单（scene_roster）里给出的公开称谓，"
+            "不得杜撰称谓，也不得使用玩家代入角色的身份——主角没有可配音的声音。"
+            "名单里有人开口时至少写一行；名单为空或不存在时 lines 必须是空数组，"
+            "此时只写 narration。"
             "只写角色此刻真的会说的话，"
             "不要为了凑数编造与已披露事实冲突的台词，也不要用省略号或占位符敷衍。"
         ),
@@ -304,13 +360,34 @@ _PROFILE_SPECS: dict[
                     "minLength": 1,
                     "maxLength": _MAX_NARRATIVE_CHARS,
                 },
-                "speech": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": _MAX_NARRATIVE_CHARS,
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "speaker": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": _MAX_NARRATIVE_SPEAKER_CHARS,
+                            },
+                            "text": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": _MAX_NARRATIVE_CHARS,
+                            },
+                        },
+                        "required": ["speaker", "text"],
+                        "additionalProperties": False,
+                    },
+                    # Zero here so a world that casts nobody still has a
+                    # satisfiable contract; the per-call override raises it to
+                    # 1 exactly when the roster admits someone, and drops
+                    # ``maxItems`` to 0 when it does not.
+                    "minItems": 0,
+                    "maxItems": _MAX_NARRATIVE_LINES,
                 },
             },
-            "required": ["narration", "speech"],
+            "required": ["narration", "lines"],
             "additionalProperties": False,
         },
     ),
@@ -677,43 +754,31 @@ class LiveNarrativeCompiler(_StructuredWorker):
                     source_story_revision=source.story_revision,
                 ),
                 expected_binding=expected_context_binding,
-                # The profile already requires a non-empty speech, but stating it
-                # to the provider is what actually keeps the model from
-                # answering with narration only. Without a character segment the
-                # delivery stage cannot seal any audio for this turn.
-                schema_overrides={"properties.speech": {"minLength": 1}},
+                # The profile states both bounds; telling the provider is what
+                # turns them from an instruction the model may ignore into a
+                # decode-time guarantee. Which bound applies depends on the
+                # world, not on us: a roster that casts nobody has no legal
+                # `lines` value at all, and a roster that casts someone must
+                # produce at least one.
+                schema_overrides=_narrative_lines_schema_overrides(
+                    source.castable_character_labels
+                ),
             )
         except LiveWorkerError as exc:
             if exc.code == "context_stale":
                 raise NarrativePublicationError("context_stale") from None
             raise NarrativePublicationError("narrative_model_invalid") from None
-        if "narration" not in payload or set(payload) - {"narration", "speech"}:
+        if "narration" not in payload or set(payload) - {"narration", "lines"}:
             raise NarrativePublicationError("narrative_model_invalid")
         try:
             narration = _bounded_text(
                 payload.get("narration"), _MAX_NARRATIVE_CHARS, field="narration"
             )
-            raw_speech = payload.get("speech")
-            if raw_speech is None:
-                raise NarrativePublicationError("missing_character_speech")
-            elif (
-                not isinstance(raw_speech, str)
-                or "\x00" in raw_speech
-                or len(raw_speech) > _MAX_NARRATIVE_CHARS
-            ):
-                raise LiveWorkerError("invalid_speech")
-            else:
-                speech = raw_speech.strip()
-                if not speech:
-                    # A committed turn must be speakable. The delivery stage
-                    # refuses a block with no character segment, so accepting
-                    # empty dialogue here would publish a durable block that
-                    # can never be turned into audio.
-                    raise NarrativePublicationError("missing_character_speech")
+            lines = _proposed_lines(payload.get("lines"))
             assert narration is not None
             return NarrativeCandidate(
                 narration=narration,
-                speech=speech,
+                lines=lines,
                 context_binding=binding,
             )
         except NarrativePublicationError:
