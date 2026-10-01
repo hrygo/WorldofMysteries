@@ -19,7 +19,16 @@ _ALLOWED_KINDS = {
         "narrative_dna", "worldline_context", "open_thread", "ongoing_goal", "mystery"}),
     "narrative_compiler": frozenset({"disclosed_fact", "committed_delta", "beat_plan",
         "speaker_intent", "disclosure_policy", "checkpoint", "narrative_dna",
-        "voice_persona", "scene_style"}),
+        "voice_persona", "scene_style",
+        # Who may be heard this turn (ADR-006 D2/D5). Exclusive to this
+        # consumer on purpose: scene presence is not something a character may
+        # learn about others. `character_reasoner` admitting it would hand
+        # every role a view of who else is in the room, which is exactly what
+        # invariant 6 forbids — and admitting it to the other consumers would
+        # spread the same knowledge past the one stage that needs it. The
+        # labels reaching the model come from the public display-name
+        # allowlist, so the canonical ids stay on the trusted side.
+        "scene_roster"}),
     "advice_interpreter": frozenset({"observation", "available_target", "current_goal", "pressure"}),
     "memory_distiller": frozenset({"committed_episode", "committed_delta", "memory", "knowledge",
         "belief", "relationship", "character_core"}),
