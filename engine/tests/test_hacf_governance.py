@@ -1797,3 +1797,118 @@ def test_the_unwired_subsystem_records_what_is_actually_verified():
         assert item.get("retracts"), f"{item['id']} 没有记录它撤回了什么"
         for key in ("persisted", "replay_reads_pins", "recast_is_designed_for", "but_unwired"):
             assert item["evidence"].get(key), f"{item['id']} 缺证据条目 {key}"
+
+
+def test_the_take_layer_itself_has_no_production_caller():
+    """曾三次误判为「只是 track 层没接线」。take 层同样零调用——钉死这一层。"""
+    root = project_status.ROOT_DIR
+    source_root = root / "engine"
+
+    #: 这五个模块互相引用是子系统内部结构，不是生产接线：
+    #: audio_replay 用 SQLiteAudioTakeStore，并不意味着有任何生产路径能到达 audio_replay。
+    subsystem = frozenset({
+        "engine/infrastructure/audio_take_store.py",
+        "engine/infrastructure/audio_take_coordinator.py",
+        "engine/infrastructure/audio_prefetch.py",
+        "engine/infrastructure/audio_track_repository.py",
+        "engine/infrastructure/audio_replay.py",
+    })
+
+    def _production_modules() -> list[tuple[str, str]]:
+        found: list[tuple[str, str]] = []
+        for path in source_root.rglob("*.py"):
+            rel = path.relative_to(root).as_posix()
+            if "/tests/" in f"/{rel}" or rel.startswith("engine/tests/"):
+                continue
+            found.append((rel, path.read_text(encoding="utf-8")))
+        return found
+
+    modules = _production_modules()
+
+    # publish_pcm 是写入 audio_takes 的唯一入口；它若无人调用，take 永不产生。
+    callers = sorted(
+        rel for rel, text in modules
+        if "publish_pcm" in text and rel != "engine/infrastructure/audio_take_store.py"
+    )
+    assert callers == ["engine/infrastructure/audio_take_coordinator.py"], (
+        f"publish_pcm 的调用方变了：{callers}；唯一写入口不再只经 coordinator，take 层结论需重核"
+    )
+
+    # 子系统之外无人引用这五个类。
+    for symbol in (
+        "SQLiteAudioTakeStore",
+        "SQLiteAudioTrackRepository",
+        "AudioTakeRenderCoordinator",
+        "AudioTakePrefetchQueue",
+        "OfflineStoryBookReplayResolver",
+    ):
+        outside = sorted(
+            rel for rel, text in modules
+            if symbol in text and rel not in subsystem
+        )
+        assert outside == [], (
+            f"{symbol} 已被子系统外的生产代码 {outside} 引用，"
+            "「take 层零接线」的结论已过期，需重新核实"
+        )
+
+    # 子系统本身没有任何导入者：无人从外部进入这套机制。
+    module_names = sorted(
+        rel.rsplit("/", 1)[-1][: -len(".py")] for rel in subsystem
+    )
+    importers = sorted(
+        rel for rel, text in modules
+        if rel not in subsystem
+        and any(
+            f".{name} import" in text or f"import {name}" in text
+            for name in module_names
+        )
+    )
+    assert importers == [], (
+        f"持久音频子系统已有生产导入者 {importers}，「零接线」结论已过期，需重新核实"
+    )
+
+
+def test_a_take_cannot_be_teed_off_the_realtime_stream():
+    """实时路径是流式的，而 publish_pcm 要求完整 PCM——所以这不是一行 tee。"""
+    root = project_status.ROOT_DIR
+    store = (root / "engine/infrastructure/audio_take_store.py").read_text(encoding="utf-8")
+    assert "PCM take must contain complete signed-16 frames" in store, (
+        "publish_pcm 不再要求完整帧：若实时流可整段 tee 落库，接线难度评估需重做"
+    )
+    bridge = (root / "engine/infrastructure/audio/media_bridge.py").read_text(encoding="utf-8")
+    assert "re-chunks it while preserving sample continuity" in bridge, (
+        "媒体桥不再是流式 re-chunk：流式落 take 的可行性需重新评估"
+    )
+
+
+def test_the_storybook_contract_carries_no_audio_surface():
+    """PRD §20.2 要求「重用已生成音频」；契约里没有音频面，说明从未有过。"""
+    schema = json.loads(
+        (project_status.ROOT_DIR / "contracts/schemas/storybook.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    offenders = [
+        key
+        for key in schema.get("properties", {})
+        if any(token in key.lower() for token in ("audio", "track", "take", "voice"))
+    ]
+    assert offenders == [], (
+        f"storybook.schema.json 出现了音频字段 {offenders}："
+        "若契约已承载音频，verified_unwired 的结论需重新核实"
+    )
+
+
+def test_the_unwired_subsystem_names_what_it_retracted_each_time():
+    """三次误判同源。条目必须逐步记清每次撤回了什么，而不是只记最后一次。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    for item in card["verified_unwired"]:
+        retracts = item["retracts"]
+        assert "SB-24B" in retracts or "SB-24" in retracts, (
+            f"{item['id']} 没记录它撤回了前一轮的哪一版判断"
+        )
+        for key in ("realtime_path_never_persists", "contract_has_no_audio_surface",
+                    "not_superseded_dead_code"):
+            assert item["evidence"].get(key), f"{item['id']} 缺证据条目 {key}"
