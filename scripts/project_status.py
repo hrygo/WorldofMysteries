@@ -180,6 +180,17 @@ def cmd_status(state: dict, as_json: bool = False):
             print(f"      卡住原因: {item['why_blocking']}")
             print(f"      裁决后解锁: {item['unblocks']}")
 
+    unwired = state.get("verified_unwired") or []
+    if unwired:
+        print("\n【6. 已证实但未接线的子系统 (Verified Unwired)】")
+        print("   以下各项不是待裁决缺陷，而是机制已建好、却没有任何生产调用方。")
+        for item in unwired:
+            print(f"\n   🔌 {item['id']}")
+            print(f"      结论: {item['claim']}")
+            print(f"      后果: {item['consequence']}")
+            print(f"      仍需裁决: {item['remaining_decision']}")
+            print(f"      撤回: {item['retracts']}")
+
     print("\n💡 提示: 运行 `python3 scripts/project_status.py next` 查看下一步科学推进方向。")
     print("=" * 72)
 

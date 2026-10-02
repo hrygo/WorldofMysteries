@@ -1760,3 +1760,40 @@ def test_the_status_report_actually_shows_the_pending_decisions(capsys):
     for item in card["pending_decisions"]:
         assert item["id"] in report, f"{item['id']} 没出现在状态报告里"
         assert item["question"] in report, f"{item['id']} 的问题陈述没出现在状态报告里"
+    assert "【6. 已证实但未接线的子系统" in report
+    for item in card["verified_unwired"]:
+        assert item["id"] in report, f"{item['id']} 没出现在状态报告里"
+
+
+def test_the_narrative_segment_to_take_binding_is_persisted_not_recomputed():
+    """曾被写成「无任何表记录该绑定、回放靠重算 render_key 反推」——两条都是假的，钉死。"""
+    root = project_status.ROOT_DIR
+    migration = (root / "engine/infrastructure/migrations/007_world_audio_tracks.sql").read_text(
+        encoding="utf-8"
+    )
+    for column in ("turn_id", "narrative_block_id", "segment_index", "story_revision", "take_id"):
+        assert column in migration, f"audio_track_units 不再记录 {column}，绑定口径已变"
+    assert "REFERENCES turn_transactions(id)" in migration
+    assert "REFERENCES narrative_blocks(id)" in migration
+    assert "UNIQUE(track_id, narrative_block_id, segment_index)" in migration, (
+        "分段唯一约束消失，同一叙事段可能被钉到多个 take"
+    )
+
+    replay = (root / "engine/infrastructure/audio_replay.py").read_text(encoding="utf-8")
+    assert "unit.take_id" in replay, "回放不再从钉住的 unit 取件"
+    assert "render_key" not in replay, (
+        "回放路径里出现 render_key：若按内容地址反推取件，重铸音色后会取到从未播放过的音频"
+    )
+
+
+def test_the_unwired_subsystem_records_what_is_actually_verified():
+    """已证实的未接线子系统必须逐条给出证据，不能只是一句判断。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    unwired = card.get("verified_unwired") or []
+    assert unwired, "未接线子系统清单不应为空：它是被逐条核实过的结论"
+    for item in unwired:
+        assert item.get("retracts"), f"{item['id']} 没有记录它撤回了什么"
+        for key in ("persisted", "replay_reads_pins", "recast_is_designed_for", "but_unwired"):
+            assert item["evidence"].get(key), f"{item['id']} 缺证据条目 {key}"
