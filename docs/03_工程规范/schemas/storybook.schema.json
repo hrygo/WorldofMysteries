@@ -43,6 +43,13 @@
         "minLength": 1
       }
     },
+    "protagonist_labels": {
+      "description": "本次 Episode 主角的公开称谓（PRD §20「主角」），与 protagonist_ids 逐位对应：下标 i 描述 protagonist_ids[i]。无公开称谓时该位为 null，canonical id 永远不得出现在这里——与 publicLabel 是同一条规则。加性可选：早于本字段的书包缺失时按空数组读入，与 App 的解码口径一致。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/publicLabel"
+      }
+    },
     "start_world_time": {
       "type": [
         "string",

@@ -964,6 +964,11 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
     public let worldlineId: String
     public let title: String
     public let protagonistIds: [String]
+    /// Public labels for ``protagonistIds``, position for position. A `nil` is
+    /// an id the Engine had no public name for; the canonical id never stands
+    /// in for it. Additive on the wire: a book written before this field
+    /// decodes as an empty array, matching what the Engine projected for it.
+    public let protagonistLabels: [String?]
     public let startWorldTime: String?
     public let endWorldTime: String?
     public let chapters: [StoryBookChapterDTO]
@@ -986,6 +991,7 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
         case worldlineId = "worldline_id"
         case title
         case protagonistIds = "protagonist_ids"
+        case protagonistLabels = "protagonist_labels"
         case startWorldTime = "start_world_time"
         case endWorldTime = "end_world_time"
         case chapters
@@ -1001,8 +1007,9 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
         try checkWireKeys(
             decoder,
             allowed: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
-                      "protagonist_ids", "start_world_time", "end_world_time", "chapters",
-                      "ending", "unresolved_threads", "discovered_secrets",
+                      "protagonist_ids", "protagonist_labels", "start_world_time",
+                      "end_world_time", "chapters", "ending", "unresolved_threads",
+                      "discovered_secrets",
                       "key_characters", "relationship_changes", "world_impacts"],
             required: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
                        "protagonist_ids", "chapters", "ending"],
@@ -1016,6 +1023,13 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
         title = try StoryControl.identifier(container.decode(String.self, forKey: .title))
         protagonistIds = try container.decode([String].self, forKey: .protagonistIds)
         guard !protagonistIds.isEmpty else { throw StoryControlError.invalidPayload }
+        protagonistLabels = try container.decodeIfPresent(
+            [String?].self, forKey: .protagonistLabels) ?? []
+        // Position carries the meaning here: label i names protagonist i. A
+        // shorter array would silently shift every name onto the wrong
+        // character, which is worse than refusing the book.
+        guard protagonistLabels.isEmpty || protagonistLabels.count == protagonistIds.count
+        else { throw StoryControlError.invalidPayload }
         startWorldTime = try container.decodeIfPresent(String.self, forKey: .startWorldTime)
         endWorldTime = try container.decodeIfPresent(String.self, forKey: .endWorldTime)
         chapters = try container.decode([StoryBookChapterDTO].self, forKey: .chapters)
@@ -1030,6 +1044,18 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
             [StoryBookRelationshipChangeDTO].self, forKey: .relationshipChanges) ?? []
         worldImpacts = try container.decodeIfPresent(
             [StoryBookWorldImpactDTO].self, forKey: .worldImpacts) ?? []
+    }
+
+    /// The PRD §20「主角」line, or `nil` when the book carries no labels at all.
+    ///
+    /// It takes labels and is given no way to be handed an id. A canonical id
+    /// reaching the page would break the same rule the speaker resolution
+    /// upholds, and the view is exactly where that mistake is easiest to make
+    /// and hardest to notice — so the rule lives here, where a test can call
+    /// it, rather than in a comment nobody can run.
+    public static func protagonistLine(_ labels: [String?]) -> String? {
+        guard !labels.isEmpty else { return nil }
+        return "主角 · " + labels.map { $0 ?? "某人" }.joined(separator: "、")
     }
 }
 

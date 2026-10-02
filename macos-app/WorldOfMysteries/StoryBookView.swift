@@ -96,6 +96,15 @@ public struct StoryBookView: View {
                 Text(book.title)
                     .font(Font.Mystic.titleMedium)
                     .foregroundStyle(Color.Mystic.textPrimary)
+                // An unnamed protagonist still occupies a slot, so it reads as
+                // "someone" rather than quietly shortening the list. Same
+                // wording the relationship section already uses for an
+                // endpoint the Engine could not name.
+                if let line = StoryBookDTO.protagonistLine(book.protagonistLabels) {
+                    Text(line)
+                        .font(Font.Mystic.caption)
+                        .foregroundStyle(Color.Mystic.textSecondary)
+                }
                 if let start = book.startWorldTime, let end = book.endWorldTime {
                     Text("\(start) — \(end)")
                         .font(Font.Mystic.caption)

@@ -219,6 +219,90 @@ struct StoryBookContractTests {
         #expect(book.worldImpacts.isEmpty)
     }
 
+    @Test("Protagonist labels decode positionally, and an unnamed one stays unnamed")
+    func decodesProtagonistLabels() throws {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-005",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "两个主角",
+          "protagonist_ids": ["char_named", "char_unnamed"],
+          "protagonist_labels": ["克莱恩·莫雷蒂", null],
+          "chapters": [
+            { "block_id": "block-1", "segments": [{ "type": "narration", "text": "夜。" }] }
+          ],
+          "ending": { "type": "closed" }
+        }
+        """
+        let book = try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+
+        // Position is the whole meaning: index i names protagonistIds[i]. The
+        // unnamed one keeps its slot as nil — never the canonical id.
+        #expect(book.protagonistLabels.count == book.protagonistIds.count)
+        #expect(book.protagonistLabels[0] == "克莱恩·莫雷蒂")
+        #expect(book.protagonistLabels[1] == nil)
+    }
+
+    @Test("A book written before protagonist labels existed reads as no labels")
+    func absentProtagonistLabelsReadAsEmpty() throws {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-006",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "旧书",
+          "protagonist_ids": ["char_named"],
+          "chapters": [
+            { "block_id": "block-1", "segments": [{ "type": "narration", "text": "夜。" }] }
+          ],
+          "ending": { "type": "closed" }
+        }
+        """
+        let book = try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+
+        #expect(book.protagonistLabels.isEmpty)
+    }
+
+    @Test("A misaligned protagonist label array is refused, not silently shifted")
+    func refusesMisalignedProtagonistLabels() {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-007",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "错位",
+          "protagonist_ids": ["char_a", "char_b"],
+          "protagonist_labels": ["只有一個名字"],
+          "chapters": [
+            { "block_id": "block-1", "segments": [{ "type": "narration", "text": "夜。" }] }
+          ],
+          "ending": { "type": "closed" }
+        }
+        """
+        // One label for two protagonists would put the only name on the wrong
+        // character. Refusing the book beats rendering a confident lie.
+        #expect(throws: StoryControlError.self) {
+            try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test("The protagonist line renders names, and an unnamed one still occupies its slot")
+    func protagonistLineRendersNamesAndKeepsUnnamedSlots() {
+        #expect(StoryBookDTO.protagonistLine([]) == nil)
+        #expect(StoryBookDTO.protagonistLine(["克莱恩·莫雷蒂"]) == "主角 · 克莱恩·莫雷蒂")
+        #expect(
+            StoryBookDTO.protagonistLine(["克莱恩·莫雷蒂", nil])
+                == "主角 · 克莱恩·莫雷蒂、某人"
+        )
+        // The function takes labels and has no way to be handed an id, which
+        // is the point: the zero-knowledge rule is enforced by the signature,
+        // not by everyone remembering it at the call site.
+    }
+
     @Test("An unnamed holder reads as unknown, never as a canonical id")
     func unnamedHolderStaysUnknown() throws {
         let json = """

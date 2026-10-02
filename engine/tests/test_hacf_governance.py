@@ -2351,10 +2351,15 @@ def test_the_status_report_shows_the_verified_gaps(capsys):
 
 
 def test_the_story_book_still_shows_no_protagonist_or_place():
-    """钉死 PRD §20 缺口的两端：投影层仍是裸 id，视图仍不渲染。
+    """钉死 PRD §20 缺口：视图绝不渲染裸 canonical id。
 
-    这是 `verified_gaps.PRD20-PROTAGONIST-PLACE` 的可执行形式。接线完成后它会转红，
-    届时应改写该条目而不是删掉这条断言——它记录的是接线前的事实。
+    这是 `verified_gaps.PRD20-PROTAGONIST-PLACE` 的可执行形式。
+
+    SB-34 为主角一半接了线，视图确实开始呈现主角——但呈现的是
+    `protagonistLabels`（公开标签），这条断言因此**没有**转红，且今后也不该转红：
+    它守的不是「视图还没接线」，而是「接线时绝不能拿裸 id 顶替公开标签」。
+    一旦有人把渲染改回 `protagonistIds`（零知识泄漏）或 `sceneId`，它立刻转红。
+    地点一半仍未接线，故 `sceneId` 一项今天就该保持缺席。
     """
     root = project_status.ROOT_DIR
     projection = (
@@ -2411,13 +2416,47 @@ def test_the_protagonist_label_source_is_recorded_as_existing():
 
 
 def test_the_gap_entry_says_which_half_is_ready_and_which_is_not():
-    """缺口条目必须说清哪一半现在可做、哪一半在等口径——否则接手者只能整体搁置。"""
+    """缺口条目必须说清主角一半已完成、地点一半在等口径。
+
+    SB-33 时主角一半是「现在即可实现」；SB-34 把它做完了，因此措辞必须跟着变成
+    「已实现」。这里守的是两件事：不得把已完成的一半退回待裁决，也不得让地点
+    一半的处置说明消失——否则接手者要么重做已完成的接线，要么整体搁置。
+    """
     item = next(
         g for g in _verified_gaps() if g["id"] == "PRD20-PROTAGONIST-PLACE"
     )
     assert item.get("readiness"), "缺口条目没有写可推进性"
     readiness = item["readiness"]
-    assert "主角" in readiness and "现在即可实现" in readiness, (
-        "可推进性没有指出主角一半无需裁决：它会让一个可实施项被整体搁置"
+    assert "主角" in readiness and "已实现" in readiness, (
+        "可推进性没有指出主角一半已于 SB-34 完成：它会让接手者重做已完成的接线，"
+        "或把整体误当成仍待裁决"
     )
     assert "地点" in readiness, "可推进性没有交代地点一半的处置"
+
+
+# SB-13 的事故形状是：Engine 一直发四个键，App 的 checkWireKeys 白名单没有，于是
+# 产品里的阅读模式打不开，而所有单测都绿——因为 Swift 夹具也一起缺了那四个键。
+# test_storybook_contract_parity 锁住了 Engine↔声明契约，却没有任何东西锁 App 的
+# allowed 键集与契约属性之间的关系。这条守卫补上那一半。
+def test_the_apps_allowed_wire_keys_cover_the_storybook_contract():
+    root = project_status.ROOT_DIR
+    schema = json.loads(
+        (root / "contracts/schemas/storybook.schema.json").read_text(encoding="utf-8")
+    )
+    swift = (
+        root / "macos-app/WorldOfMysteries/StorySessionControl.swift"
+    ).read_text(encoding="utf-8")
+
+    start = swift.index("public nonisolated struct StoryBookDTO")
+    end = swift.index("public nonisolated struct StoryBookChapterDTO")
+    decoder = swift[start:end]
+
+    allowed_match = re.search(r"allowed:\s*\[(.*?)\]", decoder, re.DOTALL)
+    assert allowed_match, "StoryBookDTO 的 checkWireKeys 找不到 allowed 键集"
+    allowed = set(re.findall(r'"([a-z_]+)"', allowed_match.group(1)))
+
+    missing = sorted(set(schema["properties"]) - allowed)
+    assert not missing, (
+        f"契约新增了 {missing}，但 App 的 StoryBookDTO 不允许这些键："
+        "引擎一旦发出，App 会在运行时拒收整本书——而单测全绿，因为没人对账这两侧"
+    )

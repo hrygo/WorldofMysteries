@@ -62,6 +62,9 @@
   "protagonist_ids": [
     "char_evelyn_gray"
   ],
+  "protagonist_labels": [
+    null
+  ],
   "relationship_changes": [
     {
       "dimensions": {

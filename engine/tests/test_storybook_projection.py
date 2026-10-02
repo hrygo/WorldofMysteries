@@ -86,6 +86,60 @@ def test_projection_assembles_chapters_in_committed_order_and_matches_contract()
     Draft202012Validator(schema).validate(book)
 
 
+def test_the_protagonist_is_projected_as_a_public_label():
+    """PRD §20 的「主角」要的是名字，不是 canonical id。"""
+    blocks = {"b1": _block("b1")}
+    episode = _episode(block_ids=["b1"])
+
+    book = project_story_book(
+        episode=episode,
+        narrative_blocks=blocks,
+        character_display_names={"char_evelyn": "伊芙琳·格雷"},
+    )
+
+    assert book["protagonist_labels"] == ["伊芙琳·格雷"]
+
+
+def test_an_unnamed_protagonist_keeps_its_slot_as_null():
+    """解析不出时给 null：既不回落成 canonical id，也不把主角悄悄丢掉。
+
+    丢弃会让「两个主角其中一个叫不出名字」读成「只有一个主角」；回落成 id 则
+    直接违反 publicLabel「canonical id 永远不得出现在这里」。
+    """
+    blocks = {"b1": _block("b1")}
+    episode = _episode(block_ids=["b1"])
+
+    book = project_story_book(
+        episode=episode,
+        narrative_blocks=blocks,
+        character_display_names={"char_morris": "莫里斯医生"},
+    )
+
+    assert book["protagonist_ids"] == ["char_evelyn"]
+    assert book["protagonist_labels"] == [None]
+    assert "char_evelyn" not in json.dumps(
+        book["protagonist_labels"], ensure_ascii=False
+    )
+
+
+def test_protagonist_labels_stay_positionally_aligned():
+    """下标即对应关系——错位会把名字安到错误角色身上。"""
+    blocks = {"b1": _block("b1")}
+    base = json.loads(_episode(block_ids=["b1"]).model_dump_json(exclude_none=True))
+    episode = Episode.model_validate(
+        {**base, "protagonist_ids": ["char_evelyn", "char_morris", "char_audrey"]}
+    )
+
+    book = project_story_book(
+        episode=episode,
+        narrative_blocks=blocks,
+        character_display_names={"char_morris": "莫里斯医生"},
+    )
+
+    assert book["protagonist_labels"] == [None, "莫里斯医生", None]
+    assert len(book["protagonist_labels"]) == len(book["protagonist_ids"])
+
+
 def test_speaker_is_resolved_to_public_label_not_canonical_id():
     blocks = {"b1": _block("b1")}
     book = project_story_book(
