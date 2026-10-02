@@ -2856,6 +2856,78 @@ def test_the_contract_does_not_forbid_a_speaker_on_a_narration_segment():
     )
 
 
+# ---- 决策包：派发卡声明的交付物，必须真的覆盖全部被门控的事项 -----------------
+#
+# `execution_focus.dispatch` 把「把待裁决项整理成人类架构师能直接裁的决策包」
+# 写成这张卡唯一的职责。卡片可以被更新，交付物却可能没跟上——所以守卫钉的是
+# 「每个被门控的 id 都能在包里被 grep 到」，而不是「包存在」。
+def _decision_package() -> tuple[str, str]:
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    rel = card["execution_focus"]["plan_path"]
+    return rel, (project_status.ROOT_DIR / rel).read_text(encoding="utf-8")
+
+
+def test_the_decision_package_covers_every_gated_item():
+    """派发卡门控的每一项，决策包都必须有对应条目——否则这卡交付的是半份包。"""
+    _card, cards = _dispatch_cards()
+    rel, text = _decision_package()
+    gated = set()
+    for dispatch in cards.values():
+        gated.update(dispatch["gated_by"])
+    assert gated, "派发卡没有 gated_by，无法核对覆盖面"
+    missing = sorted(item for item in gated if item not in text)
+    assert not missing, (
+        f"决策包 {rel} 没有覆盖这些被门控的事项：{missing}——"
+        "接手者按包裁，会漏掉它们"
+    )
+
+
+def test_the_consolidated_scene_decision_is_reachable_from_both_gaps():
+    """两个塌缩到同一张表的缺口，都要能走到那份提案——否则收敛只做了一半。"""
+    gaps = {g["id"]: g for g in _verified_gaps()}
+    for gap_id in ("PRD20-PROTAGONIST-PLACE", "NARRATOR-SCENE-ID-DISCLOSURE"):
+        item = gaps.get(gap_id)
+        assert item, f"{gap_id} 不在事实源里"
+        rel = item.get("decision_package")
+        assert rel, (
+            f"{gap_id} 没有指向决策包：它与另一条缺口缺同一个制品，"
+            "却无法从事实源跳到可以裁的地方"
+        )
+        assert (project_status.ROOT_DIR / rel).exists(), f"{gap_id} 的决策包不存在：{rel}"
+
+
+def test_the_narration_cost_estimate_carries_its_correction():
+    """§10.5 的两处误判已被推翻，原文旁的更正块必须一直在——它决定人怎么估工。
+
+    报告原文按项目惯例保留以存证，所以这条守卫盯的是更正块而不是原文：
+    更正块一旦被删回去，下一个裁 ADR-006 的人会按错的成本做决定。
+    """
+    report = (
+        project_status.ROOT_DIR
+        / "docs/06_实施基线/2026-10-02_ADR005_逐项验收报告_V01-V12.md"
+    ).read_text(encoding="utf-8")
+    start = report.index("### 10.5 旁白这条路已经建到了哪一步")
+    section = report[start : report.index("### 10.6", start)]
+    assert "更正（SB-39" in section, (
+        "ADR-005 验收报告 §10.5 的更正块被删了：该节仍以「phase 无消费者」"
+        "与「三处接线」表述现状，会让人按错成本裁 ADR-006"
+    )
+
+    # 更正不能只是道歉：决策包必须把漏算的那几项真的写进去。
+    _rel, package = _decision_package()
+    for needed in (
+        "post_commit_handlers.py:480-486",
+        "UNIQUE(turn_id, kind, recipe_revision)",
+        "candidates[0]",
+    ):
+        assert needed in package, (
+            f"决策包里没有 {needed}：§10.5 少算的正是这几处，"
+            "补上才算把成本估算摆平"
+        )
+
+
 def test_a_missing_origin_main_falls_back_and_says_so(monkeypatch):
     monkeypatch.setattr(
         collab_pipeline,
