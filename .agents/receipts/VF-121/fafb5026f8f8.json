@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-VF-121-fafb5026f8f8",
+  "receipt_type": "work",
+  "task_id": "VF-121",
+  "capsule_id": "CAP-VF-121",
+  "capsule_revision": 2,
+  "capsule_digest": "sha256:9181f55069029f0578d6ba51662b19a5b9c8dc00cc76e8244f85677f07ffaf81",
+  "diff_digest": "sha256:773ea6cecd90447fec1e131778d9ce9ba075307a7df14f06d88a111b1815d7c3",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "3eab7b53a50b72178d9c0ad6db402ac33ad24b66",
+  "head_commit": "fafb5026f8f8c110a152507689dd01feb30f3b9f",
+  "target_ref": "origin/main",
+  "target_sha": "3eab7b53a50b72178d9c0ad6db402ac33ad24b66",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T09:04:42.575140+00:00",
+      "finished_at": "2026-10-02T09:04:42.611340+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T09:04:42.611427+00:00",
+      "finished_at": "2026-10-02T09:06:37.386110+00:00",
+      "raw_log_digest": "sha256:ff6052a44f5ff5915387abce856cb200d759dedeae13cf405ac6d87384a5f564",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T09:06:37.386191+00:00",
+      "finished_at": "2026-10-02T09:07:00.385763+00:00",
+      "raw_log_digest": "sha256:f44591b483b1276ab62fa5ca245474bc847f03749a48340a0b4f94e0ffb5f43d",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T09:07:00.385967+00:00",
+      "finished_at": "2026-10-02T09:07:02.231731+00:00",
+      "raw_log_digest": "sha256:61c38287b1e26201db8036ab741133dc558ce019f4c379f454f3d85d1f06973d",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/06_实施基线/2026-10-02_ADR005_逐项验收报告_V01-V12.md",
+      "scripts/voice_blind_set.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/voice_blind_set.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-114-120-sync"
+  },
+  "started_at": "2026-10-02T09:04:42.538557+00:00",
+  "finished_at": "2026-10-02T09:07:02.343034+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
