@@ -1,0 +1,176 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-SB-11",
+  "capsule_revision": 1,
+  "task_id": "SB-11",
+  "title": "让构建器落地知识命题称谓表",
+  "assigned_role": "AGT-ARB",
+  "status": "CREATED",
+  "created_at": "2026-10-02T07:26:38.498317+00:00",
+  "risk_class": "privileged",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "5bccd5be3e06dc63798ec0d1f25cde627a66a3fe",
+    "target_sha": "5bccd5be3e06dc63798ec0d1f25cde627a66a3fe",
+    "context_snapshot": "sha256:b7f54f69ea2f9e015a98d70d6c3e8cb84952761ecfd5d84ef2d47f5ef64ea0f7"
+  },
+  "scope": {
+    "read": [
+      "."
+    ],
+    "write": [
+      "docs/",
+      "contracts/",
+      "scripts/",
+      ".hacf/",
+      ".github/",
+      ".agents/",
+      "AGENTS.md",
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".gitignore",
+      "engine/tests/test_hacf_governance.py",
+      "engine/tests/test_contracts_schema.py",
+      "engine/contracts/",
+      "engine/tests/test_bundle_engine.py"
+    ],
+    "forbidden": [
+      "engine/domain/**",
+      "engine/infrastructure/**",
+      "engine/ai/**",
+      "macos-app/**",
+      "fixtures/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:test_cast_request_is_authorized_public_presentation_only@contracts/tests/test_voice_foundry_control.py:249",
+      "symbol:StoryContentBuildError@scripts/build_story_content.py:62",
+      "symbol:read_json@scripts/build_story_content.py:70",
+      "symbol:validate_schema@scripts/build_story_content.py:80",
+      "symbol:canonical_digest@scripts/build_story_content.py:89",
+      "symbol:_knowledge_paths@scripts/build_story_content.py:97",
+      "symbol:build_payload@scripts/build_story_content.py:101",
+      "symbol:_verify_initializable@scripts/build_story_content.py:156",
+      "symbol:serialize_payload@scripts/build_story_content.py:173",
+      "symbol:write_artifact@scripts/build_story_content.py:177",
+      "symbol:_verify_artifact@scripts/build_story_content.py:203",
+      "symbol:_validate_five_turn_sources@scripts/build_story_content.py:223",
+      "symbol:write_five_turn_directory@scripts/build_story_content.py:254",
+      "symbol:write_episode_artifacts@scripts/build_story_content.py:294",
+      "symbol:main@scripts/build_story_content.py:321",
+      "symbol:__init__@scripts/build_story_content.py:65",
+      "symbol:_Source@scripts/build_story_content.py:159",
+      "symbol:load@scripts/build_story_content.py:160",
+      "symbol:require@docs/05_UI/artwork/delivery/intake.py:21",
+      "symbol:safe_path@docs/05_UI/artwork/delivery/intake.py:26",
+      "symbol:contains_asset_catalog@docs/05_UI/artwork/delivery/intake.py:41",
+      "symbol:source_path_key@docs/05_UI/artwork/delivery/intake.py:45",
+      "symbol:staging_destination@docs/05_UI/artwork/delivery/intake.py:61",
+      "symbol:png_container_size@docs/05_UI/artwork/delivery/intake.py:73",
+      "symbol:validate_manifest@docs/05_UI/artwork/delivery/intake.py:104",
+      "symbol:verify_sources@docs/05_UI/artwork/delivery/intake.py:163",
+      "symbol:select_sources@docs/05_UI/artwork/delivery/intake.py:187",
+      "symbol:stage_sources@docs/05_UI/artwork/delivery/intake.py:206",
+      "symbol:main@docs/05_UI/artwork/delivery/intake.py:244",
+      "symbol:DeliveryRecordsTests@docs/05_UI/artwork/delivery/tests/test_delivery_records.py:13"
+    ],
+    "related_contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 695,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "test_cast_request_is_authorized_public_presentation_only",
+      "StoryContentBuildError",
+      "read_json",
+      "validate_schema",
+      "canonical_digest",
+      "_knowledge_paths",
+      "build_payload",
+      "_verify_initializable",
+      "serialize_payload",
+      "write_artifact",
+      "_verify_artifact",
+      "_validate_five_turn_sources",
+      "write_five_turn_directory",
+      "write_episode_artifacts",
+      "main",
+      "__init__",
+      "_Source",
+      "load",
+      "require",
+      "safe_path",
+      "contains_asset_catalog",
+      "source_path_key",
+      "staging_destination",
+      "png_container_size",
+      "validate_manifest",
+      "verify_sources",
+      "select_sources",
+      "stage_sources",
+      "main",
+      "DeliveryRecordsTests"
+    ],
+    "contracts": [
+      "engine_ipc.schema.json",
+      "task_capsule.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "FULL_P0",
+    "profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+    "profile_file": ".hacf/gates/full_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "instructions": "主架构师与调度仲裁者。负责需求分解、胶囊派发、架构适应度评估、扩权审批与冲突仲裁。",
+    "assertions": [
+      "INV-01",
+      "INV-02",
+      "INV-03",
+      "INV-04",
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08",
+      "INV-09",
+      "INV-10",
+      "INV-11",
+      "INV-12",
+      "INV-13",
+      "INV-14",
+      "INV-15"
+    ]
+  }
+}
