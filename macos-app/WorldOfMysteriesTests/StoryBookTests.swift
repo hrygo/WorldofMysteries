@@ -32,6 +32,15 @@ final class FakeStoryBookClient: StoryBookClient, @unchecked Sendable {
 }
 
 private enum StoryBookFixture {
+    /// Shaped like what the Engine actually projects — all four reading-list
+    /// sections included.
+    ///
+    /// It used to stop at `unresolved_threads`, which is exactly why the App
+    /// shipped a Story Book it could not open: `StoryBookDTO` mirrors the wire
+    /// strictly, the projection has always emitted these four keys, and a
+    /// fixture that omitted them kept `swift test` green against a decoder
+    /// that rejected the real payload. A fixture is a claim about the producer;
+    /// when it stops resembling the producer it stops being evidence.
     static let wire = """
     {
       "schema_version": "1.0",
@@ -53,12 +62,56 @@ private enum StoryBookFixture {
         }
       ],
       "ending": { "type": "partial", "main_problem": "笔记本仍下落不明" },
-      "unresolved_threads": ["安提哥努斯家族笔记的下落"]
+      "unresolved_threads": ["安提哥努斯家族笔记的下落"],
+      "discovered_secrets": [
+        {
+          "proposition": "克莱恩·莫雷蒂并非本人",
+          "holder": "克莱恩·莫雷蒂",
+          "certainty": 0.95,
+          "status": "confirmed",
+          "acquired_world_time": "1349-08-29 01:20"
+        }
+      ],
+      "key_characters": [
+        { "label": "克莱恩·莫雷蒂", "change_count": 3 }
+      ],
+      "relationship_changes": [
+        {
+          "from": "克莱恩·莫雷蒂",
+          "to": "邓林·史密斯",
+          "dimensions": { "trust": 0.4, "fear": 0.2 }
+        }
+      ],
+      "world_impacts": [
+        {
+          "event_type": "waypoint_gateway_opened",
+          "world_time": "1349-08-29 02:00",
+          "importance": "world",
+          "persistence": "world",
+          "actors": ["克莱恩·莫雷蒂"],
+          "targets": []
+        }
+      ]
     }
     """
 
     static func makeBook() throws -> StoryBookDTO {
         try JSONDecoder().decode(StoryBookDTO.self, from: Data(wire.utf8))
+    }
+
+    /// The wire payload produced by the real `project_story_book`, committed so
+    /// the App is checked against its producer rather than against a human's
+    /// memory of it. `scripts/` regenerates it; the Python side owns that
+    /// generator so drift is caught where the projection lives.
+    static func shippedWire() -> Data? {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        return try? Data(
+            contentsOf: root
+                .appendingPathComponent("macos-app/WorldOfMysteriesTests/Fixtures/storybook_wire.json")
+        )
     }
 
     static func serviceError(_ code: String) -> StoryControlServiceError {
@@ -101,6 +154,31 @@ struct StoryBookContractTests {
 
         #expect(book.ending.type == "partial")
         #expect(book.ending.mainProblem == "笔记本仍下落不明")
+
+        let secret = try #require(book.discoveredSecrets.first)
+        #expect(book.discoveredSecrets.count == 1)
+        #expect(secret.proposition == "克莱恩·莫雷蒂并非本人")
+        #expect(secret.holder == "克莱恩·莫雷蒂")
+        #expect(secret.certainty == 0.95)
+        #expect(secret.status == "confirmed")
+        #expect(secret.acquiredWorldTime == "1349-08-29 01:20")
+
+        let character = try #require(book.keyCharacters.first)
+        #expect(character.label == "克莱恩·莫雷蒂")
+        #expect(character.changeCount == 3)
+
+        let relationship = try #require(book.relationshipChanges.first)
+        #expect(relationship.from == "克莱恩·莫雷蒂")
+        #expect(relationship.to == "邓林·史密斯")
+        #expect(relationship.dimensions.trust == 0.4)
+        #expect(relationship.dimensions.changed.map(\.name) == ["信任", "恐惧"])
+
+        let impact = try #require(book.worldImpacts.first)
+        #expect(impact.eventType == "waypoint_gateway_opened")
+        #expect(impact.importance == "world")
+        #expect(impact.persistence == "world")
+        #expect(impact.actors == ["克莱恩·莫雷蒂"])
+        #expect(impact.targets.isEmpty)
     }
 
     @Test("Optional Story Book fields may be absent")
@@ -130,8 +208,189 @@ struct StoryBookContractTests {
         #expect(book.chapters.first?.sceneId == nil)
         #expect(book.chapters.first?.segments.first?.speaker == nil)
         #expect(book.ending.mainProblem == nil)
+        // A book written before these sections existed still decodes, and reads
+        // as four empty sections — which is what the Engine projected for it.
+        #expect(book.discoveredSecrets.isEmpty)
+        #expect(book.keyCharacters.isEmpty)
+        #expect(book.relationshipChanges.isEmpty)
+        #expect(book.worldImpacts.isEmpty)
     }
 
+    @Test("An unnamed holder reads as unknown, never as a canonical id")
+    func unnamedHolderStaysUnknown() throws {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-003",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "无名的知情者",
+          "protagonist_ids": ["protagonist-klein"],
+          "chapters": [
+            { "block_id": "b1", "segments": [{ "type": "narration", "text": "风穿过走廊。" }] }
+          ],
+          "ending": { "type": "closed" },
+          "discovered_secrets": [
+            {
+              "proposition": "有人来过",
+              "holder": null,
+              "certainty": 0.4,
+              "status": "probable"
+            }
+          ]
+        }
+        """
+        let book = try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+
+        let secret = try #require(book.discoveredSecrets.first)
+        #expect(secret.holder == nil)
+        #expect(secret.acquiredWorldTime == nil)
+        #expect(!json.contains("char_"))
+    }
+
+    @Test("The App reads a wire payload the Engine actually produced")
+    func decodesTheShippedWireFixture() throws {
+        // Every other test in this file decodes a payload somebody typed. That
+        // is how the App shipped a Story Book it could not open: `StoryBookDTO`
+        // mirrors the wire strictly, `project_story_book` has always emitted
+        // these four keys, and the typed fixtures omitted them — so the suite
+        // stayed green against a decoder that rejected the real payload.
+        //
+        // This one reads `Fixtures/storybook_wire.json`, which is generated
+        // from the real `project_story_book`. A typo in a fixture can no longer
+        // stand in for the producer, because the producer is the fixture.
+        let fixture = try #require(
+            StoryBookFixture.shippedWire(),
+            "Fixtures/storybook_wire.json 缺失——由 scripts/ 下的生成器产出"
+        )
+
+        let book = try JSONDecoder().decode(StoryBookDTO.self, from: fixture)
+
+        #expect(book.title == "哈维诊所的停顿")
+        #expect(book.discoveredSecrets.count == 4)
+        #expect(book.keyCharacters.count == 1)
+        #expect(book.relationshipChanges.count == 1)
+        #expect(book.worldImpacts.count == 1)
+        // The Engine projects only the axes that moved; a null `affection` must
+        // not become a rendered zero.
+        #expect(
+            book.relationshipChanges.first?.dimensions.changed.map(\.name) == ["信任", "恐惧"]
+        )
+        // The world event's free-form `payload` is model-authored internal data
+        // and must never have been projected in the first place.
+        #expect(!String(decoding: fixture, as: UTF8.self).contains("model-authored"))
+    }
+
+    /// A book carrying exactly one discovered secret, so the refusal tests
+    /// below differ from one another only in the row under test.
+    private static func book(withSecret secret: String) -> Data {
+        Data(
+            """
+            {
+              "schema_version": "1.0",
+              "episode_id": "episode-004",
+              "world_id": "world-tingen",
+              "worldline_id": "wl-1349-main",
+              "title": "t",
+              "protagonist_ids": ["protagonist-klein"],
+              "chapters": [
+                { "block_id": "b1", "segments": [{ "type": "narration", "text": "x" }] }
+              ],
+              "ending": { "type": "closed" },
+              "discovered_secrets": [\(secret)]
+            }
+            """.utf8
+        )
+    }
+
+    @Test("A certainty outside [0, 1] is refused")
+    func impossibleCertaintyIsRefused() {
+        #expect(throws: StoryControlError.invalidPayload) {
+            try JSONDecoder().decode(
+                StoryBookDTO.self,
+                from: Self.book(withSecret: #"{ "proposition": "p", "holder": null, "certainty": 1.5, "status": "confirmed" }"#)
+            )
+        }
+    }
+
+    @Test("A status outside the closed set is refused")
+    func unknownStatusIsRefused() {
+        // "probably" reads like a status and is not one. Accepting it would put
+        // a word on the page whose meaning the App cannot vouch for.
+        #expect(throws: StoryControlError.invalidPayload) {
+            try JSONDecoder().decode(
+                StoryBookDTO.self,
+                from: Self.book(withSecret: #"{ "proposition": "p", "holder": null, "certainty": 1.0, "status": "probably" }"#)
+            )
+        }
+    }
+
+    @Test("An undeclared key is refused by the wire check, not by a value guard")
+    func undeclaredKeyIsRefusedByTheWireCheck() {
+        // `proposition_id` is exactly what must never reach the page, and the
+        // only thing that stops it is refusing the row rather than quietly
+        // ignoring the field. Pinning *which* check fires matters: if this ever
+        // starts throwing `invalidPayload` instead, the row is being stopped by
+        // something other than the declaration check, and a future relaxation
+        // of the value guards would let the id through unnoticed.
+        #expect(throws: IPCContractError.invalidEnvelope) {
+            try JSONDecoder().decode(
+                StoryBookDTO.self,
+                from: Self.book(withSecret: #"{ "proposition": "p", "holder": null, "certainty": 1.0, "status": "confirmed", "proposition_id": "fact.p" }"#)
+            )
+        }
+    }
+
+    @Test("A relationship that moved no dimension is refused")
+    func emptyRelationshipIsRefused() {
+        // The contract sets minProperties: 1. "The relationship changed" with
+        // nothing to show is not something this book can honestly report, and
+        // accepting it would put an empty claim on the page.
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-005",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "t",
+          "protagonist_ids": ["protagonist-klein"],
+          "chapters": [
+            { "block_id": "b1", "segments": [{ "type": "narration", "text": "x" }] }
+          ],
+          "ending": { "type": "closed" },
+          "relationship_changes": [
+            { "from": "甲", "to": "乙", "dimensions": {} }
+          ]
+        }
+        """
+        #expect(throws: StoryControlError.invalidPayload) {
+            try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test("A relationship between two unnamed people is refused")
+    func namelessRelationshipIsRefused() {
+        let json = """
+        {
+          "schema_version": "1.0",
+          "episode_id": "episode-006",
+          "world_id": "world-tingen",
+          "worldline_id": "wl-1349-main",
+          "title": "t",
+          "protagonist_ids": ["protagonist-klein"],
+          "chapters": [
+            { "block_id": "b1", "segments": [{ "type": "narration", "text": "x" }] }
+          ],
+          "ending": { "type": "closed" },
+          "relationship_changes": [
+            { "from": null, "to": null, "dimensions": { "trust": 0.1 } }
+          ]
+        }
+        """
+        #expect(throws: StoryControlError.invalidPayload) {
+            try JSONDecoder().decode(StoryBookDTO.self, from: Data(json.utf8))
+        }
+    }
     @Test("StoryBookRequestDTO encodes exactly the two fields the engine validates")
     func encodesRequest() throws {
         let encoded = try JSONEncoder().encode(StoryBookRequestDTO(sessionId: "session-7"))

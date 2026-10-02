@@ -969,6 +969,15 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
     public let chapters: [StoryBookChapterDTO]
     public let ending: StoryBookEndingDTO
     public let unresolvedThreads: [String]?
+    /// PRD §20's four reading-list sections.
+    ///
+    /// Additive on the wire: the contract does not list them as required, so a
+    /// book written before they existed stays decodable and reads as four
+    /// empty sections — which is exactly what the Engine projected for it.
+    public let discoveredSecrets: [StoryBookDiscoveredSecretDTO]
+    public let keyCharacters: [StoryBookKeyCharacterDTO]
+    public let relationshipChanges: [StoryBookRelationshipChangeDTO]
+    public let worldImpacts: [StoryBookWorldImpactDTO]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -982,6 +991,10 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
         case chapters
         case ending
         case unresolvedThreads = "unresolved_threads"
+        case discoveredSecrets = "discovered_secrets"
+        case keyCharacters = "key_characters"
+        case relationshipChanges = "relationship_changes"
+        case worldImpacts = "world_impacts"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -989,7 +1002,8 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
             decoder,
             allowed: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
                       "protagonist_ids", "start_world_time", "end_world_time", "chapters",
-                      "ending", "unresolved_threads"],
+                      "ending", "unresolved_threads", "discovered_secrets",
+                      "key_characters", "relationship_changes", "world_impacts"],
             required: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
                        "protagonist_ids", "chapters", "ending"],
             allowNull: ["start_world_time", "end_world_time", "unresolved_threads"],
@@ -1008,6 +1022,14 @@ public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
         guard !chapters.isEmpty else { throw StoryControlError.invalidPayload }
         ending = try container.decode(StoryBookEndingDTO.self, forKey: .ending)
         unresolvedThreads = try container.decodeIfPresent([String].self, forKey: .unresolvedThreads)
+        discoveredSecrets = try container.decodeIfPresent(
+            [StoryBookDiscoveredSecretDTO].self, forKey: .discoveredSecrets) ?? []
+        keyCharacters = try container.decodeIfPresent(
+            [StoryBookKeyCharacterDTO].self, forKey: .keyCharacters) ?? []
+        relationshipChanges = try container.decodeIfPresent(
+            [StoryBookRelationshipChangeDTO].self, forKey: .relationshipChanges) ?? []
+        worldImpacts = try container.decodeIfPresent(
+            [StoryBookWorldImpactDTO].self, forKey: .worldImpacts) ?? []
     }
 }
 
@@ -1077,6 +1099,200 @@ public nonisolated struct StoryBookEndingDTO: Codable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         type = try StoryControl.identifier(container.decode(String.self, forKey: .type))
         mainProblem = try container.decodeIfPresent(String.self, forKey: .mainProblem)
+    }
+}
+
+/// A fact this Episode committed as known (PRD §20 「已发现秘密」).
+///
+/// `holder` is a public label or null; a canonical character id is never
+/// carried, and a proposition with no public label is omitted by the Engine
+/// rather than rendered as its internal id.
+public nonisolated struct StoryBookDiscoveredSecretDTO: Codable, Sendable, Equatable {
+    /// Closed set from the schema. An unknown status is a contract violation,
+    /// not a state the App would render without knowing what it means.
+    static let statuses: Set<String> = [
+        "confirmed", "probable", "uncertain", "contradicted", "revoked",
+    ]
+
+    public let proposition: String
+    public let holder: String?
+    public let certainty: Double
+    public let status: String
+    public let acquiredWorldTime: String?
+
+    enum CodingKeys: String, CodingKey {
+        case proposition
+        case holder
+        case certainty
+        case status
+        case acquiredWorldTime = "acquired_world_time"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["proposition", "holder", "certainty", "status", "acquired_world_time"],
+            required: ["proposition", "holder", "certainty", "status"],
+            allowNull: ["holder", "acquired_world_time"]
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        proposition = try StoryControl.identifier(container.decode(String.self, forKey: .proposition))
+        holder = try container.decodeIfPresent(String.self, forKey: .holder)
+        let level = try container.decode(Double.self, forKey: .certainty)
+        guard level.isFinite, (0...1).contains(level) else {
+            throw StoryControlError.invalidPayload
+        }
+        certainty = level
+        let state = try container.decode(String.self, forKey: .status)
+        guard Self.statuses.contains(state) else { throw StoryControlError.invalidPayload }
+        status = state
+        acquiredWorldTime = try container.decodeIfPresent(String.self, forKey: .acquiredWorldTime)
+    }
+}
+
+/// A character whose state moved in this Episode (PRD §20 「关键人物」).
+public nonisolated struct StoryBookKeyCharacterDTO: Codable, Sendable, Equatable {
+    public let label: String
+    public let changeCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case label
+        case changeCount = "change_count"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["label", "change_count"],
+                          required: ["label", "change_count"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        label = try StoryControl.identifier(container.decode(String.self, forKey: .label))
+        let count = try container.decode(Int.self, forKey: .changeCount)
+        // Zero changes means the row was not about a change; a negative count
+        // means the Engine is counting something other than changes.
+        guard count >= 1 else { throw StoryControlError.invalidPayload }
+        changeCount = count
+    }
+}
+
+/// The relationship dimensions that actually moved (PRD §20 「重要关系变化」).
+///
+/// A closed set rather than a dictionary because the contract is
+/// `additionalProperties: false` over six named dimensions: a payload naming a
+/// seventh is a contract violation, and a dictionary would accept it.
+public nonisolated struct StoryBookRelationshipDimensionsDTO: Codable, Sendable, Equatable {
+    public let trust: Double?
+    public let affection: Double?
+    public let respect: Double?
+    public let fear: Double?
+    public let dependency: Double?
+    public let hostility: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case trust, affection, respect, fear, dependency, hostility
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["trust", "affection", "respect", "fear", "dependency", "hostility"],
+            required: []
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        func value(_ key: CodingKeys) throws -> Double? {
+            guard let raw = try container.decodeIfPresent(Double.self, forKey: key) else {
+                return nil
+            }
+            guard raw.isFinite else { throw StoryControlError.invalidPayload }
+            return raw
+        }
+        trust = try value(.trust)
+        affection = try value(.affection)
+        respect = try value(.respect)
+        fear = try value(.fear)
+        dependency = try value(.dependency)
+        hostility = try value(.hostility)
+    }
+
+    /// Only the dimensions that moved, in a fixed reading order, so two reads
+    /// of one page cannot disagree about how a relationship reads.
+    public var changed: [(name: String, delta: Double)] {
+        let all: [(String, Double?)] = [
+            ("信任", trust), ("好感", affection), ("尊重", respect),
+            ("恐惧", fear), ("依赖", dependency), ("敌意", hostility),
+        ]
+        return all.compactMap { name, delta in
+            delta.map { (name: name, delta: $0) }
+        }
+    }
+}
+
+public nonisolated struct StoryBookRelationshipChangeDTO: Codable, Sendable, Equatable {
+    public let from: String?
+    public let to: String?
+    public let dimensions: StoryBookRelationshipDimensionsDTO
+
+    enum CodingKeys: String, CodingKey {
+        case from, to, dimensions
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["from", "to", "dimensions"],
+                          required: ["from", "to", "dimensions"],
+                          allowNull: ["from", "to"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let source = try container.decodeIfPresent(String.self, forKey: .from)
+        let target = try container.decodeIfPresent(String.self, forKey: .to)
+        // The contract's anyOf: a change between two nameless people says
+        // nothing, and the Engine drops such a row rather than emit it.
+        guard source != nil || target != nil else { throw StoryControlError.invalidPayload }
+        from = source
+        to = target
+        dimensions = try container.decode(
+            StoryBookRelationshipDimensionsDTO.self, forKey: .dimensions)
+        // The contract's minProperties: 1 — "the relationship changed" with no
+        // dimension to show is not a change this book can honestly report.
+        guard !dimensions.changed.isEmpty else { throw StoryControlError.invalidPayload }
+    }
+}
+
+/// A result that actually entered World State (PRD §20.4 「世界影响」).
+public nonisolated struct StoryBookWorldImpactDTO: Codable, Sendable, Equatable {
+    static let importances: Set<String> = ["personal", "relationship", "local", "world"]
+    static let persistences: Set<String> = ["episode", "character", "world"]
+
+    public let eventType: String
+    public let worldTime: String?
+    public let importance: String
+    public let persistence: String
+    public let actors: [String]
+    public let targets: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case worldTime = "world_time"
+        case importance, persistence, actors, targets
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["event_type", "world_time", "importance", "persistence", "actors", "targets"],
+            required: ["event_type", "importance", "persistence", "actors", "targets"],
+            allowNull: ["world_time"]
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        eventType = try StoryControl.identifier(container.decode(String.self, forKey: .eventType))
+        worldTime = try container.decodeIfPresent(String.self, forKey: .worldTime)
+        let weight = try container.decode(String.self, forKey: .importance)
+        guard Self.importances.contains(weight) else { throw StoryControlError.invalidPayload }
+        importance = weight
+        let span = try container.decode(String.self, forKey: .persistence)
+        guard Self.persistences.contains(span) else { throw StoryControlError.invalidPayload }
+        persistence = span
+        // Actors and targets are public labels the Engine already resolved;
+        // ids it could not resolve were dropped there, so an empty list is a
+        // legitimate reading and not a decode failure.
+        actors = try container.decode([String].self, forKey: .actors)
+        targets = try container.decode([String].self, forKey: .targets)
     }
 }
 

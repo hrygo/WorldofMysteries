@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Reads a finalized session's Story Book: cover facts, chapters in committed
-/// order, the ending, and any unresolved threads. Nothing here is regenerated.
+/// order, the ending, any unresolved threads, and the four reading-list sections
+/// of PRD §20. Nothing here is regenerated.
 public struct StoryBookView: View {
     private let model: StoryBookModel
     private let sessionId: String?
@@ -71,6 +72,21 @@ public struct StoryBookView: View {
                 chapterCard(index: index, chapter: chapter)
             }
             endingCard(book)
+            // An empty section is not rendered. The Engine omits a row it has
+            // no public label for, so an empty list means "there is nothing to
+            // say here" rather than "say that there is nothing here".
+            if !book.discoveredSecrets.isEmpty {
+                discoveredSecretsCard(book.discoveredSecrets)
+            }
+            if !book.keyCharacters.isEmpty {
+                keyCharactersCard(book.keyCharacters)
+            }
+            if !book.relationshipChanges.isEmpty {
+                relationshipChangesCard(book.relationshipChanges)
+            }
+            if !book.worldImpacts.isEmpty {
+                worldImpactsCard(book.worldImpacts)
+            }
         }
     }
 
@@ -135,5 +151,108 @@ public struct StoryBookView: View {
                 }
             }
         }
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(Font.Mystic.titleSmall)
+            .foregroundStyle(Color.Mystic.textGoldAccent)
+    }
+
+    private func discoveredSecretsCard(_ secrets: [StoryBookDiscoveredSecretDTO]) -> some View {
+        VictorianCard(style: .obsidianGlass) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                sectionTitle("已发现的秘密")
+                ForEach(Array(secrets.enumerated()), id: \.offset) { _, secret in
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        Text(secret.proposition)
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                        // A holder the Engine could not name is shown as
+                        // unknown, never as the canonical id it failed to
+                        // resolve.
+                        Text("· \(secret.holder ?? "持有人不明") · 确定度 \(Self.percent(secret.certainty))")
+                            .font(Font.Mystic.caption)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func keyCharactersCard(_ characters: [StoryBookKeyCharacterDTO]) -> some View {
+        VictorianCard(style: .obsidianGlass) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                sectionTitle("关键人物")
+                ForEach(Array(characters.enumerated()), id: \.offset) { _, character in
+                    Text("· \(character.label)（\(character.changeCount) 处变化）")
+                        .font(Font.Mystic.bodyMedium)
+                        .foregroundStyle(Color.Mystic.textPrimary)
+                }
+            }
+        }
+    }
+
+    private func relationshipChangesCard(_ changes: [StoryBookRelationshipChangeDTO]) -> some View {
+        VictorianCard(style: .obsidianGlass) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                sectionTitle("重要关系变化")
+                ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        Text("\(change.from ?? "某人") → \(change.to ?? "某人")")
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                        // Only the dimensions that actually moved appear, in
+                        // the Engine's fixed order.
+                        ForEach(Array(change.dimensions.changed.enumerated()), id: \.offset) { _, dimension in
+                            Text("· \(dimension.name) \(Self.delta(dimension.delta))")
+                                .font(Font.Mystic.caption)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func worldImpactsCard(_ impacts: [StoryBookWorldImpactDTO]) -> some View {
+        VictorianCard(style: .obsidianGlass) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                sectionTitle("世界影响")
+                ForEach(Array(impacts.enumerated()), id: \.offset) { _, impact in
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                        Text(impact.eventType)
+                            .font(Font.Mystic.bodyMedium)
+                            .foregroundStyle(Color.Mystic.textPrimary)
+                        Text("· \(impact.importance) · \(impact.persistence)")
+                            .font(Font.Mystic.caption)
+                            .foregroundStyle(Color.Mystic.textSecondary)
+                        // The Engine already dropped ids it could not resolve,
+                        // so these are public labels or nothing.
+                        if !impact.actors.isEmpty {
+                            Text("· 行为者：\(impact.actors.joined(separator: "、"))")
+                                .font(Font.Mystic.caption)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                        }
+                        if !impact.targets.isEmpty {
+                            Text("· 影响：\(impact.targets.joined(separator: "、"))")
+                                .font(Font.Mystic.caption)
+                                .foregroundStyle(Color.Mystic.textSecondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// A confidence the reader can compare at a glance, without implying more
+    /// precision than the Engine committed.
+    private static func percent(_ value: Double) -> String {
+        "\(Int((value * 100).rounded()))%"
+    }
+
+    private static func delta(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        return rounded > 0 ? "+\(rounded)" : "\(rounded)"
     }
 }
