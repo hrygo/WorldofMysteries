@@ -1,0 +1,155 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-SB-12",
+  "capsule_revision": 1,
+  "task_id": "SB-12",
+  "title": "用出货构建器钉住阅读模式的非空段",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-10-02T07:44:27.435054+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "91eea6702a813677761a6c9dc82474188baeb26e",
+    "target_sha": "91eea6702a813677761a6c9dc82474188baeb26e",
+    "context_snapshot": "sha256:3bd5bcf8d3f169381f126a2b4e6d8e2d412650ab2268fb64b374470a84144042"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/outbox*",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/**/database*",
+      "engine/infrastructure/**/outbox*",
+      "engine/infrastructure/**/migrations/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ScenarioPresentation@engine/application/story_initialization.py:81",
+      "symbol:_validate_presentation@engine/application/story_initialization.py:399",
+      "symbol:StoryBookProjectionError@engine/application/storybook_projection.py:59",
+      "symbol:StoryBookArtifacts@engine/application/storybook_projection.py:68",
+      "symbol:_label@engine/application/storybook_projection.py:85",
+      "symbol:_labels@engine/application/storybook_projection.py:92",
+      "symbol:_payload@engine/application/storybook_projection.py:112",
+      "symbol:_key_characters@engine/application/storybook_projection.py:120",
+      "symbol:_relationship_changes@engine/application/storybook_projection.py:150",
+      "symbol:_discovered_secrets@engine/application/storybook_projection.py:202",
+      "symbol:_world_impacts@engine/application/storybook_projection.py:241",
+      "symbol:project_story_book@engine/application/storybook_projection.py:286",
+      "symbol:__init__@engine/application/storybook_projection.py:62",
+      "symbol:test_post_commit_transaction_cannot_mutate_world_facts_or_other_presentation_state@engine/tests/test_narrative_block_repository.py:211",
+      "symbol:test_both_registered_content_shapes_are_accepted_presentation@engine/tests/test_scenario_policy.py:247",
+      "symbol:test_seal_rejects_stale_binding_revision_and_wrong_presentation_identity@engine/tests/test_speech_unit.py:262",
+      "symbol:_block@engine/tests/test_storybook_projection.py:27",
+      "symbol:_episode@engine/tests/test_storybook_projection.py:45",
+      "symbol:test_projection_assembles_chapters_in_committed_order_and_matches_contract@engine/tests/test_storybook_projection.py:64",
+      "symbol:test_speaker_is_resolved_to_public_label_not_canonical_id@engine/tests/test_storybook_projection.py:89",
+      "symbol:test_speaker_fails_closed_when_no_public_label_exists@engine/tests/test_storybook_projection.py:101",
+      "symbol:test_chapterless_episode_is_rejected_rather_than_producing_an_empty_book@engine/tests/test_storybook_projection.py:114",
+      "symbol:test_missing_referenced_chapter_is_rejected@engine/tests/test_storybook_projection.py:124",
+      "symbol:_artifacts@engine/tests/test_storybook_projection.py:137",
+      "symbol:_character_event@engine/tests/test_storybook_projection.py:148",
+      "symbol:_relationship_event@engine/tests/test_storybook_projection.py:161",
+      "symbol:_knowledge@engine/tests/test_storybook_projection.py:173",
+      "symbol:_world_event@engine/tests/test_storybook_projection.py:190",
+      "symbol:_book@engine/tests/test_storybook_projection.py:216",
+      "symbol:_assert_matches_contract@engine/tests/test_storybook_projection.py:226"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 834,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ScenarioPresentation",
+      "_validate_presentation",
+      "StoryBookProjectionError",
+      "StoryBookArtifacts",
+      "_label",
+      "_labels",
+      "_payload",
+      "_key_characters",
+      "_relationship_changes",
+      "_discovered_secrets",
+      "_world_impacts",
+      "project_story_book",
+      "__init__",
+      "test_post_commit_transaction_cannot_mutate_world_facts_or_other_presentation_state",
+      "test_both_registered_content_shapes_are_accepted_presentation",
+      "test_seal_rejects_stale_binding_revision_and_wrong_presentation_identity",
+      "_block",
+      "_episode",
+      "test_projection_assembles_chapters_in_committed_order_and_matches_contract",
+      "test_speaker_is_resolved_to_public_label_not_canonical_id",
+      "test_speaker_fails_closed_when_no_public_label_exists",
+      "test_chapterless_episode_is_rejected_rather_than_producing_an_empty_book",
+      "test_missing_referenced_chapter_is_rejected",
+      "_artifacts",
+      "_character_event",
+      "_relationship_event",
+      "_knowledge",
+      "_world_event",
+      "_book",
+      "_assert_matches_contract"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}

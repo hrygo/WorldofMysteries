@@ -425,3 +425,105 @@ def test_character_change_counts_accumulate_across_turns():
     )
 
     assert book["key_characters"] == [{"label": "莫里斯医生", "change_count": 3}]
+
+
+# ---------------------------------------------------------------------------
+# The shipped bundle, not a hand-written fixture.
+#
+# Every test above builds its artifacts inline, which is right for pinning the
+# projection's rules and wrong for pinning whether those rules have anything to
+# work on. Those are different questions, and only the second one caught the
+# fact that 已发现秘密 shipped dead: the projection was correct, the allowlist
+# it reads was simply absent from the bundle the product actually launches
+# with. A green suite said nothing about it for three slices.
+#
+# So these read the real builder. If a presentation table stops being emitted,
+# the product loses a section of the book and this file goes red.
+# ---------------------------------------------------------------------------
+
+
+def _shipped_payload() -> dict:
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import build_story_content as builder
+    finally:
+        sys.path.pop(0)
+    return builder.build_payload()
+
+
+def _shipped_book(payload: dict) -> dict:
+    presentation = payload["presentation"]
+    return project_story_book(
+        episode=_episode(block_ids=["b1"]),
+        narrative_blocks={"b1": _block("b1")},
+        character_display_names=presentation.get("character_display_names", {}),
+        proposition_display_names=presentation.get("proposition_display_names", {}),
+        artifacts=StoryBookArtifacts(
+            knowledge_changes=tuple(payload["knowledge"]),
+        ),
+    )
+
+
+def test_the_shipped_bundle_carries_the_names_the_book_reads():
+    """An empty allowlist is legal; an empty one in the shipped bundle is a bug.
+
+    ``ScenarioPresentation`` defaults every table to ``{}`` so that bundles
+    written before a table existed keep validating. That default is the right
+    compatibility choice and a poor product state: it means a builder that
+    forgets to pass a table produces a bundle that validates, ships, and
+    silently empties a section of the reading mode.
+    """
+    presentation = _shipped_payload()["presentation"]
+
+    assert presentation["clue_display_names"], "线索公开名表不应为空"
+    assert presentation["proposition_display_names"], (
+        "命题公开名表不应为空——没有它，Story Book 的「已发现秘密」整段为空"
+    )
+
+
+def test_the_shipped_bundle_projects_readable_secrets():
+    """End to end: real builder, real knowledge, real projection."""
+    payload = _shipped_payload()
+    table = payload["presentation"]["proposition_display_names"]
+
+    book = _shipped_book(payload)
+
+    secrets = book["discovered_secrets"]
+    assert secrets, "出货固件的真实 knowledge 投影不出任何秘密"
+    # Every row is a public label drawn from the allowlist, never a bare id.
+    assert {row["proposition"] for row in secrets} <= set(table.values())
+    serialized = json.dumps(book, ensure_ascii=False)
+    assert not [key for key in table if key in serialized], "canonical id 泄漏进了书里"
+    _assert_matches_contract(book)
+
+
+def test_reading_the_book_twice_gives_the_same_page():
+    """The shipped path is as order-stable as the fixture path."""
+    payload = _shipped_payload()
+
+    assert _shipped_book(payload) == _shipped_book(payload)
+
+
+def test_the_sections_awaiting_character_names_are_empty_and_that_is_known():
+    """Pin the two remaining gaps so they cannot be forgotten silently.
+
+    关键人物 and 关系变化 both need ``character_display_names``, which the
+    bundle deliberately does not ship yet: adding it also puts the supporting
+    cast into the voice-casting and speaker-binding path, which is a behaviour
+    change worth its own review rather than a side effect of filling in a table.
+
+    Asserting the emptiness is deliberate. When that table is shipped, this
+    test goes red and whoever did it has to say out loud that the book now shows
+    people — the same discipline ``golden_policy`` applies to content digests.
+    """
+    presentation = _shipped_payload()["presentation"]
+    assert "character_display_names" not in presentation
+
+    book = _shipped_book(_shipped_payload())
+
+    assert book["discovered_secrets"], "秘密段是本切片的目标，不该为空"
+    assert book["key_characters"] == []
+    assert book["relationship_changes"] == []
