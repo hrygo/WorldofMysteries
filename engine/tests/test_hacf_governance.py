@@ -1977,3 +1977,108 @@ def test_the_fate_path_section_is_still_undecided():
     assert fate["evidence"] == (
         "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md#8. 决策状态"
     ), "STORYBOOK-FATE-PATH 的出处未指向 ADR-008 §8：读者会找不到该看的提案"
+
+
+# ADR-008 §4.4 方案 D 的成本此前写的是「未核实裁决器的输出形状」。§1.1 已把它
+# 核实成结论，于是这些事实必须被钉住：任一条漂移都意味着 ADR 的成本估算失真，
+# 而方案 D 正是待裁决人拿来比价的依据。
+ADR008 = (
+    project_status.ROOT_DIR
+    / "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md"
+)
+MIGRATIONS_DIR = project_status.ROOT_DIR / "engine/infrastructure/migrations"
+
+
+def test_the_action_intent_contract_is_the_shape_plan_d_needs():
+    """ActionIntent 恰是 §4.4 描述的「谁、做了什么、依据哪个意图」——逐字段钉死。"""
+    schema = json.loads(
+        (
+            project_status.ROOT_DIR / "contracts/schemas/action_intent.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    declared = set(schema["required"]) | set(schema["properties"])
+    for field in ("character_id", "actions", "intent", "adherence", "evidence_ids"):
+        assert field in declared, (
+            f"ActionIntent 不再声明 {field}：ADR-008 §1.1(2) 的「结构已在裁决器输入上」"
+            "已不成立，方案 D 的成本估算需重核"
+        )
+
+    action = schema["properties"]["actions"]["items"]["properties"]
+    for field in ("type", "purpose", "target_ids"):
+        assert field in action, (
+            f"ActionIntent.actions[] 不再带 {field}："
+            "§1.1(2) 所述的「做了什么」已无法从裁决器输入复原"
+        )
+
+
+def test_the_resolver_output_carries_no_action_record():
+    """StateDelta 里不能出现 actions / adherence：裁决器输出不含行动记录。"""
+    schema = json.loads(
+        (
+            project_status.ROOT_DIR / "contracts/schemas/state_delta.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    for key in ("actions", "adherence", "action_intent"):
+        assert key not in schema["properties"], (
+            f"StateDelta 新增了 {key}：ADR-008 §1.1(1)「裁决器输出不含行动条目」"
+            "已过期——若是有意的，请先更新 §1.1 再合入"
+        )
+
+    resolver = (
+        project_status.ROOT_DIR / "engine/domain/resolver.py"
+    ).read_text(encoding="utf-8")
+    assert "def resolve(" in resolver, "resolver.py 的裁决器入口已改名，§1.1 需重新核实"
+
+
+def test_the_action_intent_body_is_still_not_persisted():
+    """ActionIntent 本体仍未落库：只有 id 字符串，没有表也没有外键。
+
+    这条断言是 ADR-008 §1.1(3) 的可执行形式。它一旦转红，说明方案 D 的第一步
+    （落库）已经被人做了——那时必须先更新 §1.1 与 §4.4，而不是让 ADR 继续
+    声称「未落库」。
+    """
+    migration_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(MIGRATIONS_DIR.glob("*.sql"))
+    )
+    assert "action_intents" not in migration_text, (
+        "已出现 action_intents 表：ADR-008 §1.1(3) 与 §4.4 的成本行已过期，"
+        "方案 D 的落库前置已完成，需回写 ADR"
+    )
+    assert "action_intent_id TEXT REFERENCES" not in migration_text, (
+        "turn_transactions.action_intent_id 已接上外键：§1.1(3) 已过期，需回写 ADR"
+    )
+    assert "action_intent_id TEXT" in migration_text, (
+        "turn_transactions.action_intent_id 已被移除：§1.1(3) 的指针描述已过期，"
+        "需回写 ADR"
+    )
+
+
+def test_adr_008_records_the_resolver_verification_it_relied_on():
+    """§4.4 不得再把裁决器输出形状写成未核实——那正是待裁决人被误导的地方。"""
+    text = ADR008.read_text(encoding="utf-8")
+    assert "### 1.1 裁决器输出形状核实" in text, (
+        "ADR-008 缺少 §1.1 裁决器输出形状核实：§4.4 声称已完成核实却无出处"
+    )
+    assert "本 ADR **未**核实裁决器的输出形状" not in text, (
+        "ADR-008 §4.4 仍写着「未核实裁决器的输出形状」：与 §1.1 自相矛盾，"
+        "读者会以为方案 D 的成本仍未知"
+    )
+    assert "**待裁决**" in text, "ADR-008 的决策状态已被改动：核实事实不等于裁决"
+
+
+def test_the_action_intent_still_binds_to_the_protagonist_only():
+    """§1.1(5).2：character_id 恒为主角。放宽它属契约破坏性变更，须先裁决。"""
+    advice_action = (
+        project_status.ROOT_DIR / "engine/application/advice_action.py"
+    ).read_text(encoding="utf-8")
+    assert '"character_id": scope.protagonist_id' in advice_action, (
+        "ActionIntent 不再恒绑主角：ADR-008 §1.1(5).2 与 §4.4 的覆盖面前置已过期"
+    )
+
+    initialization = (
+        project_status.ROOT_DIR / "engine/application/story_initialization.py"
+    ).read_text(encoding="utf-8")
+    assert "unsupported_scenario" in initialization, (
+        "场景准入已放开：ADR-008 §1.1(5).3「生产可用场景只有 golden_001」已过期"
+    )

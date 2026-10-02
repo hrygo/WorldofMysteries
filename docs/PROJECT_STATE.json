@@ -1,7 +1,7 @@
 {
   "project_name": "World of Mysteries",
   "version": "0.1.0",
-  "last_updated": "2026-10-02",
+  "last_updated": "2026-10-03",
   "current_phase": {
     "phase_id": "Phase 1",
     "phase_name": "真实运行通路与持久世界首个闭环 (Persistent World Alpha)",
@@ -307,7 +307,7 @@
       "question": "「命运介入路径 / 命运记录」指的是玩家介入的轨迹，还是主角的行动轨迹；并据此在 ADR-008 §4.1–4.4 四个方案中选定其一。",
       "evidence": "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md#8. 决策状态",
       "why_blocking": "storybook.schema.json 的 15 个属性中无任何字段承载第五段，PRD §20.3 的示意无实现。ADR-008 §2 已把三个候选数据源的提交绑定逐条核实清楚：turn_advice_interpretations（迁移 009）无 committed_world_revision 且注释明写「never advances world_meta or creates Domain events」，直接投影会违反不变量 4；beat_plans.npc_intents（迁移 012）无 domain_commits 外键，是叙事编排意图而非事实；四组 episode_* 事件（迁移 011）带 deferred FK 到 domain_commits，但已是现有四段、且是结果快照不是行动链。因此先决问题是语义归属，不是实现选择。",
-      "unblocks": "PRD §20 第五段落地；契约加性字段（与现有四段同构，缺失时给空段而非报错）。若选 ADR-008 §4.4 方案 D 还需先核实裁决器是否产出可持久化的行动判定，并按 ADR-002 就前向迁移单独立项。"
+      "unblocks": "PRD §20 第五段落地；契约加性字段（与现有四段同构，缺失时给空段而非报错）。裁决器输出形状已于 2026-10-03 核实完毕（ADR-008 §1.1）：ActionIntent 已是所需的行动判定结构但未落库，故方案 D 的剩余立项范围为按 ADR-002 就 ActionIntent 落库的前向迁移单独立项，并就两项前置（character_id 是否放宽为覆盖 NPC、是否为 golden_001 之外提供生产 ResolutionPolicy）一并裁决。"
     }
   ],
   "verified_unwired": [
