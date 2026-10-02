@@ -1,0 +1,130 @@
+{
+  "receipt_id": "RCP-WORK-SB-38-e7115689cf72",
+  "receipt_type": "work",
+  "task_id": "SB-38",
+  "capsule_id": "CAP-SB-38",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:7dbff36cc353e5b26cf038dd7b46c01fcb275acbd2f81febe0c6711281f70bc2",
+  "diff_digest": "sha256:746cd41ac5067f8bda0837b6ea91752c2f595ec7b24b3e2ad8ba9a6e4e980715",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "180c9e3a8228e171ed6b2952b1271dc6d2a38ef1",
+  "head_commit": "e7115689cf7253efd9122b04f1e6612e7a24652d",
+  "target_ref": "origin/main",
+  "target_sha": "180c9e3a8228e171ed6b2952b1271dc6d2a38ef1",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T22:42:17.094380+00:00",
+      "finished_at": "2026-10-02T22:42:17.132910+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T22:42:17.132993+00:00",
+      "finished_at": "2026-10-02T22:44:20.716049+00:00",
+      "raw_log_digest": "sha256:7daaba0d056c10f977935c4e04bee80515f71906877a5db30468ae2bec408bdb",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T22:44:20.716139+00:00",
+      "finished_at": "2026-10-02T22:44:43.480930+00:00",
+      "raw_log_digest": "sha256:a28982cc2e514c6ef31b5b32894c382133b42bc92b58203af259fe923e3ed511",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T22:44:43.481160+00:00",
+      "finished_at": "2026-10-02T22:44:45.325803+00:00",
+      "raw_log_digest": "sha256:63c61d85703cf285e6861944f952699e18b2b4835a91224686f72ace94857e99",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/fix-adr006-narration-landing-state"
+  },
+  "started_at": "2026-10-02T22:42:17.059126+00:00",
+  "finished_at": "2026-10-02T22:44:45.441561+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
