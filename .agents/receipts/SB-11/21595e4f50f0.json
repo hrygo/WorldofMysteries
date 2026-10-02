@@ -1,0 +1,131 @@
+{
+  "receipt_id": "RCP-WORK-SB-11-21595e4f50f0",
+  "receipt_type": "work",
+  "task_id": "SB-11",
+  "capsule_id": "CAP-SB-11",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3b66342e1ee9cb35e19d73f39c85296a677d98354a07d47ae01c802941bdc836",
+  "diff_digest": "sha256:75a66d5c4037482b6647115f742f5bced45ff52783730b8ae234f18272d1caca",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "5bccd5be3e06dc63798ec0d1f25cde627a66a3fe",
+  "head_commit": "21595e4f50f03e76fa21e67db5654c384272c1f2",
+  "target_ref": "origin/main",
+  "target_sha": "5bccd5be3e06dc63798ec0d1f25cde627a66a3fe",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T07:29:14.524379+00:00",
+      "finished_at": "2026-10-02T07:29:14.561083+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T07:29:14.561162+00:00",
+      "finished_at": "2026-10-02T07:31:17.366601+00:00",
+      "raw_log_digest": "sha256:dc4ba1ede840b60838ee5266776051e038ef289dde249a88971875c8462b2042",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T07:31:17.366718+00:00",
+      "finished_at": "2026-10-02T07:31:40.513605+00:00",
+      "raw_log_digest": "sha256:e001a91a701ddcfbd057cdb1834fb792b8feb55fd7194dda21f2f66106458c85",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T07:31:40.513926+00:00",
+      "finished_at": "2026-10-02T07:31:41.930756+00:00",
+      "raw_log_digest": "sha256:ef85f12c4bb453524827d94120d4b4c73892ddfc5a321fa1f8f2dcde1e759dee",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "scripts/build_story_content.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/build_story_content.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-10-emit-proposition-table"
+  },
+  "started_at": "2026-10-02T07:29:14.484982+00:00",
+  "finished_at": "2026-10-02T07:31:42.045057+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
