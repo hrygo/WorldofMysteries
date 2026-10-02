@@ -191,6 +191,17 @@ def cmd_status(state: dict, as_json: bool = False):
             print(f"      仍需裁决: {item['remaining_decision']}")
             print(f"      撤回: {item['retracts']}")
 
+    gaps = state.get("verified_gaps") or []
+    if gaps:
+        print("\n【7. 已证实的规格缺口 (Verified Gaps)】")
+        print("   以下各项不是待裁决缺陷，而是规格明列、代码未实现；不受 gated_by 门控。")
+        for item in gaps:
+            print(f"\n   🕳 {item['id']}")
+            print(f"      结论: {item['claim']}")
+            print(f"      为什么是缺口: {item['why_it_is_a_gap']}")
+            print(f"      需参与角色: {'、'.join(item['roles_required'])}")
+            print(f"      边界: {item['not_decided_here']}")
+
     print("\n💡 提示: 运行 `python3 scripts/project_status.py next` 查看下一步科学推进方向。")
     print("=" * 72)
 
