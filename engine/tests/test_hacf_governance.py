@@ -2773,6 +2773,89 @@ def test_the_two_scene_label_gaps_name_the_same_missing_artifact():
         )
 
 
+# ---- ADR-006 旁白配音：待裁项必须与它所描述的代码同生共死 -----------------------
+#
+# 这条待裁项此前记成「phase 在交付路径上没有任何消费者」，而实测是绑定层早就能
+# 算出旁白身份、只有交付路径接不住。两种描述会导出完全不同的裁决范围，所以事实
+# 源与代码必须绑在一起：任何一侧单独变化，都强制另一侧回写。
+def _adr006_entry():
+    decisions = json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    )["pending_decisions"]
+    return next(d for d in decisions if d["id"] == "ADR006-NARRATION-VOICE")
+
+
+def test_the_binding_layer_can_already_compute_a_narrator_identity():
+    """旁白绑定身份已存在——若被移除，ADR-006 的问题形状就变了，必须回写。"""
+    resolver = _engine_file("infrastructure/voice_binding_resolver.py")
+    assert 'NARRATOR_IDENTITY = "narrator"' in resolver, (
+        "voice_binding_resolver 不再定义 NARRATOR_IDENTITY：ADR006-NARRATION-VOICE "
+        "记录的「绑定层已能算出旁白身份」不再成立，需重核后回写事实源"
+    )
+    assert 'NARRATION_PHASE = "narration"' in resolver, (
+        "NARRATION_PHASE 消失了：ADR006-NARRATION-VOICE 的前提已变"
+    )
+    assert "presentation_identity=NARRATOR_IDENTITY" in resolver, (
+        "narration 段不再解析出旁白绑定域：ADR006-NARRATION-VOICE 的落地范围需重核"
+    )
+    # 两条生产路径都真的引用了它，否则它只是没人调用的死代码。
+    for relative in (
+        "infrastructure/story_runtime.py",
+        "infrastructure/scenarios/post_commit_handlers.py",
+    ):
+        assert "voice_binding_resolver" in _engine_file(relative), (
+            f"{relative} 不再引用 voice_binding_resolver：旁白绑定路径可能已退回死代码"
+        )
+
+
+def test_the_narration_gap_is_pinned_to_the_three_delivery_constraints():
+    """三层机械约束任一被拆掉，ADR-006 的裁决范围就得重写——事实源必须跟着改。"""
+    entry = _adr006_entry()
+    assert "UNIQUE(turn_id, kind, recipe_revision)" in entry["why_blocking"], (
+        "ADR006-NARRATION-VOICE 没有记录迁移 013 的唯一约束"
+    )
+
+    planner = _engine_file("application/post_commit_work.py")
+    assert planner.count("kind=PostCommitKind.AUDIO_PREPARE") == 1, (
+        "required_jobs_for_turn 已不再恰好 append 一个 AUDIO_PREPARE："
+        "ADR006-NARRATION-VOICE 记录的「每回合一段」瓶颈已变，需回写事实源"
+    )
+
+    handler = _engine_file("infrastructure/scenarios/post_commit_handlers.py")
+    assert "candidates[0]" in handler, (
+        "封存 handler 不再只取 candidates[0]：ADR006-NARRATION-VOICE 的记录已过期"
+    )
+
+    migration = (
+        project_status.ROOT_DIR
+        / "engine/infrastructure/migrations/013_world_post_commit_jobs.sql"
+    ).read_text(encoding="utf-8")
+    assert "UNIQUE(turn_id, kind, recipe_revision)" in migration, (
+        "post_commit_jobs 的唯一约束没了：同一回合现在可以插入第二个 AUDIO_PREPARE，"
+        "ADR006-NARRATION-VOICE 的瓶颈描述必须回写"
+    )
+
+
+def test_the_contract_does_not_forbid_a_speaker_on_a_narration_segment():
+    """旁白能不能带说话人，是契约层的事——这里断言它今天不被禁止。
+
+    加上这条耦合校验会把 ADR-006 从「要写旁白呈现策略」变成「要先改契约」，
+    是更大的改动；反过来若有人已经加了校验，本守卫会转红并要求回写事实源。
+    """
+    models = _engine_file("contracts/models.py")
+    start = models.index("class NarrativeSegment(")
+    end = models.index("class ", start + 1)
+    body = models[start:end]
+    for hook in ("model_validator", "field_validator", "@validator", "field_validator("):
+        assert hook not in body, (
+            f"NarrativeSegment 出现了 {hook}：它现在可能对 type/speaker_id 做了耦合校验，"
+            "ADR006-NARRATION-VOICE 记录的「契约不禁忌旁白带说话人」需要重新核实"
+        )
+    assert 'speaker_id: str | None = None' in body, (
+        "NarrativeSegment.speaker_id 不再是可空默认值：旁白携带说话人的契约前提变了"
+    )
+
+
 def test_a_missing_origin_main_falls_back_and_says_so(monkeypatch):
     monkeypatch.setattr(
         collab_pipeline,

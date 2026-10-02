@@ -308,8 +308,8 @@
       "id": "ADR006-NARRATION-VOICE",
       "question": "旁白段是否进入配音路径。当前 NarrativeBlock v1 的旁白没有说话人身份，代码注释的理由是「允许调用方指定谁在讲，等于让调用方选择谁来叙述整个游戏」。",
       "evidence": "docs/06_实施基线/2026-10-02_ADR005_逐项验收报告_V01-V12.md#10.3 与本轮验收标准 1 直接冲突",
-      "why_blocking": "旁白在铸造、听审、绑定三步都是一等公民，但 phase 在交付路径上没有任何消费者，三处独立证据（speech_unit.py / story_runtime.py / post_commit_handlers.py）都跳过非 character 段，且 test_a_block_that_opens_with_narration_still_speaks_for_its_character 把该行为固定为预期。「旁白该不该被配音」是产品语义，不是缺陷修复。",
-      "unblocks": "ADR-005 验收标准 1「按身份逐段配音」；ADR-006 D1「旁白身份由可信源写入」的落地形态。"
+      "why_blocking": "更正（SB-38）：上一版写「phase 在交付路径上没有任何消费者」，不准确——绑定层早已能算出旁白身份。voice_binding_resolver 里 NARRATOR_IDENTITY = \"narrator\"、NARRATION_PHASE = \"narration\"，narration 段在该 resolver 中得到 binding_scope_for(session, presentation_identity=NARRATOR_IDENTITY, phase=NARRATION_PHASE)，其 docstring 明写「旁白与主角台词是两个声音」；该 resolver 已被 story_runtime.py 与 post_commit_handlers.py 两条生产路径引用，且 post_commit_handlers 在 NARRATION_PHASE 下确实采集旁白文本。契约与领域模型也没有禁止旁白携带说话人：NarrativeSegment 的 type 与 speaker_id 之间不存在校验耦合，narration 段本来就可以带 speaker_id。真正的阻塞收窄为交付路径的三层机械约束，每层均已实测：(1) application/post_commit_work.required_jobs_for_turn 每回合只 append 一个 AUDIO_PREPARE 需求，没有按段的多重性；(2) ScenarioAudioPrepareHandler 取 candidates[0]（post_commit_handlers.py:486）；(3) 迁移 013 的 post_commit_jobs 带 UNIQUE(turn_id, kind, recipe_revision)，同一回合插不进第二行。封存层 speech_unit.py 则对任何非 character 段一律拒绝，其错误码 speakerless_segment_requires_narrator_policy 已把缺的东西命名为「旁白呈现策略」。因此待裁的不再是「旁白该不该被配音」这一句抽象语义，而是三件具体事：旁白呈现策略由哪个可信源写入、写入哪个字段、以及交付路径要不要从「每回合一段」放宽为逐段。",
+      "unblocks": "ADR-005 验收标准 1「按身份逐段配音」；ADR-006 D1「旁白身份由可信源写入」的落地形态。注意后者的瓶颈与 PERSISTENT-AUDIO-SUBSYSTEM 记录的「每回合最多一段拿到音频」是同一处：即便旁白身份今天就能算出来，交付路径也只能封存第一个 character 段。"
     },
     {
       "id": "ADR007-PROVIDER-NEUTRAL",
