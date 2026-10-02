@@ -527,3 +527,168 @@ def test_the_sections_awaiting_character_names_are_empty_and_that_is_known():
     assert book["discovered_secrets"], "秘密段是本切片的目标，不该为空"
     assert book["key_characters"] == []
     assert book["relationship_changes"] == []
+
+
+# ---------------------------------------------------------------------------
+# The cross-language wire fixture.
+#
+# `macos-app/WorldOfMysteriesTests/Fixtures/storybook_wire.json` is what the App
+# decodes. SB-13 generated it from the real projection after finding the App
+# could not open a book at all, and the whole class of that bug -- a fixture
+# quietly disagreeing with its producer -- is only closed once something
+# notices the two drifting apart again. This is that something.
+
+WIRE_FIXTURE = (
+    Path(__file__).resolve().parents[2]
+    / "macos-app"
+    / "WorldOfMysteriesTests"
+    / "Fixtures"
+    / "storybook_wire.json"
+)
+
+
+def _wire_fixture_book() -> dict:
+    """Rebuild, from the live projection, the payload the fixture was cut from."""
+    import sys
+
+    from application.story_initialization import GOLDEN_CHARACTER_DISPLAY_NAMES
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import build_story_content as builder
+    finally:
+        sys.path.pop(0)
+    payload = builder.build_payload()
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="block-1",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[
+            NarrativeSegment(type="narration", text="雨落在诊所的窗外。"),
+            NarrativeSegment(
+                type="character",
+                speaker_id="npc_doctor_morris",
+                text="你还没有回答我的问题。",
+            ),
+        ],
+    )
+    episode = Episode.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": "episode-001",
+            "world_id": "world-tingen",
+            "worldline_id": "wl-1349-main",
+            "protagonist_ids": ["char_evelyn_gray"],
+            "title": "哈维诊所的停顿",
+            "start_world_time": "1349-06-12T21:40:00",
+            "end_world_time": "1349-06-12T21:52:00",
+            "ending": {
+                "type": "partial_truth",
+                "main_problem": "乔纳森·维尔去向不明",
+            },
+            "secret_states": {"secret_01": SecretState.PARTIAL},
+            "unresolved_threads": ["乔纳森·维尔是否还活着"],
+            "narrative_block_ids": ["block-1"],
+        }
+    )
+    artifacts = StoryBookArtifacts(
+        character_events=(
+            {
+                "id": "ce_1",
+                "change": {
+                    "character_id": "npc_doctor_morris",
+                    "patches": [
+                        {"path": "/manner", "operation": "set"},
+                        {"path": "/suspicion", "operation": "set"},
+                    ],
+                },
+            },
+        ),
+        relationship_events=(
+            {
+                "id": "re_1",
+                "change": {
+                    "from_character_id": "char_evelyn_gray",
+                    "to_character_id": "npc_doctor_morris",
+                    # `affection` is null on purpose: the projection must omit
+                    # an axis that did not move rather than assert all six, and
+                    # the App asserts it reads only the two that did.
+                    "dimension_deltas": {"trust": 0.3, "fear": 0.2, "affection": None},
+                },
+            },
+        ),
+        knowledge_changes=tuple(payload["knowledge"]),
+        world_events=(
+            {
+                "event_type": "patient_discovered_missing",
+                "world_time": "1349-06-12T21:20:00",
+                "importance": "local",
+                "persistence": "world",
+                "actors": ["char_evelyn_gray"],
+                "targets": ["npc_doctor_morris"],
+                # Model-authored free-form data. The projection drops it, and
+                # the App asserts this string never reaches the page.
+                "payload": {"note": "model-authored field, deliberately dropped"},
+            },
+        ),
+    )
+    return project_story_book(
+        episode=episode,
+        narrative_blocks={"block-1": block},
+        character_display_names=dict(GOLDEN_CHARACTER_DISPLAY_NAMES),
+        proposition_display_names=payload["presentation"]["proposition_display_names"],
+        artifacts=artifacts,
+    )
+
+
+def test_the_committed_wire_fixture_is_what_the_projection_produces():
+    """The App is checked against its producer, not against a memory of it.
+
+    SB-13 found the App shipping a Story Book it could not open: the decoder
+    mirrored the contract strictly, the projection had always emitted four keys
+    the decoder did not allow, and every Swift fixture happened to omit them.
+    Swapping those fixtures for generated output closes the *shape* half of that
+    gap. This closes the other half -- without it the new fixture is just
+    another committed snapshot that rots the first time the projection moves.
+
+    Regenerate deliberately, never as a side effect of a failing run:
+    `WOM_REGEN_STORYBOOK_FIXTURE=1 pytest tests/test_storybook_projection.py`
+    """
+    import os
+
+    produced = (
+        json.dumps(_wire_fixture_book(), ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n"
+    )
+
+    if os.getenv("WOM_REGEN_STORYBOOK_FIXTURE") == "1":
+        WIRE_FIXTURE.write_text(produced, encoding="utf-8")
+
+    assert WIRE_FIXTURE.exists(), f"缺少线缆夹具：{WIRE_FIXTURE}"
+    assert WIRE_FIXTURE.read_text(encoding="utf-8") == produced, (
+        "storybook_wire.json 与真实投影不一致——App 正在对照一份过期的生产者快照。"
+        "确认这是有意的内容变更后，用 WOM_REGEN_STORYBOOK_FIXTURE=1 重新生成，"
+        "并把这次变更登记为一次产品内容变更（参照 golden_policy 对内容摘要的纪律）。"
+    )
+
+
+def test_the_wire_fixture_carries_all_four_sections():
+    """A fixture with an empty section cannot prove the App reads that section.
+
+    This is the assertion whose absence let 已发现秘密 ship empty for three
+    slices: the section existed in the contract, in the projection and in the
+    DTO, and none of them had anything to show.
+    """
+    book = json.loads(WIRE_FIXTURE.read_text(encoding="utf-8"))
+
+    for section in (
+        "discovered_secrets",
+        "key_characters",
+        "relationship_changes",
+        "world_impacts",
+    ):
+        assert book[section], f"线缆夹具的 {section} 段为空"
