@@ -342,6 +342,14 @@ def project_story_book(
         "worldline_id": episode.worldline_id,
         "title": episode.title,
         "protagonist_ids": list(episode.protagonist_ids),
+        # Positional, not a filtered roster: a protagonist the allowlist cannot
+        # name still occupies a slot in the book, and the reader is better served
+        # by "someone" than by silently losing a lead. This is the same rule
+        # ``_relationship_changes`` already applies to its two endpoints.
+        "protagonist_labels": [
+            _label(character_display_names, identifier)
+            for identifier in episode.protagonist_ids
+        ],
         "start_world_time": episode.start_world_time,
         "end_world_time": episode.end_world_time,
         "chapters": chapters,

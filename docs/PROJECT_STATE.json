@@ -351,26 +351,26 @@
   "verified_gaps": [
     {
       "id": "PRD20-PROTAGONIST-PLACE",
-      "claim": "PRD §20 明列的「主角」与「时间与地点」的「地点」两项，App 视图从未呈现。更正（SB-33）：上一版把两者一并写成「需人类给口径」，不准确——两半的证据强度完全不同。",
-      "why_it_is_a_gap": "PRD §20 把这两项列为故事书的组成部分，没有任何 ADR 将其门控；同一视图对其余每一项都做了 fail-closed 的公开标签处理（「某人」「持有人不明」「The Engine already dropped ids it could not resolve」），唯独这两项既没有解析也没有呈现。因此这不是设计取舍，是尚未实现的规格缺口。",
+      "claim": "PRD §20 明列的「时间与地点」之「地点」一项，App 视图仍未呈现。更正（SB-34）：「主角」这一半已于 SB-34 接线完成并合入——契约新增 protagonist_labels，投影经既有 character_display_names 解析，视图只渲染公开标签。因此本条目现在只剩地点一半待处理。",
+      "why_it_is_a_gap": "PRD §20 把「时间与地点」列为故事书的组成部分，没有任何 ADR 将其门控；同一视图对其余每一项都做了 fail-closed 的公开标签处理（「某人」「持有人不明」「The Engine already dropped ids it could not resolve」），唯独地点既没有解析也没有呈现。因此这不是设计取舍，是尚未实现的规格缺口。",
       "evidence": {
         "prd_lists_them": "PRD 产品基线 §20「包含：封面；标题；主角；时间与地点；章节；终章与结局；命运介入路径；已发现秘密；关键人物；重要关系变化；对世界造成的影响」共 11 项。",
         "contract_carries_raw_ids": "contracts/schemas/storybook.schema.json 的 protagonist_ids 与 chapters[].scene_id 是仅有的两个未解析身份字段；全文无 place/location/venue 类字段，地点只以不透明 scene_id 承载。",
-        "projection_emits_them_raw": "engine/application/storybook_projection.py 的 project_story_book 直接写 \"protagonist_ids\": list(episode.protagonist_ids) 与 \"scene_id\": block.scene_id，而同函数的 key_characters / discovered_secrets / relationship_changes / world_impacts 全部经 character_display_names / proposition_display_names 白名单解析。",
-        "app_never_renders_them": "macos-app 的 StoryBookDTO 解码了 protagonistIds（并校验非空）与 sceneId，但全文 258 行的 StoryBookView 只渲染 title、startWorldTime/endWorldTime、chapters.segments、ending、unresolvedThreads 与四段阅读清单，从未引用这两个字段。",
+        "projection_emits_them_raw": "engine/application/storybook_projection.py 的 project_story_book 曾直接写 \"protagonist_ids\": list(episode.protagonist_ids) 与 \"scene_id\": block.scene_id，而同函数的 key_characters / discovered_secrets / relationship_changes / world_impacts 全部经 character_display_names / proposition_display_names 白名单解析。SB-34 已为前者补上逐位对应的 protagonist_labels；\"scene_id\": block.scene_id 原样保留，故地点一半的证据仍然成立。",
+        "app_renders_public_labels_only": "更正（SB-34）：旧条目记「StoryBookView 从未引用这两个字段」。现在视图确实呈现主角，但只经 StoryBookDTO.protagonistLine(book.protagonistLabels) 渲染公开标签，StoryBookView 源码中不出现 protagonistIds——裸 id 仍被 test_the_story_book_still_shows_no_protagonist_or_place 源扫描钉死。sceneId 则仍然从未被视图引用。",
         "protagonist_label_source_already_exists": "主角这一半不需任何新裁决：ScenarioPresentation.character_display_names 就是按 canonical id 索引的公开标签白名单，其注释明写这是 clue_display_names 已确立的同一规则（第三条），且 storybook_projection.key_characters / discovered_secrets / relationship_changes / world_impacts 四段已经在用同一张表做 fail-closed 解析。episode.protagonist_ids 未被解析，属漏用既有约定。",
         "scene_label_source_exists_but_is_singular": "地点这一半的来源也已存在：ScenarioPresentation.scene_display_name 是一个 str（如「哈维诊所 · 诊室」），属场景级单数，且与同样单数的 scenario_title 一样只被 story_public_view 消费，从不进入 Story Book 投影。",
         "scene_id_is_null_throughout_the_only_scenario": "fixtures/golden_001/ 全目录检索 scene_id 零出现：唯一的已交付场景从不设置它，而 scene_id 来自 story_delta.scene_id（可选）。因此今天各章 scene_id 全为 null，视图即便渲染也无可渲染之物——这一项目前完全不可观测。",
-        "latent_zero_knowledge_hazard_note": "潜在隐患仍在：protagonist_ids 与 scene_id 是同一本书里仅有的两个未解析身份字段，而 StoryBookSegmentDTO 的注释明写 speaker 是公开标签、绝不是 canonical character id。目前因视图未渲染而无泄漏；一旦有人直接渲染裸 id 即破坏该原则。"
+        "latent_zero_knowledge_hazard_note": "主角一半的零知识隐患已在 SB-34 消除且被守卫钉死：投影对每个 protagonist_id 走 character_display_names 查表，解析不出时该位为 null（视图显示「某人」），canonical id 永不出现在 protagonist_labels 里；契约描述与投影测试都对此有断言。地点一半的隐患仍在：scene_id 是同一本书里最后一个未解析身份字段，而 StoryBookSegmentDTO 的注释明写 speaker 是公开标签、绝不是 canonical character id。今天因各章 scene_id 全为 null 而无泄漏；一旦有人直接渲染裸 id 即破坏该原则。"
       },
       "roles_required": [
         "AGT-ARB",
         "AGT-AI",
         "AGT-MAC"
       ],
-      "scope_note": "主角一半：投影层改用既有 character_display_names（AGT-AI）+ 视图呈现（AGT-MAC）。地点一半：在 scene_id 口径给出前不动；若裁定需要按 id 索引，则另加第四张白名单（AGT-ARB 契约 + AGT-AI）。",
+      "scope_note": "主角一半已由 SB-34 完成（契约 protagonist_labels + 投影白名单解析 + 视图只渲染公开标签），无需后续动作。地点一半：在 scene_id 口径给出前不动；若裁定需要按 id 索引，则另加第四张白名单（AGT-ARB 契约 + AGT-AI）。",
       "not_decided_here": "更正（SB-33）：上一版把「公开标签来源」整体列为待裁决，是过度保守。现只剩一个真问题——场景级单数名字该用于全部章节，还是需要第四张按 scene_id 索引的白名单。今天它不可观测（golden_001 的 scene_id 全为 null），但在场景开始切换 scene_id 之前必须给口径。「主角怎么在解析不出时呈现」不属此列：仓库已有成例（关系变化用「某人」、秘密持有人用「持有人不明」），沿用即可。",
-      "readiness": "主角一半现在即可实现，无待裁决项；地点一半在场景级单数 vs 按 id 索引的口径给出前不动。"
+      "readiness": "主角一半已实现并合入（SB-34），无待裁决项；地点一半在场景级单数 vs 按 id 索引的口径给出前不动。"
     }
   ]
 }
