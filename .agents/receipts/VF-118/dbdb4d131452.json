@@ -1,0 +1,131 @@
+{
+  "receipt_id": "RCP-WORK-VF-118-dbdb4d131452",
+  "receipt_type": "work",
+  "task_id": "VF-118",
+  "capsule_id": "CAP-VF-118",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:b1c32a7ab216309b845fd12e0dd4880e9a4d6199a5314d5cf2d6cd1adffd7e68",
+  "diff_digest": "sha256:d46dfb16735689f87cf009bc77f40b87a82c03e007a882e342c3b34fb96f6b66",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "190c282b2ccedc6bb7a5a45255470eaa16944174",
+  "head_commit": "dbdb4d1314527f3817b66b16e33fb0b71c491f02",
+  "target_ref": "origin/main",
+  "target_sha": "6bc3d40e6ce9558ac00ee1009bf7889109192a59",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T08:03:15.020672+00:00",
+      "finished_at": "2026-10-02T08:03:15.058527+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T08:03:15.058618+00:00",
+      "finished_at": "2026-10-02T08:05:18.235516+00:00",
+      "raw_log_digest": "sha256:3add4340e814ffbad59678a98e46f649ff447c39177fa0a03af248482e8cafed",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T08:05:18.235604+00:00",
+      "finished_at": "2026-10-02T08:05:42.106170+00:00",
+      "raw_log_digest": "sha256:fd26dd24d00f481018eea0b7e6761d37fd50980b84e6c1f3e842b3a50977f8af",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T08:05:42.106252+00:00",
+      "finished_at": "2026-10-02T08:05:44.407926+00:00",
+      "raw_log_digest": "sha256:58fde54fbb7be98e219630a60cd30bb6a07e60c62e558afa24ee33c0f71a853e",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "scripts/voice_blind_set.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/voice_blind_set.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/scripts-vf-118-blind-set-generator"
+  },
+  "started_at": "2026-10-02T08:03:14.983438+00:00",
+  "finished_at": "2026-10-02T08:05:44.519919+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
