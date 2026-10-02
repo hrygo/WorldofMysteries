@@ -2,7 +2,7 @@
 from dataclasses import replace
 import pytest
 
-from application.context_compiler import CacheAwareContextCompiler
+from application.context_compiler import _ALLOWED_KINDS, CacheAwareContextCompiler
 from application.context_plan import (
     AuthorizationView, ContextError, ContextInput, ContextScope, Evidence, Layer,
     WorkerProfile, canonical_json,
@@ -50,6 +50,30 @@ def test_context_database_order_does_not_change_bytes():
     request, view, profile = sample()
     assert rendered(request, view, profile) == rendered(
         replace(request, evidence=tuple(reversed(request.evidence))), view, profile)
+
+
+def test_scene_roster_is_offered_to_the_narrative_compiler_and_nobody_else():
+    """Who may be heard is knowledge only the narrative stage needs.
+
+    The kind label is the whole authorization gate: evidence of a kind a
+    consumer does not admit is refused outright, so listing ``scene_roster``
+    for exactly one consumer is what confines scene presence to that stage.
+
+    It matters most for ``character_reasoner``. Admitting it there would hand
+    every role a view of who else stands in the room — a character learning
+    the presence of characters it has not met, which is invariant 6's exact
+    prohibition, arriving disguised as scenery.
+    """
+    assert "scene_roster" in _ALLOWED_KINDS["narrative_compiler"]
+
+    admitted = {
+        consumer
+        for consumer, kinds in _ALLOWED_KINDS.items()
+        if "scene_roster" in kinds
+    }
+    assert admitted == {"narrative_compiler"}, (
+        f"scene_roster 被不该拿到它的消费者接受：{sorted(admitted)}"
+    )
 
 
 @pytest.mark.parametrize("field,value", [("world_revision", 11), ("story_revision", 3)])

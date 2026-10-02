@@ -7,11 +7,36 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
 
 from .database_manager import DatabaseManager, PresentationTransaction, StorageError
+
+
+def _evidence(row: dict) -> VoiceEvidenceReference | None:
+    """Rebuild the review reference, or None for a binding predating it.
+
+    The three columns are all-or-nothing. A row that somehow carries only part
+    of the triple is refused rather than completed with a blank, because a
+    half-known review cannot be re-checked against the stored snapshot.
+    """
+    stored = (
+        row["evidence_id"],
+        row["evidence_digest"],
+        row["model_artifact_revision"],
+    )
+    present = [value for value in stored if value is not None]
+    if not present:
+        return None
+    if len(present) != len(stored):
+        raise StorageError("VoiceBinding evidence reference is incomplete")
+    return VoiceEvidenceReference(
+        evidence_id=row["evidence_id"],
+        evidence_digest=row["evidence_digest"],
+        model_artifact_revision=row["model_artifact_revision"],
+    )
 
 
 def _from_row(row: dict) -> VoiceBinding:
@@ -40,6 +65,7 @@ def _from_row(row: dict) -> VoiceBinding:
         binding_revision=row["binding_revision"],
         status=VoiceBindingStatus(row["status"]),
         reserved_at_world_revision=row["reserved_at_world_revision"],
+        evidence=_evidence(row),
     )
 
 
@@ -63,6 +89,9 @@ def _values(binding: VoiceBinding) -> tuple:
         binding.binding_revision,
         binding.status.value,
         binding.reserved_at_world_revision,
+        binding.evidence.evidence_id if binding.evidence else None,
+        binding.evidence.evidence_digest if binding.evidence else None,
+        binding.evidence.model_artifact_revision if binding.evidence else None,
     )
 
 
@@ -111,7 +140,8 @@ class SQLiteVoiceBindingRepository:
                 "binding_id,owner_id,world_id,worldline_id,presentation_identity,phase,locale,"
                 "logical_voice_id,persona_revision,provider_instance,provider_voice_id,assurance,"
                 "voice_revision,model_catalog_revision,provider_revoked,binding_revision,status,"
-                "reserved_at_world_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "reserved_at_world_revision,evidence_id,evidence_digest,"
+                "model_artifact_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 _values(binding),
             )
             return binding
@@ -138,10 +168,18 @@ class SQLiteVoiceBindingRepository:
             if activated == current:
                 return current
             tx.execute(
-                "UPDATE voice_bindings SET binding_revision=?,status=? WHERE binding_id=?",
+                "UPDATE voice_bindings SET binding_revision=?,status=?,evidence_id=?,"
+                "evidence_digest=?,model_artifact_revision=? WHERE binding_id=?",
                 (
                     activated.binding_revision,
                     activated.status.value,
+                    activated.evidence.evidence_id if activated.evidence else None,
+                    activated.evidence.evidence_digest if activated.evidence else None,
+                    (
+                        activated.evidence.model_artifact_revision
+                        if activated.evidence
+                        else None
+                    ),
                     binding_id,
                 ),
             )
@@ -247,6 +285,11 @@ class SQLiteVoiceBindingRepository:
                 binding_revision=source_binding.binding_revision,
                 status=source_binding.status,
                 reserved_at_world_revision=source_binding.reserved_at_world_revision,
+                # The review is a fact about this voice built from this model
+                # artifact, not about the worldline it is spoken in. A fork
+                # inherits the same voice, so it inherits the same review;
+                # dropping it would strand the child on an unrenderable voice.
+                evidence=source_binding.evidence,
             )
 
             binding_rows = tx.execute(
@@ -261,7 +304,8 @@ class SQLiteVoiceBindingRepository:
                 "binding_id,owner_id,world_id,worldline_id,presentation_identity,phase,locale,"
                 "logical_voice_id,persona_revision,provider_instance,provider_voice_id,assurance,"
                 "voice_revision,model_catalog_revision,provider_revoked,binding_revision,status,"
-                "reserved_at_world_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "reserved_at_world_revision,evidence_id,evidence_digest,"
+                "model_artifact_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 _values(inherited),
             )
             return inherited
@@ -292,7 +336,8 @@ class SQLiteVoiceBindingRepository:
                 "binding_id,owner_id,world_id,worldline_id,presentation_identity,phase,locale,"
                 "logical_voice_id,persona_revision,provider_instance,provider_voice_id,assurance,"
                 "voice_revision,model_catalog_revision,provider_revoked,binding_revision,status,"
-                "reserved_at_world_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "reserved_at_world_revision,evidence_id,evidence_digest,"
+                "model_artifact_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 _values(candidate),
             )
             return candidate
@@ -324,7 +369,16 @@ class SQLiteVoiceBindingRepository:
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference | None = None,
     ) -> VoiceBinding:
+        """Replace a binding's voice identity, carrying its own review.
+
+        ``evidence`` is forwarded verbatim to the domain object rather than
+        inherited from the outgoing binding: a human approved one specific
+        voice, so a replacement only ever carries the review that was made for
+        it. Dropping the argument here would silently leave every replacement
+        unreviewed and therefore unactivatable.
+        """
         return await self._evolve(
             binding_id,
             expected_binding_revision,
@@ -332,6 +386,7 @@ class SQLiteVoiceBindingRepository:
                 expected_binding_revision=expected_binding_revision,
                 persona=persona,
                 provider=provider,
+                evidence=evidence,
             ),
         )
 
@@ -347,7 +402,8 @@ class SQLiteVoiceBindingRepository:
             tx.execute(
                 "UPDATE voice_bindings SET logical_voice_id=?,persona_revision=?,"
                 "provider_instance=?,provider_voice_id=?,assurance=?,voice_revision=?,"
-                "model_catalog_revision=?,provider_revoked=?,binding_revision=?,status=? "
+                "model_catalog_revision=?,provider_revoked=?,binding_revision=?,status=?,"
+                "evidence_id=?,evidence_digest=?,model_artifact_revision=? "
                 "WHERE binding_id=? AND binding_revision=?",
                 (
                     updated.persona.logical_voice_id,
@@ -360,6 +416,13 @@ class SQLiteVoiceBindingRepository:
                     int(updated.provider.revoked),
                     updated.binding_revision,
                     updated.status.value,
+                    updated.evidence.evidence_id if updated.evidence else None,
+                    updated.evidence.evidence_digest if updated.evidence else None,
+                    (
+                        updated.evidence.model_artifact_revision
+                        if updated.evidence
+                        else None
+                    ),
                     binding_id,
                     expected_revision,
                 ),

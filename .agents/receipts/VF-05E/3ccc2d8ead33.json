@@ -1,0 +1,58 @@
+{
+  "receipt_id": "RCP-WORK-VF-05E-3ccc2d8ead33",
+  "receipt_type": "work",
+  "task_id": "VF-05E",
+  "capsule_id": "CAP-VF-05E",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:d4199f39410e320adaad79d292fb9e00350bd87e2067d0725846aa87fd7c09ef",
+  "diff_digest": "sha256:cd1dfafd01b60e64f620cc1d8314edb8e61066c0722ab9c63f32ac1576657ab3",
+  "assigned_role": "AGT-AI",
+  "risk_class": "high",
+  "base_commit": "be71aea64263fc31cec60d7e98004f49c80e2fd7",
+  "head_commit": "3ccc2d8ead33aec18d0210158f31ecad20008350",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "AI_GATEWAY_P0",
+  "gate_profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+  "gate_result": "not_run",
+  "gate_stages": [],
+  "coverage_gaps": [
+    "范围裁决未通过"
+  ],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/voice_casting.py",
+      "engine/domain/voice_identity.py",
+      "engine/tests/test_voice_casting.py",
+      "engine/tests/test_voice_identity.py"
+    ],
+    "violations": [
+      {
+        "path": "engine/domain/voice_identity.py",
+        "reason": "命中 forbidden 禁区"
+      }
+    ],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {},
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-AI",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-05e-casting-carries-review"
+  },
+  "started_at": "2026-09-29T18:44:44.528758+00:00",
+  "finished_at": "2026-09-29T18:44:44.599834+00:00",
+  "verdict": "failed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [
+    "范围裁决未通过"
+  ],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

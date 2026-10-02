@@ -43,6 +43,7 @@ from application.gameplay_context import (
     WorldContextPort,
     gameplay_recipe,
 )
+from application.story_disclosure import disclosed_castable_roster
 from domain.context_visibility import (
     ContextAuthorization,
     ContextConsumer,
@@ -751,6 +752,16 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
             or len(set(discovered_clue_ids)) != len(discovered_clue_ids)
         ):
             raise ContextError("invalid_context_snapshot")
+        active_character_ids = scene.get("active_character_ids")
+        if active_character_ids is not None and (
+            not isinstance(active_character_ids, list)
+            or any(
+                not isinstance(character_id, str) or not character_id.strip()
+                for character_id in active_character_ids
+            )
+            or len(set(active_character_ids)) != len(active_character_ids)
+        ):
+            raise ContextError("invalid_context_snapshot")
 
         # A committed checkpoint is scoped to its persisted protagonist. Keep
         # only observable scene/time data and explicitly discovered clues;
@@ -792,32 +803,157 @@ class SQLiteGameplayContextRepository(ContextSnapshotPort, GameplayAuthorization
                     facets=frozenset({ContextFacet.STORY}),
                 ),
             )
-        return (
-            self._projection(
-                call=call,
-                source_id=self._stable_source_id("story-state", call.session_id),
-                source_revision=story_revision,
-                kind="checkpoint",
-                layer=Layer.STATE,
-                sequence=None,
-                session_id=call.session_id,
-                subject_id=protagonist_id,
-                available_at_tick=snapshot.world_tick,
-                committed_world_revision=committed_world_revision,
-                content=content,
-                model_content=content,
-                known_by=(protagonist_id,),
-                public=False,
-                # The committed scene is a result the owner is already entitled to
-                # see, so it rides the player-disclosure axis that AO-05 defines for
-                # the advice interpreter and the narrative compiler. It stays
-                # non-public, and `subject_id` still scopes it to this session's
-                # protagonist, so no unrelated consumer gains it for free.
-                disclosed_to_owner=True,
-                hidden=self._hidden_flag(state),
-                facets=frozenset({ContextFacet.STORY}),
-            ),
+        checkpoint = self._projection(
+            call=call,
+            source_id=self._stable_source_id("story-state", call.session_id),
+            source_revision=story_revision,
+            kind="checkpoint",
+            layer=Layer.STATE,
+            sequence=None,
+            session_id=call.session_id,
+            subject_id=protagonist_id,
+            available_at_tick=snapshot.world_tick,
+            committed_world_revision=committed_world_revision,
+            content=content,
+            model_content=content,
+            known_by=(protagonist_id,),
+            public=False,
+            # The committed scene is a result the owner is already entitled to
+            # see, so it rides the player-disclosure axis that AO-05 defines for
+            # the advice interpreter and the narrative compiler. It stays
+            # non-public, and `subject_id` still scopes it to this session's
+            # protagonist, so no unrelated consumer gains it for free.
+            disclosed_to_owner=True,
+            hidden=self._hidden_flag(state),
+            facets=frozenset({ContextFacet.STORY}),
         )
+        if gameplay_recipe(call.mode).consumer != "narrative_compiler":
+            return (checkpoint,)
+        roster = self._project_scene_roster(
+            call=call,
+            snapshot=snapshot,
+            session=session,
+            scene_id=scene_id,
+            protagonist_id=protagonist_id,
+            story_revision=story_revision,
+            committed_world_revision=committed_world_revision,
+            active_character_ids=active_character_ids,
+            hidden=self._hidden_flag(state),
+        )
+        if roster is None:
+            return (checkpoint,)
+        return (checkpoint, roster)
+
+    def _project_scene_roster(
+        self,
+        *,
+        call: GameplayCall,
+        snapshot: ContextSnapshot,
+        session: dict[str, object],
+        scene_id: str,
+        protagonist_id: str,
+        story_revision: int,
+        committed_world_revision: int,
+        active_character_ids: list[str] | None,
+        hidden: bool,
+    ) -> _ProjectedFact | None:
+        """Project who may be *heard* this turn, as its own authorized evidence.
+
+        ADR-006 D2/D5. The roster rides its own evidence kind rather than
+        joining the shared ``checkpoint`` for two reasons that both matter:
+
+        1. ``checkpoint`` is admitted by ``character_reasoner``,
+           ``story_director`` and ``observation_narrator`` alike. Folding the
+           roster in would hand every one of them a view of who else is in the
+           room, which invariant 6 forbids — a character may not learn who is
+           beside them. ``scene_roster`` is admitted by the narrative compiler
+           alone, so the audience is the publication stage and nobody else.
+        2. Being its own source means its fingerprint covers the roster. When
+           the castable set changes, the binding that admitted the old one no
+           longer matches and the call fails closed through the existing
+           ``context_stale`` path, instead of quietly re-reading the newest
+           roster for a turn that was already published.
+
+        ``None`` — the world has declared no roster — projects nothing at all.
+        An absent roster and an empty one are different claims (ADR-006 §5.1),
+        and only the second is worth telling the model.
+
+        Canonical ids stay on the trusted side; the model is given public
+        labels only, which is what the publication layer's own disclosure
+        projection already does for clues.
+        """
+        if active_character_ids is None:
+            return None
+        castable = disclosed_castable_roster(
+            active_character_ids=active_character_ids,
+            protagonist_id=protagonist_id,
+            character_display_names=self._character_display_names(session),
+        )
+        if castable is None:
+            return None
+        return self._projection(
+            call=call,
+            source_id=self._stable_source_id("scene-roster", call.session_id),
+            source_revision=story_revision,
+            kind="scene_roster",
+            layer=Layer.STATE,
+            sequence=None,
+            session_id=call.session_id,
+            subject_id=protagonist_id,
+            available_at_tick=snapshot.world_tick,
+            committed_world_revision=committed_world_revision,
+            content={
+                "castable": [
+                    {"character_id": character_id, "label": label}
+                    for character_id, label in castable
+                ],
+                "scene_id": scene_id,
+                "story_revision": story_revision,
+            },
+            model_content={
+                "castable": [label for _, label in castable],
+                "scene_id": scene_id,
+                "story_revision": story_revision,
+            },
+            known_by=(protagonist_id,),
+            public=False,
+            # Same axis as the checkpoint: who is in the room is a committed
+            # result the owner is entitled to hear about.
+            disclosed_to_owner=True,
+            hidden=hidden,
+            facets=frozenset({ContextFacet.STORY}),
+        )
+
+    @staticmethod
+    def _character_display_names(session: dict[str, object]) -> Mapping[str, str]:
+        """Read the public-name allowlist out of the session bootstrap.
+
+        Fail-closed by construction: anything missing, malformed, or not a
+        string-to-string table yields an empty one, and an empty table casts
+        nobody. The alternative — inferring a label — would put a canonical id
+        in front of the model, which is the disclosure this projection exists
+        to prevent.
+        """
+        bootstrap = session.get("bootstrap")
+        if not isinstance(bootstrap, dict):
+            return {}
+        payload = bootstrap.get("payload")
+        if not isinstance(payload, dict):
+            return {}
+        presentation = payload.get("presentation")
+        if not isinstance(presentation, dict):
+            return {}
+        names = presentation.get("character_display_names")
+        if not isinstance(names, dict):
+            return {}
+        if any(
+            not isinstance(character_id, str)
+            or not isinstance(label, str)
+            or not label.strip()
+            for character_id, label in names.items()
+        ):
+            return {}
+        return names
 
     def _projection(
         self,

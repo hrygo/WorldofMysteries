@@ -231,6 +231,7 @@ async def test_story_runtime_close_orders_resources_once():
 
     runtime = object.__new__(StoryRuntime)
     runtime._post_commit_worker = Worker()
+    runtime._foundry = None
     runtime._workers = ModelWorkers()
     runtime._voice = Voice()
     runtime._database = Database()
@@ -272,6 +273,7 @@ async def test_story_runtime_close_releases_later_resources_after_partial_failur
 
     runtime = object.__new__(StoryRuntime)
     runtime._post_commit_worker = Worker()
+    runtime._foundry = None
     runtime._workers = ModelWorkers()
     runtime._voice = Voice()
     runtime._database = Database()
@@ -501,7 +503,7 @@ async def test_live_runtime_composes_authorized_workers_over_sqlite_context_port
         ).prompt_revision == "wom-live-proposer-v2"
         assert profiles.profile(
             GameplayMode.NARRATIVE_COMPILATION, "narrative_compiler"
-        ).prompt_revision == "wom-live-narrative-v2"
+        ).prompt_revision == "wom-live-narrative-v3"
 
         assert isinstance(execution.renderer, PromptRenderer)
         assert isinstance(execution.transport, OpenAICompatibleChatTransport)
@@ -556,7 +558,13 @@ async def test_story_runtime_rejects_unknown_but_well_formed_content_digest(
         )
 
 
-def _committed_delivery_case(*, narrative=None):
+def _committed_delivery_case(
+    *,
+    narrative=None,
+    active_character_ids=None,
+    character_display_names=None,
+    lines="default",
+):
     from contracts import BaseRevisions, StateDelta, TurnStatus, TurnTransaction
 
     delta = StateDelta.model_validate(
@@ -616,11 +624,26 @@ def _committed_delivery_case(*, narrative=None):
 
     class FirstTurnWithNarrativeCompiler:
         def __init__(self):
-            from application.narrative_publication import NarrativeCandidate
+            from application.narrative_publication import (
+                NarrativeCandidate,
+                NarrativeLine,
+            )
+
+            # The fake model may only name someone the world put in the room.
+            # Callers whose roster is empty or undeclared say so explicitly
+            # rather than letting this default speak for them.
+            proposed = (
+                (("莫里斯医生", "我先看看预约簿。"),)
+                if lines == "default"
+                else tuple(lines)
+            )
 
             self.candidate = NarrativeCandidate(
                 narration="诊室里的雨声渐渐停了。",
-                speech="我先看看预约簿。",
+                lines=tuple(
+                    NarrativeLine(speaker=speaker, text=text)
+                    for speaker, text in proposed
+                ),
             )
             self.compile_calls = []
 
@@ -631,16 +654,70 @@ def _committed_delivery_case(*, narrative=None):
             self.compile_calls.append(committed)
             return self.candidate
 
+    # A real session, not a stand-in: the delivery coordinator now derives
+    # the speaker's scope from it before resolving a voice, and a scope built
+    # from something that is not a session is refused on purpose.
+    from contracts import (
+        BaseRevisions,
+        StoryPhase,
+        StorySession,
+        StorySessionStatus,
+        StoryState,
+    )
+    from contracts.models import StoryCommitments, StoryScene
+
+    def _session():
+        scene = {"id": "scene-1"}
+        # `active_character_ids` may be omitted but not null, so the "world
+        # declares no roster" case has to be expressed by leaving the key out.
+        if active_character_ids is not None:
+            scene["active_character_ids"] = active_character_ids
+        return StorySession(
+            schema_version="1.0",
+            id="session-1",
+            world_id="world-1",
+            worldline_id="line-1",
+            protagonist_id="protagonist-1",
+            story_seed_id="seed_delivery_case",
+            base_revisions=BaseRevisions(world=0, character=0, story=0),
+            story_state=StoryState(
+                schema_version="1.0",
+                story_session_id="session-1",
+                revision=1,
+                turn=1,
+                phase=StoryPhase.INVESTIGATION,
+                scene=StoryScene(**scene),
+                world_time="1349-06-12T21:40:00",
+                active_conflicts=[],
+                discovered_clue_ids=[],
+                secret_states={},
+                commitments=StoryCommitments(hard_ids=[], soft_ids=[]),
+                local_state={},
+                pressure={},
+            ),
+            status=StorySessionStatus.ACTIVE,
+        )
+
     snapshot = SimpleNamespace(
-        session=SimpleNamespace(protagonist_id="protagonist-1"),
+        session=_session(),
         bootstrap=SimpleNamespace(
-            presentation=SimpleNamespace(clue_display_names={})
+            presentation=SimpleNamespace(
+                clue_display_names={},
+                # The delivery coordinator narrows the world roster with this
+                # table, so a bootstrap without it makes every rostered turn
+                # fail as "narrative_unavailable" rather than say why.
+                character_display_names=character_display_names or {},
+            )
         ),
     )
     result = SimpleNamespace(
         turn=turn,
         delta=delta,
-        session=SimpleNamespace(protagonist_id="protagonist-1"),
+        # The commit result carries the session as this turn left it. That is
+        # where the coordinator reads the scene roster from, so it has to be a
+        # real session — a stand-in with only `protagonist_id` would make the
+        # roster lookup untestable rather than merely absent.
+        session=_session(),
         store_revision=2,
     )
     command = SimpleNamespace(
@@ -657,7 +734,10 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
     from application.story_expression import StoryExpressionQueryService
     from infrastructure.story_runtime import _DeliveryCoordinator
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
 
     class Query:
         async def session(self, _session_id):
@@ -673,6 +753,7 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -711,6 +792,171 @@ async def test_live_turn_without_voice_still_publishes_readable_narrative():
     ]
 
 
+async def _publish_and_capture(monkeypatch, *, case):
+    """Run one delivery and hand back the source publication was given."""
+    from application.narrative_publication import CommittedNarrativeService
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    repository, first_turn, snapshot, result, command = case
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    captured = []
+    original = CommittedNarrativeService.ensure
+
+    async def capture(self, *, turn_id, source):
+        captured.append(source)
+        return await original(self, turn_id=turn_id, source=source)
+
+    monkeypatch.setattr(CommittedNarrativeService, "ensure", capture)
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=None,
+        audio_config=None,
+        voice_id=None,
+        workers=first_turn,
+        context_bindings=None,
+        fetch_json=None,
+        evidence_store=object(),
+    )
+    await coordinator.after_commit(command, result, None)
+    assert len(captured) == 1
+    return captured[0]
+
+
+CAST = {
+    "protagonist-1": "克莱恩",
+    "npc_doctor_morris": "莫里斯医生",
+}
+
+
+@pytest.mark.asyncio
+async def test_publication_is_handed_the_scene_roster_of_the_committed_turn(monkeypatch):
+    """The last link before the roster can bind a voice.
+
+    Without it the publication layer has exactly one identity to bind and the
+    supply chain can only ever hear one voice, however many characters the world
+    knows about.
+    """
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=["protagonist-1", "npc_doctor_morris"],
+            character_display_names=CAST,
+        ),
+    )
+
+    assert source.present_character_ids == ("protagonist-1", "npc_doctor_morris")
+    # The protagonist is in the room and is not in the cast: ADR-006 D5 keeps
+    # those two facts apart, and the publication layer may only bind the second.
+    assert source.castable_character_labels == (
+        ("npc_doctor_morris", "莫里斯医生"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_character_with_no_public_name_is_present_but_not_castable(monkeypatch):
+    """The second narrowing, and it is not the first one.
+
+    Someone can be in the room and still have nothing to disclose. Emitting
+    their canonical id as a label instead would hand the narrator exactly the
+    identifier this projection exists to withhold.
+    """
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=["npc_doctor_morris", "npc_stranger"],
+            character_display_names=CAST,
+        ),
+    )
+
+    assert source.present_character_ids == ("npc_doctor_morris", "npc_stranger")
+    assert source.castable_character_labels == (("npc_doctor_morris", "莫里斯医生"),)
+
+
+@pytest.mark.asyncio
+async def test_an_empty_scene_casts_nobody_rather_than_casting_the_protagonist(
+    monkeypatch,
+):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=[],
+            character_display_names=CAST,
+            lines=(),
+        ),
+    )
+
+    assert source.castable_character_labels == ()
+
+
+@pytest.mark.asyncio
+async def test_no_declared_roster_means_no_castable_roster(monkeypatch):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(
+            active_character_ids=None,
+            character_display_names=CAST,
+            lines=(),
+        ),
+    )
+
+    assert source.castable_character_labels is None
+
+
+@pytest.mark.asyncio
+async def test_a_scene_that_declares_nobody_reaches_publication_as_empty(
+    monkeypatch,
+):
+    """Empty is an answer, and it must not decay into "we have not asked"."""
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(active_character_ids=[], lines=()),
+    )
+
+    assert source.present_character_ids == ()
+
+
+@pytest.mark.asyncio
+async def test_a_world_that_declares_no_roster_reaches_publication_as_none(
+    monkeypatch,
+):
+    source = await _publish_and_capture(
+        monkeypatch,
+        case=_committed_delivery_case(active_character_ids=None, lines=()),
+    )
+
+    assert source.present_character_ids is None
+
+
+@pytest.mark.asyncio
+async def test_a_session_that_moved_on_declines_the_roster_rather_than_reusing_it(
+    monkeypatch,
+):
+    """The guard that makes the safe read safe.
+
+    The commit result normally carries this turn's own state. A replayed commit
+    need not — and a state from a later turn would cast this one with whoever is
+    in the room now, without any error to show for it.
+    """
+    case = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"]
+    )
+    case[3].session = case[3].session.model_copy(
+        update={
+            "story_state": case[3].session.story_state.model_copy(update={"revision": 7})
+        }
+    )
+
+    source = await _publish_and_capture(monkeypatch, case=case)
+
+    assert source.present_character_ids is None
+
+
 @pytest.mark.asyncio
 async def test_voice_binding_failure_keeps_already_published_narrative(monkeypatch):
     from infrastructure import story_runtime
@@ -718,7 +964,10 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
     from infrastructure.story_runtime import _DeliveryCoordinator
     from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
 
     class Query:
         async def session(self, _session_id):
@@ -740,6 +989,7 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -750,12 +1000,137 @@ async def test_voice_binding_failure_keeps_already_published_narrative(monkeypat
     assert len(first_turn.compile_calls) == 1
 
 
+FOUNDRY_METHODS = frozenset(
+    {
+        "voice.foundry.get",
+        "voice.foundry.list",
+        "voice.foundry.select",
+        "voice.foundry.confirm_reference",
+        "voice.foundry.validate",
+        "voice.foundry.review",
+        "voice.foundry.retry",
+        "voice.foundry.cancel",
+    }
+)
+
+
+@pytest.fixture
+def declared_foundry_identity(monkeypatch):
+    """Say what this deployment casts with, the way a real one must.
+
+    The foundry refuses to open without a declared model catalog key and a
+    rights scope, so a test that wants the supply chain has to declare them
+    too. That is the point rather than an inconvenience: a test reaching the
+    chain by asserting nothing about the execution identity would be evidence
+    that the chain opens for a deployment that has not said what it is.
+    """
+    monkeypatch.setenv("WOM_FOUNDRY_MODEL_ID", "tts-1.7b-design-bf16")
+    monkeypatch.setenv("WOM_FOUNDRY_SCOPE_REF", "wom-local-audio")
+    return "tts-1.7b-design-bf16"
+
+
+@pytest.mark.asyncio
+async def test_an_undeclared_deployment_does_not_advertise_a_foundry(
+    tmp_path, content_artifact, monkeypatch
+):
+    """A surface in the handshake is a promise, so it is withheld until said.
+
+    The alternative is advertising eight methods whose every publish ends in
+    ``provider_contract_unsupported`` — a client entitled to believe voice
+    supply exists, discovering it does not one irreversible step later. Not
+    advertising it is the same refusal, made where a client can still act on
+    it.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    for name in ("WOM_FOUNDRY_MODEL_ID", "WOM_FOUNDRY_SCOPE_REF"):
+        monkeypatch.delenv(name, raising=False)
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is None
+        assert not (FOUNDRY_METHODS & set(runtime.control_handlers))
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_the_supply_chain_is_reachable_from_a_configured_engine(
+    tmp_path, content_artifact, declared_foundry_identity
+):
+    """Every supply component had a test and no production caller.
+
+    A casting could be driven from the suite and from nowhere else, so the
+    whole chain — request, audition, review, evidence, binding — was
+    unreachable from the app that needs it. What is asserted here is the
+    handshake, not the casting: these are the method names a client
+    negotiates against, and a handler that exists but is not registered is
+    the same as one that does not exist.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert FOUNDRY_METHODS <= set(runtime.control_handlers)
+        # Reading is the one verb that needs no provider and no prior state,
+        # so it is the one that can prove the registry is wired to a real
+        # repository rather than to a stub.
+        body, code = await runtime.control_handlers["voice.foundry.list"](
+            {"schema_version": "1.0", "page_size": 10}
+        )
+        assert code is None
+        assert body == {
+            "schema_version": "1.0",
+            "tasks": [],
+            "next_page_token": None,
+        }
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_an_engine_without_a_provider_advertises_no_supply_methods(
+    tmp_path, content_artifact
+):
+    """A handshake must not promise a capability the process does not have.
+
+    Registering the surface without a port behind it would answer every
+    write with ``service_unavailable`` — eight methods that look like a
+    working supply chain and are not one.
+    """
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+    )
+    try:
+        assert not (FOUNDRY_METHODS & set(runtime.control_handlers))
+    finally:
+        await runtime.close()
+
+
 @pytest.mark.asyncio
 async def test_narrative_publish_failure_returns_unavailable_after_domain_commit():
     from contracts import TurnStatus
     from infrastructure.story_runtime import _DeliveryCoordinator
 
-    repository, first_turn, snapshot, result, command = _committed_delivery_case()
+    repository, first_turn, snapshot, result, command = _committed_delivery_case(
+        active_character_ids=["protagonist-1", "npc_doctor_morris"],
+        character_display_names=CAST,
+    )
     committed_turn = result.turn
 
     async def fail_publish(**_kwargs):
@@ -777,6 +1152,7 @@ async def test_narrative_publish_failure_returns_unavailable_after_domain_commit
         workers=first_turn,
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
@@ -808,12 +1184,7 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
     repository, _live_first_turn, snapshot, result, command = (
         _committed_delivery_case(narrative=block)
     )
-    repository.turn = repository.turn.model_copy(
-        update={
-            "status": TurnStatus.NARRATIVE_READY,
-            "narrative_block_id": block.id,
-        }
-    )
+    _mark_published(repository, block)
 
     class Query:
         async def session(self, _session_id):
@@ -829,15 +1200,350 @@ async def test_fixed_turn_reuses_existing_narrative_without_second_publication()
         workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
         context_bindings=None,
         fetch_json=None,
+        evidence_store=object(),
     )
 
     delivery = await coordinator.after_commit(command, result, None)
 
     assert delivery.state == "unavailable"
     assert delivery.reason == "voice_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_a_block_that_opens_with_narration_still_speaks_for_its_character(
+    monkeypatch,
+):
+    """Whichever segment leads the block, the character is the one resolved.
+
+    Narration is written first in every published block, so "the first
+    speakable segment" is always the narration — and the narration is exactly
+    what the sealing boundary refuses, because a speakerless narration has no
+    identity to check a binding against. Selecting it there cost the turn its
+    only deliverable voice, and returned normally rather than raising, so the
+    cast that would have supplied the character was never requested either.
+    """
+    from contracts import NarrativeBlock, TurnStatus
+    from contracts.models import NarrativeSegment
+    from infrastructure import story_runtime
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure.story_runtime import _DeliveryCoordinator
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-narration-first",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[
+            NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。"),
+            NarrativeSegment(
+                type="character",
+                speaker_id="protagonist-1",
+                text="别过去，那条巷子我认得。",
+            ),
+        ],
+        source_state_delta_id="delta-1",
+    )
+    repository, _live_first_turn, snapshot, result, command = (
+        _committed_delivery_case(narrative=block)
+    )
+    _mark_published(repository, block)
+
+    asked_for = []
+
+    async def capture_scope(**kwargs):
+        asked_for.append(kwargs["scope"])
+        raise VoiceBindingResolutionError("voice_binding_not_reviewed")
+
+    monkeypatch.setattr(story_runtime, "resolve_voice_runtime", capture_scope)
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=object(),
+        audio_config=AudioProviderConfig(),
+        voice_id="klein-approved",
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
+        fetch_json=None,
+        evidence_store=object(),
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert asked_for, "delivery never asked whose voice it wanted"
+    assert [scope.presentation_identity for scope in asked_for] == [
+        "protagonist-1"
+    ]
+    assert delivery.reason == "voice_binding_not_reviewed"
     assert repository.narrative is block
     assert repository.load_turn_calls == 1
     assert repository.publish_calls == 0
+
+
+def _batch_block(*speakers: str):
+    """A published block with one narration segment and N character segments."""
+    from contracts import NarrativeBlock
+    from contracts.models import NarrativeSegment
+
+    segments = [NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。")]
+    for position, speaker in enumerate(speakers):
+        segments.append(
+            NarrativeSegment(
+                type="character",
+                speaker_id=speaker,
+                text=f"第 {position + 1} 句台词。",
+            )
+        )
+    return NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-batch",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=segments,
+        source_state_delta_id="delta-1",
+    )
+
+
+def _mark_published(repository, block):
+    """Point the turn at an already-published block, as the runtime would."""
+    from contracts import TurnStatus
+
+    repository.turn = repository.turn.model_copy(
+        update={
+            "status": TurnStatus.NARRATIVE_READY,
+            "narrative_block_id": block.id,
+        }
+    )
+    return repository
+
+
+def _fake_resolution(scope):
+    """The shape ``_deliver_one_segment`` reads, with nothing real in it."""
+    evidence = SimpleNamespace(
+        evidence_id="evidence-1", model_artifact_revision="artifact-1"
+    )
+    return SimpleNamespace(
+        provider_instance=SimpleNamespace(provider_id="speechrail"),
+        binding=SimpleNamespace(
+            provider=SimpleNamespace(
+                voice_id="voice-1", conditional_pin="revision-1"
+            ),
+            evidence=evidence,
+            binding_revision=1,
+        ),
+        execution_model_id="speechrail/qwen3-tts",
+        model_catalog_revision="catalog-1",
+        scope=scope,
+        performance="measured",
+        capabilities=SimpleNamespace(),
+    )
+
+
+def _batch_coordinator(monkeypatch, repository, snapshot, result, command, resolve):
+    """A coordinator whose voice stack is real code and whose answers are not."""
+    from infrastructure import story_runtime
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure.audio.voice_delivery import DeliveryReceipt
+    from infrastructure.story_runtime import _DeliveryCoordinator
+
+    asked: list[str] = []
+    sealed: list[int] = []
+
+    async def fake_resolve(**kwargs):
+        asked.append(kwargs["scope"].presentation_identity)
+        return resolve(kwargs["scope"])
+
+    async def fake_evidence(*_args, **_kwargs):
+        return object()
+
+    class FakePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def deliver(self, outcome):
+            sealed.append(outcome.segment_index)
+            segment = outcome.narrative.segments[outcome.segment_index]
+            return DeliveryReceipt(
+                turn_id=outcome.turn_id,
+                narrative_block_id=outcome.narrative.id,
+                speech_unit_id=f"speech_unit_{outcome.segment_index}",
+                spoken_text=segment.text,
+                render_recipe={"segment_index": outcome.segment_index},
+            )
+
+    monkeypatch.setattr(story_runtime, "resolve_voice_runtime", fake_resolve)
+    monkeypatch.setattr(story_runtime, "render_execution", lambda **kwargs: object())
+    monkeypatch.setattr(story_runtime, "load_evidence_record", fake_evidence)
+    monkeypatch.setattr(story_runtime, "TurnDeliveryPipeline", FakePipeline)
+
+    class Query:
+        async def session(self, _session_id):
+            return snapshot
+
+    coordinator = _DeliveryCoordinator(
+        query=Query(),
+        narratives=repository,
+        bindings=object(),
+        voice=object(),
+        audio_config=AudioProviderConfig(),
+        voice_id="klein-approved",
+        workers=SimpleNamespace(narrative_compiler=lambda _bootstrap: None),
+        context_bindings=None,
+        fetch_json=None,
+        evidence_store=object(),
+    )
+    return coordinator, asked, sealed
+
+
+@pytest.mark.asyncio
+async def test_every_speakable_segment_is_voiced_not_just_the_first(
+    monkeypatch,
+):
+    """One block, three speakers, three voices.
+
+    The delivery coordinator used to take ``candidates[0]`` and stop: a cast
+    could be bound, published and sealed, and the player would still hear one
+    voice for a conversation. This is the assertion that says a turn is voiced
+    per identity, which is what acceptance criterion 1 asks for.
+    """
+    block = _batch_block("npc_doctor_morris", "npc_stranger", "npc_doctor_morris")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris", "npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+    coordinator, asked, sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, _fake_resolution
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "ready"
+    assert [unit.segment_index for unit in delivery.speech_units] == [1, 2, 3]
+    assert [unit.state for unit in delivery.speech_units] == ["ready"] * 3
+    # Block order, not resolution order and not sorted-by-id.
+    assert sealed == [1, 2, 3]
+    # The same speaker twice is the same binding; the catalog is asked once.
+    assert asked == ["npc_doctor_morris", "npc_stranger"]
+    # Every unit carries its own recipe; there is no single summary left that
+    # could be mistaken for the whole turn.
+    assert [unit.speech_unit_id for unit in delivery.speech_units] == [
+        "speech_unit_1",
+        "speech_unit_2",
+        "speech_unit_3",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_one_missing_voice_costs_that_line_and_nothing_else(monkeypatch):
+    """Standard 3, as a delivery fact rather than a UI intention.
+
+    One speaker has no admitted binding. The other still speaks. The turn is
+    ready; the gap is reported on the segment that has it, so the App can
+    subtitle that line and play the rest.
+    """
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = _batch_block("npc_stranger", "npc_doctor_morris")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris", "npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(scope):
+        if scope.presentation_identity == "npc_stranger":
+            raise VoiceBindingResolutionError("voice_binding_not_found")
+        return _fake_resolution(scope)
+
+    coordinator, _asked, sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "ready"
+    assert [(unit.segment_index, unit.state) for unit in delivery.speech_units] == [
+        (1, "unavailable"),
+        (2, "ready"),
+    ]
+    assert delivery.speech_units[0].reason == "voice_binding_not_found"
+    assert delivery.speech_units[1].reason is None
+    # The stranger fails before any pipeline is built, so the sealed list only
+    # ever holds the doctor.
+    assert sealed == [2]
+    assert repository.publish_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_turn_where_nothing_can_be_voiced_is_unavailable(monkeypatch):
+    """When every segment fails there is no audio to announce, so say so."""
+    from infrastructure.voice_binding_resolver import VoiceBindingResolutionError
+
+    block = _batch_block("npc_stranger")
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_stranger"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(_scope):
+        raise VoiceBindingResolutionError("voice_provider_not_ready")
+
+    coordinator, _asked, _sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "voice_provider_not_ready"
+    assert delivery.speech_units == ()
+
+
+@pytest.mark.asyncio
+async def test_a_block_with_only_narration_reports_no_character_segment(monkeypatch):
+    from contracts import NarrativeBlock
+    from contracts.models import NarrativeSegment
+
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="narrative-narration-only",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=[NarrativeSegment(type="narration", text="雾里的煤气灯次第亮起。")],
+        source_state_delta_id="delta-1",
+    )
+    repository, _first, snapshot, result, command = _committed_delivery_case(
+        narrative=block,
+        active_character_ids=["npc_doctor_morris"],
+        character_display_names=CAST,
+    )
+    _mark_published(repository, block)
+
+    def resolve(_scope):
+        raise AssertionError("a narration-only block must not ask for a voice")
+
+    coordinator, asked, _sealed = _batch_coordinator(
+        monkeypatch, repository, snapshot, result, command, resolve
+    )
+
+    delivery = await coordinator.after_commit(command, result, None)
+
+    assert delivery.state == "unavailable"
+    assert delivery.reason == "narrative_has_no_character_segment"
+    assert asked == []
 
 
 def _count_world_commits(root: Path) -> int:
@@ -2376,3 +3082,232 @@ def _world_revision(root: Path) -> int:
 def _episode_count(root: Path) -> int:
     with stdlib_sqlite3.connect(_world_path(root)) as connection:
         return connection.execute("SELECT count(*) FROM episodes").fetchone()[0]
+
+
+async def _noop():
+    return None
+
+
+@pytest.mark.asyncio
+async def test_the_supply_driver_runs_for_as_long_as_the_engine_does(
+    tmp_path, content_artifact, declared_foundry_identity
+):
+    """Registering the surface was never the same as running the chain.
+
+    The handlers answered a client's calls while the one component that
+    moves a task forward had no lifetime at all, so a registered cast sat at
+    ``requested`` until somebody pressed Retry. Opening the engine is what
+    gives the driver a lifetime; closing it is what takes that lifetime back.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is not None
+        assert runtime._foundry.driver.is_running
+    finally:
+        await runtime.close()
+    assert not runtime._foundry.driver.is_running
+
+
+@pytest.mark.asyncio
+async def test_the_supply_driver_stops_before_the_database_it_polls():
+    """A driver still polling while the world closes is a use-after-close.
+
+    The ordering is the whole point: the driver reads and writes through the
+    same handle the shutdown is about to close, so it has to be settled first
+    — the same rule the post-COMMIT worker already follows.
+    """
+    events: list[str] = []
+
+    class Driver:
+        is_running = True
+
+        def request_stop(self):
+            events.append("driver.request_stop")
+
+        async def stop(self):
+            events.append("driver.stop")
+            self.is_running = False
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    class Nothing:
+        async def aclose(self):
+            events.append("nothing.aclose")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = None
+    runtime._foundry = SimpleNamespace(driver=Driver())
+    runtime._workers = Nothing()
+    runtime._voice = None
+    runtime._database = Database()
+    runtime._close_task = None
+
+    await runtime.close()
+
+    assert events.index("driver.stop") < events.index("database.close")
+
+
+@pytest.mark.asyncio
+async def test_a_driver_that_refuses_to_stop_keeps_the_database_open():
+    """Reported as a failure on purpose: continuing would close it anyway.
+
+    Every other resource is released independently, so the temptation is to
+    close the database regardless. That converts a recoverable shutdown
+    problem into a corrupted world, and the error is the cheaper outcome.
+    """
+    events: list[str] = []
+
+    class Stubborn:
+        is_running = True
+
+        def request_stop(self):
+            events.append("driver.request_stop")
+
+        async def stop(self):
+            events.append("driver.stop")
+            raise RuntimeError("driver_stop_failed")
+
+    class Database:
+        async def close(self):
+            events.append("database.close")
+
+    runtime = object.__new__(StoryRuntime)
+    runtime._post_commit_worker = None
+    runtime._foundry = SimpleNamespace(driver=Stubborn())
+    runtime._workers = SimpleNamespace(aclose=_noop)
+    runtime._voice = None
+    runtime._database = Database()
+    runtime._close_task = None
+
+    with pytest.raises(RuntimeError, match="driver_stop_failed"):
+        await runtime.close()
+
+    assert "database.close" not in events
+
+
+@pytest.mark.asyncio
+async def test_a_configured_engine_publishes_its_casting_catalog(
+    tmp_path, content_artifact, declared_foundry_identity
+):
+    """The App cannot offer a choice of whom to cast without this read.
+
+    The picker and the silent trigger share one catalog on purpose: if the App
+    showed briefs from anywhere else, the voice a person picks and the voice
+    cast without asking would be different for the same character.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert "voice.foundry.list_designs" in runtime.control_handlers
+        payload, code = await runtime.control_handlers["voice.foundry.list_designs"](
+            {"schema_version": "1.0"}
+        )
+        assert code is None
+        assert payload is not None
+        assert {item["presentation_identity"] for item in payload["designs"]} == {
+            "narrator",
+            "victor-osborn",
+            "ida-finch",
+            "samuel-clark",
+            "george-hart",
+        }
+        # The trigger reads the same object, not a second load of the file.
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is not None
+    finally:
+        await runtime.close()
+
+
+
+@pytest.mark.asyncio
+async def test_a_configured_engine_offers_both_ways_in(
+    tmp_path, content_artifact, declared_foundry_identity
+):
+    """The button and the silent trigger are advertised by the same engine.
+
+    One process, one catalog, one driver: the App casts through a control
+    method and the world casts through the audio job, and both land on the
+    same task table. Splitting them across two surfaces would be how they
+    drifted apart.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert {
+            "voice.foundry.list_designs",
+            "voice.foundry.cast_design",
+        } <= set(runtime.control_handlers)
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is not None
+        assert runtime._foundry.driver.is_running
+    finally:
+        await runtime.close()
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_catalog_does_not_silence_new_speakers(
+    tmp_path, content_artifact, monkeypatch, declared_foundry_identity
+):
+    """One malformed file must not cost the world its automatic casting.
+
+    The catalog holds the briefs a person already ruled on. Composing one from
+    what a character has said needs no catalog at all, so wiring the two
+    together — an unreadable catalog disabling the trigger — would mean a
+    stray byte in a JSON file silences every character who appears next.
+    """
+    from infrastructure.audio.config import AudioProviderConfig
+    from infrastructure import story_runtime as module
+
+    monkeypatch.setattr(module, "load_voice_design_catalog", _raise_unreadable)
+
+    runtime = await StoryRuntime.open(
+        StoryRuntimeConfig.for_data_root(
+            tmp_path / "app-support", content_path=content_artifact
+        ),
+        expected_sqlite_version=sqlite3.sqlite_version,
+        audio_config=AudioProviderConfig(),
+    )
+    try:
+        assert runtime._foundry is not None
+        assert runtime._foundry.designs is None
+        # The picker is honestly absent…
+        assert "voice.foundry.list_designs" not in runtime.control_handlers
+        # …and the trigger is still standing, so a character nobody wrote a
+        # brief for can still be cast from what they have said.
+        trigger = StoryRuntime._open_supply_trigger(
+            runtime._foundry, AudioProviderConfig()
+        )
+        assert trigger is not None
+        assert "victor-osborn" not in trigger._designs
+    finally:
+        await runtime.close()
+
+
+def _raise_unreadable():
+    from infrastructure.voice_design_catalog import VoiceDesignError
+
+    raise VoiceDesignError("voice_design_catalog_unreadable")

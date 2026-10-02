@@ -6,6 +6,7 @@ the same winner across races/restarts.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol
 
 from domain.voice_identity import (
@@ -14,6 +15,7 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoicePersonaRevision,
 )
 
@@ -38,6 +40,7 @@ class VoiceBindingPort(Protocol):
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference | None = None,
     ) -> VoiceBinding: ...
 
     async def revoke(
@@ -64,7 +67,15 @@ class VoiceCastingService:
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
         world_revision: int,
+        evidence: VoiceEvidenceReference,
     ) -> VoiceBinding:
+        """Make one already-reviewed voice durable before any synthesis.
+
+        ``evidence`` is required, not defaulted. This service does not choose a
+        voice — it makes somebody else's choice durable — so the review that
+        authorised the voice travels with the reservation it persists. A caller
+        holding no review has no business promoting a voice to ACTIVE.
+        """
         candidate = VoiceBinding.reserve(
             binding_id=binding_id,
             scope=scope,
@@ -72,6 +83,7 @@ class VoiceCastingService:
             provider=provider,
             world_revision=world_revision,
         )
+        candidate = replace(candidate, evidence=evidence)
         persisted = await self._port.reserve(candidate)
         self._require_scope(persisted, scope)
 
@@ -109,13 +121,22 @@ class VoiceCastingService:
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference,
     ) -> VoiceBinding:
-        """Explicitly change voice identity; replacement never happens implicitly."""
+        """Explicitly change voice identity; replacement never happens implicitly.
+
+        The replacement carries its own review. It cannot inherit the outgoing
+        voice's: a human approved a specific voice, and swapping in a different
+        one without a fresh review would put an unheard voice behind their
+        signature. Only future segments are affected — history keeps the voice
+        it was rendered with.
+        """
         reserved = await self._port.rebind(
             binding_id,
             expected_binding_revision=expected_binding_revision,
             persona=persona,
             provider=provider,
+            evidence=evidence,
         )
         if reserved.status is not VoiceBindingStatus.RESERVED:
             raise VoiceCastingError("voice replacement did not enter reserved state")

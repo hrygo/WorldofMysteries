@@ -62,6 +62,20 @@
           },
           "uniqueItems": true
         },
+        "active_character_ids_add": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "active_character_ids_remove": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
         "secret_state_updates": {
           "type": "object",
           "additionalProperties": {

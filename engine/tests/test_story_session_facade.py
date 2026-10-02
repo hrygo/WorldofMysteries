@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from ai.golden_first_turn import GoldenFirstTurnFactory
 from application.advice_interpretation import (
@@ -27,6 +28,7 @@ from application.story_initialization import (
     TrustedScenarioBundle,
 )
 from application.story_session_facade import (
+    SegmentDeliveryView,
     StoredInputRecord,
     StoryEntrySnapshot,
     StoryFacadeError,
@@ -468,7 +470,11 @@ async def test_facade_open_submit_and_get_advice_use_real_durable_chain(tmp_path
 
     async def after_commit(command, result, session):
         delivery_calls.append((command.input_turn_id, result.turn.id, session))
-        return TurnDeliveryView(state="ready")
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(_ready_unit(1),),
+        )
 
     facade = _facade(
         database,
@@ -795,7 +801,11 @@ async def test_same_session_admission_is_not_held_by_post_commit_delivery(tmp_pa
         del command, result, session
         delivery_started.set()
         await release_delivery.wait()
-        return TurnDeliveryView(state="ready")
+        return TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(_ready_unit(1),),
+        )
 
     facade = _facade(
         database,
@@ -1217,3 +1227,76 @@ async def test_get_fails_closed_for_unknown_frozen_scenario_identity():
 
     with pytest.raises(StoryFacadeError, match="unknown_scenario_identity"):
         await facade.get(session.id)
+
+
+def _ready_unit(index: int) -> SegmentDeliveryView:
+    return SegmentDeliveryView(
+        segment_index=index,
+        state="ready",
+        speech_unit_id=f"speech_unit_{index}",
+        spoken_text="别动那只表。",
+        render_recipe={"segment_index": index},
+    )
+
+
+def test_a_ready_segment_must_carry_its_own_recipe():
+    """A ready segment with nothing to play is a lie the App would act on."""
+    with pytest.raises(ValidationError):
+        SegmentDeliveryView(
+            segment_index=1,
+            state="ready",
+            speech_unit_id="speech_unit_1",
+            spoken_text="别动那只表。",
+        )
+
+
+def test_an_unavailable_segment_must_say_why():
+    """Without a reason a gap is indistinguishable from an oversight."""
+    with pytest.raises(ValidationError):
+        SegmentDeliveryView(segment_index=1, state="unavailable")
+
+
+def test_a_ready_segment_may_not_also_claim_a_reason():
+    with pytest.raises(ValidationError):
+        SegmentDeliveryView(
+            segment_index=1,
+            state="ready",
+            speech_unit_id="speech_unit_1",
+            spoken_text="别动那只表。",
+            render_recipe={},
+            reason="voice_binding_not_found",
+        )
+
+
+def test_a_turn_keeps_its_segments_in_block_order():
+    """Order is the block's order. Reordering here would desync text from audio."""
+    view = TurnDeliveryView(
+        state="ready",
+        narrative_block_id="narrative-01",
+        speech_units=(
+            SegmentDeliveryView(segment_index=3, state="unavailable", reason="x"),
+            _ready_unit(5),
+            _ready_unit(7),
+        ),
+    )
+    assert [unit.segment_index for unit in view.speech_units] == [3, 5, 7]
+    assert view.speech_units[0].state == "unavailable"
+
+
+def test_a_ready_turn_with_nothing_sealed_is_refused():
+    """``ready`` with no playable unit is a silence the player would blame on us.
+
+    The single-segment mirror used to make this unrepresentable; now that it is
+    gone, the batch itself has to carry the fact, and a coordinator that
+    forgets to build one fails here instead of shipping a hollow ``ready``.
+    """
+    with pytest.raises(ValidationError):
+        TurnDeliveryView(
+            state="ready",
+            narrative_block_id="narrative-01",
+            speech_units=(
+                SegmentDeliveryView(segment_index=1, state="unavailable", reason="voice_binding_not_found"),
+            ),
+        )
+    with pytest.raises(ValidationError):
+        TurnDeliveryView(state="ready", narrative_block_id="narrative-01")

@@ -1,0 +1,634 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/voice_foundry_control.schema.json",
+  "title": "World of Mysteries Voice Foundry control v1.0",
+  "description": "Typed control surface for authorization-safe voice supply. Reads never write, call a provider, select a candidate, review audio, publish, or bind. Every write is an idempotent command with a frozen payload digest and an expected task revision; none of these methods may rewrite a committed Domain turn or world fact.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S",
+      "not": {"pattern": "\u0000"}
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "\\S",
+      "not": {"pattern": "\u0000"}
+    },
+    "foundry_get_request": {
+      "description": "Pure read of one authorized task. It never writes, calls a provider, changes task state, starts a preview, reviews audio, publishes, or binds a voice.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_list_request": {
+      "description": "Pure read of authorized tasks. It never writes, calls a provider, changes task state, or reveals another world or owner scope.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "page_size"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "page_token": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "stage": {
+          "oneOf": [
+            {
+              "enum": [
+                "requested",
+                "previewing",
+                "awaiting_selection",
+                "provisioning",
+                "validating",
+                "awaiting_review",
+                "published",
+                "binding",
+                "ready",
+                "failed",
+                "cancelled"
+              ]
+            },
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "human_review": {
+      "description": "A real human conclusion about the exact assets auditioned. Machine metrics never fill this object.",
+      "type": "object",
+      "required": [
+        "validation_id",
+        "reference_audio_digest",
+        "validation_audio_digest",
+        "identity",
+        "naturalness"
+      ],
+      "properties": {
+        "validation_id": {"$ref": "#/$defs/identifier"},
+        "reference_audio_digest": {"$ref": "#/$defs/digest"},
+        "validation_audio_digest": {"$ref": "#/$defs/digest"},
+        "identity": {"enum": ["pass", "reject"]},
+        "naturalness": {"enum": ["pass", "reject"]}
+      },
+      "additionalProperties": false
+    },
+    "select_payload": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "preview_audio_digest"
+      ],
+      "properties": {
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "preview_audio_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "confirm_reference_payload": {
+      "type": "object",
+      "required": [
+        "provider_candidate_revision",
+        "reference_text",
+        "reference_audio_digest"
+      ],
+      "properties": {
+        "provider_candidate_revision": {"$ref": "#/$defs/identifier"},
+        "reference_text": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 240
+        },
+        "reference_audio_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "validate_payload": {
+      "type": "object",
+      "required": [
+        "test_text",
+        "capability_key"
+      ],
+      "properties": {
+        "test_text": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 240
+        },
+        "capability_key": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "review_payload": {
+      "type": "object",
+      "required": ["human_review"],
+      "properties": {
+        "human_review": {"$ref": "#/$defs/human_review"}
+      },
+      "additionalProperties": false
+    },
+    "publish_payload": {
+      "type": "object",
+      "required": ["provider_candidate_revision"],
+      "properties": {
+        "provider_candidate_revision": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "retry_payload": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    },
+    "cancel_payload": {
+      "type": "object",
+      "properties": {
+        "reason_code": {"$ref": "#/$defs/reason"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_designs_request": {
+      "description": "Pure read of the casting briefs this engine can cast from. It never writes, calls a provider, or starts a task: the App asks what a character should sound like so a person can choose whom to cast, then sends that same brief back in a voice.foundry.request whose digest the engine recomputes. Reading the brief is not asking for a voice.",
+      "type": "object",
+      "required": ["schema_version"],
+      "properties": {"schema_version": {"const": "1.0"}},
+      "additionalProperties": false
+    },
+    "foundry_cast_design_request": {
+      "description": "Cast the designed voice for one identity, in a session this engine serves. The client names a session and a design and nothing else: world, worldline and owner are resolved by the engine from a session it already owns, because a client that supplied them could name a world it does not belong to, and a client that cannot supply them has no honest way to ask. Pure read of the catalog happens separately; this is the write, and it is idempotent by a request id derived from what is being cast.",
+      "type": "object",
+      "required": ["schema_version", "session_id", "design_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "design_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_command": {
+      "description": "Idempotently accepts one explicitly authorized Foundry action. The same command_id with the same payload_digest replays; a different digest conflicts. It never submits player input or rewrites a committed Domain turn.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "payload_digest",
+        "task_id",
+        "expected_task_revision",
+        "action",
+        "payload"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "expected_task_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "action": {
+          "enum": [
+            "select",
+            "confirm_reference",
+            "validate",
+            "review",
+            "publish",
+            "retry",
+            "cancel"
+          ]
+        },
+        "payload": {
+          "oneOf": [
+            {"$ref": "#/$defs/select_payload"},
+            {"$ref": "#/$defs/confirm_reference_payload"},
+            {"$ref": "#/$defs/validate_payload"},
+            {"$ref": "#/$defs/review_payload"},
+            {"$ref": "#/$defs/publish_payload"},
+            {"$ref": "#/$defs/retry_payload"},
+            {"$ref": "#/$defs/cancel_payload"}
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"action": {"const": "select"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/select_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "confirm_reference"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/confirm_reference_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "validate"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/validate_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "review"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/review_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "publish"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/publish_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "retry"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/retry_payload"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"action": {"const": "cancel"}},
+            "required": ["action"]
+          },
+          "then": {
+            "properties": {
+              "payload": {"$ref": "#/$defs/cancel_payload"}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "binding_replace_request": {
+      "description": "Explicit user-commanded replacement of the future binding for one complete scope. Existing audio takes and previous binding revisions remain unchanged. A replacement carries its own review and never inherits the outgoing voice's: a listener approved one specific voice, so this request names the replacement's own identity and the evidence that approved it. voice_revision is required and non-nullable, which is what keeps a legacy provider voice off a production scope (ADR-005 D2 — a legacy pin is a UI hint, not a renderable identity); there is deliberately no separate assurance field that could disagree with it.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "payload_digest",
+        "scope",
+        "expected_binding_revision",
+        "binding_id",
+        "logical_voice_id",
+        "persona_revision",
+        "provider_instance",
+        "voice_id",
+        "voice_revision",
+        "model_artifact_revision",
+        "evidence_id",
+        "evidence_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "payload_digest": {"$ref": "#/$defs/digest"},
+        "scope": {
+          "$ref": "https://mysterious.world/schemas/v1/voice_cast_request.schema.json#/$defs/scope"
+        },
+        "expected_binding_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "binding_id": {
+          "description": "The binding this command re-points. The revision guard applies to it, so a stale command cannot overwrite a voice somebody else installed.",
+          "$ref": "#/$defs/identifier"
+        },
+        "logical_voice_id": {
+          "description": "Game-side identity of the replacement voice. Distinct from scope.presentation_identity, which names the character being voiced rather than the voice doing the voicing.",
+          "$ref": "#/$defs/identifier"
+        },
+        "persona_revision": {
+          "description": "Revision of the public voice profile the listener approved.",
+          "$ref": "#/$defs/identifier"
+        },
+        "provider_instance": {"$ref": "#/$defs/identifier"},
+        "voice_id": {"$ref": "#/$defs/identifier"},
+        "voice_revision": {"$ref": "#/$defs/identifier"},
+        "model_catalog_revision": {
+          "description": "Catalogue entry the replacement was routed from. Optional and nullable on purpose: a catalogue entry describes what is offered now, and letting it stand in for the artifact revision would put an unheard voice behind a listener's signature.",
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "model_artifact_revision": {
+          "description": "The exact model artifact the approval was heard on.",
+          "$ref": "#/$defs/identifier"
+        },
+        "evidence_id": {"$ref": "#/$defs/identifier"},
+        "evidence_digest": {"$ref": "#/$defs/digest"}
+      },
+      "additionalProperties": false
+    },
+    "foundry_get_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_request_request": {
+      "description": "Open one casting task for an authorized identity. Unlike every other write here this is not a command: it acts on no existing task, so it has no expected revision to be stale against and no command id to replay under. Idempotence comes from the request itself — VoiceCastRequest is keyed by request_id, and a scope already in flight is keyed by request_digest — so a retried intake resumes the same task instead of minting a second set of candidates for the same character. The answer is a VoiceSupplyOutcome rather than a task: a caller asking for a voice that is already bound is told ready and given no task at all, because there was nothing to cast.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "request"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "request": {
+          "$ref": "voice_cast_request.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_request_response": {
+      "description": "What a caller may now do about this identity's voice. `task` and `task_id` are absent when the identity already had a renderable binding: there was no task, and inventing one to carry the answer would put a phantom casting in front of a listener.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "outcome"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "outcome": {
+          "enum": [
+            "ready",
+            "supply_required",
+            "pending_review",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        },
+        "binding_id": {"$ref": "#/$defs/identifier"},
+        "reason_code": {"$ref": "#/$defs/reason"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"outcome": {"const": "ready"}},
+            "required": ["outcome"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["task"]},
+                {"required": ["task_id"]}
+              ]
+            }
+          },
+          "else": {
+            "required": ["task_id"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "foundry_list_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "tasks",
+        "next_page_token"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "tasks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "voice_foundry_state.schema.json"
+          }
+        },
+        "next_page_token": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_designs_response": {
+      "description": "The catalog, in a stable order. Each entry is a public casting brief; none names a hidden identity and none carries unplayed plot.",
+      "type": "object",
+      "required": ["schema_version", "catalog_version", "designs"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "catalog_version": {"$ref": "#/$defs/identifier"},
+        "designs": {"type": "array", "maxItems": 64, "items": {"$ref": "voice_design.schema.json"}}
+      },
+      "additionalProperties": false
+    },
+    "foundry_command_response": {
+      "description": "Acknowledges one accepted idempotent command. Replayed means the same command was already accepted; it is not a second provider action or Domain commit.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "command_id",
+        "accepted",
+        "replayed",
+        "task"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"},
+        "task": {
+          "$ref": "voice_foundry_state.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "binding_replace_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "accepted",
+        "replayed",
+        "binding_id",
+        "binding_revision"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"},
+        "binding_id": {"$ref": "#/$defs/identifier"},
+        "binding_revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_asset_request": {
+      "description": "Ask for one of a parked candidate's two audition assets. A read, not a command: it moves no state, so it carries no command_id and asks for no revision. The candidate is named because a task can hold several and only one of them was put in front of a listener.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "candidate_id",
+        "kind"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "kind": {
+          "description": "Which asset to read. The reference audio answers 'is this the voice that was described'; the cross-text audio answers 'does it still hold up on text it has never heard'. They are read one at a time because a verdict is formed by hearing both, not by being handed both at once.",
+          "type": "string",
+          "enum": [
+            "reference",
+            "validation"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "foundry_asset_response": {
+      "description": "One audition asset, delivered together with the facts that identify it. The engine reads the bytes and reports what they are; the client never fetches them from the provider itself. That is what makes voice.foundry.review answerable at all — its payload demands the validation id and both audio digests, and the digests it will accept are only ever the ones describing bytes this response actually carried.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "task_id",
+        "candidate_id",
+        "kind",
+        "candidate_revision",
+        "validation_id",
+        "audio_digest",
+        "audio_bytes",
+        "audio_base64"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": ["kind"],
+            "properties": {"kind": {"const": "validation"}}
+          },
+          "then": {
+            "properties": {"validation_id": {"$ref": "#/$defs/identifier"}}
+          }
+        },
+        {
+          "if": {
+            "required": ["kind"],
+            "properties": {"kind": {"const": "reference"}}
+          },
+          "then": {
+            "properties": {"validation_id": {"type": "null"}}
+          }
+        }
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "candidate_id": {"$ref": "#/$defs/identifier"},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "reference",
+            "validation"
+          ]
+        },
+        "candidate_revision": {
+          "description": "The provider revision the audio was read at. The read is refused unless it names the revision this engine recorded, so this value always agrees with the revision any later publish refers to.",
+          "$ref": "#/$defs/identifier"
+        },
+        "validation_id": {
+          "description": "The provider's validation identity. Null for the reference asset, which belongs to no validation; present for the cross-text asset, because voice.foundry.review has to name the validation a listener judged and this is the only place a client can learn it.",
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "audio_digest": {
+          "description": "SHA-256 of the exact decoded bytes in audio_base64. This is the value voice.foundry.review must echo back for this asset.",
+          "$ref": "#/$defs/digest"
+        },
+        "audio_bytes": {
+          "description": "Length of the decoded audio. Bounded so one asset always fits one IPC frame: 589824 bytes encodes to 786432 base64 bytes, inside the 1 MiB frame limit.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 589824
+        },
+        "audio_base64": {
+          "description": "The audio itself, standard base64. Carrying the bytes next to the digest is the whole point: a digest on its own proves nothing about what a listener heard.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

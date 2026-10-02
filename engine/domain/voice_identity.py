@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+import hashlib
 import re
 
 
@@ -111,6 +112,37 @@ class ProviderVoiceRevision:
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceEvidenceReference:
+    """Domain pointer to the listening review that approved one voice.
+
+    This is a reference, not the review itself: the Engine stores the evidence
+    snapshot and re-admits it on every synthesis. What the Domain needs is the
+    fact that *some* review stands behind this exact voice, plus the model
+    artifact that review actually heard.
+
+    ``model_artifact_revision`` is deliberately separate from
+    ``model_catalog_revision`` on :class:`ProviderVoiceRevision`. A catalogue
+    entry describes what is offered now; only the artifact revision names the
+    thing a human listened to and approved. Folding one into the other would
+    let an old catalogue row stand in for a current, unheard voice.
+    """
+
+    evidence_id: str
+    evidence_digest: str
+    model_artifact_revision: str
+
+    def __post_init__(self) -> None:
+        _identifier(self.evidence_id, "evidence_id")
+        if not isinstance(self.evidence_digest, str) or re.fullmatch(
+            r"[0-9a-f]{64}", self.evidence_digest
+        ) is None:
+            raise VoiceIdentityError(
+                "evidence digest must be a lowercase sha256 hex digest"
+            )
+        _identifier(self.model_artifact_revision, "model_artifact_revision")
+
+
+@dataclass(frozen=True, slots=True)
 class VoiceBindingScope:
     """Stable presentation scope; hidden/canonical identity is intentionally absent."""
 
@@ -132,6 +164,39 @@ class VoiceBindingScope:
         ):
             _identifier(value, field)
 
+    @property
+    def binding_identity(self) -> str:
+        """The row key for the one binding this scope is allowed to have.
+
+        ``voice_bindings`` already declares
+        ``UNIQUE(owner_id, world_id, worldline_id, presentation_identity,
+        phase, locale)``: a scope has exactly one binding row, forever, and a
+        worldline fork gets its own because the worldline is part of the key.
+        ``binding_id`` is the primary key over that same row, so it has to be
+        a function of the scope and nothing else. Deriving it here is what
+        stops a task for one character from committing its voice under another
+        character's key, which the renderer — it resolves by scope — would
+        then never find.
+
+        Each field is length-prefixed before joining. A bare separator would
+        let ``("a|b", "c")`` and ``("a", "b|c")`` hash to the same row, and
+        two scopes sharing a binding row is precisely the failure this is
+        here to make impossible.
+        """
+        parts = []
+        for value in (
+            self.owner_id,
+            self.world_id,
+            self.worldline_id,
+            self.presentation_identity,
+            self.phase,
+            self.locale,
+        ):
+            encoded = value.encode("utf-8")
+            parts.append(f"{len(encoded)}:{value}")
+        raw = "|".join(parts)
+        return "vb-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
 
 @dataclass(frozen=True, slots=True)
 class VoiceBinding:
@@ -149,6 +214,11 @@ class VoiceBinding:
     binding_revision: int
     status: VoiceBindingStatus
     reserved_at_world_revision: int
+    # The listening review standing behind this binding, when one exists.
+    # Optional here so a binding can be reserved before it is reviewed; whether
+    # a *render* may proceed is a separate question answered by
+    # :meth:`permits_new_render`.
+    evidence: VoiceEvidenceReference | None = None
 
     def __post_init__(self) -> None:
         _identifier(self.binding_id, "binding_id")
@@ -158,6 +228,10 @@ class VoiceBinding:
             raise VoiceIdentityError("reserved world revision must be a nonnegative integer")
         if not isinstance(self.status, VoiceBindingStatus):
             raise VoiceIdentityError("binding status is invalid")
+        if self.evidence is not None and not isinstance(
+            self.evidence, VoiceEvidenceReference
+        ):
+            raise VoiceIdentityError("binding evidence reference is invalid")
 
     @classmethod
     def reserve(
@@ -187,6 +261,13 @@ class VoiceBinding:
             raise VoiceIdentityError("a revoked binding cannot be activated")
         if self.provider.revoked:
             raise VoiceIdentityError("a revoked provider voice cannot be activated")
+        # Reserving a voice is a claim; activating it is the decision to let a
+        # player hear it. Only a human who actually listened can make that
+        # decision, so a binding reaches ACTIVE only with a review behind it.
+        if self.evidence is None:
+            raise VoiceIdentityError(
+                "a voice binding cannot be activated without approved evidence"
+            )
         if self.status is VoiceBindingStatus.ACTIVE:
             return self
         return replace(
@@ -201,18 +282,26 @@ class VoiceBinding:
         expected_binding_revision: int,
         persona: VoicePersonaRevision,
         provider: ProviderVoiceRevision,
+        evidence: VoiceEvidenceReference | None = None,
     ) -> "VoiceBinding":
         self._require_revision(expected_binding_revision)
         if self.status is VoiceBindingStatus.REVOKED:
             raise VoiceIdentityError("a revoked binding cannot be rebound")
         if provider.revoked:
             raise VoiceIdentityError("a revoked provider voice cannot be bound")
+        if evidence is not None and not isinstance(evidence, VoiceEvidenceReference):
+            raise VoiceIdentityError("binding evidence reference is invalid")
         return replace(
             self,
             persona=persona,
             provider=provider,
             binding_revision=self.binding_revision + 1,
             status=VoiceBindingStatus.RESERVED,
+            # A different voice is a different voice. Carrying the old review
+            # forward would let an unreviewed replacement inherit the trust a
+            # human placed in the voice it replaced, so the evidence is set
+            # explicitly here rather than inherited from ``self``.
+            evidence=evidence,
         )
 
     def revoke(self, *, expected_binding_revision: int) -> "VoiceBinding":
@@ -230,6 +319,7 @@ class VoiceBinding:
         return (
             self.status is VoiceBindingStatus.ACTIVE
             and self.provider.permits_new_render
+            and self.evidence is not None
         )
 
     def _require_revision(self, expected: int) -> None:

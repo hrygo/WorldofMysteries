@@ -27,6 +27,7 @@ from .realtime_tts import (
     create_realtime_tts_adapter,
 )
 from .voice_control import (
+    EVIDENCE_PIN_FIELDS,
     PendingVoiceRenderRegistry,
     VoiceRenderControlError,
     VoiceRenderControlRequest,
@@ -292,6 +293,12 @@ class VoiceRenderRuntime:
         actual.pop("schema_version", None)
         actual.pop("media_stream_id", None)
         actual.pop("generation", None)
+        # A unit sealed before the evidence rollout has no pins to compare
+        # against; a unit that has them must match them exactly, so a forged
+        # request can never substitute a different review or a newer artifact.
+        for pin in EVIDENCE_PIN_FIELDS:
+            if pin not in expected:
+                actual.pop(pin, None)
         if actual != expected:
             raise VoiceRenderRuntimeError("voice_render_recipe_mismatch")
 

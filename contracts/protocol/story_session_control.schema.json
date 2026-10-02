@@ -256,7 +256,7 @@
       "additionalProperties": false
     },
     "voice_render_recipe": {
-      "description": "The exact sealed render recipe. The App replays it verbatim into voice.render and only supplies media_stream_id and generation itself, so a client can never choose the voice, its revision or the speed for a committed turn.",
+      "description": "The exact sealed render recipe. The App replays it verbatim into voice.render and only supplies media_stream_id and generation itself, so a client can never choose the voice, its revision or the speed for a committed turn. The evidence fields record what a human approved and the exact model artifact that review heard, so the render cannot silently land on a different voice or a newer model; the catalogue revision is kept separate and must never stand in for the artifact revision. They are declared rather than required because the App treats them as optional and the parity test pins that choice: the Engine already refuses to seal or render a unit whose evidence is missing, so the wire contract describes what travels instead of re-deciding it.",
       "type": "object",
       "required": [
         "speech_unit_id",
@@ -283,27 +283,79 @@
         "voice_id": {"$ref": "#/$defs/identifier"},
         "expected_voice_revision": {"$ref": "#/$defs/identifier"},
         "expected_model_revision": {"type": ["string", "null"], "maxLength": 256},
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Identifier of the stored evidence snapshot a human approved — never the evidence body itself."
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Content digest of that snapshot, so a rewritten record cannot pass as the reviewed one."
+        },
+        "expected_model_artifact_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The exact model artifact the review heard."
+        },
+        "expected_model_catalog_revision": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "description": "Catalogue revision the artifact was resolved from. Recorded separately so an old catalogue entry cannot pose as the current artifact."
+        },
         "speed": {"type": "number", "exclusiveMinimum": 0, "maximum": 4},
         "language": {"type": ["string", "null"], "maxLength": 64}
       },
       "additionalProperties": false
     },
     "turn_delivery": {
-      "description": "Post-COMMIT expression state. unavailable never means the turn was lost: the Domain commit already succeeded and stays durable, and only the audible rendering is missing.",
+      "description": "Post-COMMIT expression state. unavailable never means the turn was lost: the Domain commit already succeeded and stays durable, and only the audible rendering is missing. speech_units is the only per-segment view and is ordered by segment_index; a segment that could not be voiced is reported there rather than dropped, so one missing voice costs that segment its audio and nothing else. There is no single-segment mirror: a top-level field can only ever describe one of a turn's voices, and would eventually describe the wrong one.",
       "type": "object",
       "required": ["state"],
       "properties": {
         "state": {"enum": ["ready", "unavailable"]},
         "narrative_block_id": {"$ref": "#/$defs/identifier"},
-        "speech_unit_id": {"$ref": "#/$defs/identifier"},
-        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
         "reason": {"type": "string", "minLength": 1, "maxLength": 128},
-        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"}
+        "speech_units": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/segment_delivery"},
+          "maxItems": 64
+        }
       },
       "allOf": [
         {
           "if": {"properties": {"state": {"const": "ready"}}, "required": ["state"]},
-          "then": {"required": ["narrative_block_id", "speech_unit_id", "spoken_text", "render_recipe"]}
+          "then": {
+            "required": ["narrative_block_id"],
+            "required": ["speech_units"],
+            "properties": {"speech_units": {"minItems": 1}}
+          }
+        },
+        {
+          "if": {"properties": {"state": {"const": "unavailable"}}, "required": ["state"]},
+          "then": {"required": ["reason"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "segment_delivery": {
+      "description": "One persisted narrative segment's audio state. A segment that could not be voiced is reported here rather than dropped: a missing voice must cost that segment its audio and nothing else, so the rest of the turn still plays.",
+      "type": "object",
+      "required": ["segment_index", "state"],
+      "properties": {
+        "segment_index": {"type": "integer", "minimum": 0, "maximum": 131071},
+        "state": {"enum": ["ready", "unavailable"]},
+        "speech_unit_id": {"$ref": "#/$defs/identifier"},
+        "spoken_text": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "render_recipe": {"$ref": "#/$defs/voice_render_recipe"},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 128}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "ready"}}, "required": ["state"]},
+          "then": {"required": ["speech_unit_id", "spoken_text", "render_recipe"]}
         },
         {
           "if": {"properties": {"state": {"const": "unavailable"}}, "required": ["state"]},

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 
@@ -12,6 +13,7 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
@@ -49,13 +51,34 @@ def _reserved(
     persona: VoicePersonaRevision | None = None,
     provider: ProviderVoiceRevision | None = None,
 ) -> VoiceBinding:
-    return VoiceBinding.reserve(
+    reserved = VoiceBinding.reserve(
         binding_id=binding_id,
         scope=_scope(),
         persona=persona or _persona(),
         provider=provider or _provider(),
         world_revision=9,
     )
+    # A candidate on its way to ACTIVE arrives with the review already
+    # attached; without one the binding is refused rather than promoted.
+    return replace(
+        reserved,
+        evidence=VoiceEvidenceReference(
+            evidence_id="ev_casting_1",
+            evidence_digest="d" * 64,
+            model_artifact_revision="art-1",
+        ),
+    )
+
+
+def _evidence(**overrides) -> VoiceEvidenceReference:
+    """The review standing behind a voice the casting service is told to trust."""
+    values = {
+        "evidence_id": "ev_casting_1",
+        "evidence_digest": "d" * 64,
+        "model_artifact_revision": "art-1",
+    }
+    values.update(overrides)
+    return VoiceEvidenceReference(**values)
 
 
 class MemoryPort:
@@ -89,6 +112,7 @@ class MemoryPort:
         expected_binding_revision,
         persona,
         provider,
+        evidence=None,
     ):
         if self.current is None or self.current.binding_id != binding_id:
             raise VoiceBindingConflict("missing winner")
@@ -96,6 +120,7 @@ class MemoryPort:
             expected_binding_revision=expected_binding_revision,
             persona=persona,
             provider=provider,
+            evidence=evidence,
         )
         return self.current
 
@@ -129,6 +154,7 @@ async def test_first_render_persists_reservation_before_activation():
         persona=_persona(),
         provider=_provider(),
         world_revision=9,
+        evidence=_evidence(),
     )
 
     assert [item.status for item in port.reserve_candidates] == [VoiceBindingStatus.RESERVED]
@@ -151,6 +177,7 @@ async def test_existing_binding_wins_over_new_candidate_and_is_not_recast():
         persona=_persona("persona-r2"),
         provider=_provider("b"),
         world_revision=99,
+        evidence=_evidence(),
     )
 
     assert active == existing
@@ -169,6 +196,7 @@ async def test_stale_activation_race_recovers_same_persisted_winner():
         persona=_persona(),
         provider=_provider(),
         world_revision=9,
+        evidence=_evidence(),
     )
 
     assert active.binding_id == "binding-winner"
@@ -189,6 +217,7 @@ async def test_revoked_existing_binding_blocks_new_render_even_with_new_candidat
             persona=_persona("persona-r9"),
             provider=_provider("b"),
             world_revision=10,
+            evidence=_evidence(),
         )
 
     assert port.current == revoked
@@ -204,12 +233,33 @@ async def test_explicit_replace_is_only_path_that_changes_active_voice():
         expected_binding_revision=current.binding_revision,
         persona=_persona("persona-r2"),
         provider=_provider("d"),
+        evidence=_evidence(evidence_id="ev_casting_2"),
     )
 
     assert updated.status is VoiceBindingStatus.ACTIVE
     assert updated.binding_revision == 4
     assert updated.persona.revision == "persona-r2"
     assert updated.provider.voice_id == "klein-d"
+
+
+async def test_explicit_replace_carries_the_new_review_not_the_old_one():
+    """The outgoing voice's review belongs to the outgoing voice. Letting it
+    ride along would put an unheard replacement behind a human's signature."""
+    current = replace(
+        _reserved(), evidence=_evidence(evidence_id="ev_old_voice")
+    ).activate(expected_binding_revision=1)
+    service = VoiceCastingService(MemoryPort(current))
+
+    updated = await service.replace_for_future_render(
+        binding_id=current.binding_id,
+        expected_binding_revision=current.binding_revision,
+        persona=_persona("persona-r2"),
+        provider=_provider("d"),
+        evidence=_evidence(evidence_id="ev_new_voice"),
+    )
+
+    assert updated.evidence is not None
+    assert updated.evidence.evidence_id == "ev_new_voice"
 
 
 async def test_revoke_command_persists_terminal_binding():

@@ -233,6 +233,75 @@ class PresentationTransaction:
 _PRESENTATION_TABLES = frozenset({'voice_bindings', 'delivery_cursors'})
 
 
+class VoiceFoundryTransaction:
+    """Synchronous Foundry task transaction with no world-fact authority."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._active = True
+        self._thread = threading.get_ident()
+
+    def execute(self, sql: str, parameters: tuple = ()) -> list[dict]:
+        if not self._active or threading.get_ident() != self._thread:
+            raise StorageError('Transaction is no longer active on its writer')
+        with closing(self._connection.execute(sql, parameters)) as cursor:
+            return [dict(row) for row in cursor] if cursor.description else []
+
+
+_VOICE_FOUNDRY_INSERT_TABLES = frozenset({
+    'voice_binding_revisions',
+    'voice_bindings',
+    'voice_evidence_snapshots',
+    'voice_foundry_candidates',
+    'voice_foundry_commands',
+    'voice_foundry_operations',
+    'voice_foundry_tasks',
+})
+_VOICE_FOUNDRY_UPDATE_COLUMNS = {
+    'voice_bindings': frozenset({
+        'binding_revision', 'status', 'evidence_id', 'evidence_digest',
+        'model_artifact_revision',
+    }),
+    'voice_foundry_candidates': frozenset({
+        'state', 'provider_candidate_id', 'provider_candidate_revision',
+        'reference_audio_digest', 'reference_text_digest',
+        'validation_audio_digest', 'validation_text_digest', 'updated_at',
+    }),
+    'voice_foundry_operations': frozenset({
+        'status', 'provider_result_ref', 'updated_at'
+    }),
+    'voice_foundry_tasks': frozenset({
+        'stage', 'task_revision', 'cancel_requested', 'operation_status',
+        'required_actions_json', 'reason_code', 'updated_at',
+    }),
+}
+
+
+def _voice_foundry_authorizer(action, table, column, database, _trigger):
+    if database not in (None, 'main'):
+        return sqlite3.SQLITE_DENY
+    table_name = table.lower() if isinstance(table, str) else ''
+    if action == sqlite3.SQLITE_INSERT:
+        return (
+            sqlite3.SQLITE_OK
+            if table_name in _VOICE_FOUNDRY_INSERT_TABLES
+            else sqlite3.SQLITE_DENY
+        )
+    if action == sqlite3.SQLITE_UPDATE:
+        allowed = _VOICE_FOUNDRY_UPDATE_COLUMNS.get(table_name, frozenset())
+        return sqlite3.SQLITE_OK if column in allowed else sqlite3.SQLITE_DENY
+    if action == sqlite3.SQLITE_DELETE:
+        return sqlite3.SQLITE_DENY
+    if action in (
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_FUNCTION,
+        sqlite3.SQLITE_RECURSIVE,
+    ):
+        return sqlite3.SQLITE_OK
+    return sqlite3.SQLITE_DENY
+
+
 class AudioAssetTransaction:
     """Insert-only immutable audio asset/track transaction with no world-fact authority."""
 
@@ -776,6 +845,43 @@ class DatabaseManager:
                     if inspect.iscoroutine(value):
                         value.close()
                     raise StorageError('Presentation repository transaction must not suspend')
+            finally:
+                tx._active = False
+                conn.set_authorizer(None)
+            conn.execute('COMMIT')
+            return value
+        except BaseException:
+            conn.set_authorizer(None)
+            if conn.in_transaction:
+                conn.execute('ROLLBACK')
+            raise
+
+    async def voice_foundry_write(
+        self,
+        apply: Callable[[VoiceFoundryTransaction], object],
+    ) -> object:
+        """Persist voice-supply presentation state without advancing world facts."""
+        if not callable(apply):
+            raise StorageError(
+                'Voice Foundry write requires a synchronous repository operation'
+            )
+        return await self._submit(lambda: self._voice_foundry_write(apply))
+
+    def _voice_foundry_write(self, apply):
+        self._check_world_identity()
+        conn = self._connection
+        conn.execute('BEGIN IMMEDIATE')
+        tx = VoiceFoundryTransaction(conn)
+        conn.set_authorizer(_voice_foundry_authorizer)
+        try:
+            try:
+                value = apply(tx)
+                if inspect.isawaitable(value):
+                    if inspect.iscoroutine(value):
+                        value.close()
+                    raise StorageError(
+                        'Voice Foundry repository transaction must not suspend'
+                    )
             finally:
                 tx._active = False
                 conn.set_authorizer(None)

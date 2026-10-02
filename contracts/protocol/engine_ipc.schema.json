@@ -286,6 +286,28 @@
         "story.turn.work.get",
         "story.turn.work.retry"
       ]
+    },
+    "voice_foundry_method_capability": {
+      "description": "Voice Foundry control method names. Each method is also its optional Engine handshake capability; reads are pure and writes use idempotent command identities with expected revisions.",
+      "type": "string",
+      "enum": [
+        "voice.foundry.request",
+        "voice.foundry.get",
+        "voice.foundry.list",
+        "voice.foundry.list_designs",
+        "voice.foundry.cast_design",
+        "voice.foundry.select",
+        "voice.foundry.confirm_reference",
+        "voice.foundry.validate",
+        "voice.foundry.review",
+        "voice.foundry.publish",
+        "voice.foundry.asset.get",
+        "voice.foundry.retry",
+        "voice.foundry.cancel",
+        "voice.binding.replace",
+        "voice.audio.batch.get",
+        "voice.audio.segment.prepare"
+      ]
     }
   },
   "description": "Strict request/response/event wire contract; framing is a 4-byte big-endian length followed by UTF-8 JSON."

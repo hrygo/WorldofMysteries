@@ -15,6 +15,7 @@ from engine.infrastructure import (
 from engine.infrastructure.database_manager import DatabaseManager, DatabasePaths
 from engine.infrastructure.database_schema import (
     APPLICATION_IDS,
+    SCHEMA_VERSION,
     StorageError,
     connect,
     initialize,
@@ -231,7 +232,7 @@ def test_v12_upgrade_creates_empty_post_commit_tables_with_constraints_and_backu
     with closing(connect(path)) as connection:
         initialize(connection, "world", path=path)
 
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 14
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
         assert {
             "post_commit_jobs",
             "post_commit_retry_requests",
@@ -331,7 +332,7 @@ def test_v12_upgrade_creates_empty_post_commit_tables_with_constraints_and_backu
             )
         integrity(connection)
 
-    backup = path.with_name("world.db.pre-migration-v12-to-v14.bak")
+    backup = path.with_name(f"world.db.pre-migration-v12-to-v{SCHEMA_VERSION}.bak")
     assert backup.is_file()
     with closing(connect(backup, readonly=True)) as snapshot:
         assert snapshot.execute("PRAGMA user_version").fetchone()[0] == 12

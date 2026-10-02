@@ -1,0 +1,90 @@
+{
+  "receipt_id": "RCP-WORK-VF-80A-27917db28e82",
+  "receipt_type": "work",
+  "task_id": "VF-80A",
+  "capsule_id": "CAP-VF-80A",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:a84eb416460d71370a0a23bbca9600683e5e285efb9fa2cf71ca6c9e949c3e43",
+  "diff_digest": "sha256:196a02d5d184f7c7a824943fc6f303bfb70a014d79eec84eca5dd16e6f17b4c8",
+  "assigned_role": "AGT-AI",
+  "risk_class": "high",
+  "base_commit": "c9dd52c5f6f140d63a0aa565402c3dd2d98422e0",
+  "head_commit": "27917db28e824bd0f76dd1dbb030970e77b76ce1",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "AI_GATEWAY_P0",
+  "gate_profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-80a-roster-signature",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-01T02:04:59.562873+00:00",
+      "finished_at": "2026-10-01T02:04:59.604613+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "AI Gateway & Context Compiler Unit Tests",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "ai or gateway or context or proposal"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-80a-roster-signature/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-01T02:04:59.604703+00:00",
+      "finished_at": "2026-10-01T02:05:26.239505+00:00",
+      "raw_log_digest": "sha256:eab4d48738b7283bf74832aa66e21482bb8b4b902c333aa091da702d77297ead",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/application/story_disclosure.py",
+      "engine/tests/test_story_disclosure.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-AI",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf-80a-roster-signature"
+  },
+  "started_at": "2026-10-01T02:04:59.525570+00:00",
+  "finished_at": "2026-10-01T02:05:26.361922+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 import sqlite3
 
@@ -14,10 +15,16 @@ from domain.voice_identity import (
     VoiceBindingConflict,
     VoiceBindingScope,
     VoiceBindingStatus,
+    VoiceEvidenceReference,
     VoiceIdentityAssurance,
     VoicePersonaRevision,
 )
-from engine.infrastructure.database_manager import DatabaseManager, DatabasePaths
+from application.voice_casting import VoiceCastingService
+from engine.infrastructure.database_manager import (
+    DatabaseManager,
+    DatabasePaths,
+    StorageError,
+)
 from engine.infrastructure.voice_binding_repository import SQLiteVoiceBindingRepository
 
 
@@ -66,14 +73,17 @@ def provider(revision="voice-" + "a" * 40):
     )
 
 
-def candidate(binding_id="binding-1", revision="voice-" + "a" * 40):
-    return VoiceBinding.reserve(
+def candidate(binding_id="binding-1", revision="voice-" + "a" * 40, evidence=True):
+    reserved = VoiceBinding.reserve(
         binding_id=binding_id,
         scope=scope(),
         persona=VoicePersonaRevision("voice-klein", "persona-r1"),
         provider=provider(revision),
         world_revision=7,
     )
+    # Activation is the decision to let a player hear a voice, so a candidate
+    # on its way to ACTIVE arrives with the review already attached.
+    return replace(reserved, evidence=_evidence()) if evidence else reserved
 
 
 async def world_revision(database):
@@ -179,12 +189,12 @@ async def test_worldline_fork_freezes_exact_binding_revision_and_isolates_parent
         persona=VoicePersonaRevision("voice-klein", "persona-r2"),
         provider=provider("voice-" + "d" * 40),
     )
-    parent_after_fork = await repo.activate(
-        "binding-1", expected_binding_revision=rebound.binding_revision
-    )
-
-    assert parent_after_fork.binding_revision == 4
-    assert parent_after_fork.provider.voice_revision == "voice-" + "d" * 40
+    # The replacement voice has not been heard, so the review that stood behind
+    # the old one does not travel with it. The parent stays reserved until a
+    # new review is attached; the fork is unaffected either way.
+    assert rebound.evidence is None
+    assert rebound.provider.voice_revision == "voice-" + "d" * 40
+    assert not rebound.permits_new_render
     assert await repo.load("binding-line-2") == child
     assert child.provider.voice_revision == "voice-" + "a" * 40
     assert await world_revision(database) == 0
@@ -230,9 +240,9 @@ async def test_worldline_fork_rejects_parent_revision_drift_before_snapshot(data
         persona=VoicePersonaRevision("voice-klein", "persona-r2"),
         provider=provider("voice-" + "d" * 40),
     )
-    await repo.activate(
-        "binding-1", expected_binding_revision=rebound.binding_revision
-    )
+    # The rebind alone already moved the parent off the fork point; driving it
+    # back to ACTIVE would need a fresh review this test has no reason to grant.
+    assert rebound.binding_revision != fork_point.binding_revision
 
     with pytest.raises(
         VoiceBindingConflict, match="moved after fork snapshot authorization"
@@ -254,3 +264,158 @@ async def test_worldline_fork_rejects_parent_revision_drift_before_snapshot(data
     )
     assert await repo.load_scope(child_scope) is None
     assert await world_revision(database) == 0
+
+
+def _evidence():
+    return VoiceEvidenceReference(
+        evidence_id="ev_klein_1",
+        evidence_digest="d" * 64,
+        model_artifact_revision="qwen3-tts-2026-09-29",
+    )
+
+
+def _replacement_evidence():
+    return VoiceEvidenceReference(
+        evidence_id="ev_klein_2",
+        evidence_digest="e" * 64,
+        model_artifact_revision="qwen3-tts-2026-09-30",
+    )
+
+
+async def test_rebind_persists_the_review_of_the_replacement_voice(database, paths):
+    """The replacement's own review is what has to reach the row.
+
+    The outgoing voice's review is deliberately not carried forward, so if the
+    rebind drops the review it was handed, the binding is left with nothing —
+    and a binding with no review cannot be activated, which is the visible
+    consequence of losing it here.
+    """
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+    await repo.activate("binding-1", expected_binding_revision=1)
+
+    rebound = await repo.rebind(
+        "binding-1",
+        expected_binding_revision=2,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+        evidence=_replacement_evidence(),
+    )
+    assert rebound.evidence == _replacement_evidence()
+    assert rebound.evidence != _evidence()
+    assert rebound.status is VoiceBindingStatus.RESERVED
+
+    activated = await repo.activate(
+        "binding-1", expected_binding_revision=rebound.binding_revision
+    )
+    assert activated.status is VoiceBindingStatus.ACTIVE
+    assert activated.permits_new_render
+
+    await database.close()
+    reopened = await open_database(paths)
+    try:
+        assert (await SQLiteVoiceBindingRepository(reopened).load("binding-1")).evidence == (
+            _replacement_evidence()
+        )
+    finally:
+        await reopened.close()
+
+
+async def test_replacing_a_voice_end_to_end_on_the_real_repository(database):
+    """Guards the whole replace path, not just the repository verb.
+
+    The casting service has always passed the review down to its port, and the
+    in-memory port used by the service's own tests accepts it. Only a run
+    against the SQLite repository proves the two halves agree on the call.
+    """
+    repo = SQLiteVoiceBindingRepository(database)
+    service = VoiceCastingService(repo)
+
+    await service.prepare_render(
+        binding_id="binding-1",
+        scope=scope(),
+        persona=VoicePersonaRevision("voice-klein", "persona-r1"),
+        provider=provider(),
+        world_revision=7,
+        evidence=_evidence(),
+    )
+
+    replaced = await service.replace_for_future_render(
+        binding_id="binding-1",
+        expected_binding_revision=2,
+        persona=VoicePersonaRevision("voice-klein", "persona-r2"),
+        provider=provider("voice-" + "d" * 40),
+        evidence=_replacement_evidence(),
+    )
+    assert replaced.status is VoiceBindingStatus.ACTIVE
+    assert replaced.evidence == _replacement_evidence()
+    assert replaced.permits_new_render
+    assert await world_revision(database) == 0
+
+
+async def test_the_review_behind_a_binding_survives_a_restart(database, paths):
+    # A binding that forgets its evidence after a restart silently stops being
+    # attributable, so surviving the round trip is the whole point.
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+
+    await database.close()
+    reopened = await open_database(paths)
+    try:
+        restored = await SQLiteVoiceBindingRepository(reopened).load("binding-1")
+        assert restored.evidence == _evidence()
+        assert restored.evidence.model_artifact_revision == "qwen3-tts-2026-09-29"
+    finally:
+        await reopened.close()
+
+
+async def test_a_binding_predating_the_evidence_rollout_still_loads(database):
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate(evidence=False))
+    assert (await repo.load("binding-1")).evidence is None
+
+
+async def test_a_worldline_fork_inherits_the_review_behind_the_voice(database):
+    """The review is a fact about the voice and the artifact it was built from,
+    not about the worldline speaking it. A fork inherits the same voice, so it
+    inherits the same review rather than stranding the child."""
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(replace(candidate(), evidence=_evidence()))
+    source = await repo.activate("binding-1", expected_binding_revision=1)
+    assert source.evidence is not None
+
+    child_scope = VoiceBindingScope(
+        owner_id="player",
+        world_id="voice-world",
+        worldline_id="line-2",
+        presentation_identity="klein-visible",
+        phase="default",
+        locale="zh-CN",
+    )
+    child = await repo.fork_scope_snapshot(
+        source.scope,
+        expected_source_binding_revision=source.binding_revision,
+        target_worldline_id="line-2",
+        target_binding_id="binding-line-2",
+    )
+
+    assert child.scope == child_scope
+    assert child.evidence == _evidence()
+    assert (await repo.load("binding-line-2")).evidence == _evidence()
+
+
+async def test_a_half_written_evidence_reference_is_refused(database):
+    # Part of the triple cannot be re-checked against the stored snapshot, so
+    # it is refused rather than completed with a blank.
+    repo = SQLiteVoiceBindingRepository(database)
+    await repo.reserve(candidate(evidence=False))
+
+    def write_partial(tx):
+        tx.execute(
+            "UPDATE voice_bindings SET evidence_id=? WHERE binding_id=?",
+            ("ev_klein_1", "binding-1"),
+        )
+
+    await database.presentation_write(write_partial)
+    with pytest.raises(StorageError, match="evidence reference is incomplete"):
+        await repo.load("binding-1")

@@ -63,6 +63,7 @@ from .voice_control import (
     PendingVoiceRender,
     PendingVoiceRenderRegistry,
     VoiceRenderAccepted,
+    EVIDENCE_PIN_FIELDS,
     VoiceRenderControlError,
     VoiceRenderControlRequest,
 )
@@ -93,6 +94,7 @@ __all__ = [
     "PendingVoiceRender",
     "PendingVoiceRenderRegistry",
     "VoiceRenderAccepted",
+    "EVIDENCE_PIN_FIELDS",
     "VoiceRenderControlError",
     "VoiceRenderControlRequest",
     "ProbeHttpResponse",

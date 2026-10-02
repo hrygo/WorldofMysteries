@@ -24,10 +24,23 @@ class VoiceRenderControlError(RuntimeError):
         self.code = code
 
 
+# The evidence identity carried by render control 2.0. Kept as one tuple
+# because it is one fact: which review authorised this render, and the exact
+# model artifact that review heard.
+EVIDENCE_PIN_FIELDS = (
+    "evidence_id",
+    "evidence_digest",
+    "expected_model_artifact_revision",
+    "expected_model_catalog_revision",
+)
+
+
 class VoiceRenderControlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
-    schema_version: str = Field(pattern=r"^1\.0$")
+    # 1.0 is replay-only: units sealed before the evidence rollout carry no
+    # evidence identity. 2.0 is the version new renders must use.
+    schema_version: str = Field(pattern=r"^[12]\.0$")
     speech_unit_id: str = Field(min_length=1, max_length=128)
     turn_id: str = Field(min_length=1, max_length=128)
     story_revision: StrictInt = Field(ge=0)
@@ -40,6 +53,16 @@ class VoiceRenderControlRequest(BaseModel):
     # Provider artifact revision, carried as a wire revision rather than a git
     # sha: a 40-character hex commit stays valid, a tagged artifact does too.
     expected_model_revision: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    )
+    # The evidence identity a human approved, plus the exact model artifact
+    # that review heard. Required on 2.0, absent on 1.0.
+    evidence_id: str | None = Field(default=None, min_length=1, max_length=128)
+    evidence_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    expected_model_artifact_revision: str | None = Field(
+        default=None, min_length=1, max_length=128
+    )
+    expected_model_catalog_revision: str | None = Field(
         default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     )
     media_stream_id: str = Field(min_length=1, max_length=128)
@@ -65,6 +88,30 @@ class VoiceRenderControlRequest(BaseModel):
             raise ValueError("voice render language must not be blank")
         return self
 
+    @model_validator(mode="after")
+    def require_evidence_pins_on_v2(self) -> "VoiceRenderControlRequest":
+        """A 2.0 render must be attributable to a listening review.
+
+        Each pin is required on its own: an identifier without a digest is not
+        a checked reference, and a catalogue revision is not the artifact a
+        human heard. Half the identity is an unattributable render, so it is
+        refused rather than completed with a blank.
+        """
+        if self.schema_version != "2.0":
+            return self
+        missing = [
+            name for name in EVIDENCE_PIN_FIELDS if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                "voice render control 2.0 requires evidence pins: "
+                + ", ".join(missing)
+            )
+        for value in (self.evidence_id, self.expected_model_artifact_revision):
+            if value is not None and not value.strip():
+                raise ValueError("voice render evidence pins must not be blank")
+        return self
+
     def provider_tts_fields(self) -> dict[str, object]:
         """Project this application control request onto the SpeechRail wire.
 
@@ -73,6 +120,12 @@ class VoiceRenderControlRequest(BaseModel):
         provider renamed ``expected_voice_revision`` to ``voice_revision``; the
         rename stops here instead of propagating into the IPC contract, the
         sealed unit or the voice binding store.
+
+        The evidence pins are deliberately *not* projected. They answer "which
+        review authorised this render", which is an Engine-side attribution
+        question; the provider is not asked to validate them and its request
+        models forbid unknown fields. Sending them upstream would invent a
+        contract that does not exist.
         """
         fields: dict[str, object] = {
             "task": "render",

@@ -60,17 +60,67 @@ def _bounded_text(
     return text
 
 
+def _character_roster(value: object) -> tuple[str, ...]:
+    """Normalise a declared roster of who may speak this turn.
+
+    A duplicate is refused rather than collapsed. Two entries for one
+    character mean the projection is ambiguous about who is present, and
+    silently deduplicating would hide that from whoever has to debug a scene
+    that cast the wrong person — while still letting the roster through as
+    if it were well-formed.
+    """
+    if not isinstance(value, (tuple, list)):
+        raise NarrativePublicationError("invalid_present_character_ids")
+    roster = tuple(
+        _bounded_text(item, field="present_character_ids", limit=256)
+        for item in value
+    )
+    if len(set(roster)) != len(roster):
+        raise NarrativePublicationError("duplicate_present_character")
+    return roster
+
+
+@dataclass(frozen=True, slots=True)
+class NarrativeLine:
+    """One proposed line of dialogue, attributed by **public label**.
+
+    The speaker is a label, never a canonical id. The model is given labels
+    only — that is the whole point of the disclosure projection — so it cannot
+    propose an id even if it wanted to. Turning a label into the id a voice
+    binds to is the publication layer's job, against the trusted roster.
+
+    A character may speak more than once in a turn, so duplicate speakers are
+    legitimate here. What is not legitimate is a speaker absent from the
+    roster, and that is refused at binding time rather than filtered.
+    """
+
+    speaker: str
+    text: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "speaker",
+            _bounded_text(self.speaker, field="line_speaker", limit=256),
+        )
+        object.__setattr__(
+            self,
+            "text",
+            _bounded_text(self.text, field="line_text", limit=_MAX_NARRATIVE_CHARS),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class NarrativeCandidate:
     """Model-produced expression with narration and dialogue kept distinct.
 
-    The speaker is intentionally absent: only the trusted committed source may
-    bind a character segment. A missing/blank speech value means there is no
-    dialogue to publish or send to audio.
+    Who speaks is named by public label in ``lines``; only the trusted
+    committed source may turn a label into a bound speaker, and only for
+    someone its castable roster admits.
     """
 
     narration: str
-    speech: str
+    lines: tuple[NarrativeLine, ...] = ()
     context_binding: AuthorizedTurnContextBinding | None = None
 
     def __post_init__(self) -> None:
@@ -83,16 +133,10 @@ class NarrativeCandidate:
                 limit=_MAX_NARRATIVE_CHARS,
             ),
         )
-        object.__setattr__(
-            self,
-            "speech",
-            _bounded_text(
-                self.speech,
-                field="speech",
-                limit=_MAX_NARRATIVE_CHARS,
-                allow_empty=True,
-            ),
-        )
+        if not isinstance(self.lines, tuple) or any(
+            not isinstance(line, NarrativeLine) for line in self.lines
+        ):
+            raise NarrativePublicationError("invalid_narrative_candidate")
         if self.context_binding is not None and not isinstance(
             self.context_binding, AuthorizedTurnContextBinding
         ):
@@ -118,6 +162,45 @@ class CommittedNarrativeSource:
     disclosed_facts: str
     input_turn_id: str | None = None
     source_store_revision: int | None = None
+    #: Who is in the scene for this turn, when the world says so.
+    #:
+    #: Three states, and the difference between them is the whole point:
+    #: ``None`` means this source declares no roster at all, and publication
+    #: keeps its historical single-protagonist behaviour; ``()`` means the
+    #: world says the scene is empty and the block should carry narration
+    #: only; a non-empty tuple is authoritative and no one outside it can
+    #: speak. Folding ``None`` and ``()`` together would make "nobody is here"
+    #: indistinguishable from "we have not asked yet", and the first is a
+    #: fact while the second is an absence of one.
+    #:
+    #: This is a presentation-layer fact about who may be heard, not world
+    #: truth: it never advances the world revision. The roster it carries is
+    #: already a projection of committed state, narrowed by what this turn is
+    #: authorised to know (ADR-006 D2).
+    present_character_ids: tuple[str, ...] | None = None
+
+    #: Who may be *heard*, as ``(canonical_id, public_label)`` pairs — the
+    #: world roster above, narrowed by ADR-006 D5.
+    #:
+    #: This is a second field rather than a replacement, and the two are not
+    #: redundant. ``present_character_ids`` is a world fact: who was in the
+    #: room, protagonist included. This is a presentation fact: who the
+    #: publication layer may bind a voice to, which excludes the protagonist
+    #: (product setting) and anyone without a public name (semantic
+    #: authorisation). Collapsing them would erase the distinction ADR-006 D5
+    #: is built on, and would leave no record that the protagonist *was*
+    #: present.
+    #:
+    #: The model is given labels only, so a line it proposes can be bound back
+    #: to a canonical id through this table alone. That is why it travels with
+    #: the source rather than being re-derived at publication time: the
+    #: publication layer would otherwise need the bootstrap's name table, and a
+    #: second reader of it is a second unreviewed source of who is called what.
+    #:
+    #: Same three states as ``present_character_ids``: ``None`` means no roster
+    #: was declared at all, ``()`` means the world declared one and it cast
+    #: nobody, and a non-empty tuple is authoritative.
+    castable_character_labels: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
         for field in ("turn_id", "session_id", "state_delta_id", "protagonist_id"):
@@ -171,6 +254,57 @@ class CommittedNarrativeSource:
                 limit=_MAX_COMMITTED_SOURCE_CHARS,
             ),
         )
+        if self.present_character_ids is not None:
+            object.__setattr__(
+                self,
+                "present_character_ids",
+                _character_roster(self.present_character_ids),
+            )
+        if self.castable_character_labels is not None:
+            object.__setattr__(
+                self,
+                "castable_character_labels",
+                _castable_labels(self.castable_character_labels),
+            )
+            # The castable roster claims to be the world roster, narrowed. If it
+            # is not, something upstream invented a speaker who was never in the
+            # room — and nothing downstream would report it, because every id
+            # would still resolve. That is the whole failure mode this design
+            # exists to prevent, so it is refused at construction.
+            if self.present_character_ids is not None:
+                absent = {
+                    character_id
+                    for character_id, _ in self.castable_character_labels
+                } - set(self.present_character_ids)
+                if absent:
+                    raise NarrativePublicationError("castable_outside_scene")
+
+
+def _castable_labels(value: object) -> tuple[tuple[str, str], ...]:
+    """Normalise ``(canonical_id, public_label)`` pairs, refusing ambiguity.
+
+    Two labels for one character, or one id wearing two labels, both mean the
+    projection is ambiguous about who is speaking. Binding a line to the wrong
+    one would cast the wrong person's voice, so neither is collapsed or
+    resolved here — the roster is refused and the turn keeps its historical
+    single-speaker behaviour.
+    """
+    if not isinstance(value, (tuple, list)):
+        raise NarrativePublicationError("invalid_castable_character_labels")
+    pairs: list[tuple[str, str]] = []
+    for item in value:
+        if not isinstance(item, (tuple, list)) or len(item) != 2:
+            raise NarrativePublicationError("invalid_castable_character_labels")
+        character_id = _bounded_text(
+            item[0], field="castable_character", limit=256
+        )
+        label = _bounded_text(item[1], field="castable_label", limit=256)
+        pairs.append((character_id, label))
+    if len({character_id for character_id, _ in pairs}) != len(pairs):
+        raise NarrativePublicationError("duplicate_castable_character")
+    if len({label for _, label in pairs}) != len(pairs):
+        raise NarrativePublicationError("duplicate_castable_label")
+    return tuple(pairs)
 
 
 class NarrativeCompilerPort(Protocol):
@@ -201,6 +335,65 @@ class NarrativePublishPort(Protocol):
     ) -> object: ...
 
 
+def _bound_dialogue(
+    *,
+    source: CommittedNarrativeSource,
+    candidate: NarrativeCandidate,
+) -> list[tuple[str, str]]:
+    """Bind proposed lines to the speakers the trusted roster admits.
+
+    The model may only name a **public label**; this is where a label becomes
+    the canonical id a voice binds to, and the roster is the only thing that
+    makes that conversion legitimate.
+
+    Every refusal here is a refusal to publish, never a silent drop. A line
+    naming someone outside the roster is not "dialogue we chose not to say" —
+    it is a proposal to put words in a mouth the world did not open, and
+    dropping it would publish a block that silently disagrees with the model
+    about what was said.
+
+    Three roster states, three answers:
+
+    * ``None`` — the world declared no castable roster, so nothing is
+      authorised and no line may be bound. This is not "fall back to the
+      protagonist": under D5 the player-avatar has no cast voice, and a
+      fallback would hand the one voice the world withheld to the one
+      character the design refuses to voice. Narration only.
+    * ``()`` — the world declared a roster and it casts nobody. Narration
+      only. Any proposed dialogue is a contradiction of what the world said.
+    * non-empty — authoritative. Every line must resolve, and at least one
+      line is required so a committed turn stays speakable.
+    """
+    roster = source.castable_character_labels
+
+    if roster is None:
+        if candidate.lines:
+            raise NarrativePublicationError("speaker_without_roster")
+        return []
+
+    if not roster:
+        if candidate.lines:
+            raise NarrativePublicationError("speaker_not_castable")
+        return []
+
+    if not candidate.lines:
+        raise NarrativePublicationError("missing_character_speech")
+
+    by_label = {label: character_id for character_id, label in roster}
+    dialogue: list[tuple[str, str]] = []
+    for line in candidate.lines:
+        character_id = by_label.get(line.speaker)
+        if character_id is None:
+            raise NarrativePublicationError("speaker_not_castable")
+        # D5 already removed the protagonist from the castable roster upstream.
+        # Re-checking here costs one comparison and closes the last path by
+        # which the player-avatar could acquire a cast voice.
+        if character_id == source.protagonist_id:
+            raise NarrativePublicationError("protagonist_not_castable")
+        dialogue.append((character_id, line.text))
+    return dialogue
+
+
 def _source_key(source: CommittedNarrativeSource | None) -> str | None:
     if source is None:
         return None
@@ -216,12 +409,69 @@ def _source_key(source: CommittedNarrativeSource | None) -> str | None:
             "disclosed_facts": source.disclosed_facts,
             "input_turn_id": source.input_turn_id,
             "source_store_revision": source.source_store_revision,
+            # The roster is part of the source's identity because it decides who
+            # the block may speak for. Two attempts at one turn that disagree
+            # about the roster are not retries of the same publication — they
+            # would bind different voices — so they are refused rather than
+            # raced (ADR-006 D2, §4.1).
+            "present_character_ids": (
+                None
+                if source.present_character_ids is None
+                else list(source.present_character_ids)
+            ),
+            "castable_character_labels": (
+                None
+                if source.castable_character_labels is None
+                else [list(pair) for pair in source.castable_character_labels]
+            ),
         },
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def turn_scene_roster(
+    *,
+    story_state: object,
+    committed_story_revision: int,
+) -> tuple[str, ...] | None:
+    """The scene roster *as of one turn*, or ``None`` when it cannot be known.
+
+    Two different questions are answered here and they must not be confused.
+
+    **Whose scene is this?** ``story_state_json`` holds only the *current*
+    state of a session, never its history. A post-COMMIT job may run long after
+    the turn it serves, by which point later turns have moved the roster on.
+    Reading it then would attribute this turn's speech to whoever is in the
+    room *now* — and nothing would report an error, because every value read
+    would be internally consistent. So the roster is taken only when the state
+    is provably the one this turn committed, and declined otherwise.
+
+    **Does the world declare a roster at all?** ``None`` and ``()`` stay
+    distinct: an empty scene is an assertion, an absent roster is the absence of
+    one. Both end up as ``None`` here only in the first case above — a
+    declined read is indistinguishable from a world that never said, and both
+    mean "publication keeps its historical single-speaker behaviour" rather
+    than "nobody may speak".
+
+    The caller supplies the state, so this stays a pure function: which frozen
+    state a given post-COMMIT job is allowed to see is that job's judgement, and
+    burying it here would make the unsafe read look like a safe one.
+    """
+    if story_state is None:
+        return None
+    revision = getattr(story_state, "revision", None)
+    if revision != committed_story_revision:
+        return None
+    scene = getattr(story_state, "scene", None)
+    active = getattr(scene, "active_character_ids", None)
+    if active is None:
+        return None
+    if not isinstance(active, (tuple, list)):
+        return None
+    return _character_roster(active)
 
 
 class CommittedNarrativeService:
@@ -367,13 +617,17 @@ class CommittedNarrativeService:
         if not isinstance(candidate, NarrativeCandidate):
             raise NarrativePublicationError("invalid_narrative_candidate")
 
+        dialogue = _bound_dialogue(source=source, candidate=candidate)
         identity = {
             "turn_id": turn.id,
             "session_id": turn.session_id,
             "story_revision": turn.committed_story_revision,
             "state_delta_id": turn.state_delta_id,
             "narration": candidate.narration,
-            "speech": candidate.speech,
+            # The *bound* dialogue, not the proposal: two attempts that agree
+            # on the words but disagree on who says them publish under
+            # different identities, because they are different blocks.
+            "dialogue": [[speaker_id, text] for speaker_id, text in dialogue],
         }
         block_id = "narrative_" + hashlib.sha256(
             json.dumps(
@@ -386,12 +640,12 @@ class CommittedNarrativeService:
         segments = [
             NarrativeSegment(type="narration", text=candidate.narration)
         ]
-        if candidate.speech:
+        for speaker_id, text in dialogue:
             segments.append(
                 NarrativeSegment(
                     type="character",
-                    speaker_id=source.protagonist_id,
-                    text=candidate.speech,
+                    speaker_id=speaker_id,
+                    text=text,
                 )
             )
         try:
@@ -514,6 +768,7 @@ __all__ = [
     "CommittedNarrativeSource",
     "NarrativeCandidate",
     "NarrativeCompilerPort",
+    "NarrativeLine",
     "NarrativePublicationError",
     "NarrativePublishPort",
     "NarrativeReadPort",

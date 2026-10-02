@@ -1,0 +1,113 @@
+{
+  "receipt_id": "RCP-WORK-VF-30-d431f09c0410",
+  "receipt_type": "work",
+  "task_id": "VF-30",
+  "capsule_id": "CAP-VF-30",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:3c46e2951a2a5ad83fae14aab4d48591a7e0bdf0325c6c1c3a4fa9567d039d09",
+  "diff_digest": "sha256:693041eb45a6eaf0dba50af16a0992f99a73ac61d037aa7d69268085fd505a50",
+  "assigned_role": "AGT-MAC",
+  "risk_class": "medium",
+  "base_commit": "e8f8d3875293344bcf1cd5fb6ff958a757e47cc5",
+  "head_commit": "d431f09c04107490682dad5a4571443997ab7520",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "MACOS_APP_P0",
+  "gate_profile_digest": "sha256:7de7135b5f5fbc8caf808b12c134028c9390b69a554abdc449019b1bde671893",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf30-foundry-client",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T05:23:37.877334+00:00",
+      "finished_at": "2026-09-30T05:23:37.920197+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Swift 6 App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-vf30-foundry-client/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf30-foundry-client/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T05:23:37.920300+00:00",
+      "finished_at": "2026-09-30T05:24:03.762924+00:00",
+      "raw_log_digest": "sha256:df5a9ba21f02e41da73789813b3d38776c8d2dfd85b522b673be0a50cd732638",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf30-foundry-client/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T05:24:03.763106+00:00",
+      "finished_at": "2026-09-30T05:24:05.357773+00:00",
+      "raw_log_digest": "sha256:086968a34f6ac002d9a76dd2115da03c8990d90fa04b7d17a8e10651593e586c",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "macos-app/WorldOfMysteries/VoiceFoundry/VoiceFoundryCommandDigest.swift",
+      "macos-app/WorldOfMysteries/VoiceFoundry/VoiceFoundryContracts.swift",
+      "macos-app/WorldOfMysteries/VoiceFoundry/VoiceFoundryEngineClient.swift",
+      "macos-app/WorldOfMysteries/VoiceFoundry/WavPcmDecoder.swift",
+      "macos-app/WorldOfMysteriesTests/VoiceFoundryClientTests.swift"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-MAC",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-vf30-foundry-client"
+  },
+  "started_at": "2026-09-30T05:23:37.836165+00:00",
+  "finished_at": "2026-09-30T05:24:05.502850+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

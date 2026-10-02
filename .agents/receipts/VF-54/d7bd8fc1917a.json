@@ -1,0 +1,127 @@
+{
+  "receipt_id": "RCP-WORK-VF-54-d7bd8fc1917a",
+  "receipt_type": "work",
+  "task_id": "VF-54",
+  "capsule_id": "CAP-VF-54",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:72a485f685cc1da6e12dfb7df99178e9619a72234283156b0c1efb51bc244919",
+  "diff_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "d7bd8fc1917a2485fb50806f6af466407ac848d1",
+  "head_commit": "d7bd8fc1917a2485fb50806f6af466407ac848d1",
+  "target_ref": "origin/main",
+  "target_sha": "68b79c0b61e6f2044229d8d41ee291cfabb42373",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T16:21:17.516714+00:00",
+      "finished_at": "2026-09-30T16:21:17.553859+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T16:21:17.553935+00:00",
+      "finished_at": "2026-09-30T16:23:16.865043+00:00",
+      "raw_log_digest": "sha256:f0fd43d8a27e9e0e5fa247a13467d99a2d16d7f92209680d6ee1e42cedafb898",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T16:23:16.865142+00:00",
+      "finished_at": "2026-09-30T16:23:41.222067+00:00",
+      "raw_log_digest": "sha256:1a50ddfce65bde3a3746984a352782553c221253d407a0c7758fee0286dee9a3",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-30T16:23:41.222172+00:00",
+      "finished_at": "2026-09-30T16:23:43.444572+00:00",
+      "raw_log_digest": "sha256:2b0b6382db52fcc592b9219a417dc8cad225f81a937b5b4937851b9d91e7b022",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-voice-foundry-cast-design"
+  },
+  "started_at": "2026-09-30T16:21:17.483198+00:00",
+  "finished_at": "2026-09-30T16:23:43.571300+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

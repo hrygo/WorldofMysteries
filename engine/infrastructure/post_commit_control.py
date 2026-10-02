@@ -283,12 +283,22 @@ class PostCommitControlService:
 
     @staticmethod
     def _delivery(unit: SealedSpeechUnit) -> dict[str, object]:
+        # The batch is the only view. This path used to describe the segment at
+        # the top level, a shape the App stopped accepting when the single-segment
+        # mirror was removed: a client that reads only ``speech_units`` cannot
+        # decode it, and a delivery both ends refuse is worse than a redundant one.
         return {
             "state": "ready",
             "narrative_block_id": unit.narrative_block_id,
-            "speech_unit_id": unit.unit_id,
-            "spoken_text": unit.spoken_text,
-            "render_recipe": unit.render_recipe(),
+            "speech_units": [
+                {
+                    "segment_index": unit.segment_index,
+                    "state": "ready",
+                    "speech_unit_id": unit.unit_id,
+                    "spoken_text": unit.spoken_text,
+                    "render_recipe": unit.render_recipe(),
+                }
+            ],
         }
 
     # ----------------------------------------------------------------- retry

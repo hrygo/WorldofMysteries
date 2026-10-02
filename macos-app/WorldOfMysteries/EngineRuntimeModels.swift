@@ -92,6 +92,14 @@ public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
     public let voiceId: String
     public let expectedVoiceRevision: String
     public let expectedModelRevision: String?
+    /// The listening review a human approved, and the exact model artifact that
+    /// review heard. Optional only so a unit sealed before the evidence rollout
+    /// still replays; when present, all four travel together or the App refuses
+    /// the recipe rather than forwarding a render it cannot attribute.
+    public let evidenceId: String?
+    public let evidenceDigest: String?
+    public let expectedModelArtifactRevision: String?
+    public let expectedModelCatalogRevision: String?
     public let speed: Double
     public let language: String?
 
@@ -106,9 +114,22 @@ public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
         case voiceId = "voice_id"
         case expectedVoiceRevision = "expected_voice_revision"
         case expectedModelRevision = "expected_model_revision"
+        case evidenceId = "evidence_id"
+        case evidenceDigest = "evidence_digest"
+        case expectedModelArtifactRevision = "expected_model_artifact_revision"
+        case expectedModelCatalogRevision = "expected_model_catalog_revision"
         case speed
         case language
     }
+
+    /// The evidence pins are one fact with four parts. Half of them is not a
+    /// weaker guarantee, it is an unattributable render.
+    public static let evidencePinKeys: [String] = [
+        "evidence_id",
+        "evidence_digest",
+        "expected_model_artifact_revision",
+        "expected_model_catalog_revision",
+    ]
 
     public init(from decoder: any Decoder) throws {
         let keys: Set<String> = [
@@ -116,12 +137,16 @@ public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
             "segment_index", "performance_plan_id", "spoken_text", "voice_id",
             "expected_voice_revision", "expected_model_revision", "speed", "language",
         ]
+        let evidenceKeys = Set(VoiceRenderRecipeDTO.evidencePinKeys)
         // The canonical schema types these two as ["string","null"] and lists
         // them as required, so the key must be present but its value may be
-        // null. Every other key in this DTO rejects null.
+        // null. Every other key in this DTO rejects null. The evidence pins are
+        // deliberately *not* in `required` and *not* in `allowNull`: a recipe
+        // sealed before the evidence rollout has none at all, and one that
+        // carries them must carry real values, never nulls.
         try checkWireKeys(
             decoder,
-            allowed: keys,
+            allowed: keys.union(evidenceKeys),
             required: keys,
             allowNull: ["expected_model_revision", "language"]
         )
@@ -139,6 +164,20 @@ public nonisolated struct VoiceRenderRecipeDTO: Codable, Sendable, Equatable {
         expectedModelRevision = try container.decodeIfPresent(String.self, forKey: .expectedModelRevision)
         if let expectedModelRevision {
             _ = try VoiceRenderRecipeDTO.identifier(expectedModelRevision)
+        }
+        evidenceId = try container.decodeIfPresent(String.self, forKey: .evidenceId)
+        evidenceDigest = try container.decodeIfPresent(String.self, forKey: .evidenceDigest)
+        expectedModelArtifactRevision = try container
+            .decodeIfPresent(String.self, forKey: .expectedModelArtifactRevision)
+        expectedModelCatalogRevision = try container
+            .decodeIfPresent(String.self, forKey: .expectedModelCatalogRevision)
+        let pins = [evidenceId, evidenceDigest, expectedModelArtifactRevision, expectedModelCatalogRevision]
+            .compactMap { $0 }
+        guard pins.isEmpty || pins.count == VoiceRenderRecipeDTO.evidencePinKeys.count else {
+            throw EngineConnectionError.invalidFrame
+        }
+        for pin in pins {
+            _ = try VoiceRenderRecipeDTO.identifier(pin)
         }
         speed = try VoiceRenderRecipeDTO.speed(container.decode(Double.self, forKey: .speed))
         language = try container.decodeIfPresent(String.self, forKey: .language)
@@ -191,6 +230,10 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
     public let voiceId: String
     public let expectedVoiceRevision: String
     public let expectedModelRevision: String?
+    public let evidenceId: String?
+    public let evidenceDigest: String?
+    public let expectedModelArtifactRevision: String?
+    public let expectedModelCatalogRevision: String?
     public let mediaStreamId: String
     public let generation: Int
     public let speed: Double
@@ -208,6 +251,10 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
         case voiceId = "voice_id"
         case expectedVoiceRevision = "expected_voice_revision"
         case expectedModelRevision = "expected_model_revision"
+        case evidenceId = "evidence_id"
+        case evidenceDigest = "evidence_digest"
+        case expectedModelArtifactRevision = "expected_model_artifact_revision"
+        case expectedModelCatalogRevision = "expected_model_catalog_revision"
         case mediaStreamId = "media_stream_id"
         case generation
         case speed
@@ -227,6 +274,10 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
         voiceId: String,
         expectedVoiceRevision: String,
         expectedModelRevision: String?,
+        evidenceId: String? = nil,
+        evidenceDigest: String? = nil,
+        expectedModelArtifactRevision: String? = nil,
+        expectedModelCatalogRevision: String? = nil,
         mediaStreamId: String,
         generation: Int,
         speed: Double,
@@ -243,6 +294,10 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
         self.voiceId = voiceId
         self.expectedVoiceRevision = expectedVoiceRevision
         self.expectedModelRevision = expectedModelRevision
+        self.evidenceId = evidenceId
+        self.evidenceDigest = evidenceDigest
+        self.expectedModelArtifactRevision = expectedModelArtifactRevision
+        self.expectedModelCatalogRevision = expectedModelCatalogRevision
         self.mediaStreamId = mediaStreamId
         self.generation = generation
         self.speed = speed
@@ -253,12 +308,21 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
     ///
     /// The execution fields are copied verbatim: the Engine rejects any drift,
     /// so this initializer cannot be used to alter how a committed turn sounds.
+    /// The wire version follows the recipe: a recipe carrying evidence pins is
+    /// sent as 2.0, which requires them; a pre-evidence recipe replays as 1.0.
     public init(
         recipe: VoiceRenderRecipeDTO,
         mediaStreamId: String,
         generation: Int
     ) {
-        self.schemaVersion = "1.0"
+        let pins = [
+            recipe.evidenceId,
+            recipe.evidenceDigest,
+            recipe.expectedModelArtifactRevision,
+            recipe.expectedModelCatalogRevision,
+        ]
+        let isPinned = pins.allSatisfy { $0 != nil }
+        self.schemaVersion = isPinned ? "2.0" : "1.0"
         self.speechUnitId = recipe.speechUnitId
         self.turnId = recipe.turnId
         self.storyRevision = recipe.storyRevision
@@ -269,6 +333,10 @@ public nonisolated struct VoiceRenderControlRequestDTO: Codable, Sendable, Equat
         self.voiceId = recipe.voiceId
         self.expectedVoiceRevision = recipe.expectedVoiceRevision
         self.expectedModelRevision = recipe.expectedModelRevision
+        self.evidenceId = recipe.evidenceId
+        self.evidenceDigest = recipe.evidenceDigest
+        self.expectedModelArtifactRevision = recipe.expectedModelArtifactRevision
+        self.expectedModelCatalogRevision = recipe.expectedModelCatalogRevision
         self.mediaStreamId = mediaStreamId
         self.generation = generation
         self.speed = recipe.speed

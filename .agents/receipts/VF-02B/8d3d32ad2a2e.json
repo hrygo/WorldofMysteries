@@ -1,0 +1,90 @@
+{
+  "receipt_id": "RCP-WORK-VF-02B-8d3d32ad2a2e",
+  "receipt_type": "work",
+  "task_id": "VF-02B",
+  "capsule_id": "CAP-VF-02B",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:e622a297cad338e1d5f9371f7e3f3035d927fabad56ac4270c70f5bf530b46c1",
+  "diff_digest": "sha256:67460c1521a64e4a980c71faba045f44b487635ab01b9b7e7e7b8f1b31c7845f",
+  "assigned_role": "AGT-DATA",
+  "risk_class": "high",
+  "base_commit": "b8501aeb2bb3852aa28d3cedaee5123328997e97",
+  "head_commit": "8d3d32ad2a2e7a8877ac131c7e5601d8b16659f1",
+  "target_ref": "main",
+  "target_sha": "b8501aeb2bb3852aa28d3cedaee5123328997e97",
+  "stale_context": false,
+  "gate_profile_id": "DATA_KERNEL_P0",
+  "gate_profile_digest": "sha256:e940897cd69faa57946a4f983a9b4029ee72602a918a61d63a9c6df32688c39c",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-vf-02b-candidate-identity",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T14:20:41.061453+00:00",
+      "finished_at": "2026-09-29T14:20:41.099575+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Data Kernel Unit Tests",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "-k",
+        "database or outbox or migration"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-vf-02b-candidate-identity/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-09-29T14:20:41.099660+00:00",
+      "finished_at": "2026-09-29T14:20:44.085699+00:00",
+      "raw_log_digest": "sha256:2df2fafb922a9f683fd0fca19e94a29d7b811edaa76628eb9117f9eb190b5a50",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/infrastructure/voice_foundry_repository.py",
+      "engine/tests/test_voice_foundry_repository.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-DATA",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/codex-vf-02b-candidate-identity"
+  },
+  "started_at": "2026-09-29T14:20:41.025230+00:00",
+  "finished_at": "2026-09-29T14:20:44.201119+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

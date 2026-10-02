@@ -63,3 +63,95 @@ struct VoiceRenderControlTests {
         #expect(decoded.state == "accepted")
     }
 }
+
+/// The evidence pins let a render be attributed to the listening review that
+/// authorised it. The App never chooses them — it copies them off the sealed
+/// recipe and refuses anything it cannot forward whole.
+@Suite("Sealed voice render evidence pins")
+struct VoiceRenderEvidencePinTests {
+    // Built on demand rather than stored: `[String: Any]` is not Sendable, and
+    // a stored `static let` of it fails Swift 6 strict concurrency.
+    private static var pins: [String: Any] {
+        [
+            "evidence_id": "ev_klein_1",
+            "evidence_digest": String(repeating: "d", count: 64),
+            "expected_model_artifact_revision": "qwen3-tts-2026-09-29",
+            "expected_model_catalog_revision": String(repeating: "b", count: 40),
+        ]
+    }
+
+    private static func recipeFields(
+        includingPins pins: [String: Any]? = VoiceRenderEvidencePinTests.pins
+    ) -> [String: Any] {
+        var fields: [String: Any] = [
+            "speech_unit_id": "speech-aaaa",
+            "turn_id": "turn-1",
+            "story_revision": 7,
+            "narrative_block_id": "narrative-1",
+            "segment_index": 0,
+            "performance_plan_id": "perf-dddd",
+            "spoken_text": "克莱恩没有开门。",
+            "voice_id": "klein-approved",
+            "expected_voice_revision": "voice-bbbb",
+            "expected_model_revision": "model-rev-1",
+            "speed": 1.0,
+            "language": "zh",
+        ]
+        fields.merge(pins ?? [:]) { _, new in new }
+        return fields
+    }
+
+    private static func decode(_ fields: [String: Any]) throws -> VoiceRenderRecipeDTO {
+        try JSONDecoder().decode(
+            VoiceRenderRecipeDTO.self,
+            from: try JSONSerialization.data(withJSONObject: fields))
+    }
+
+    @Test("A pinned recipe is forwarded as 2.0 with every pin intact")
+    func pinnedRecipeGoesOutAsV2() throws {
+        let recipe = try Self.decode(Self.recipeFields())
+        #expect(recipe.evidenceId == "ev_klein_1")
+        #expect(recipe.expectedModelArtifactRevision == "qwen3-tts-2026-09-29")
+
+        let request = VoiceRenderControlRequestDTO(
+            recipe: recipe, mediaStreamId: "media-001", generation: 7)
+        #expect(request.schemaVersion == "2.0")
+        #expect(request.evidenceId == "ev_klein_1")
+        #expect(request.evidenceDigest == String(repeating: "d", count: 64))
+        #expect(request.expectedModelCatalogRevision == String(repeating: "b", count: 40))
+
+        let encoded = try JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(request)) as? [String: Any]
+        #expect(encoded?["schema_version"] as? String == "2.0")
+        #expect(encoded?["evidence_id"] as? String == "ev_klein_1")
+    }
+
+    @Test("A recipe missing any single pin is refused rather than forwarded")
+    func partialPinsAreRefused() throws {
+        for omitted in VoiceRenderRecipeDTO.evidencePinKeys {
+            var kept = Self.pins
+            kept[omitted] = nil
+            #expect(throws: (any Error).self, "\(omitted) may not be dropped alone") {
+                try Self.decode(Self.recipeFields(includingPins: kept.isEmpty ? nil : kept))
+            }
+        }
+    }
+
+    @Test("A pre-evidence recipe still replays as 1.0 and leaks no pin keys")
+    func preEvidenceRecipeStaysOnV1() throws {
+        let recipe = try Self.decode(Self.recipeFields(includingPins: nil))
+        #expect(recipe.evidenceId == nil)
+
+        let request = VoiceRenderControlRequestDTO(
+            recipe: recipe, mediaStreamId: "media-001", generation: 7)
+        #expect(request.schemaVersion == "1.0")
+
+        // The 1.0 contract forbids additional properties, so an absent pin must
+        // be absent on the wire rather than serialised as null.
+        let encoded = try JSONSerialization.jsonObject(
+            with: try JSONEncoder().encode(request)) as? [String: Any]
+        for pin in VoiceRenderRecipeDTO.evidencePinKeys {
+            #expect(encoded?[pin] == nil)
+        }
+    }
+}

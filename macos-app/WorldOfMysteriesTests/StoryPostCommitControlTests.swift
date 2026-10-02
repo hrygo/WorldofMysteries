@@ -197,9 +197,7 @@ struct StoryPostCommitControlTests {
         unavailableDelivery["state"] = "unavailable"
         unavailableDelivery["reason"] = "handoff_expired"
         unavailableDelivery.removeValue(forKey: "narrative_block_id")
-        unavailableDelivery.removeValue(forKey: "speech_unit_id")
-        unavailableDelivery.removeValue(forKey: "spoken_text")
-        unavailableDelivery.removeValue(forKey: "render_recipe")
+        unavailableDelivery.removeValue(forKey: "speech_units")
         let invalidDelivery = try workGetData(
             audioState: "ready",
             delivery: unavailableDelivery
@@ -352,22 +350,26 @@ struct StoryPostCommitControlTests {
         [
             "state": "ready",
             "narrative_block_id": "block_1",
-            "speech_unit_id": "speech_1",
-            "spoken_text": "雨停了。",
-            "render_recipe": [
+            "speech_units": [[
+                "segment_index": 1,
+                "state": "ready",
                 "speech_unit_id": "speech_1",
-                "turn_id": "turn_1",
-                "story_revision": 1,
-                "narrative_block_id": "block_1",
-                "segment_index": 0,
-                "performance_plan_id": "performance_1",
                 "spoken_text": "雨停了。",
-                "voice_id": "voice_1",
-                "expected_voice_revision": "voice_revision_1",
-                "expected_model_revision": "model_revision_1",
-                "speed": 1.0,
-                "language": "zh-CN",
-            ],
+                "render_recipe": [
+                    "speech_unit_id": "speech_1",
+                    "turn_id": "turn_1",
+                    "story_revision": 1,
+                    "narrative_block_id": "block_1",
+                    "segment_index": 1,
+                    "performance_plan_id": "performance_1",
+                    "spoken_text": "雨停了。",
+                    "voice_id": "voice_1",
+                    "expected_voice_revision": "voice_revision_1",
+                    "expected_model_revision": "model_revision_1",
+                    "speed": 1.0,
+                    "language": "zh-CN",
+                ],
+            ]],
         ]
     }
 

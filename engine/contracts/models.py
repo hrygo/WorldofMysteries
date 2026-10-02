@@ -331,13 +331,40 @@ class CharacterPatch(SchemaModel):
 
 
 class StoryDelta(SchemaModel):
-    _unique_fields = ("clue_ids_add", "clue_ids_remove")
-    _nonnullable_optional_fields = ("clue_ids_add", "clue_ids_remove", "secret_state_updates", "local_state_patches")
+    _unique_fields = (
+        "clue_ids_add",
+        "clue_ids_remove",
+        "active_character_ids_add",
+        "active_character_ids_remove",
+    )
+    _nonnullable_optional_fields = (
+        "clue_ids_add",
+        "clue_ids_remove",
+        "active_character_ids_add",
+        "active_character_ids_remove",
+        "secret_state_updates",
+        "local_state_patches",
+    )
 
     scene_id: str | None = None
     world_time_delta_minutes: JsonNumber | None = None
     clue_ids_add: list[str] | None = None
     clue_ids_remove: list[str] | None = None
+    #: Who enters and leaves the scene this turn.
+    #:
+    #: These adjust ``StoryState.scene.active_character_ids`` — the roster the
+    #: world already persists — rather than replacing it. Two reasons for the
+    #: additive form: a delta that rewrites the whole roster must restate
+    #: everyone still present, so every turn that changes one character has to
+    #: restate and re-attest all of them; and ``scene_id`` already travels
+    #: separately, so the roster change is its own fact rather than a
+    #: side effect of moving to another scene.
+    #:
+    #: Membership is a world fact and says nothing about who speaks. Who is
+    #: allowed to be *heard* this turn is a narrower question, answered by the
+    #: authorized-context projection in ADR-006 D2.
+    active_character_ids_add: list[str] | None = None
+    active_character_ids_remove: list[str] | None = None
     secret_state_updates: dict[str, SecretState] | None = None
     local_state_patches: list[StatePatch] | None = None
 
@@ -570,4 +597,3 @@ class TurnTransaction(ContractBase):
     state_delta_id: str | None = None
     committed_story_revision: JsonInteger | None = Field(default=None, ge=0)
     narrative_block_id: str | None = None
-

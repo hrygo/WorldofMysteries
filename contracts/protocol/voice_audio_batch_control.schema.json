@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/voice_audio_batch_control.schema.json",
+  "title": "World of Mysteries Voice audio batch control v1.0",
+  "description": "Typed read and explicit handoff preparation for the durable audio manifest of one committed turn. Segments keep their authoritative order and independent identities. Reads are pure; preparation reuses persisted sealed results and never re-narrates or re-commits a turn.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S",
+      "not": {"pattern": "\u0000"}
+    },
+    "audio_batch_get_request": {
+      "description": "Pure read of the persisted per-segment audio manifest. It never writes, seals, calls a provider, republishes a unit, or changes playback.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "audio_segment_view": {
+      "type": "object",
+      "required": [
+        "segment_index",
+        "presentation_identity",
+        "state",
+        "speech_unit_id",
+        "binding_id",
+        "evidence_id",
+        "reason_code"
+      ],
+      "properties": {
+        "segment_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "presentation_identity": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "state": {
+          "enum": [
+            "waiting_voice",
+            "sealed",
+            "handoff_ready",
+            "unavailable",
+            "skipped"
+          ]
+        },
+        "speech_unit_id": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "binding_id": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "evidence_id": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        },
+        "reason_code": {
+          "oneOf": [
+            {"$ref": "#/$defs/identifier"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "audio_batch_get_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "session_id",
+        "turn_id",
+        "narrative_block_id",
+        "recipe_revision",
+        "segments"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "narrative_block_id": {"$ref": "#/$defs/identifier"},
+        "recipe_revision": {"$ref": "#/$defs/identifier"},
+        "segments": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/audio_segment_view"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "audio_segment_prepare_request": {
+      "description": "Idempotently accepts bounded handoff preparation for one exact segment generation. It reuses a persisted sealed result and never re-seals a different identity, regenerates narrative, or rewrites a Domain turn.",
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "payload_digest",
+        "session_id",
+        "turn_id",
+        "segment_index",
+        "expected_generation"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "payload_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "session_id": {"$ref": "#/$defs/identifier"},
+        "turn_id": {"$ref": "#/$defs/identifier"},
+        "segment_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "audio_segment_prepare_response": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "command_id",
+        "accepted",
+        "replayed",
+        "segment"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "command_id": {"$ref": "#/$defs/identifier"},
+        "accepted": {"const": true},
+        "replayed": {"type": "boolean"},
+        "segment": {
+          "$ref": "#/$defs/audio_segment_view"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

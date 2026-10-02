@@ -1,14 +1,16 @@
 """Artifact-first handlers for the Golden scenario's durable post-COMMIT jobs."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from application.audio_disclosure import AudioDisclosureAuthorizer
 from application.narrative_publication import (
     CommittedNarrativeService,
     CommittedNarrativeSource,
     NarrativePublicationError,
+    turn_scene_roster,
 )
 from application.post_commit_expression import (
     CommittedExpressionInput,
@@ -21,12 +23,16 @@ from application.post_commit_work import (
     PostCommitWorkSource,
 )
 from application.speech_unit import SealedSpeechUnit, SpeechUnitSealingService
+from application.story_disclosure import disclosed_castable_roster, disclosed_turn_facts
 from application.story_initialization import StorySessionBootstrap
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import TurnContextBindingPort
-from contracts import NarrativeBlock, TurnStatus
+from application.voice_evidence import load_evidence_record, render_execution
+from contracts import NarrativeBlock, StateDelta, TurnStatus
+from domain.story_state_reducer import StoryStateTransitionError, apply_story_delta
 
 from ..audio.config import AudioProviderConfig
+from ..audio.foundry_policy import DEFAULT_VARIANT
 from ..audio.sealed_unit_codec import SealedSpeechUnitCodec, SealedSpeechUnitCodecError
 from ..audio.voice_delivery import TurnDeliveryError
 from ..audio.voice_runtime import VoiceRenderRuntime, VoiceRenderRuntimeError
@@ -40,13 +46,27 @@ from ..story_bootstrap_repository import SQLiteStoryBootstrapRepository
 from ..story_session_repository import SQLiteStorySessionCommitPort
 from ..voice_binding_repository import SQLiteVoiceBindingRepository
 from ..voice_binding_resolver import (
+    NARRATION_PHASE,
     ResolvedVoiceRuntime,
     VoiceBindingResolutionError,
     resolve_voice_runtime,
+    speaker_scope_for,
 )
+from ..voice_foundry_repository import SQLiteVoiceFoundryRepository
+from domain.voice_identity import VoiceBindingScope
 
 _SOURCE_MISMATCH = "work_unavailable"
 _RESULT_CONFLICT = "sealed_result_conflict"
+
+
+class VoiceSupplyTriggerPort(Protocol):
+    """The one verb the audio job borrows, and the reason it may not fail.
+
+    Structural rather than concrete so the audio path can be exercised
+    without a catalog, a provider or a supply chain behind it.
+    """
+
+    async def ensure(self, scope: object) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +130,52 @@ async def _load_committed_turn(
     return _CommittedTurn(turn=turn, delta=delta, bootstrap=bootstrap)
 
 
+async def _replay_committed_story_state(
+    *,
+    database: DatabaseManager,
+    source: PostCommitWorkSource,
+    committed: _CommittedTurn,
+) -> Any | None:
+    """Rebuild the story state this turn committed, or ``None`` if unknowable.
+
+    A post-COMMIT job can run long after its turn, by which point
+    ``story_state_json`` has moved on — and reading it then would attribute this
+    turn's speech to whoever is in the room *now*, with nothing reporting an
+    error. So the state is rebuilt from committed facts only: the session's
+    revision-0 state, which the bootstrap already carries, plus every committed
+    delta up to and including this turn's revision.
+
+    The result is not trusted on its own. ``turn_scene_roster`` hands back a
+    roster only when the state's own revision is the frozen one, so a replay
+    that fails to reach it yields ``None`` — publication keeps its historical
+    behaviour instead of binding speakers against a roster it is not sure of.
+    """
+    try:
+        state = committed.bootstrap.initial_session.story_state  # type: ignore[union-attr]
+        rows = await database.read_world(
+            "SELECT payload_json FROM story_state_deltas "
+            "WHERE session_id=? AND story_revision<=? ORDER BY story_revision",
+            (source.session_id, source.source_story_revision),
+        )
+        for row in rows:
+            state = apply_story_delta(
+                state, StateDelta.model_validate(json.loads(row["payload_json"]))
+            )
+    except (
+        AttributeError,
+        StorageError,
+        TypeError,
+        ValueError,
+        StoryStateTransitionError,
+    ):
+        # A bootstrap that cannot hand back its revision-0 state, or a delta
+        # chain that will not apply cleanly, leaves the roster unknowable. That
+        # is a decline, not a failure: publication keeps its historical
+        # behaviour rather than binding speakers against a roster it doubts.
+        return None
+    return state
+
+
 def _validate_narrative(
     narrative: NarrativeBlock,
     *,
@@ -122,32 +188,6 @@ def _validate_narrative(
         or narrative.source_state_delta_id != turn.state_delta_id
     ):
         raise _PostCommitSourceError()
-
-
-def _disclosed_facts(
-    *,
-    delta: Any,
-    bootstrap: StorySessionBootstrap,
-) -> str:
-    """Rebuild only the committed, player-disclosable facts for this turn."""
-    names = bootstrap.presentation.clue_display_names
-    # This is a post-COMMIT expression path. A clue without an explicit
-    # presentation label is omitted; expression failure must not unwind the
-    # committed turn, and a canonical identifier must never reach the narrator.
-    added = [
-        name
-        for clue_id in delta.story_delta.clue_ids_add or ()
-        if (name := names.get(clue_id)) is not None
-    ]
-    parts = [f"结果判定：{delta.outcome}"]
-    if added:
-        parts.append("玩家发现了：" + "、".join(added))
-    story_delta = delta.story_delta
-    if story_delta.scene_id:
-        parts.append(f"场景转为：{story_delta.scene_id}")
-    if story_delta.world_time_delta_minutes:
-        parts.append(f"世界时间推进：{story_delta.world_time_delta_minutes} 分钟")
-    return "\n".join(parts)
 
 
 class ScenarioNarrativePublishHandler:
@@ -241,6 +281,20 @@ class ScenarioNarrativePublishHandler:
             return _blocked("recipe_unavailable")
         delta = committed.delta
         story_delta = delta.story_delta
+        # The scene roster this turn committed, rebuilt from committed facts —
+        # not read from current state, which a later turn may already have moved
+        # on. See ADR-006 §4.2 第 5b 步.
+        scene_state = await _replay_committed_story_state(
+            database=self._database, source=source, committed=committed
+        )
+        scene_roster = (
+            None
+            if scene_state is None
+            else turn_scene_roster(
+                story_state=scene_state,
+                committed_story_revision=source.source_story_revision,
+            )
+        )
         narrative_source = CommittedNarrativeSource(
             turn_id=source.turn_id,
             session_id=source.session_id,
@@ -249,12 +303,27 @@ class ScenarioNarrativePublishHandler:
             state_delta=delta,
             scene_id=story_delta.scene_id,
             protagonist_id=committed.bootstrap.initial_session.protagonist_id,
-            disclosed_facts=_disclosed_facts(
+            disclosed_facts=disclosed_turn_facts(
                 delta=delta,
                 bootstrap=committed.bootstrap,
             ),
             input_turn_id=frozen_input.input_turn_id,
             source_store_revision=source.source_world_revision,
+            present_character_ids=scene_roster,
+            # Narrowed by ADR-006 D5 from the same public-name allowlist the
+            # live path uses — one table, two consumers, no second source of who
+            # is called what.
+            castable_character_labels=(
+                None
+                if scene_roster is None
+                else disclosed_castable_roster(
+                    active_character_ids=scene_roster,
+                    protagonist_id=committed.bootstrap.initial_session.protagonist_id,
+                    character_display_names=(
+                        committed.bootstrap.presentation.character_display_names
+                    ),
+                )
+            ),
         )
         publication = CommittedNarrativeService(
             reads=self._narratives,
@@ -354,7 +423,9 @@ class ScenarioAudioPrepareHandler:
         voice_id: str | None,
         dictionary_revision: str,
         fetch_json,
+        evidence_store: SQLiteVoiceFoundryRepository,
         codec: SealedSpeechUnitCodec | None = None,
+        supply_trigger: VoiceSupplyTriggerPort | None = None,
     ) -> None:
         self._database = database
         self._story = story
@@ -366,7 +437,9 @@ class ScenarioAudioPrepareHandler:
         self._voice_id = voice_id
         self._dictionary_revision = dictionary_revision
         self._fetch_json = fetch_json
+        self._evidence_store = evidence_store
         self._codec = codec or SealedSpeechUnitCodec()
+        self._supply_trigger = supply_trigger
 
     async def execute(self, source: PostCommitWorkSource) -> PostCommitResult:
         if source.kind is not PostCommitKind.AUDIO_PREPARE:
@@ -392,11 +465,34 @@ class ScenarioAudioPrepareHandler:
             if self._voice is None or self._audio_config is None or not self._voice_id:
                 return _blocked("voice_not_configured")
             session = await self._story.load_session(source.session_id)
+            # The speaker is chosen before the voice is resolved, because the
+            # scope *is* the speaker. Resolving first would mean asking the
+            # repository for a voice before knowing whose voice was wanted.
+            #
+            # Only character segments are candidates here. The sealing
+            # boundary refuses a speakerless narration on purpose — until a
+            # NarrativeBlock carries an explicit narrator identity, letting a
+            # caller name one would let it choose who narrates the game. So
+            # narration leads every block but is not yet sealable, and
+            # selecting it anyway cost this job both its audio and the cast
+            # that would have supplied the character's voice.
+            candidates = [
+                (index, scope)
+                for index, item in enumerate(narrative.segments)
+                if item.type == "character"
+                and (scope := speaker_scope_for(session, item)) is not None
+            ]
+            segment_index, scope = (
+                candidates[0] if candidates else (None, None)
+            )
+            if segment_index is None or scope is None:
+                return _blocked("narrative_has_no_character_segment")
             resolved = await resolve_voice_runtime(
                 repository=self._bindings,
                 session=session,
                 config=self._audio_config,
                 voice_id=self._voice_id,
+                scope=scope,
                 fetch_json=self._fetch_json,
             )
             if existing is not None:
@@ -407,18 +503,30 @@ class ScenarioAudioPrepareHandler:
                 except VoiceRenderRuntimeError:
                     return _blocked("handoff_unavailable")
                 return _success(f"sealed:{existing.unit_id}")
-            segment_index = next(
-                (
-                    index
-                    for index, segment in enumerate(narrative.segments)
-                    if segment.type == "character"
-                    and segment.speaker_id
-                    == committed.bootstrap.initial_session.protagonist_id
+            execution = render_execution(
+                provider_instance=resolved.provider_instance,
+                voice_id=resolved.binding.provider.voice_id,
+                voice_revision=resolved.binding.provider.conditional_pin,
+                model_id=resolved.execution_model_id,
+                model_artifact_revision=(
+                    None
+                    if resolved.binding.evidence is None
+                    else resolved.binding.evidence.model_artifact_revision
                 ),
-                None,
+                model_catalog_revision=resolved.model_catalog_revision,
+                game_locale=resolved.scope.locale,
+                phase=resolved.scope.phase,
+                variant=DEFAULT_VARIANT,
             )
-            if segment_index is None:
-                return _blocked("narrative_has_no_character_segment")
+            if execution is None:
+                return _blocked("voice_evidence_not_admitted")
+            evidence = await load_evidence_record(
+                self._evidence_store,
+                resolved.provider_instance,
+                resolved.binding.evidence.evidence_id,
+            )
+            if evidence is None:
+                return _blocked("voice_evidence_not_admitted")
             sealing = SpeechUnitSealingService(
                 disclosure=AudioDisclosureAuthorizer(self._narratives),
                 bindings=self._bindings,
@@ -430,6 +538,8 @@ class ScenarioAudioPrepareHandler:
                 binding_scope=resolved.scope,
                 expected_binding_revision=resolved.binding.binding_revision,
                 execution_model_id=resolved.execution_model_id,
+                execution=execution,
+                evidence=evidence,
                 dictionary_revision=self._dictionary_revision,
                 semantic_anchors=(),
                 pronunciation_rules=(),
@@ -453,9 +563,101 @@ class ScenarioAudioPrepareHandler:
         except SealedSpeechUnitCodecError:
             return _blocked("handoff_unverified")
         except VoiceBindingResolutionError as exc:
+            # First appearance with no voice is when supply starts, and it
+            # starts silently. The outcome returned below is exactly what it
+            # would have been without this call: the text is already
+            # published, and the segment falls back to a subtitle.
+            await self._request_supply_quietly(
+                source.session_id, committed.bootstrap, scope
+            )
             return _blocked(exc.code)
         except (StorageError, TurnDeliveryError):
             return _blocked("audio_prepare_failed")
+
+    async def _request_supply_quietly(
+        self,
+        session_id: str,
+        bootstrap: StorySessionBootstrap,
+        scope: VoiceBindingScope,
+    ) -> None:
+        """Ask supply to start casting this speaker, and fail at nothing.
+
+        Everything this does is invisible to the caller by construction. It
+        runs after the turn's text is committed and published, so opening a
+        casting task, finding one already open, having no design for this
+        character and outright failing all leave the job returning the same
+        blocked audio result it always did. A supply problem is not allowed to
+        become a story problem.
+
+        The scope is the one whose voice was just found missing, not a
+        re-derived guess: a turn whose narrator has no voice must ask the
+        foundry for a narrator, and asking on the protagonist's behalf would
+        cast a voice nobody is missing.
+        """
+        trigger = self._supply_trigger
+        if trigger is None:
+            return
+        try:
+            await trigger.ensure(
+                scope,
+                spoken_lines=await self._published_lines(session_id, scope),
+                display_name=self._display_name(bootstrap),
+            )
+        except Exception:  # noqa: BLE001 - supply must never fail this job
+            return
+
+    async def _published_lines(
+        self, session_id: str, scope: VoiceBindingScope
+    ) -> tuple[str, ...]:
+        """What this speaker has already said, as published.
+
+        Read from the published narrative rather than from any dossier: a line
+        the player has seen is public by construction, and a line they have not
+        is not something a voice may be tuned against. Accumulated across the
+        whole session, because one line per turn never reaches the two a
+        cross-text check needs — the character simply is not cast yet, and is
+        cast on the turn where they have finally said enough.
+
+        The scope decides which lines count. Narration is published with no
+        ``speaker_id`` at all, so a narrator's lines are found by their phase
+        and a character's by their speaker — reading a narrator's text as
+        though someone had said it aloud would tune the voice against lines no
+        mouth ever moved on.
+        """
+        lines: list[str] = []
+        rows = await self._database.read_world(
+            "SELECT payload_json FROM narrative_blocks "
+            "WHERE session_id=? ORDER BY source_story_revision",
+            (session_id,),
+        )
+        narration = scope.phase == NARRATION_PHASE
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            for segment in payload.get("segments", []):
+                if (
+                    (
+                        segment.get("type") == "narration"
+                        if narration
+                        else segment.get("type") == "character"
+                        and segment.get("speaker_id")
+                        == scope.presentation_identity
+                    )
+                    and isinstance(segment.get("text"), str)
+                    and segment["text"].strip()
+                ):
+                    lines.append(segment["text"].strip())
+        return tuple(lines)
+
+    @staticmethod
+    def _display_name(bootstrap: StorySessionBootstrap) -> str:
+        try:
+            name = bootstrap.character["identity"]["display_name"]
+        except (AttributeError, KeyError, TypeError):
+            # A bootstrap without a character block is a content gap, not a
+            # reason to fail an audio job; the composer falls back to the
+            # identity itself.
+            return ""
+        return name if isinstance(name, str) else ""
 
     async def _load_sealed_unit(
         self,

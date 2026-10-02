@@ -181,6 +181,7 @@ AgentScope Runtime Memory 不作为 Character Memory、Knowledge、Relationship 
 - `01_总体架构/ADR-003_AgentScope_AI_Runtime.md`
 - `01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md`
 - `01_总体架构/ADR-005_音色供给与铸造_v1.0.md`
+- `01_总体架构/ADR-006_叙事块的说话人语义.md`
 - `01_总体架构/架构专家评估与系统优化报告_v1.0.md`
 - `01_总体架构/系统核心深模块演进设计方案_v1.0.md`
 

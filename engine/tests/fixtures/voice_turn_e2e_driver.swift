@@ -439,7 +439,31 @@ private func run(_ args: [String]) async throws {
         fail("post-COMMIT work never reached a terminal state: \(observed.reason ?? "unknown"); "
              + "saw \(observed.states)")
     }
-    let delivery = try require(work.delivery, "terminal work without a delivery state")
+    // A terminal work state does not promise a delivery. The wire contract
+    // sanctions `audio_state == unavailable` with a reason and no delivery:
+    // that is the engine's precise answer when this turn had nothing to voice,
+    // which is what a narration-only beat with no character segment looks
+    // like. Requiring the delivery first turned that exact answer into
+    // "terminal work without a delivery state" — a message that names neither
+    // the reason nor the stage, and sends the reader looking for a bug in the
+    // render path instead of at the turn that simply had nobody to speak.
+    if work.audioState == .unavailable {
+        emit(Facts(transcript: transcript, committedTurn: view.turn,
+                   storyRevision: view.storyRevision,
+                   discoveredClues: view.discoveredClues.map(\.displayName),
+                   submitDeliveryState: submitDeliveryState,
+                   observedWorkStates: observed.states,
+                   pollGaveUp: app.storyModel.postCommitWorkPollGaveUp,
+                   narrativeSegments: work.narrativeSegments.count,
+                   deliveryState: work.audioState.rawValue,
+                   deliveryReason: work.audioReason,
+                   speechUnitID: nil, voiceID: nil, mediaFrames: 0, mediaBytes: 0,
+                   pcmPeak: 0, pcmRMSMilli: 0, sampleRate: 24_000, playedToDevice: false,
+                   playbackTerminal: "not-started",
+                   healthModelReady: health.modelReady, healthVoiceReady: health.voiceReady))
+        fail("audio unavailable: \(work.audioReason ?? "unknown")")
+    }
+    let delivery = try require(work.delivery, "ready audio without a delivery state")
     guard delivery.state == .ready else {
         emit(Facts(transcript: transcript, committedTurn: view.turn,
                    storyRevision: view.storyRevision,
@@ -455,7 +479,14 @@ private func run(_ args: [String]) async throws {
                    healthModelReady: health.modelReady, healthVoiceReady: health.voiceReady))
         fail("delivery unavailable: \(delivery.reason ?? "unknown")")
     }
-    let recipe = try require(delivery.renderRecipe, "ready delivery without a render recipe")
+    // The recipe lives on the segment, not on the turn. A delivery is a batch
+    // of per-character segments and there is deliberately no singular mirror
+    // left describing "the" voice of a turn, so this picks the first segment
+    // that is actually renderable rather than inventing a turn-level answer.
+    let segment = try require(
+        delivery.speechUnits.first { $0.state == .ready && $0.renderRecipe != nil },
+        "ready delivery without a renderable segment")
+    let recipe = try require(segment.renderRecipe, "ready segment without a render recipe")
 
     // 4. Real audio out: verified SpeechRail PCM over the media socket into the
     //    system default output device.
