@@ -337,11 +337,15 @@
         "but_unwired": "publish_pcm 是写入 audio_takes 的唯一入口（裸 SQL 亦被 database_manager 的 SQLite 授权器以 SQLITE_DENY 挡下 INSERT/UPDATE），而它只有 audio_take_coordinator 调用，coordinator 只被 audio_prefetch 引用，prefetch 零生产调用方。SQLiteAudioTakeStore / SQLiteAudioTrackRepository / AudioTakeRenderCoordinator / AudioTakePrefetchQueue / OfflineStoryBookReplayResolver 五个类在全仓（排除测试与 .venv）均无任何构造点。1925 行测试覆盖的是一套无人实例化的子系统。",
         "realtime_path_never_persists": "实时路径 VoiceRenderRuntime.media_handler 把 provider PCM 直接写 socket，engine/infrastructure/audio/ 全目录无任何落库动作。",
         "contract_has_no_audio_surface": "storybook.schema.json 的 15 个字段全是叙事，无音频；App 侧 StoryBookModel/StoryBookView 亦无音频呈现。PRD §20.2 要求「重用 Story Session 已生成音频」，而运行态里不存在已生成音频。",
-        "not_superseded_dead_code": "docs/01_总体架构/ADR-005_音色供给与铸造_v1.0.md D7 把 take 当一等持久事实（「播放原缓存并保留原证据」「显式重播使用单独的新 take」），PR #178 明写 StoryBook-pinned takes。ADR-005 状态为终态架构定义，故这是设计到位而从未接线，不是被实时流取代的死代码。"
+        "not_superseded_dead_code": "docs/01_总体架构/ADR-005_音色供给与铸造_v1.0.md D7 把 take 当一等持久事实（「播放原缓存并保留原证据」「显式重播使用单独的新 take」），PR #178 明写 StoryBook-pinned takes。ADR-005 状态为终态架构定义，故这是设计到位而从未接线，不是被实时流取代的死代码。",
+        "one_segment_per_turn": "每个已提交回合最多一段拿到音频，三处叠加：application/post_commit_work.py 的 required_jobs_for_turn 只 append 一个 AUDIO_PREPARE；scenarios/post_commit_planning.py 的 _recipe_revision 对同一 kind 恒定；迁移 013 的 UNIQUE(turn_id, kind, recipe_revision) 插不进第二行。handler 又只取 candidates[0]，即第一个 character 段。narration 段是被故意排除的（NarrativeBlock 尚无显式旁白身份，与 ADR-006 D1 同源）。",
+        "sealed_recipe_not_audio": "当前链路物化的是配方而非音频：ScenarioAudioPrepareHandler 只 seal 出 SealedSpeechUnit 并持久化到 post_commit_job_results，全程不调用 provider；播放时 VoiceRenderRuntime.media_handler 经 render_realtime_tts_to_media 把 PCM 逐 chunk 直接写 socket，无累积、不落库。",
+        "post_commit_failure_surface_exists": "不变量 9 在 post-commit 层已有承载：post_commit_jobs 状态机 pending/running/retry_wait/blocked/succeeded 带 attempt/last_error_code/lease_generation，post_commit_job_results 存不可变结果记录，post_commit_retry_requests 承接幂等重试；handler 每条失败分支都返回 _blocked(...) 而不改写已提交事实，post_commit_control 模块文档字符串明写 never rewrites a committed Domain turn。该链路是接线的：story_runtime.py 在生产路径构造 SQLitePostCommitJobRepository 与 ScenarioAudioPrepareHandler。"
       },
       "consequence": "Story Book 回放当前没有任何音频通路——不是「重铸后可能播错」，而是运行态里既没有 track 也没有 take。PR #175 / #178 交付了机制，但没有一片把它接进回合交付；PRD §20.2 聆听模式「重用 Story Session 已生成音频」在接线前无法成立。",
       "retracts": "本条目上一版（SB-24B）称「Story Book 回放缺音频是因为 track 层未接线，接线本身不再是架构问题，只需裁发布时机与 redub 策略」——该判断同样不完整：track 层未接线只是表象，其下的 take 层同样零生产调用方，因此「裁发布时机」这一提法本身就不成立。SB-22 / SB-24 / SB-24B 三次误判同源于此。",
-      "remaining_decision": "不再是「发布时机与 redub 策略」——take 都不存在，无从谈起。真正要裁的是：（一）实时渲染路径是否应当落 take，若否则 dry/prefetch 通路应由谁在何时触发；（二）落库后的 take 是否即 replay 的唯一来源，还是允许回放时按需重渲；（三）take 落库失败不得反向影响已 COMMIT 的叙事（不变量 9），失败面如何表达。这三条都触及持久化地基与 ADR-005 D7 边界，需人类架构师裁决。"
+      "remaining_decision": "已由 ADR-009（docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md#8. 决策状态）承载，不再是「发布时机与 redub 策略」——take 都不存在，无从谈起。ADR-009 把问题改写为四个子问题：（1）音频字节是否应成为持久事实、若应在哪一点物化（同点渲染／播放时 tee／独立预渲染 job／不落库）；（2）覆盖范围是维持每回合一段还是改为逐段（§1.2 的天花板使后者成为 PRD §20.2 的前提）；（3）落库后的 take 是否即 replay 的唯一来源；（4）落库失败沿用 blocked/retry_wait 还是新增状态。四问均触及持久化地基与 ADR-005 D7 边界，需人类架构师裁决。",
+      "proposal": "docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md"
     }
   ]
 }

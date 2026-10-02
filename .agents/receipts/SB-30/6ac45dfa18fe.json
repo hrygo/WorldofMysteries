@@ -1,0 +1,133 @@
+{
+  "receipt_id": "RCP-WORK-SB-30-6ac45dfa18fe",
+  "receipt_type": "work",
+  "task_id": "SB-30",
+  "capsule_id": "CAP-SB-30",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:bd1cb3d25d3f87b5246b50d72a4483205fc74bbe7051b5f4329dd4b93b738aab",
+  "diff_digest": "sha256:3183d7ed15039b4237e9d9c35c03da68927f2b1d5d340a564d9bb91690065d9e",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "e375c2c71b23e8978635fb8560c12624d9411812",
+  "head_commit": "6ac45dfa18fe6b3cff49789f05427cc70728b3f0",
+  "target_ref": "origin/main",
+  "target_sha": "e375c2c71b23e8978635fb8560c12624d9411812",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T19:17:40.125499+00:00",
+      "finished_at": "2026-10-02T19:17:40.164571+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T19:17:40.164663+00:00",
+      "finished_at": "2026-10-02T19:19:43.273368+00:00",
+      "raw_log_digest": "sha256:d65c7e0a1a358e510aa077c33acf943b9018a9c933ddbba999407a9b34b8d8dc",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T19:19:43.273454+00:00",
+      "finished_at": "2026-10-02T19:20:06.280548+00:00",
+      "raw_log_digest": "sha256:ff950dc46762c0452c800a5cdfe2cebb31008125f14f26e951727bb14bd654e0",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T19:20:06.280763+00:00",
+      "finished_at": "2026-10-02T19:20:08.119392+00:00",
+      "raw_log_digest": "sha256:b03369ae0cb404ee89849cc5c64b6d31a7c92b1f390888d450fb78ed97201854",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md",
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-adr009-persistent-audio"
+  },
+  "started_at": "2026-10-02T19:17:40.088168+00:00",
+  "finished_at": "2026-10-02T19:20:08.241961+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
