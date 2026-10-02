@@ -29,9 +29,15 @@ from application.scenario_policy import (
     TurnPolicyDecision,
 )
 from application.story_initialization import (
+    GOLDEN_CLUE_DISPLAY_NAMES,
+    GOLDEN_PROPOSITION_DISPLAY_NAMES,
     GOLDEN_POLICY_VERSION,
     GOLDEN_SCENARIO_ID,
+    SCENARIO_TITLE,
+    SCENE_DISPLAY_NAME,
+    ScenarioPresentation,
     StorySessionBootstrap,
+    _validate_presentation,
 )
 from application.turn_input import TurnInputStatus
 from contracts import (
@@ -138,6 +144,60 @@ def test_golden_policy_binds_known_content_to_its_rules_revision() -> None:
         content_digest=_golden_bootstrap().content_digest,
         rules_revision=GOLDEN_POLICY_VERSION,
     )
+
+
+#: The digest the builder produces once it emits the knowledge-proposition
+#: presentation table (SB-09). Registered ahead of the builder change so that no
+#: main is ever in the state "the bundle says X and nothing accepts X"; SB-10
+#: re-checks the other half of that promise, that the builder really produces
+#: this value.
+PROPOSITION_TABLE_DIGEST = "789b95741e72582946de8f3258d88cda7cbf3f5c17c0f7ad850d4ac0e44cb1b1"
+
+
+def test_golden_policy_accepts_the_proposition_table_content() -> None:
+    """A bundle carrying the proposition table must be restorable, not orphaned."""
+    policy = GoldenScenarioPolicy(object())
+
+    identity = policy.identity(_golden_bootstrap(content_digest=PROPOSITION_TABLE_DIGEST))
+
+    assert identity.rules_revision == GOLDEN_POLICY_VERSION
+    assert identity.content_digest == PROPOSITION_TABLE_DIGEST
+
+
+def test_registering_new_content_never_retires_the_old_digest() -> None:
+    """A session bootstrapped before the table existed keeps its own content.
+
+    Dropping the earlier registration would make it un-restorable over a change
+    that says nothing about the rules, which is the whole reason the table is a
+    registry rather than a constant.
+    """
+    policy = GoldenScenarioPolicy(object())
+
+    assert (
+        policy.identity(_golden_bootstrap()).content_digest
+        == "610ecbdb2875b86ac5ed52b100d5def3481408d5f4e16030cec2ed09da288d07"
+    )
+
+
+@pytest.mark.parametrize(
+    "presentation",
+    [
+        # The table this digest stands for is legal content...
+        {"proposition_display_names": dict(GOLDEN_PROPOSITION_DISPLAY_NAMES)},
+        # ...and so is its absence, which is what every older bundle carries.
+        {},
+    ],
+)
+def test_both_registered_content_shapes_are_accepted_presentation(presentation) -> None:
+    """Registering a digest is only honest if the content behind it validates."""
+    validated = ScenarioPresentation(
+        scenario_title=SCENARIO_TITLE,
+        scene_display_name=SCENE_DISPLAY_NAME,
+        clue_display_names=dict(GOLDEN_CLUE_DISPLAY_NAMES),
+        **presentation,
+    )
+
+    _validate_presentation(validated)
 
 
 @pytest.mark.parametrize(
