@@ -41,6 +41,20 @@ a real narrator voice registered with the provider and a real binding in
 the database. That is the point: acceptance wants the narrator cast and
 listened to for real, and a test that only pretended to would prove
 nothing. It is opt-in for exactly that reason.
+
+Re-running it does not cast a second narrator. The provider refuses to mint
+a second voice under an id it already holds, and once one is published the
+right answer is to bind that one — so a later run adopts it and stops there.
+Both paths are walked and both are asserted, because they are different
+claims: the first run is the evidence that a voice was cast and heard, and a
+later one is the evidence that re-supplying does not duplicate it. Which one
+a given run took is written into the listening record rather than left to be
+inferred from whether any audio appeared at all.
+
+To force a genuinely new casting — and with it a fresh audition for someone
+to listen to — point the run at a world it has not used. ``WOM_LIVE_WORLD``
+changes the world id the engine resolves, and the provider voice id is
+derived from it.
 """
 
 from __future__ import annotations
@@ -67,6 +81,7 @@ from infrastructure.story_runtime import StoryRuntime
 from infrastructure.voice_design_catalog import load_voice_design_catalog
 from infrastructure.voice_foundry_repository import (
     SQLiteVoiceFoundryRepository,
+    VoiceFoundryStage,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -75,6 +90,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 SESSION_ID = "live-app-path-session"
+
+#: The world the engine resolves this run against. It is not decoration: the
+#: provider voice id is derived from it, so pointing a run at a world it has
+#: not used is how a genuinely new casting — and with it a real audition to
+#: listen to — is reached once the catalog already holds an identity. Left
+#: alone, the run adopts what is there, which is the correct behaviour and not
+#: the same evidence.
+LIVE_WORLD = (os.environ.get("WOM_LIVE_WORLD") or "live-app-path-world").strip()
 
 
 def _selected_designs() -> tuple[str, ...]:
@@ -182,6 +205,8 @@ def _record_for_listening(
     *,
     heard: dict,
     candidate_id: str,
+    adopted: bool,
+    provider_candidate_id: str | None,
 ) -> None:
     """Leave the two clips and the facts a listener needs, on disk.
 
@@ -210,8 +235,26 @@ def _record_for_listening(
         "voice_description": design.voice_description,
         "candidate_id": candidate_id,
         "published": True,
-        "human_review": "NOT YET SIGNED — a machine pass is not a person",
+        # Which of the two supply paths this run took, stated rather than
+        # inferred from the absence of a clip. A run that adopted a voice the
+        # provider had already published produced no new audio, so the person
+        # who still has to listen is listening to an *earlier* run's files —
+        # and a record that quietly said nothing about that would let a
+        # reviewer sign off on audio this run never produced.
+        "supply": "adopted_published_voice" if adopted else "cast",
+        "provider_candidate_id": provider_candidate_id,
     }
+    if adopted:
+        record["human_review"] = (
+            "carried from the provider's published record for this voice; "
+            "this run rendered no clips and asked no new question"
+        )
+        record["clips"] = "none — see the run that first cast this identity"
+        (out / "acceptance.json").write_text(
+            json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return
+    record["human_review"] = "NOT YET SIGNED — a machine pass is not a person"
     for kind, text in (
         ("reference", design.reference_text),
         ("validation", design.validation_text),
@@ -261,7 +304,7 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
         "foundry is withheld from the handshake without them"
     )
 
-    layout = DatabasePaths.for_world(tmp_path, "live-app-path-world")
+    layout = DatabasePaths.for_world(tmp_path, LIVE_WORLD)
     layout.canon.parent.mkdir(parents=True)
     with sqlite3.connect(layout.canon) as conn:
         conn.execute("CREATE TABLE canon_fixture(id TEXT PRIMARY KEY) STRICT")
@@ -301,7 +344,7 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
         # The engine resolved the scope from the session, not from the
         # request: a client that could have named the world would also have
         # been able to lie about it.
-        assert opened["scope"]["world_id"] == "live-app-path-world"
+        assert opened["scope"]["world_id"] == LIVE_WORLD
         assert opened["scope"]["owner_id"] == "player"
         assert opened["required_actions"] == []
         task_id = opened["task_id"]
@@ -332,10 +375,23 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
             )
             assert code is None, code
             task = await _advance_to_a_human_stage(worker, task_id)
-            assert task.stage == "awaiting_review"
+            # Two honest outcomes, and the difference is the whole point of
+            # the catalog. A voice the provider has not published is cast,
+            # validated and auditioned here. A voice it *has* published was
+            # already cast and heard in an earlier run, so this one binds that
+            # instead of casting a second time — the assertion that used to
+            # sit here (`awaiting_review`) was the shape of a first run only,
+            # and reading it as the shape of every run is what turned a
+            # correct adoption into a failed test.
+            adopted = task.stage == VoiceFoundryStage.PUBLISHED
+            if not adopted:
+                assert task.stage == "awaiting_review"
             provider_candidate_id = (
                 await repository.load_candidate(task_id, candidate_id)
             ).provider_candidate_id
+            adopted_revision = (
+                await repository.load_candidate(task_id, candidate_id)
+            ).provider_candidate_revision
 
             # --- the App's four methods, from here down ---
             task_body, code = await handlers["voice.foundry.get"](
@@ -350,9 +406,22 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
             ]
             assert auditioned, "the selected candidate is not in the projection"
             assert auditioned[0]["provider_candidate_revision"]
-
+            if adopted:
+                # An adopted candidate arrives already published, so there is
+                # no reference to bind, no cross-text pass to run and — this
+                # is the part that matters — no new audio for a person to
+                # hear. The listening happened when the voice was first cast,
+                # and the record has to say so rather than let a reviewer
+                # assume this run produced clips nobody has played.
+                assert auditioned[0]["state"] == "published"
+                assert (
+                    auditioned[0]["provider_candidate_revision"]
+                    == adopted_revision
+                )
+                publish_revision = adopted_revision
             heard = {}
-            for kind in ("reference", "validation"):
+
+            for kind in (() if adopted else ("reference", "validation")):
                 asset, code = await handlers["voice.foundry.asset.get"](
                     {
                         "schema_version": "1.0",
@@ -374,37 +443,42 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
                 ]
                 heard[kind] = asset
 
-            assert heard["validation"]["validation_id"]
-            assert (
-                heard["reference"]["validation_id"] is None
-            ), "the reference asset must not claim a cross-text validation"
+            if not adopted:
+                assert heard["validation"]["validation_id"]
+                assert (
+                    heard["reference"]["validation_id"] is None
+                ), "the reference asset must not claim a cross-text validation"
 
-            task = await repository.load_task(task_id)
-            review_body, code = await handlers["voice.foundry.review"](
-                _command(
-                    task_id,
-                    task.task_revision,
-                    "review",
-                    {
-                        "human_review": {
-                            "validation_id": heard["validation"]["validation_id"],
-                            "reference_audio_digest": heard["reference"][
-                                "audio_digest"
-                            ],
-                            "validation_audio_digest": heard["validation"][
-                                "audio_digest"
-                            ],
-                            # A probe, not a person. The product refuses to
-                            # invent this judgement, so the test states it and
-                            # the acceptance record says a human has not.
-                            "identity": "pass",
-                            "naturalness": "pass",
-                        }
-                    },
-                    command_id="cmd-review",
+                task = await repository.load_task(task_id)
+                review_body, code = await handlers["voice.foundry.review"](
+                    _command(
+                        task_id,
+                        task.task_revision,
+                        "review",
+                        {
+                            "human_review": {
+                                "validation_id": heard["validation"][
+                                    "validation_id"
+                                ],
+                                "reference_audio_digest": heard["reference"][
+                                    "audio_digest"
+                                ],
+                                "validation_audio_digest": heard["validation"][
+                                    "audio_digest"
+                                ],
+                                # A probe, not a person. The product refuses
+                                # to invent this judgement, so the test states
+                                # it and the acceptance record says a human
+                                # has not.
+                                "identity": "pass",
+                                "naturalness": "pass",
+                            }
+                        },
+                        command_id="cmd-review",
+                    )
                 )
-            )
-            assert code is None, code
+                assert code is None, code
+                publish_revision = heard["reference"]["candidate_revision"]
 
             task = await repository.load_task(task_id)
             publish_body, code = await handlers["voice.foundry.publish"](
@@ -412,11 +486,7 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
                     task_id,
                     task.task_revision,
                     "publish",
-                    {
-                        "provider_candidate_revision": heard["reference"][
-                            "candidate_revision"
-                        ]
-                    },
+                    {"provider_candidate_revision": publish_revision},
                     command_id="cmd-publish",
                 )
             )
@@ -426,6 +496,8 @@ async def test_the_assembled_product_path_auditions_against_a_real_speechrail(
                 design_id,
                 heard=heard,
                 candidate_id=candidate_id,
+                adopted=adopted,
+                provider_candidate_id=provider_candidate_id,
             )
             candidate_id = None
             provider_candidate_id = None
@@ -461,7 +533,7 @@ class _FixedScope:
         # than the leftover it is.
         return VoiceBindingScope(
             owner_id="player",
-            world_id="live-app-path-world",
+            world_id=LIVE_WORLD,
             worldline_id="line-live",
             presentation_identity=presentation_identity,
             phase=phase,
