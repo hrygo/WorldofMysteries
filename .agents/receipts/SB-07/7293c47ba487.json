@@ -1,0 +1,133 @@
+{
+  "receipt_id": "RCP-WORK-SB-07-7293c47ba487",
+  "receipt_type": "work",
+  "task_id": "SB-07",
+  "capsule_id": "CAP-SB-07",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:7915e918eb6e5cb7e1148f499c2f7be703c7631acef0a3139453baf55b925437",
+  "diff_digest": "sha256:917815ee69725b51482054a59df2e94df8717260ca6e2383e40f12344303c880",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "f27a4b5726c5bbddc41403400b521c97c3b35843",
+  "head_commit": "7293c47ba4877464a7009997da2a6f16a3eae0ce",
+  "target_ref": "origin/main",
+  "target_sha": "6282619013ae813eb0549ae7f29a6646c794d4d8",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T05:26:30.614595+00:00",
+      "finished_at": "2026-10-02T05:26:30.648388+00:00",
+      "raw_log_digest": "sha256:97c7c92686fb5ba1bb59727a3f240f0ec903b65e3464ed3e04e577acc0908627",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T05:26:30.648480+00:00",
+      "finished_at": "2026-10-02T05:28:29.031126+00:00",
+      "raw_log_digest": "sha256:d2e7e42c432481869d811562c50194eadafca7e6d5524de42ec3fe42c35f1436",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T05:28:29.031234+00:00",
+      "finished_at": "2026-10-02T05:28:52.195095+00:00",
+      "raw_log_digest": "sha256:bf7545f3ea7fc621d3f2aa79f3dce0735cd71171074d6cb7f3552d565a47a13e",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T05:28:52.195188+00:00",
+      "finished_at": "2026-10-02T05:28:54.448312+00:00",
+      "raw_log_digest": "sha256:9f81c669a0ad9d565505a822a28a6b15ba57dd989d0ee4032b643027893e9568",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "contracts/schemas/storybook.schema.json",
+      "docs/03_工程规范/schemas/storybook.schema.json",
+      "engine/tests/test_contracts_schema.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "contracts/schemas/storybook.schema.json"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-07-storybook-additive-contract"
+  },
+  "started_at": "2026-10-02T05:26:30.576953+00:00",
+  "finished_at": "2026-10-02T05:28:54.576476+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
