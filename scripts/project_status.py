@@ -10,11 +10,92 @@ project_status.py - 《诡秘世界》工程态势罗盘与调度导航 CLI
 
 import argparse
 import json
+import os
+import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = ROOT_DIR / "docs" / "PROJECT_STATE.json"
+
+#: The pre-commit hook injects these, and a ``git`` call that inherits them is
+#: hijacked back to the real repository even when cwd is an isolated worktree.
+_GIT_ENV_POLLUTANTS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+)
+
+
+def _git_env() -> dict:
+    env = dict(os.environ)
+    for key in _GIT_ENV_POLLUTANTS:
+        env.pop(key, None)
+    return env
+
+
+def repository_tip(root: Path = ROOT_DIR) -> dict | None:
+    """Date and short SHA of the newest commit the repository actually has."""
+    for ref in ("origin/main", "HEAD"):
+        res = subprocess.run(
+            ["git", "log", "-1", "--format=%cI %h", ref],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=_git_env(),
+        )
+        if res.returncode != 0 or not res.stdout.strip():
+            continue
+        committed, _, short = res.stdout.strip().partition(" ")
+        try:
+            return {"date": date.fromisoformat(committed[:10]), "sha": short}
+        except ValueError:
+            return None
+    return None
+
+
+def staleness(state: dict, root: Path = ROOT_DIR) -> dict | None:
+    """How far this narrative sits behind the repository, or ``None`` if it does not.
+
+    ``docs/PROJECT_STATE.json`` is prose, written once and then replayed verbatim
+    by every ``status`` / ``next`` / ``dispatch`` call. The wom-navigator skill
+    points at it as the 事实源, so a reader has no way to tell that the baseline
+    it names is hundreds of commits old. A fact source that is quietly stale is
+    worse than none, because it still gets trusted.
+    """
+    try:
+        recorded = date.fromisoformat(str(state["last_updated"])[:10])
+    except (KeyError, ValueError):
+        return None
+    tip = repository_tip(root)
+    if tip is None or tip["date"] <= recorded:
+        return None
+    return {
+        "recorded": recorded.isoformat(),
+        "tip_date": tip["date"].isoformat(),
+        "tip_sha": tip["sha"],
+        "days_behind": (tip["date"] - recorded).days,
+    }
+
+
+def _warn_if_stale(state: dict, root: Path = ROOT_DIR) -> None:
+    gap = staleness(state, root)
+    if gap is None:
+        return
+    print(
+        f"⚠️  本报告的事实源落后于仓库 {gap['days_behind']} 天："
+        f"叙述描述的是 {gap['recorded']} 的状态，"
+        f"而仓库最新提交是 {gap['tip_date']} {gap['tip_sha']}。",
+        file=sys.stderr,
+    )
+    print(
+        "   以下里程碑与门禁结论属于历史记录，不代表当前仓库状态；以 git log 与 CI 为准。",
+        file=sys.stderr,
+    )
 
 
 def load_state() -> dict:
@@ -30,6 +111,7 @@ def cmd_status(state: dict, as_json: bool = False):
         print(json.dumps(state, indent=2, ensure_ascii=False))
         return
 
+    _warn_if_stale(state)
     curr = state["current_phase"]
     gates = state["gates_health"]
     completed = state["completed_phases"]
@@ -76,6 +158,7 @@ def cmd_next(state: dict, as_json: bool = False):
         print(json.dumps(cp, indent=2, ensure_ascii=False))
         return
 
+    _warn_if_stale(state)
     print("=" * 72)
     print("🎯 《诡秘世界》关键路径推进决策导航 (Next Strategic Direction)")
     print("=" * 72)
@@ -104,6 +187,7 @@ def cmd_dispatch(state: dict, as_json: bool = False):
         print(json.dumps(dp, indent=2, ensure_ascii=False))
         return
 
+    _warn_if_stale(state)
     print("=" * 72)
     print("🚀 《诡秘世界》自动化任务派发卡片 (Task Dispatch Voucher)")
     print("=" * 72)

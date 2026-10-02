@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -330,6 +331,75 @@ def test_project_status_renders_completed_milestones_clearly(capsys):
     assert "[COMPLETED]" in completed_line
     assert "⚪ [M3]" in blocked_line
     assert "[BLOCKED]" in blocked_line
+
+
+def test_the_staleness_probe_measures_the_gap_between_narrative_and_repository():
+    """事实源是散文，会静默过期；探针必须能说出它落后了多少。"""
+    tip = project_status.repository_tip()
+    assert tip is not None, "探测不到仓库最新提交，探针本身失效"
+
+    state = {"last_updated": "2026-09-28"}
+    gap = project_status.staleness(state)
+
+    assert gap is not None
+    assert gap["recorded"] == "2026-09-28"
+    assert gap["tip_sha"] == tip["sha"]
+    assert gap["days_behind"] == (tip["date"] - date(2026, 9, 28)).days
+
+
+def test_a_narrative_that_is_not_behind_reports_no_gap():
+    """不得因为「总是告警」而变成噪声 —— 没落后就不该响。"""
+    tip = project_status.repository_tip()
+    assert tip is not None
+
+    assert project_status.staleness({"last_updated": tip["date"].isoformat()}) is None
+    assert project_status.staleness({"last_updated": "2099-01-01"}) is None
+
+
+def test_a_narrative_without_a_readable_date_is_not_guessed_at():
+    assert project_status.staleness({}) is None
+    assert project_status.staleness({"last_updated": "not-a-date"}) is None
+
+
+def test_the_stale_banner_warns_on_stderr_so_stdout_stays_pipeable(capsys):
+    """stdout 是给人读的表格，告警走 stderr，`> report.txt` 不会把它弄脏。"""
+    state = {
+        "project_name": "World of Mysteries",
+        "version": "0.1.0",
+        "last_updated": "2026-09-28",
+        "current_phase": {
+            "phase_id": "Phase 1",
+            "phase_name": "x",
+            "status": "IN_PROGRESS",
+            "progress_summary": "",
+        },
+        "gates_health": {},
+        "completed_phases": [],
+        "milestones": [],
+    }
+
+    project_status.cmd_status(state)
+
+    captured = capsys.readouterr()
+    assert "⚠️" in captured.err
+    assert "落后于仓库" in captured.err
+    assert "⚠️" not in captured.out
+
+
+def test_the_git_probe_survives_hook_injected_repository_variables(monkeypatch, tmp_path):
+    """钩子注入的 GIT_* 会把 git 劫持回真仓库；探针必须在这种环境里仍读到本仓库。
+
+    这不是假想：pre-commit 钩子会注入这五个变量，而脚本与测试里调用 git 若不清
+    掉它们，裁决会落到真仓库上——本仓库的夹具曾因此损坏隔离工作区索引。
+    """
+    real = project_status.repository_tip()
+    assert real is not None
+
+    for key in project_status._GIT_ENV_POLLUTANTS:
+        monkeypatch.setenv(key, str(tmp_path / "hijacked"))
+
+    assert "GIT_DIR" not in project_status._git_env()
+    assert project_status.repository_tip() == real
 
 
 def test_gate_registry_digests_match_protected_profiles():
