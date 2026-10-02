@@ -1,0 +1,155 @@
+{
+  "$schema": "contracts/engineering/task_capsule.schema.json",
+  "capsule_id": "CAP-SB-10",
+  "capsule_revision": 1,
+  "task_id": "SB-10",
+  "title": "登记命题表落地后构建器实测产出的内容摘要",
+  "assigned_role": "AGT-AI",
+  "status": "CREATED",
+  "created_at": "2026-10-02T07:11:04.201727+00:00",
+  "risk_class": "high",
+  "base": {
+    "target_ref": "origin/main",
+    "base_sha": "6c1f042e6aa0e27c91f9d44398d9ab2e0bd5e332",
+    "target_sha": "6c1f042e6aa0e27c91f9d44398d9ab2e0bd5e332",
+    "context_snapshot": "sha256:e7213d1d72ff5d8453732c30fd86f59ac1dade8b9b209353ba3600f0ce0f3c68"
+  },
+  "scope": {
+    "read": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "contracts/"
+    ],
+    "write": [
+      "engine/ai/",
+      "engine/application/",
+      "engine/tests/",
+      "engine/infrastructure/story_runtime.py",
+      "engine/infrastructure/episode_settlement.py",
+      "engine/infrastructure/scenarios/"
+    ],
+    "forbidden": [
+      "macos-app/**",
+      "engine/domain/**",
+      "engine/infrastructure/database*",
+      "engine/infrastructure/outbox*",
+      "engine/infrastructure/migrations/",
+      "engine/infrastructure/**/database*",
+      "engine/infrastructure/**/outbox*",
+      "engine/infrastructure/**/migrations/",
+      ".hacf/**",
+      ".github/**"
+    ],
+    "privileged_grants": []
+  },
+  "context": {
+    "core_manifest": [
+      "symbol:ScenarioPolicyError@engine/application/scenario_policy.py:29",
+      "symbol:ScenarioIdentity@engine/application/scenario_policy.py:38",
+      "symbol:TurnPolicyDecision@engine/application/scenario_policy.py:65",
+      "symbol:FinalizationRecipe@engine/application/scenario_policy.py:91",
+      "symbol:ScenarioPolicyPort@engine/application/scenario_policy.py:114",
+      "symbol:TurnWorkerFactory@engine/application/scenario_policy.py:150",
+      "symbol:__init__@engine/application/scenario_policy.py:32",
+      "symbol:__post_init__@engine/application/scenario_policy.py:45",
+      "symbol:__post_init__@engine/application/scenario_policy.py:72",
+      "symbol:__post_init__@engine/application/scenario_policy.py:97",
+      "symbol:identity@engine/application/scenario_policy.py:117",
+      "symbol:decision@engine/application/scenario_policy.py:119",
+      "symbol:expected_input@engine/application/scenario_policy.py:125",
+      "symbol:resolution_policy@engine/application/scenario_policy.py:131",
+      "symbol:validation_context@engine/application/scenario_policy.py:137",
+      "symbol:finalization_recipe@engine/application/scenario_policy.py:143",
+      "symbol:supports_live_input@engine/application/scenario_policy.py:154",
+      "symbol:interpreter_for@engine/application/scenario_policy.py:156",
+      "symbol:proposer_for@engine/application/scenario_policy.py:162",
+      "symbol:narrative_compiler@engine/application/scenario_policy.py:169",
+      "symbol:_content_digest@engine/application/story_initialization.py:433",
+      "symbol:ConditionalExitTestPolicy@engine/tests/test_scenario_policy.py:67",
+      "symbol:_session@engine/tests/test_scenario_policy.py:102",
+      "symbol:_golden_bootstrap@engine/tests/test_scenario_policy.py:130",
+      "symbol:test_golden_policy_binds_known_content_to_its_rules_revision@engine/tests/test_scenario_policy.py:140",
+      "symbol:test_golden_policy_accepts_the_proposition_table_content@engine/tests/test_scenario_policy.py:169",
+      "symbol:test_the_registered_proposition_digest_is_derived_not_guessed@engine/tests/test_scenario_policy.py:179",
+      "symbol:test_registering_new_content_never_retires_the_old_digest@engine/tests/test_scenario_policy.py:214",
+      "symbol:test_both_registered_content_shapes_are_accepted_presentation@engine/tests/test_scenario_policy.py:247",
+      "symbol:test_golden_policy_rejects_unknown_content_or_rules_identity@engine/tests/test_scenario_policy.py:267"
+    ],
+    "related_contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "slice_strategy": "focus-ranked",
+    "token_estimate": 777,
+    "max_core_tokens": 3000,
+    "expansion_policy": "arbiter_approved",
+    "note": "上下文为最小充分集而非最小集：不足时可申请扩权/扩上下文并生成胶囊修订版。"
+  },
+  "impact": {
+    "symbols": [
+      "ScenarioPolicyError",
+      "ScenarioIdentity",
+      "TurnPolicyDecision",
+      "FinalizationRecipe",
+      "ScenarioPolicyPort",
+      "TurnWorkerFactory",
+      "__init__",
+      "__post_init__",
+      "__post_init__",
+      "__post_init__",
+      "identity",
+      "decision",
+      "expected_input",
+      "resolution_policy",
+      "validation_context",
+      "finalization_recipe",
+      "supports_live_input",
+      "interpreter_for",
+      "proposer_for",
+      "narrative_compiler",
+      "_content_digest",
+      "ConditionalExitTestPolicy",
+      "_session",
+      "_golden_bootstrap",
+      "test_golden_policy_binds_known_content_to_its_rules_revision",
+      "test_golden_policy_accepts_the_proposition_table_content",
+      "test_the_registered_proposition_digest_is_derived_not_guessed",
+      "test_registering_new_content_never_retires_the_old_digest",
+      "test_both_registered_content_shapes_are_accepted_presentation",
+      "test_golden_policy_rejects_unknown_content_or_rules_identity"
+    ],
+    "contracts": [
+      "context_packet.schema.json",
+      "context_request.schema.json",
+      "proposal.schema.json"
+    ],
+    "tests": []
+  },
+  "dependencies": {
+    "depends_on": [],
+    "conflicts_with": []
+  },
+  "gates": {
+    "profile": "AI_GATEWAY_P0",
+    "profile_digest": "sha256:afd00e18003069ea384a524153feb08b15be7dad74a0d641493bf93653e8694c",
+    "profile_file": ".hacf/gates/ai_gateway_p0.json",
+    "risk_class": "high"
+  },
+  "acceptance": {
+    "invariants": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "instructions": "AI 仅产出类型化 Proposal；语义授权先行，严禁直接执行写库事务。",
+    "assertions": [
+      "INV-05",
+      "INV-06",
+      "INV-07",
+      "INV-08"
+    ]
+  }
+}

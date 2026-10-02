@@ -29,31 +29,41 @@ from contracts import StorySession, StorySessionStatus
 # clue label, a new presentation table — is a registered act rather than a
 # silent one.
 #
-# Three entries, and the count is the point rather than an accident: the
-# content digest covers the presentation tables, so it moved twice for two
-# unrelated reasons and each move was registered before it was emitted.
+# Four entries, and the count is the point rather than an accident: the
+# content digest covers the presentation tables, so it has moved three times
+# for three unrelated reasons, and every move was registered as a separate
+# act rather than inferred from the one before it.
 #
 # - 610ecbdb — the original bundle.
 # - 0164030c — npc_jonathan_vale 中文化 (VF-111). A public name is what the
 #   model attributes a line to and what a voice binds to, so renaming it is a
 #   content change. This is the digest the builder produces today.
-# - 789b9574 — the knowledge-proposition table that makes 已发现秘密 projectable
-#   at all (SB-09), measured on the pre-VF-111 public names. Registered
-#   *before* the builder emits it (that is SB-10's job), so no main is ever in
-#   the state "the bundle says X and nothing accepts X".
+# - 789b9574 — SB-09's attempt at the same registration, measured by running
+#   the builder against the *pre-VF-111* public names. VF-111 landed between
+#   the measurement and the emitter, so this value is one rename away from
+#   what the builder actually produces and never described a bundle that
+#   shipped. It stays because deleting a registration is the one move here
+#   that can strand a session, and because it is a real measurement of a real
+#   content state — just not of the state this repository is in.
+# - 69ddb609 — what the builder produces once the knowledge-proposition table
+#   is actually emitted on top of the current names (SB-11). Measured by
+#   running the builder with that one line added, not derived: the proposition
+#   ids hash into the digest, so no arithmetic over 789b9574 would have
+#   produced it. Registered *before* the emitter, which is the whole point —
+#   no main is ever in the state "the bundle says X and nothing accepts X".
 #
-# All three are kept. A session bootstrapped under an earlier digest carries
-# that content in its own bootstrap, so dropping its registration would make
-# it un-restorable over a rename that says nothing about the rules. Once
-# SB-10 emits the table on top of the current names the builder will settle on
-# a fourth digest; the guard added there asserts membership, not a fixed
-# value, so registering ahead of the emitter stays safe.
+# The guard in ``test_scenario_policy`` asserts that whatever the builder
+# produces is in here, rather than asserting a fixed value. That is what makes
+# registering ahead of the emitter safe, and it is also what would have caught
+# the gap between 789b9574 and 69ddb609.
 _GOLDEN_RULES_BY_CONTENT_DIGEST = {
     "610ecbdb2875b86ac5ed52b100d5def3481408d5f4e16030cec2ed09da288d07":
         GOLDEN_POLICY_VERSION,
     "0164030c3004df83a087c7278e50c1d4d17752981fa86020df7b8d5d41d1a3ab":
         GOLDEN_POLICY_VERSION,
     "789b95741e72582946de8f3258d88cda7cbf3f5c17c0f7ad850d4ac0e44cb1b1":
+        GOLDEN_POLICY_VERSION,
+    "69ddb609d723db6af089b713a2b35b70d111cadbb4ffb4f1883a0f0f0eb98f8b":
         GOLDEN_POLICY_VERSION,
 }
 

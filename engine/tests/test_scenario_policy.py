@@ -149,12 +149,21 @@ def test_golden_policy_binds_known_content_to_its_rules_revision() -> None:
     )
 
 
+#: SB-09 registered this for the knowledge-proposition table, measuring it
+#: against the public names that existed at the time. VF-111 then renamed a
+#: character, which moves the content digest on its own, so this value ended up
+#: describing a bundle that never shipped. It is kept registered — deleting an
+#: entry is the one move here that can strand a session — but it is no longer
+#: the value being waited on.
+SUPERSEDED_PROPOSITION_TABLE_DIGEST = (
+    "789b95741e72582946de8f3258d88cda7cbf3f5c17c0f7ad850d4ac0e44cb1b1"
+)
+
 #: The digest the builder produces once it emits the knowledge-proposition
-#: presentation table (SB-09). Registered ahead of the builder change so that no
-#: main is ever in the state "the bundle says X and nothing accepts X"; SB-10
-#: re-checks the other half of that promise, that the builder really produces
-#: this value.
-PROPOSITION_TABLE_DIGEST = "789b95741e72582946de8f3258d88cda7cbf3f5c17c0f7ad850d4ac0e44cb1b1"
+#: presentation table on top of the current public names (SB-10). Registered
+#: ahead of the builder change so that no main is ever in the state "the bundle
+#: says X and nothing accepts X"; SB-11 is the other half of that promise.
+PROPOSITION_TABLE_DIGEST = "69ddb609d723db6af089b713a2b35b70d111cadbb4ffb4f1883a0f0f0eb98f8b"
 
 
 def test_golden_policy_accepts_the_proposition_table_content() -> None:
@@ -165,6 +174,41 @@ def test_golden_policy_accepts_the_proposition_table_content() -> None:
 
     assert identity.rules_revision == GOLDEN_POLICY_VERSION
     assert identity.content_digest == PROPOSITION_TABLE_DIGEST
+
+
+def test_the_registered_proposition_digest_is_derived_not_guessed() -> None:
+    """Registering ahead of the emitter only works if the value is real.
+
+    The whole safety argument for registering a digest before the builder
+    produces it rests on the value being *measured*. When it is guessed, the
+    registry acquires an entry that looks like a promise and is not one, and
+    nothing finds out until the emitter lands and the shipped bundle turns out
+    to be a digest no entry accepts — a new game failing with
+    ``unknown_scenario_identity``, far from the change that caused it.
+
+    That is not hypothetical: this repository already carries one such entry.
+    SB-09 measured the proposition table against the pre-VF-111 public names,
+    and the rename that landed in between moved the digest, so 789b9574 never
+    described a bundle that shipped.
+
+    So derive it here, the same way the builder derives it, and let the two
+    disagree loudly at registration time rather than at first launch.
+    """
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import build_story_content as builder
+    finally:
+        sys.path.pop(0)
+
+    payload = builder.build_payload()
+    payload["presentation"]["proposition_display_names"] = dict(
+        GOLDEN_PROPOSITION_DISPLAY_NAMES
+    )
+
+    assert builder.canonical_digest(payload) == PROPOSITION_TABLE_DIGEST
 
 
 def test_registering_new_content_never_retires_the_old_digest() -> None:
@@ -179,6 +223,15 @@ def test_registering_new_content_never_retires_the_old_digest() -> None:
     assert (
         policy.identity(_golden_bootstrap()).content_digest
         == "610ecbdb2875b86ac5ed52b100d5def3481408d5f4e16030cec2ed09da288d07"
+    )
+    # Including the superseded one. It is kept precisely *because* it stopped
+    # being reachable, so a test that only walked live content would never
+    # notice its removal.
+    assert (
+        policy.identity(
+            _golden_bootstrap(content_digest=SUPERSEDED_PROPOSITION_TABLE_DIGEST)
+        ).content_digest
+        == SUPERSEDED_PROPOSITION_TABLE_DIGEST
     )
 
 
