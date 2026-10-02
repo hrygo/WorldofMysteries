@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldofmysteries.io/schemas/protocol/storybook_control.schema.json",
+  "title": "World of Mysteries Story Book control v1.0",
+  "description": "Typed payload contracts for `story.storybook.get`, the PRD §20.1 reading-mode call. JSON Schema validates wire shape only. Session ownership and finalization are service-level concerns: the Engine answers `story_session_not_active` for an unknown session and for one whose Episode has not settled, and `storage_failure` when a committed chapter cannot be read. The response body is the Story Book itself with no envelope wrapper, so the DTO on both sides mirrors `storybook.schema.json` exactly.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "allOf": [
+        {"pattern": "\\S"},
+        {"not": {"pattern": "\u0000"}}
+      ]
+    },
+    "storybook_get_request": {
+      "type": "object",
+      "required": ["schema_version", "session_id"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "session_id": {"$ref": "#/$defs/identifier"}
+      },
+      "additionalProperties": false
+    },
+    "storybook_get_response": {
+      "$ref": "storybook.schema.json"
+    }
+  }
+}
