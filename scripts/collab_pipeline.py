@@ -202,12 +202,51 @@ def _provision_workspace(
     print("✅ 独立环境就绪（uv.lock 锁定，跨工作区互不影响）。")
 
 
+def _short_sha(ref: str) -> str:
+    return run_cmd(f"git rev-parse --short {ref}", check=False).stdout.strip() or "(未知)"
+
+
+def resolve_worktree_base(explicit: Optional[str] = None) -> tuple[str, Optional[str]]:
+    """决定新工作区的基线 ref，返回 (ref, 告警原因或 None)。
+
+    历史缺陷：这里曾硬编码 `main`。本仓库 main 受保护、只走 squash 合入，
+    本地 main 因此持续落后 origin/main——实测落后 392 个提交，且另有 39 个
+    本地提交根本不在 origin/main 上。以它为基线建工作区，Agent 会在一份上游
+    根本不存在的代码上开发：本地门禁照样全绿，PR 一开就大面积冲突，而工作区里
+    没有任何东西提示基线选错了（SB-35 因此整轮返工）。
+
+    默认改用 origin/main——它就是 SOP 里的合入目标，`target_ref` 也以它为准。
+    显式传入的 ref 同样会拿来和 origin/main 比对，落后即告警。
+    """
+    if explicit:
+        resolved = explicit
+    elif run_cmd("git rev-parse --verify origin/main", check=False).returncode == 0:
+        resolved = "origin/main"
+    else:
+        return "main", (
+            "找不到 origin/main（未 fetch 或仓库无上游），已回落到本地 main。"
+            "若本地 main 落后合入目标，工作区会建在陈旧基线上。"
+        )
+
+    if run_cmd("git rev-parse --verify origin/main", check=False).returncode == 0:
+        behind = run_cmd(f"git rev-list --count {resolved}..origin/main", check=False)
+        count = behind.stdout.strip()
+        if count.isdigit() and int(count) > 0:
+            return resolved, (
+                f"基线 {resolved} 落后 origin/main {count} 个提交。"
+                "工作区将建在上游没有的代码上：本地门禁照样全绿，PR 打开即冲突。"
+                "请先 fetch 并改用最新基线（--base origin/main）。"
+            )
+    return resolved, None
+
+
 def start_pipeline(
     branch: str,
     role: Optional[str] = None,
     task_id: Optional[str] = None,
     title: Optional[str] = None,
     skip_venv: bool = False,
+    base_ref: Optional[str] = None,
 ) -> None:
     target_dir = get_worktree_dir(branch)
     if target_dir.exists():
@@ -222,7 +261,11 @@ def start_pipeline(
     if res.returncode == 0:
         run_cmd(f"git worktree add \"{target_dir}\" \"{branch}\"")
     else:
-        run_cmd(f"git worktree add -b \"{branch}\" \"{target_dir}\" main")
+        resolved_base, base_warning = resolve_worktree_base(base_ref)
+        print(f"   基线 ref: {resolved_base}（{_short_sha(resolved_base)}）")
+        if base_warning:
+            print(f"\n⚠️  {base_warning}")
+        run_cmd(f"git worktree add -b \"{branch}\" \"{target_dir}\" \"{resolved_base}\"")
 
     _provision_workspace(branch, target_dir, skip_venv, task_id)
 
@@ -512,6 +555,10 @@ def main() -> int:
     p_start.add_argument("--task-id")
     p_start.add_argument("--title")
     p_start.add_argument("--skip-venv", action="store_true", help="跳过独立 venv 创建（不推荐）")
+    p_start.add_argument(
+        "--base",
+        help="工作区基线 ref（默认 origin/main；显式传入时若落后 origin/main 会告警）",
+    )
 
     p_integrate = subparsers.add_parser("integrate", help="门禁 + CAS 合入 + 集成凭单")
     p_integrate.add_argument("--branch", required=True)
@@ -536,7 +583,14 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "start":
-            start_pipeline(args.branch, args.role, args.task_id, args.title, args.skip_venv)
+            start_pipeline(
+                args.branch,
+                args.role,
+                args.task_id,
+                args.title,
+                args.skip_venv,
+                args.base,
+            )
         elif args.command == "integrate":
             integrate_pipeline(args.branch, args.auto_clean, args.task_id, args.no_smoke)
         elif args.command == "abort":

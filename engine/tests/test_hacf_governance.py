@@ -2638,6 +2638,112 @@ def test_run_profile_alone_still_executes_exactly_one_profile(monkeypatch):
     assert len(captured["entries"]) == len(_stages_of("FULL_P0"))
     assert "contributing_profile_ids" not in result
 
+
+# ---- 新工作区的基线不得再硬编码本地 main ---------------------------------------
+#
+# 本仓库 main 受保护且只走 squash 合入，本地 main 因此持续落后 origin/main
+# （实测落后 392 个提交，另有 39 个本地提交不在 origin/main 上）。SB-35 的工作区
+# 就建在那份陈旧 main 上：本地门禁全绿，测试数比 CI 少 104 条——因为上游早已
+# 多出 104 条测试，而这份基线上根本没有。整轮工作因此返工。
+#
+# 真正危险的不是「基线旧」，而是没人会被告知：PR 打开才炸，而炸的时候已经
+# 基于错误的代码推理完了。所以守卫同时钉住两件事——默认基线是 origin/main，
+# 且显式传入的旧 ref 会被比对并告警。
+class _FakeRun:
+    def __init__(self, returncode=0, stdout=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = ""
+
+
+def _fake_run_cmd_for(base_commands: dict):
+    """伪造 run_cmd：按命令前缀返回预设结果，未命中的命令一律成功。"""
+
+    def _run(cmd, cwd=None, check=False):
+        for prefix, result in base_commands.items():
+            if cmd.startswith(prefix):
+                return result
+        return _FakeRun(0, "")
+
+    return _run
+
+
+def test_the_default_worktree_base_is_origin_main(monkeypatch):
+    monkeypatch.setattr(collab_pipeline, "run_cmd", _fake_run_cmd_for({}))
+    resolved, warning = collab_pipeline.resolve_worktree_base()
+    assert resolved == "origin/main"
+    assert warning is None
+
+
+def test_a_base_behind_origin_main_is_called_out(monkeypatch):
+    """显式传入陈旧 ref 时必须告警——这是「PR 打开才炸」的唯一预警点。"""
+    monkeypatch.setattr(
+        collab_pipeline,
+        "run_cmd",
+        _fake_run_cmd_for(
+            {
+                "git rev-list --count": _FakeRun(0, "392\n"),
+            }
+        ),
+    )
+    resolved, warning = collab_pipeline.resolve_worktree_base("main")
+    assert resolved == "main", "显式传入的 ref 不得被改写"
+    assert warning and "392" in warning and "origin/main" in warning, (
+        "落后的基线没有被喊出来"
+    )
+
+
+def test_a_base_up_to_date_with_origin_main_is_not_warned_about(monkeypatch):
+    monkeypatch.setattr(
+        collab_pipeline,
+        "run_cmd",
+        _fake_run_cmd_for({"git rev-list --count": _FakeRun(0, "0\n")}),
+    )
+    _resolved, warning = collab_pipeline.resolve_worktree_base("origin/main")
+    assert warning is None
+
+
+def test_a_missing_origin_main_falls_back_and_says_so(monkeypatch):
+    monkeypatch.setattr(
+        collab_pipeline,
+        "run_cmd",
+        _fake_run_cmd_for({"git rev-parse --verify origin/main": _FakeRun(1)}),
+    )
+    resolved, warning = collab_pipeline.resolve_worktree_base()
+    assert resolved == "main"
+    assert warning and "origin/main" in warning
+
+
+def test_start_builds_the_worktree_from_the_resolved_base_not_a_hardcoded_main(
+    tmp_path, monkeypatch
+):
+    """回归守卫：新工作区的创建命令必须带解析出的基线，不得回退成字面量 main。"""
+    commands: list = []
+
+    def _run(cmd, cwd=None, check=False):
+        commands.append(cmd)
+        if cmd.startswith("git rev-parse --verify fix/"):
+            return _FakeRun(1)  # 分支尚不存在 → 走 -b 新建路径
+        if cmd.startswith("git rev-parse --verify origin/main"):
+            return _FakeRun(0)
+        if cmd.startswith("git rev-list --count"):
+            return _FakeRun(0, "0\n")
+        if cmd.startswith("git rev-parse --short"):
+            return _FakeRun(0, "47ca4ba\n")
+        return _FakeRun(0)
+
+    monkeypatch.setattr(collab_pipeline, "run_cmd", _run)
+    monkeypatch.setattr(collab_pipeline, "WORKTREE_BASE", tmp_path)
+    monkeypatch.setattr(collab_pipeline, "get_worktree_dir", lambda b: tmp_path / "wt")
+    monkeypatch.setattr(collab_pipeline, "_provision_workspace", lambda *a, **k: None)
+
+    collab_pipeline.start_pipeline("fix/probe")
+
+    adds = [c for c in commands if c.startswith("git worktree add -b")]
+    assert adds, "根本没有发出创建工作区的命令"
+    assert '"origin/main"' in adds[0], f"工作区基线不是 origin/main：{adds[0]}"
+    assert not adds[0].rstrip().endswith('"main"'), f"基线又退回硬编码 main：{adds[0]}"
+
 def _fake_gate_run_union(actual_digest: str):
     def _run(profile_ids, cwd=None, log_dir=None, **kwargs):  # noqa: ANN001, ANN003
         ids = list(profile_ids) if isinstance(profile_ids, list) else [profile_ids]

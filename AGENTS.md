@@ -216,6 +216,11 @@ repo/
    ```
    *背后深度内聚：秒级创建隔离目录、**每工作区独立** `engine/.venv`（`uv sync --locked --extra dev`，共享 uv 缓存）、
    资源命名空间租约（TMPDIR / SPM scratch / 测试库 / socket / 端口段）。*
+   - **工作区基线默认是 `origin/main`，不是本地 `main`**：本仓库 main 受保护且只走 squash 合入，
+     本地 main 会持续落后（实测落后 392 个提交，另有 39 个本地提交不在 origin/main 上），
+     在它上面建工作区会让 Agent 基于上游根本不存在的代码开发——本地门禁全绿，PR 打开才大面积冲突。
+     需要别的基线时用 `--base <ref>`；显式传入的 ref 若落后 `origin/main`，命令会打印告警并给出落后提交数，
+     此时应先 `git fetch` 再重开工作区（已建的工作区不会自动换基线）。
 3. **本地验证与凭单 (Verify & Receipt)**：
    ```bash
    # 0. 先提交实质改动：未提交的内容不会进入 changes_digest
