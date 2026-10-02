@@ -158,7 +158,16 @@ def test_a_clue_without_a_public_label_is_omitted_rather_than_disclosed_by_id():
     assert "医生的停顿" in text
 
 
-def test_no_canonical_identifier_reaches_the_narrator():
+def test_no_clue_identifier_reaches_the_narrator():
+    """线索的 canonical id 绝不进入叙述者载荷。
+
+    覆盖范围**只有线索**。本模块的 docstring 把「canonical identifier 必须不
+    到达叙述者」写成了通则，但实现只对线索 fail-closed；场景转换走的是另一条
+    路，见下面那条把当前行为钉住的用例。那个差距是
+    `verified_gaps.NARRATOR-SCENE-ID-DISCLOSURE` 记录的待裁决缺口，不是已被
+    认可的正确行为——所以这里的名字必须如实写范围，否则下一个接手者会以为
+    场景也已经被守住了。
+    """
     canonical = ["clue_a", "clue_b", "clue_c"]
     text = disclosed_turn_facts(
         delta=_delta(clue_ids_add=canonical),
@@ -167,6 +176,26 @@ def test_no_canonical_identifier_reaches_the_narrator():
 
     for clue_id in canonical:
         assert clue_id not in text
+
+
+def test_the_scene_transition_reaches_the_narrator_as_a_canonical_id():
+    """钉住当前行为，而它是**已知待裁决缺口**，不是被认可的正确做法。
+
+    同一个投影对线索 fail-closed（没有公开标签就省略），场景却无条件输出
+    canonical id；而 `engine/ai/` 没有第二条 scene 通道，这一行是叙述者获知
+    场景的唯一途径。改成公开标签需要一张按 `scene_id` 索引的公开标签表——
+    今天不存在：全仓唯一的场景名是 `story_initialization.SCENE_DISPLAY_NAME`
+    这个按场景硬编码的模块常量（Story Book 地点一半缺的也是这张表）。
+
+    因此本用例的作用是「别悄悄改掉、也别假装它没问题」：修掉它需要先有人
+    给那张表，见 `verified_gaps.NARRATOR-SCENE-ID-DISCLOSURE`。
+    """
+    text = disclosed_turn_facts(
+        delta=_delta(scene_id="scene-at-turn-one"),
+        bootstrap=_bootstrap({}),
+    )
+
+    assert "场景转为：scene-at-turn-one" in text
 
 
 def test_scene_and_world_time_are_disclosed_when_the_delta_moves_them():

@@ -2703,6 +2703,76 @@ def test_a_base_up_to_date_with_origin_main_is_not_warned_about(monkeypatch):
     assert warning is None
 
 
+# ---- 叙述者场景披露：缺口必须与它所描述的代码同生共死 ---------------------------
+#
+# 这条缺口的特点是「代码里没有一行是错的」：disclosed_turn_facts 对线索严格
+# fail-closed，对场景无条件输出 canonical id，而它的 docstring 把两者写成同一
+# 条通则。缺口靠文档活着，所以守卫必须把文档钉在代码上——代码一改，事实源就得
+# 跟着改，否则下一位接手者会拿着一份已经不成立的「已知缺口」继续推断。
+def _engine_file(relative: str) -> str:
+    return (project_status.ROOT_DIR / "engine" / relative).read_text(encoding="utf-8")
+
+
+def test_the_narrator_scene_gap_is_pinned_to_the_line_that_still_leaks():
+    """场景 id 仍被拼进披露文本；一旦这条消失，事实源必须回写而不是继续挂着。"""
+    source = _engine_file("application/story_disclosure.py")
+    assert 'f"场景转为：{story_delta.scene_id}"' in source, (
+        "story_disclosure 已不再把 canonical scene_id 拼进披露文本："
+        "verified_gaps.NARRATOR-SCENE-ID-DISCLOSURE 记录的那条链路已经断了，"
+        "请核实是被修好了还是被搬走了，并回写事实源"
+    )
+    # docstring 的通则措辞也必须还在——它是这条缺口「本应如何」的判据。
+    assert "must never\nreach the narrator" in source or (
+        "canonical identifier must never" in source
+    ), "disclosed_turn_facts 的 docstring 不再声称 canonical id 不得到达叙述者：判据变了，需重核"
+
+    gaps = _verified_gaps()
+    ids = [g["id"] for g in gaps]
+    assert "NARRATOR-SCENE-ID-DISCLOSURE" in ids, (
+        f"NARRATOR-SCENE-ID-DISCLOSURE 从事实源消失了，但代码仍在泄漏：{ids}"
+    )
+
+
+def test_no_test_claims_a_blanket_narrator_guarantee_it_does_not_check():
+    """「canonical id 不到叙述者」这条通则曾由一个只查线索的用例声称。
+
+    那种过度声称比没有守卫更危险：接手者按名字推断覆盖面，就会在场景这条路
+    上放心地继续走。因此名字必须与实际检查范围一致。
+    """
+    source = _engine_file("tests/test_story_disclosure.py")
+    assert "def test_no_canonical_identifier_reaches_the_narrator" not in source, (
+        "又出现了一个声称通则、实则只查线索的用例名：请按它真正检查的范围命名"
+    )
+    assert "def test_no_clue_identifier_reaches_the_narrator" in source, (
+        "线索那条 fail-closed 的守卫被删了：它是不泄露 canonical clue id 的唯一依据"
+    )
+    assert "def test_the_scene_transition_reaches_the_narrator_as_a_canonical_id" in source, (
+        "场景这条的当前行为没有被钉住：下一个人会不知道它是有意还是顺手写的"
+    )
+
+
+def test_the_two_scene_label_gaps_name_the_same_missing_artifact():
+    """地点一半与叙述者披露缺的是同一张表——合成一个裁决，别当两件事排期。"""
+    gaps = {g["id"]: g for g in _verified_gaps()}
+    place = gaps.get("PRD20-PROTAGONIST-PLACE")
+    narrator = gaps.get("NARRATOR-SCENE-ID-DISCLOSURE")
+    assert place and narrator, "两个缺口条目必须都在"
+
+    assert "NARRATOR-SCENE-ID-DISCLOSURE" in place["readiness"], (
+        "地点一半的可推进性没有指向叙述者那条：同一个缺失制品会被排成两件事"
+    )
+    assert "PRD20-PROTAGONIST-PLACE" in narrator["readiness"], (
+        "叙述者那条的可推进性没有指向地点一半"
+    )
+    for evidence in (
+        "scene_view",
+        "SCENE_DISPLAY_NAME",
+    ):
+        assert evidence in json.dumps(narrator["evidence"], ensure_ascii=False), (
+            f"叙述者缺口的证据里没有 {evidence}：共享制品的论证缺了支点"
+        )
+
+
 def test_a_missing_origin_main_falls_back_and_says_so(monkeypatch):
     monkeypatch.setattr(
         collab_pipeline,
