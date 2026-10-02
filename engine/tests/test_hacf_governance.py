@@ -2110,29 +2110,44 @@ def test_the_dispatch_card_never_contradicts_the_verified_findings():
         unknown = sorted(set(gated_by) - pending_ids - unwired_ids)
         assert not unknown, f"{holder}.dispatch 的 gated_by 指向不存在的事项：{unknown}"
 
-        # 宣布撤回的那一句必须能引述它撤回的原话，否则无法说明自己撤回了什么；
-        # 但描述现状的句子若仍在断言那个结论，就是把误判留在了事实源里。
-        # 判据因此落在句级：带更正/撤回标记的句子豁免，其余句子一律不许出现。
-        RETRACTING = ("更正", "撤回", "上一版", "误判", "已被推翻", "自相矛盾")
-        sentences = re.split(r"(?<=[。；])", dispatch["rationale"])
-        asserted = "".join(
-            sentence
-            for sentence in sentences
-            if not any(mark in sentence for mark in RETRACTING)
-        )
-        blob = json.dumps(
-            {
-                "task_title": dispatch["task_title"],
-                "preconditions": dispatch["preconditions"],
-                "rationale_asserting_sentences": asserted,
-            },
-            ensure_ascii=False,
-        )
-        for phrase in ("不需要架构裁决", "唯一需人裁的是发布时机", "可直接推进的接线工作"):
-            assert phrase not in blob, (
-                f"{holder}.dispatch 仍断言「{phrase}」：它已被 verified_unwired 的结论推翻。"
-                "照这张卡派工会把待裁决项当成可直接推进的任务——这正是 SB-22 的失败形态。"
-            )
+        _assert_no_retracted_claim_is_asserted(holder, dispatch)
+
+
+# 宣布撤回时必须能引述它撤回的原话，否则无法说明自己撤回了什么；但引述与断言的区别
+# 不在「句子里有没有撤回标记」——一句可以先说「撤回了 X」再在句末断言 X 仍然成立，
+# SB-29 实测到的残留正是这种。区别在于：撤回标记必须紧跟在被撤回的说法之后。
+RETRACTED_CLAIMS = ("不需要架构裁决", "唯一需人裁的是发布时机", "可直接推进的接线工作")
+RETRACTION_MARKS = ("撤回", "被推翻", "曾被称作", "该判断", "已不成立", "更正为")
+
+
+def _assert_no_retracted_claim_is_asserted(holder, dispatch) -> None:
+    fields = {
+        "task_title": dispatch["task_title"],
+        "preconditions": dispatch["preconditions"],
+        "rationale": dispatch["rationale"],
+    }
+    _scan(fields, holder + ".dispatch")
+
+    # decision 段是更正叙事本身：SB-29 的残留就藏在那里的更正句尾，
+    # 只扫派发卡会漏掉它。
+    _scan(
+        {"decision": _dispatch_cards()[0]["execution_focus"]["decision"]},
+        "execution_focus.decision",
+    )
+
+
+def _scan(fields, where) -> None:
+    for field, text in fields.items():
+        for sentence in re.split(r"(?<=[。；])", text):
+            for claim in RETRACTED_CLAIMS:
+                if claim not in sentence:
+                    continue
+                tail = sentence.split(claim, 1)[1]
+                assert any(mark in tail for mark in RETRACTION_MARKS), (
+                    f"{where} 的 {field} 断言了已被推翻的「{claim}」："
+                    "该说法已被 verified_unwired 的结论撤回，句内也没有紧跟其后的撤回标记。"
+                    "照这张卡派工会把待裁决项当成可直接推进的任务——这正是 SB-22 的失败形态。"
+                )
 
 
 def test_the_two_dispatch_cards_cannot_drift_apart():

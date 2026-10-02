@@ -1,0 +1,129 @@
+{
+  "receipt_id": "RCP-WORK-SB-29-c05a1650ab06",
+  "receipt_type": "work",
+  "task_id": "SB-29",
+  "capsule_id": "CAP-SB-29",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:b7203c7ef37ed245e20a82dd647f944fd6ad85e49e2b71618dcd0676632463b2",
+  "diff_digest": "sha256:24cb7bf9cbe3f86e42f7490fe400780b0c751e77382602f2a9711f47223d2e7c",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "f61e2a8aff3652c4448c27b10654f689d2d526db",
+  "head_commit": "c05a1650ab06639ca568039ff09c3d40f374cee8",
+  "target_ref": "origin/main",
+  "target_sha": "f61e2a8aff3652c4448c27b10654f689d2d526db",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T18:55:23.880769+00:00",
+      "finished_at": "2026-10-02T18:55:23.919541+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T18:55:23.919624+00:00",
+      "finished_at": "2026-10-02T18:57:27.601437+00:00",
+      "raw_log_digest": "sha256:655dc2b564374049326202febbc1d43979981f57b3a1f75b76b7d7de6fdc5b8e",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T18:57:27.601523+00:00",
+      "finished_at": "2026-10-02T18:57:50.785183+00:00",
+      "raw_log_digest": "sha256:9c3f7ab6d0cd93bd20f28ef69c699a9c11dd4db4ea50196b7b1e21e3834c320f",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T18:57:50.785397+00:00",
+      "finished_at": "2026-10-02T18:57:52.652169+00:00",
+      "raw_log_digest": "sha256:f2fd8b1fca4f6956e953374f94b671571dc38b5b9e8bf1262fed0693f55bdb71",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/docs-retracted-claim-assertion"
+  },
+  "started_at": "2026-10-02T18:55:23.844455+00:00",
+  "finished_at": "2026-10-02T18:57:52.714051+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
