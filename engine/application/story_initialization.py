@@ -50,6 +50,20 @@ GOLDEN_CHARACTER_DISPLAY_NAMES = {
     "npc_doctor_morris": "莫里斯医生",
     "npc_jonathan_vale": "乔纳森·维尔",
 }
+#: Public labels for the Golden scenario's knowledge propositions.
+#:
+#: The same allowlist, with the same consequence. A ``proposition_id`` such as
+#: ``fact.patient_disappeared`` is a canonical identifier, and the Story Book's
+#: 已发现秘密 section has no way to render it: emitting the id would tell the
+#: reader a fact's internal name instead of the fact. A proposition absent from
+#: this table is omitted from the book entirely, exactly as an unlabelled
+#: character is omitted from the castable roster.
+GOLDEN_PROPOSITION_DISPLAY_NAMES = {
+    "fact.patient_disappeared": "病人失踪了",
+    "fact.morris_claims_voluntary_departure": "莫里斯医生声称病人是自行离开的",
+    "fact.patient_nightmares": "病人反复做噩梦",
+    "fact.family_suspects_morris": "病人家属怀疑莫里斯医生",
+}
 SCENARIO_TITLE = "不存在的预约"
 DOCTOR_ACTOR_ID = "npc_doctor_morris"
 _MAX_TEXT = 256
@@ -80,6 +94,12 @@ class ScenarioPresentation(BaseModel):
     #: producing no castable characters, which is exactly what it produced
     #: before.
     character_display_names: dict[str, str] = {}
+    #: Public labels for knowledge propositions, keyed by canonical id.
+    #:
+    #: A third instance of the rule ``clue_display_names`` established: an
+    #: absent entry means there is nothing to disclose, and the canonical id
+    #: must never stand in for the missing label.
+    proposition_display_names: dict[str, str] = {}
 
 
 class StorySessionBootstrap(BaseModel):
@@ -389,6 +409,11 @@ def _validate_presentation(presentation: ScenarioPresentation) -> None:
         # build has not reviewed.
         or presentation.character_display_names
         not in ({}, GOLDEN_CHARACTER_DISPLAY_NAMES)
+        # Same rule for propositions: the empty table publishes no 已发现秘密
+        # section, which is what a bundle written before this table existed
+        # did — it had no way to name a fact at all.
+        or presentation.proposition_display_names
+        not in ({}, GOLDEN_PROPOSITION_DISPLAY_NAMES)
     ):
         raise StoryInitializationError("unsupported_presentation")
 
