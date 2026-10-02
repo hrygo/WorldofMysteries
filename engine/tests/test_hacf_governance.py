@@ -2377,3 +2377,47 @@ def test_the_story_book_still_shows_no_protagonist_or_place():
             "app_never_renders_them 证据已过期——请确认它渲染的是公开标签而非 canonical id，"
             "然后回写事实源（若直接渲染裸 id，同时构成零知识泄漏）"
         )
+
+
+# SB-32 把「主角」与「地点」一并写成需人类给口径，SB-33 查明那是过度保守：
+# 主角的公开标签白名单早已存在（character_display_names，注释明写是第三条同构实例），
+# 地点的来源也早已存在（scene_display_name，只是单数且从未被 Story Book 消费）。
+# 这条守卫防止它被退回「缺来源」的旧说法——那会把一个可实施项误报成待裁决项。
+def test_the_protagonist_label_source_is_recorded_as_existing():
+    """主角一半的标签来源已存在：不得把它重新写成「需要人类给口径」。"""
+    gaps = _verified_gaps()
+    item = next(g for g in gaps if g["id"] == "PRD20-PROTAGONIST-PLACE")
+    for key in (
+        "protagonist_label_source_already_exists",
+        "scene_label_source_exists_but_is_singular",
+        "scene_id_is_null_throughout_the_only_scenario",
+    ):
+        assert item["evidence"].get(key), (
+            f"证据 {key} 已被删除：PRD20-PROTAGONIST-PLACE 又要退回"
+            "「缺公开标签来源、需人类给口径」的旧说法——而它在 SB-33 已被证伪"
+        )
+
+    presentation = (
+        project_status.ROOT_DIR / "engine/application/story_initialization.py"
+    ).read_text(encoding="utf-8")
+    assert "character_display_names: dict[str, str] = {}" in presentation, (
+        "character_display_names 不再是按 canonical id 索引的白名单："
+        "主角一半的「来源已存在」前提消失，需重核后回写事实源"
+    )
+    assert "scene_display_name: str" in presentation, (
+        "scene_display_name 不再是场景级单名字符串："
+        "地点一半的「来源已存在但是单数」描述已过期，需回写事实源"
+    )
+
+
+def test_the_gap_entry_says_which_half_is_ready_and_which_is_not():
+    """缺口条目必须说清哪一半现在可做、哪一半在等口径——否则接手者只能整体搁置。"""
+    item = next(
+        g for g in _verified_gaps() if g["id"] == "PRD20-PROTAGONIST-PLACE"
+    )
+    assert item.get("readiness"), "缺口条目没有写可推进性"
+    readiness = item["readiness"]
+    assert "主角" in readiness and "现在即可实现" in readiness, (
+        "可推进性没有指出主角一半无需裁决：它会让一个可实施项被整体搁置"
+    )
+    assert "地点" in readiness, "可推进性没有交代地点一半的处置"

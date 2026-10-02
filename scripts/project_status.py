@@ -199,6 +199,8 @@ def cmd_status(state: dict, as_json: bool = False):
             print(f"\n   🕳 {item['id']}")
             print(f"      结论: {item['claim']}")
             print(f"      为什么是缺口: {item['why_it_is_a_gap']}")
+            if item.get("readiness"):
+                print(f"      可推进性: {item['readiness']}")
             print(f"      需参与角色: {'、'.join(item['roles_required'])}")
             print(f"      边界: {item['not_decided_here']}")
 
