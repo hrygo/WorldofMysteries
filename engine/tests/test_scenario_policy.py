@@ -29,6 +29,7 @@ from application.scenario_policy import (
     TurnPolicyDecision,
 )
 from application.story_initialization import (
+    GOLDEN_CHARACTER_DISPLAY_NAMES,
     GOLDEN_CLUE_DISPLAY_NAMES,
     GOLDEN_PROPOSITION_DISPLAY_NAMES,
     GOLDEN_POLICY_VERSION,
@@ -165,6 +166,12 @@ SUPERSEDED_PROPOSITION_TABLE_DIGEST = (
 #: says X and nothing accepts X"; SB-11 is the other half of that promise.
 PROPOSITION_TABLE_DIGEST = "69ddb609d723db6af089b713a2b35b70d111cadbb4ffb4f1883a0f0f0eb98f8b"
 
+#: The digest the builder produces once it also emits the character
+#: display-name roster on top of the proposition table (SB-19 registering,
+#: SB-20 emitting). Registered ahead of the emitter for the same reason, and
+#: derived rather than guessed for the same reason.
+CHARACTER_ROSTER_DIGEST = "b4657c86aa38b0ce18553b25ee1ed0b2284721b430e66eae3bb35f6330eec280"
+
 
 def test_golden_policy_accepts_the_proposition_table_content() -> None:
     """A bundle carrying the proposition table must be restorable, not orphaned."""
@@ -174,6 +181,45 @@ def test_golden_policy_accepts_the_proposition_table_content() -> None:
 
     assert identity.rules_revision == GOLDEN_POLICY_VERSION
     assert identity.content_digest == PROPOSITION_TABLE_DIGEST
+
+
+def test_golden_policy_accepts_the_character_roster_content() -> None:
+    """A bundle carrying the character roster must be restorable, not orphaned."""
+    policy = GoldenScenarioPolicy(object())
+
+    identity = policy.identity(_golden_bootstrap(content_digest=CHARACTER_ROSTER_DIGEST))
+
+    assert identity.rules_revision == GOLDEN_POLICY_VERSION
+    assert identity.content_digest == CHARACTER_ROSTER_DIGEST
+
+
+def test_the_registered_character_roster_digest_is_derived_not_guessed() -> None:
+    """Same argument as the proposition table, one step further.
+
+    The character ids hash into the digest exactly as the proposition ids do, so
+    no arithmetic over 69ddb609 would produce this value. It has to come from
+    running the builder with the roster line added — otherwise the registry
+    acquires an entry that looks like a promise and is not one, and the only
+    way to find out is a shipped bundle nothing accepts.
+    """
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import build_story_content as builder
+    finally:
+        sys.path.pop(0)
+
+    payload = builder.build_payload()
+    payload["presentation"]["proposition_display_names"] = dict(
+        GOLDEN_PROPOSITION_DISPLAY_NAMES
+    )
+    payload["presentation"]["character_display_names"] = dict(
+        GOLDEN_CHARACTER_DISPLAY_NAMES
+    )
+
+    assert builder.canonical_digest(payload) == CHARACTER_ROSTER_DIGEST
 
 
 def test_the_registered_proposition_digest_is_derived_not_guessed() -> None:

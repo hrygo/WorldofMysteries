@@ -65,6 +65,22 @@ _GOLDEN_RULES_BY_CONTENT_DIGEST = {
         GOLDEN_POLICY_VERSION,
     "69ddb609d723db6af089b713a2b35b70d111cadbb4ffb4f1883a0f0f0eb98f8b":
         GOLDEN_POLICY_VERSION,
+    # The same promise for the character display-name roster: what the builder
+    # produces once ``character_display_names`` is emitted alongside the
+    # proposition table (SB-20). Measured the same way, by running the builder
+    # with that one line added -- not derived, because the canonical ids hash
+    # into the digest.
+    #
+    # A prior author deliberately declined to ship that roster, on the grounds
+    # that it would push the supporting cast into voice casting and speaker
+    # binding. The concern is real, but the casting gate does not rest on this
+    # table: ``resolve_voice_runtime`` refuses with ``voice_binding_not_reviewed``
+    # unless a reviewed binding already exists, so a newly nameable character
+    # can only become a foundry candidate awaiting the player's review.
+    # ADR-006's "the player casts no voice" survives the roster, and PRD §20's
+    # 关键人物 / 重要关系变化 sections stop being permanently empty.
+    "b4657c86aa38b0ce18553b25ee1ed0b2284721b430e66eae3bb35f6330eec280":
+        GOLDEN_POLICY_VERSION,
 }
 
 
