@@ -2184,3 +2184,69 @@ def test_the_take_layer_still_has_no_production_writer():
         f"publish_pcm 的调用方变了：{callers}；take 写侧不再只有 coordinator 一条链，"
         "PERSISTENT-AUDIO-SUBSYSTEM 的第一问已有答案，PROJECT_STATE 的派发卡需重写"
     )
+
+
+# ADR-009 §1.2 钉住的天花板——「每个已提交回合最多一段拿到音频」——此前从未被任何
+# 测试或文档记录过，只存在于 ADR-009 的叙述里。三处叠加中的任一处被改动，都可能
+# 悄悄把这个结论变假，所以逐条钉死。
+def test_one_committed_turn_gets_at_most_one_audio_recipe():
+    """每回合只 plan 一个 AUDIO_PREPARE、recipe 恒定、UNIQUE 封死第二行、handler 只取 candidates[0]。"""
+    root = project_status.ROOT_DIR
+
+    work = (root / "engine/application/post_commit_work.py").read_text(encoding="utf-8")
+    appends = work.count("kind=PostCommitKind.AUDIO_PREPARE,")
+    assert appends == 1, (
+        f"required_jobs_for_turn 现在 append {appends} 个 AUDIO_PREPARE："
+        "ADR-009 §1.2 的「每回合最多一段」结论已过期，需重核后回写 ADR"
+    )
+
+    migration = (
+        root / "engine/infrastructure/migrations/013_world_post_commit_jobs.sql"
+    ).read_text(encoding="utf-8")
+    assert "UNIQUE(turn_id, kind, recipe_revision)" in migration, (
+        "post_commit_jobs 的 UNIQUE(turn_id, kind, recipe_revision) 已移除："
+        "ADR-009 §1.2 赖以封死第二个 audio_prepare 的约束不存在了，需回写 ADR"
+    )
+
+    handlers = (
+        root / "engine/infrastructure/scenarios/post_commit_handlers.py"
+    ).read_text(encoding="utf-8")
+    assert "candidates[0] if candidates else (None, None)" in handlers, (
+        "audio_prepare handler 不再只取第一个 character 段："
+        "ADR-009 §1.2 与子问题 2 的现状描述已过期，需重核"
+    )
+
+
+def test_the_sealing_path_never_materializes_audio_bytes():
+    """封存路径只 seal 配方。当前它连实时 TTS 桥都不碰——这是 ADR-009 §1.1 的可执行形式。"""
+    root = project_status.ROOT_DIR
+    handlers = (
+        root / "engine/infrastructure/scenarios/post_commit_handlers.py"
+    ).read_text(encoding="utf-8")
+    for forbidden in ("render_realtime_tts_to_media", "media_bridge", "realtime_tts", "publish_pcm"):
+        assert forbidden not in handlers, (
+            f"post_commit 封存路径开始引用 {forbidden}：ADR-009 §1.1「封存的是配方不是音频」"
+            "与子问题 1 的四个物化点选项已过期——这正是「同点渲染」被选中的信号，需回写 ADR"
+        )
+
+
+def test_adr_009_is_a_proposal_and_the_fact_source_points_at_it():
+    """ADR-009 是提案不是裁决；事实源必须指向它，否则待裁决项又退回成一句 remaining_decision。"""
+    root = project_status.ROOT_DIR
+    adr = root / "docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md"
+    assert adr.exists(), "ADR-009 不存在：PERSISTENT-AUDIO-SUBSYSTEM 又变回无处可裁的 remaining_decision"
+    text = adr.read_text(encoding="utf-8")
+    assert "## 8. 决策状态" in text, "ADR-009 缺少 §8 决策状态"
+    assert "**待裁决**" in text, "ADR-009 的状态已被改动：核实与提案不等于裁决"
+    for heading in ("### 1.1", "### 1.2", "### 1.3", "### 1.4"):
+        assert heading in text, f"ADR-009 缺少 {heading} 证据小节：§8 的选项依赖它们"
+
+    card = json.loads((root / "docs/PROJECT_STATE.json").read_text(encoding="utf-8"))
+    unwired = next(
+        item for item in card["verified_unwired"] if item["id"] == "PERSISTENT-AUDIO-SUBSYSTEM"
+    )
+    for key in ("one_segment_per_turn", "sealed_recipe_not_audio", "post_commit_failure_surface_exists"):
+        assert unwired["evidence"].get(key), f"PERSISTENT-AUDIO-SUBSYSTEM 缺证据条目 {key}"
+    assert "ADR-009" in unwired["remaining_decision"], (
+        "remaining_decision 不再指向 ADR-009：待裁问题又退回成散落的叙述"
+    )
