@@ -11,6 +11,10 @@ import ast
 from types import SimpleNamespace
 from pathlib import Path
 
+from application.story_initialization import (
+    GOLDEN_CHARACTER_DISPLAY_NAMES,
+    GOLDEN_CLUE_DISPLAY_NAMES,
+)
 from application.story_disclosure import (
     disclosed_castable_roster,
     disclosed_turn_facts,
@@ -195,7 +199,7 @@ NAMES = {
     # exclusion entirely would leave it green.
     "char_evelyn_gray": "爱伦·格雷",
     "npc_doctor_morris": "莫里斯医生",
-    "npc_jonathan_vale": "Jonathan",
+    "npc_jonathan_vale": "乔纳森·维尔",
 }
 
 
@@ -220,6 +224,35 @@ def test_the_protagonist_stays_otherwise_eligible_for_the_cast():
     assert PROTAGONIST in NAMES, (
         "主角需要保留公开名，否则 D5 排除测试会退化为假阳性"
     )
+
+
+def test_no_public_name_is_written_in_a_latin_script():
+    """ADR-006 5.1 4: every public name is Tingen-style Chinese.
+
+    These two tables are the only place a character's or a clue's public name
+    is defined, and the public name is what the model is told to attribute a
+    line to and what a voice is bound to. A name written in a Latin script
+    therefore does not merely look wrong on screen: it asks the model to
+    attribute lines to a spelling the world has no word for, and it makes the
+    name unusable as a TTS speaker label.
+
+    The emptiness precondition matters. Without it this test would pass
+    trivially on a bundle whose tables had been emptied, which is exactly the
+    state in which nothing is cast and no one notices the rule stopped being
+    enforced.
+    """
+    assert GOLDEN_CHARACTER_DISPLAY_NAMES, "角色公开名表不应为空"
+    assert GOLDEN_CLUE_DISPLAY_NAMES, "线索公开名表不应为空"
+
+    offenders = {
+        name: label
+        for name, label in {
+            **GOLDEN_CHARACTER_DISPLAY_NAMES,
+            **GOLDEN_CLUE_DISPLAY_NAMES,
+        }.items()
+        if any(ch.isascii() and ch.isalpha() for ch in label)
+    }
+    assert not offenders, f"公开名不得使用拉丁字母: {offenders}"
 
 
 def test_an_undeclared_roster_stays_undeclared():
@@ -253,7 +286,7 @@ def test_a_character_with_no_public_label_is_omitted_rather_than_disclosed_by_id
 
 def test_scene_order_is_preserved():
     assert _roster(["npc_jonathan_vale", "npc_doctor_morris"]) == (
-        ("npc_jonathan_vale", "Jonathan"),
+        ("npc_jonathan_vale", "乔纳森·维尔"),
         ("npc_doctor_morris", "莫里斯医生"),
     )
 

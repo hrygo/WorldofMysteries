@@ -38,17 +38,17 @@ GOLDEN_CLUE_DISPLAY_NAMES = {
     "clue_appointment_book": "异常的预约记录",
     "clue_removed_page": "被撕去的预约页",
     "clue_basement_powder": "门框黑粉",
-    "clue_jonathan_note": "Jonathan 的纸片",
+    "clue_jonathan_note": "乔纳森的纸片",
 }
 #: Public labels for the Golden scenario's castable roster.
 #:
 #: Values are the scenario's product content, not derived from the ids. They
 #: are the same vocabulary ``GOLDEN_CLUE_DISPLAY_NAMES`` already established:
 #: the clinic is ``loc_morris_clinic`` and its clue reads 「医生的停顿」, and the
-#: other actor is named outright in 「Jonathan 的纸片」.
+#: other actor is named outright in 「乔纳森的纸片」.
 GOLDEN_CHARACTER_DISPLAY_NAMES = {
     "npc_doctor_morris": "莫里斯医生",
-    "npc_jonathan_vale": "Jonathan",
+    "npc_jonathan_vale": "乔纳森·维尔",
 }
 SCENARIO_TITLE = "不存在的预约"
 DOCTOR_ACTOR_ID = "npc_doctor_morris"

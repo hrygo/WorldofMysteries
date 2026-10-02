@@ -44,7 +44,10 @@ from contracts import (
     StoryState,
 )
 from contracts.models import StoryCommitments, StoryScene
-from infrastructure.scenarios.golden_policy import GoldenScenarioPolicy
+from infrastructure.scenarios.golden_policy import (
+    _GOLDEN_RULES_BY_CONTENT_DIGEST,
+    GoldenScenarioPolicy,
+)
 
 FIXTURE = (
     Path(__file__).parent
@@ -153,6 +156,45 @@ def test_golden_policy_rejects_unknown_content_or_rules_identity(identity) -> No
 
     with pytest.raises(ScenarioPolicyError, match="unknown_scenario_identity"):
         policy.identity(identity)
+
+
+def test_the_registry_tracks_the_shipped_bundle_and_keeps_its_predecessor() -> None:
+    """The registry is a list of live content digests, not a single current value.
+
+    Two things have to hold at once, and this test is the only place both are
+    asserted:
+
+    1. The digest the shipped bundle actually produces is registered. Renaming
+       a public name (VF-111) moves that digest, and the policy gate refuses
+       an unregistered one — so a rename that skipped registration would leave
+       the product unable to open a fresh session, while a registry that kept
+       only its predecessor would keep every assertion here green.
+    2. The predecessor stays registered. A session bootstrapped under the old
+       digest carries that content in its own bootstrap, so deleting the older
+       entry makes it un-restorable over a change that says nothing about the
+       rules governing it. Removing it reads as housekeeping and is data loss.
+    """
+    import sys
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import build_story_content as builder
+    finally:
+        sys.path.pop(0)
+
+    shipped = builder.build_payload()["content_digest"]
+
+    assert shipped in _GOLDEN_RULES_BY_CONTENT_DIGEST, (
+        "出货固件的内容摘要未注册：新开局将因 unknown_scenario_identity 而失败"
+    )
+    assert len(_GOLDEN_RULES_BY_CONTENT_DIGEST) >= 2, (
+        "改名会移动内容摘要；只保留当前一个会让旧 bootstrap 的会话无法恢复"
+    )
+    for digest in _GOLDEN_RULES_BY_CONTENT_DIGEST:
+        policy = GoldenScenarioPolicy(object())
+        identity = policy.identity(_golden_bootstrap(content_digest=digest))
+        assert identity.rules_revision == GOLDEN_POLICY_VERSION
 
 
 def test_golden_policy_uses_its_turn_decision_for_finalization_recipe() -> None:

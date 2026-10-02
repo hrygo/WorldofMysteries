@@ -23,11 +23,20 @@ from application.story_initialization import (
 from application.story_turn_commit import DomainValidationContext
 from contracts import StorySession, StorySessionStatus
 
-# This is the canonical digest produced from the shipped Golden 001 scenario
-# bundle. Restored sessions are accepted only for a digest whose rules revision
-# remains explicitly registered here.
+# Digests produced from the shipped Golden 001 scenario bundle. Restored
+# sessions are accepted only for a digest whose rules revision remains
+# explicitly registered here, so changing product content — a public name, a
+# clue label — is a registered act rather than a silent one.
+#
+# Two entries, because the bundle's content digest covers the presentation
+# tables and therefore moves whenever a public name does (VF-111). Both are
+# kept: a session bootstrapped under the previous digest carries that content
+# in its own bootstrap, and dropping its registration would make it
+# un-restorable over a rename that says nothing about the rules.
 _GOLDEN_RULES_BY_CONTENT_DIGEST = {
     "610ecbdb2875b86ac5ed52b100d5def3481408d5f4e16030cec2ed09da288d07":
+        GOLDEN_POLICY_VERSION,
+    "0164030c3004df83a087c7278e50c1d4d17752981fa86020df7b8d5d41d1a3ab":
         GOLDEN_POLICY_VERSION,
 }
 

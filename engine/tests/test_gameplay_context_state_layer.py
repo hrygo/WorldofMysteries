@@ -402,7 +402,7 @@ async def test_advice_interpreter_reaches_the_model_with_its_own_state_projectio
 NAMES = {
     "char.state-test": "Player",
     "npc_doctor_morris": "莫里斯医生",
-    "npc_jonathan_vale": "Jonathan",
+    "npc_jonathan_vale": "乔纳森·维尔",
 }
 
 
@@ -435,7 +435,7 @@ async def test_the_castable_roster_reaches_the_narrative_compiler_as_public_labe
     roster = [item for item in state if item.kind == "scene_roster"]
     assert len(roster) == 1
     content = json.loads(roster[0].content_json)
-    assert content["castable"] == ["莫里斯医生", "Jonathan"]
+    assert content["castable"] == ["莫里斯医生", "乔纳森·维尔"]
     assert content["scene_id"] == "scene.current"
     for character_id in NAMES:
         assert character_id not in roster[0].content_json
