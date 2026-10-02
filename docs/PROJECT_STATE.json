@@ -368,9 +368,30 @@
         "AGT-AI",
         "AGT-MAC"
       ],
-      "scope_note": "主角一半已由 SB-34 完成（契约 protagonist_labels + 投影白名单解析 + 视图只渲染公开标签），无需后续动作。地点一半：在 scene_id 口径给出前不动；若裁定需要按 id 索引，则另加第四张白名单（AGT-ARB 契约 + AGT-AI）。",
-      "not_decided_here": "更正（SB-33）：上一版把「公开标签来源」整体列为待裁决，是过度保守。现只剩一个真问题——场景级单数名字该用于全部章节，还是需要第四张按 scene_id 索引的白名单。今天它不可观测（golden_001 的 scene_id 全为 null），但在场景开始切换 scene_id 之前必须给口径。「主角怎么在解析不出时呈现」不属此列：仓库已有成例（关系变化用「某人」、秘密持有人用「持有人不明」），沿用即可。",
-      "readiness": "主角一半已实现并合入（SB-34），无待裁决项；地点一半在场景级单数 vs 按 id 索引的口径给出前不动。"
+      "scope_note": "主角一半已由 SB-34 完成（契约 protagonist_labels + 投影白名单解析 + 视图只渲染公开标签），无需后续动作。地点一半：更正（SB-37）——缺的**不是**「第四张白名单」这个新概念，而是把已经存在的单场景标签升级成映射。协议里已有 scene_view {id, location_id, display_name}，生产侧已为当前场景填好（story_public_view.PublicSceneView）；缺的只是「scene_id → 公开标签」的那张表与其填充。表一旦存在，契约与投影的改动形态与主角一半同构（AGT-ARB 契约 + AGT-AI 投影 + AGT-MAC 视图）。",
+      "not_decided_here": "更正（SB-33）：上一版把「公开标签来源」整体列为待裁决，是过度保守。更正（SB-37）：再上一版把选择框定为「场景级单数名字 vs 另加第四张白名单」，也不准确——单场景标签已经存在且已在协议里，问题是它要不要升级成映射、映射由谁在何时填充。现只剩一个真问题：一张按 scene_id 索引的公开场景标签表要不要建、由谁在什么时点填。今天它不可观测（golden_001 的 scene_id 全为 null），但在场景开始切换 scene_id 之前必须给口径——因为同一个缺口已经以另一种形式咬人了，见 NARRATOR-SCENE-ID-DISCLOSURE。「主角怎么在解析不出时呈现」不属此列：仓库已有成例（关系变化用「某人」、秘密持有人用「持有人不明」），沿用即可。",
+      "readiness": "主角一半已实现并合入（SB-34），无待裁决项；地点一半与 NARRATOR-SCENE-ID-DISCLOSURE 缺的是同一张表（scene_id → 公开标签），一次裁决可同时解锁两处。"
+    },
+    {
+      "id": "NARRATOR-SCENE-ID-DISCLOSURE",
+      "claim": "场景转换以 canonical id 的形式进入叙述者模型载荷，而同一个投影对线索是 fail-closed 的。这是 SB-37 新发现的、此前从未记录的披露面。",
+      "why_it_is_a_gap": "story_disclosure.disclosed_turn_facts 的 docstring 把「canonical identifier 绝不能到达叙述者」写成通则，实现也确实对线索严格照办（没有公开标签就省略，绝不退化成输出 id）。但同一个函数在四行之后无条件把 story_delta.scene_id 拼进披露文本。这不是设计取舍被记录过，而是「按线索立规矩、顺手把场景接上」留下的口子：两处测试正向钉死了裸 id 字符串，因此它一直绿着，而那条名为 test_no_canonical_identifier_reaches_the_narrator 的守卫只检查 clue_a/b/c——名字声称的通则比它验证的范围宽得多。",
+      "evidence": {
+        "the_chain_is_unbroken": "story_delta.scene_id → disclosed_turn_facts（engine/application/story_disclosure.py:49 `parts.append(f\"场景转为：{story_delta.scene_id}\")`）→ CommittedNarrativeSource.disclosed_facts（story_runtime.py:1285 与 scenarios/post_commit_handlers.py:306 两处生产路径都调用共享投影）→ CommittedNarrativeSource（application/narrative_publication.py:162/409）→ engine/ai/live_turn_workers.py:741 把 committed.strip() 放进 `_gameplay_call(..., task={..., \"disclosed_facts\": ...})`，即 NARRATIVE_COMPILATION 的模型调用载荷。",
+        "this_is_the_only_scene_channel_to_the_model": "engine/ai/ 全目录检索 scene 只命中两处：一处是「场景不是议会」的行数注释，另一处是 speaker 公开称谓的提示词。叙述者获知场景的唯一途径就是 disclosed_facts 这一行。",
+        "the_sibling_path_is_fail_closed": "同一函数对线索走 character/clue 公开标签表，缺失即省略（added 列表用 `name := names.get(clue_id)` 过滤掉 None）。docstring 明确写道「emitting the id would turn a missing label into a disclosure」——场景这条恰恰就在做它警告的事。",
+        "the_guard_name_overclaimed_its_scope": "engine/tests/test_story_disclosure.py 里名为 test_no_canonical_identifier_reaches_the_narrator 的用例只传入 clue_a/b/c，从不构造 scene_id；SB-37 已把它改名为 test_no_clue_identifier_reaches_the_narrator 并在 docstring 里写明覆盖范围，同时新增 test_the_scene_transition_reaches_the_narrator_as_a_canonical_id 把当前行为连同「这是缺口」的说明一起钉住。",
+        "two_tests_pin_the_raw_id": "test_story_disclosure.py:178 断言 `场景转为：back_alley`，test_post_commit_runtime_handlers.py:234 断言 `场景转为：scene-at-turn-one`。后者的取值 unmistakable 是内部标识符而非公开称谓。",
+        "not_observable_today": "golden_001 从不设置 story_delta.scene_id（全目录检索零出现），而该分支只在 scene_id 非空时触发；因此今天没有任何一次真实回合会把 scene id 送进模型。这与 PRD20-PROTAGONIST-PLACE 的地点一半同源同因。",
+        "the_missing_artifact_is_the_same_one": "全仓唯一的场景名是 engine/application/story_initialization.py:35 的模块常量 SCENE_DISPLAY_NAME = \"哈维诊所 · 诊室\"（并由 :403 的 _validate_presentation 校验相等）——它是按场景硬编码的，不是按 scene_id 索引的表。协议侧 contracts/protocol/story_session_control.schema.json 的 scene_view {id, location_id, display_name} 已是所需的形状，且 public_story_session_view.scene 已为当前场景填好；缺的只是把它从单条升级成映射并填充。"
+      },
+      "roles_required": [
+        "AGT-ARB",
+        "AGT-AI"
+      ],
+      "scope_note": "修掉它需要一张按 scene_id 索引的公开场景标签表（与 PRD20-PROTAGONIST-PLACE 地点一半同一张）。表与填充口径确定后：投影/披露侧改为查表并沿用线索的 fail-closed（AGT-AI），契约与镜像同步（AGT-ARB），App 侧若一并呈现地点则另有 AGT-MAC 的活。",
+      "not_decided_here": "本条目只记录事实与缺口，不决定场景转换该不该以任何形式到达叙述者。可选项至少三种：换成公开标签（需要那张表）、保留 id 但改称它为「已授权的公开场景标识」、或整行省略（叙述者改从别处获知场景，而今天并不存在别处）。第三种会真正删掉信息，属于产品语义裁决。三者都需要人给口径。",
+      "readiness": "不观测（golden_001 从不设置 scene_id），但与 PRD20-PROTAGONIST-PLACE 的地点一半共用同一个缺失制品（scene_id → 公开标签表）；那张表一旦裁定，两处可一并落地。"
     }
   ]
 }
