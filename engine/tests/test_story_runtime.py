@@ -76,6 +76,7 @@ STORY_CAPABILITIES = (
     "story.expression.get",
     "story.session.get",
     "story.session.open",
+    "story.storybook.get",
     "story.turn.submit",
 )
 DURABLE_STORY_CAPABILITIES = (
@@ -85,6 +86,7 @@ DURABLE_STORY_CAPABILITIES = (
     "story.expression.get",
     "story.session.get",
     "story.session.open",
+    "story.storybook.get",
     "story.turn.submit.v2",
     "story.turn.work.get",
     "story.turn.work.retry",
