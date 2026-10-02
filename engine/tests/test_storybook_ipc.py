@@ -110,19 +110,34 @@ async def test_episode_adapter_maps_storage_error_to_none():
 
 
 @pytest.mark.asyncio
-async def test_episode_adapter_unwraps_the_episode():
+async def test_episode_adapter_carries_the_episode_and_its_artifacts():
+    """PRD §20 reads the Episode's artifacts out of the same committed snapshot."""
     episode = object()
+    artifacts = SimpleNamespace(
+        character_events=({"id": "c1", "change": {"character_id": "x"}},),
+        relationship_events=(),
+        knowledge_changes=({"proposition_id": "fact.p", "certainty": 1},),
+        world_events=(),
+        memories=(),
+    )
 
     class _Result:
         pass
 
     _Result.episode = episode
+    _Result.artifacts = artifacts
 
     class _Repo:
         async def load_by_session(self, session_id):
             return _Result()
 
-    assert await _StoryBookEpisodeAdapter(_Repo()).load_finalized_episode("s") is episode
+    bundle = await _StoryBookEpisodeAdapter(_Repo()).load_finalized_episode("s")
+
+    assert bundle.episode is episode
+    assert bundle.artifacts.character_events == artifacts.character_events
+    assert bundle.artifacts.knowledge_changes == artifacts.knowledge_changes
+    # Memories are not a Story Book section; they must not be smuggled in.
+    assert not hasattr(bundle.artifacts, "memories")
 
 
 @pytest.mark.asyncio

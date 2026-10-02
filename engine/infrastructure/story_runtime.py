@@ -68,8 +68,11 @@ from application.story_session_facade import (
     TurnDeliveryView,
 )
 from application.story_session_open import StorySessionOpenService
-from application.storybook_projection import StoryBookProjectionError
-from application.storybook_service import StoryBookService
+from application.storybook_projection import (
+    StoryBookArtifacts,
+    StoryBookProjectionError,
+)
+from application.storybook_service import FinalizedEpisode, StoryBookService
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import (
     AuthorizedContextSource,
@@ -393,9 +396,22 @@ class _StoryBookEpisodeAdapter:
         # finalized; that is a normal "no Story Book yet" answer, not an outage,
         # so it becomes ``None`` rather than propagating as a storage fault.
         try:
-            return (await self._reads.load_by_session(session_id)).episode
+            result = await self._reads.load_by_session(session_id)
         except StorageError:
             return None
+        # The bundle query already returned this Episode's artifacts in the same
+        # committed snapshot, so the book reads one state rather than asking the
+        # world a second question it might answer differently.
+        artifacts = result.artifacts
+        return FinalizedEpisode(
+            episode=result.episode,
+            artifacts=StoryBookArtifacts(
+                character_events=tuple(artifacts.character_events),
+                relationship_events=tuple(artifacts.relationship_events),
+                knowledge_changes=tuple(artifacts.knowledge_changes),
+                world_events=tuple(artifacts.world_events),
+            ),
+        )
 
 
 class _StoryBookNarrativeAdapter:
