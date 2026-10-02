@@ -148,28 +148,34 @@
   ],
   "critical_path": {
     "next_milestone_id": "M1",
-    "next_milestone_name": "M1 Local Engine 运行守护与 UDS IPC 双向通路（Story Book 回放已交付，转入真实 world 铸音与端到端复跑验收）",
-    "strategic_rationale": "2026-10-02 依据 ADR-005 V01–V12 逐项验收报告与 main tip e0edf533 的实测收敛。已经站住的：PR #243 八项检查全绿，Stage 1/2/3 与 Relocatable 沙箱包均在当前 tip 通过，本地 2026-10-02 于 b935b8f1 实测 2270 passed / 16 skipped；Story Book PRD §20 的 SB-01~SB-21 已合入，四段投影与 App 呈现具备，且 SB-18 已把「书是已发生之事的读出」钉成 Stage 1 结构检查。没有站住的按可动手程度排序：（甲）已发布的五条铸音绑定只对 live-app-path-world 命中，world_001 派生的五个角色 id 在服务商目录里一条都没有——实测算术定死，真实场景会全部重铸，且修它不需要任何产品裁决，是当前唯一可直接推进的项；（乙）旁白可铸造、可听审、可绑定，却没有任何代码路径为 narration 段渲染音频，与 ADR-005 验收标准 1 冲突，但「旁白该不该被配音」本身是产品语义，需人类架构师裁决；（丙）替换服务商完全未交付——换成任何非 SpeechRail 服务商，整个音色面关闭而非降级，四处按 provider 名字短路，ADR-007 已提出中立能力声明契约但状态为待裁决；（丁）V12 严格盲测未验收，5 声线为再认测试，逐轴归因在质感轴上不稳，二者都需第三方或换台词重测。Story Book 侧另有两处待产品裁决：聆听模式缺「已提交分段 → take 绑定」的持久化地基（ADR-006 范畴），以及 PRD §20「命运介入路径」整段未实现——数据源 turn_advice_interpretations 存在，但直接投影玩家原话会违反不变量 4（Advice ≠ Command）。因此下一步锁定（甲）：它是唯一既被实测证成、又不需要产品语义裁决的缺口。M1、M2、M3、M5 的整体退出条件仍未满足；M1 未闭环项仍含真实模型与 TTS 质量验收、公证发行与目标设备验收。",
+    "next_milestone_name": "M1 Local Engine 运行守护与 UDS IPC 双向通路（四项 ADR-005 遗留限制全部待裁决，转入决策包准备）",
+    "strategic_rationale": "2026-10-02 依据 ADR-005 V01–V12 逐项验收报告与 main tip 的实测收敛。**本节已于同日由 SB-24 更正**：SB-22 曾把下列（甲）写成「唯一既被实测证成、又不需要产品语义裁决的缺口」，该判断不成立——验收报告 §9.7 明确把（甲）列为待人类决策。更正后的事实是：ADR-005 侧四项遗留限制**全部**待裁决，Story Book 侧两项待产品语义裁决，当前不存在可直接推进且不需要人裁决的缺口。已经站住的部分：PR #245 八项检查全绿（含 Stage 1/2/3 真跑），Story Book PRD §20 的 SB-01~SB-21 已合入，SB-18 已把「书是已发生之事的读出」钉成 Stage 1 结构检查，SB-23 已让派发卡现查 ROLE_DEFAULTS 而非复述。待裁决四项与其证据出处见本文件 pending_decisions：（甲）为 world_001 铸造五条——§9.7 明列「待人类决策」，因为这是一次真实服务端写入，且 §9.6「重铸结果逐字节相同」标注为未实测，而坐实它需要真的跑这次铸造，裁决与实测互为前提；（乙）旁白是否配音——ADR-005 验收标准 1 与实现冲突，ADR-006 D1 已定「旁白身份由可信源写入」，但落地形态待裁；（丙）替换服务商——ADR-007 §8 写明「未裁决前实现保持现状：SpeechRail 独占，非 SpeechRail 全关」；（丁）V12 严格盲测——需第三方或换台词重测，逐轴归因在质感轴上不稳。Story Book 侧两项（聆听模式 take 绑定持久化、命运介入路径语义）不仅待裁决，而且至今没有权威文档记录，需先补提案。**因此下一步不是继续实现，而是把这五项整理成可裁决的决策包交人类架构师**——在裁决到位前，任何一片声称「不需要裁决」的推进都应当被怀疑。M1、M2、M3、M5 的整体退出条件仍未满足；M1 未闭环项仍含真实模型与 TTS 质量验收、公证发行与目标设备验收。",
     "target_deliverables": [
-      "已发布铸音绑定覆盖真实 world（world_001 派生的角色 id 在服务商目录中可命中），并保留可复核的铸造证据链",
-      "Story Book 回放路径的端到端复跑验收：在同一 SHA 上跑完 Golden 五轮回放并核对磁盘事实",
-      "旁白是否进入配音路径的裁决落地：若裁决为配音，补 narration 段渲染接线并钉住；若无，ADR-005 验收标准 1 相应更正",
-      "替换服务商交付缺口按 ADR-007 中立能力声明契约收敛，或由人类架构师显式记录「本部署不支持替换」并撤下价值目标中的该主张",
+      "五项待裁决事项各有一份决策包：问题、证据出处（可解析到具体文档章节）、为什么卡住、裁决后解锁什么",
+      "STORYBOOK-LISTEN-TAKE-BINDING 与 STORYBOOK-FATE-PATH 各补一份 ADR 提案，使「待裁决」具备可裁决形态",
+      "ADR005-WORLD-CAST 裁决落地后：真实 world 的铸音绑定覆盖 world_001 派生的角色 id，并保留可复核的铸造证据链",
+      "旁白是否进入配音路径的裁决落地：若裁决为配音，按 ADR-006 D1「旁白身份由可信源写入」补 narration 段渲染接线；若无，ADR-005 验收标准 1 相应更正",
+      "替换服务商按 ADR-007 裁决收敛，或显式记录「本部署不支持替换」并下调 AGENTS.md 的热拔插表述",
       "V12 严格盲测：换台词或第三方重测五声线，逐轴归因取到人工「混淆对」与「最难分辨对」记录",
-      "聆听模式持久化地基：已提交叙事分段 → take 绑定落库，取代按 render_key 反推取件",
-      "PRD §20 命运介入路径的语义裁决与投影口径落地，不违反不变量 4",
+      "Story Book 回放路径的端到端复跑验收：在同一 SHA 上跑完 Golden 五轮回放并核对磁盘事实",
       "Developer ID 签名、公证与目标设备验收保留为 M1 未闭环项，不在本切片冒充完成"
     ],
     "dispatch": {
-      "assigned_role": "AGT-VOICE",
-      "role_title": "音色供给与持久绑定（ADR-005 V12 与真实 world 铸音）",
-      "task_id": "ADR005-WORLD-CAST",
-      "task_title": "让已发布的铸音绑定命中真实 world，而不是只命中测试 world",
-      "rationale": "ADR-005 验收报告 §9 以实测算术证明：五条已发布绑定只对 live-app-path-world 命中，world_001 派生的五个角色 id 在服务商目录里一条都没有，真实场景会全部重铸。这是当前唯一既被证据钉死、又不需要产品语义裁决的交付缺口。",
-      "preconditions": "不得顺带裁决旁白是否配音（乙）、替换服务商范围（丙）、盲测口径（丁）——三项均待人类架构师裁决；ADR-006 与 ADR-007 状态为待裁决，不得当作已生效授权。",
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-VOICE --task-id ADR005-WORLD-CAST --title \"真实 world 铸音绑定\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-world-cast --role AGT-VOICE --task-id ADR005-WORLD-CAST",
-      "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围"
+      "assigned_role": "AGT-ARB",
+      "role_title": "把待裁决项整理成人类架构师能直接裁的决策包",
+      "task_id": "ADR005-PENDING-DECISIONS",
+      "task_title": "把五项待裁决事项整理成决策包，而不是替架构师决定它们",
+      "rationale": "ADR-005 验收报告 §4 遗留限制表里的四项与 Story Book 侧两项，全部需要产品语义或架构裁决才能推进。SB-22 曾把其中一项误判为可直接推进，由 SB-24 撤回。当前最有价值的动作是把每项的「问题 / 证据出处 / 为什么卡住 / 裁决后解锁什么」写清楚交人类架构师，其中 STORYBOOK-LISTEN-TAKE-BINDING 与 STORYBOOK-FATE-PATH 还需先补 ADR 提案才具备可裁决形态。",
+      "preconditions": "本卡不授权任何真实服务端写入（为 world_001 铸造五条）、不授权裁决旁白是否配音、不授权变更 provider 准入范围。ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
+      "forbidden_actions": [
+        "调用 SpeechRail 铸造接口为 world_001 新增已发布声音（§9.7 待人类决策）",
+        "退役或改写任何已发布声音登记（§9.7 待人类决策）",
+        "让 narration 段进入配音路径（ADR-006 待裁决）",
+        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）"
+      ],
+      "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围",
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-ARB --task-id ADR005-PENDING-DECISIONS --title \"待裁决决策包\"",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS"
     }
   },
   "historical_gate_reports": [
@@ -191,7 +197,7 @@
     "tracking_issue": 43,
     "current_stage": "H",
     "source_review_base_sha": "e0edf5332ffd49d1c1d40c1526f7e40db9759e33",
-    "decision": "2026-10-02：Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。同日完成三批交付——ADR-005 V01–V12 逐项验收（PR #219 落地、报告成文）、Story Book PRD §20 收口 SB-01~SB-21（PR #220–#243）、以及治理侧让门禁与事实源自己说真话的 SB-17（门禁如实声明未覆盖改动）与 SB-21（态势罗盘自陈落后多少天）。关键路径由「Golden 五轮复验」切换为「真实 world 铸音 + Story Book 端到端复跑」，理由见 critical_path.strategic_rationale。",
+    "decision": "2026-10-02 更正（SB-24）：撤回 SB-22 把「为 world_001 铸造五条」判定为可直接推进的错误判断。ADR-005 验收报告 §9.7 明确将其列为待人类决策——真实服务端写入，且 §9.6 的「重铸结果逐字节相同」标注为未实测，坐实它需要真的跑这次铸造，裁决与实测互为前提。更正后：当前不存在可直接推进且不需要人裁决的缺口，下一步改为整理决策包。Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。",
     "evidence_boundary": "本节区分三类证据，不得互相冒充：(1) 当前 tip 实测——PR #243 八项检查全绿（Stage 1/2/3、Relocatable 沙箱 arm64 包、Capsule Gate、All Quality Gates Passed、Determine CI Scope、PR Quality Gate Report），merge commit e0edf533；(2) 另一 SHA 上的本地实测——2026-10-02 FULL_P0 四阶段于 b935b8f1 通过，Python 2270 passed / 16 skipped；(3) 历史运行记录——Golden 五轮 T0–T7 于 f72f379（2026-09-27），未在当前 tip 重跑。CI 日志未回传用例计数，故云端只记结论不记数字。Developer ID 签名、公证与目标设备验收至今未执行。",
     "parallel_ready": [],
     "iteration_evidence": {
@@ -256,14 +262,60 @@
       "main_sha_when_recorded": "dccdbd76ef488281cda86be01a6857754b91b7c0"
     },
     "dispatch": {
-      "assigned_role": "AGT-VOICE",
-      "role_title": "音色供给与持久绑定（ADR-005 V12 与真实 world 铸音）",
-      "task_id": "ADR005-WORLD-CAST",
-      "task_title": "让已发布的铸音绑定命中真实 world，而不是只命中测试 world",
-      "rationale": "ADR-005 验收报告 §9 以实测算术证明：五条已发布绑定只对 live-app-path-world 命中，world_001 派生的五个角色 id 在服务商目录里一条都没有，真实场景会全部重铸。这是当前唯一既被证据钉死、又不需要产品语义裁决的交付缺口。",
-      "preconditions": "不得顺带裁决旁白是否配音（乙）、替换服务商范围（丙）、盲测口径（丁）——三项均待人类架构师裁决；ADR-006 与 ADR-007 状态为待裁决，不得当作已生效授权。",
-      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-VOICE --task-id ADR005-WORLD-CAST --title \"真实 world 铸音绑定\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-world-cast --role AGT-VOICE --task-id ADR005-WORLD-CAST"
+      "assigned_role": "AGT-ARB",
+      "role_title": "把待裁决项整理成人类架构师能直接裁的决策包",
+      "task_id": "ADR005-PENDING-DECISIONS",
+      "task_title": "把五项待裁决事项整理成决策包，而不是替架构师决定它们",
+      "rationale": "ADR-005 验收报告 §4 遗留限制表里的四项与 Story Book 侧两项，全部需要产品语义或架构裁决才能推进。SB-22 曾把其中一项误判为可直接推进，由 SB-24 撤回。当前最有价值的动作是把每项的「问题 / 证据出处 / 为什么卡住 / 裁决后解锁什么」写清楚交人类架构师，其中 STORYBOOK-LISTEN-TAKE-BINDING 与 STORYBOOK-FATE-PATH 还需先补 ADR 提案才具备可裁决形态。",
+      "preconditions": "本卡不授权任何真实服务端写入（为 world_001 铸造五条）、不授权裁决旁白是否配音、不授权变更 provider 准入范围。ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
+      "forbidden_actions": [
+        "调用 SpeechRail 铸造接口为 world_001 新增已发布声音（§9.7 待人类决策）",
+        "退役或改写任何已发布声音登记（§9.7 待人类决策）",
+        "让 narration 段进入配音路径（ADR-006 待裁决）",
+        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）"
+      ],
+      "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围",
+      "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-ARB --task-id ADR005-PENDING-DECISIONS --title \"待裁决决策包\"",
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS"
     }
-  }
+  },
+  "pending_decisions": [
+    {
+      "id": "ADR005-WORLD-CAST",
+      "question": "是否现在为 world_001 铸造那五条；旁白已有三条同音频登记（d2888cc5 在测试 world、9b9816bb 在某未知 world、2a60accf 已取消）是否先退役或显式标注所属 world。",
+      "evidence": "docs/06_实施基线/2026-10-02_ADR005_逐项验收报告_V01-V12.md#9.7 待人类决策",
+      "why_blocking": "这是一次真实的服务端写入（新增 5 个已发布声音），且按 §9.6 的推断很可能产出与现有五条逐字节相同的音频。§9.6 该推断标注为「未实测」，而坐实它恰恰需要真的跑这次铸造——裁决与实测互为前提，不能靠推理解开。",
+      "unblocks": "让真实 world 的铸音绑定可交付；ADR-005 V12 的剩余阻塞之一。"
+    },
+    {
+      "id": "ADR006-NARRATION-VOICE",
+      "question": "旁白段是否进入配音路径。当前 NarrativeBlock v1 的旁白没有说话人身份，代码注释的理由是「允许调用方指定谁在讲，等于让调用方选择谁来叙述整个游戏」。",
+      "evidence": "docs/06_实施基线/2026-10-02_ADR005_逐项验收报告_V01-V12.md#10.3 与本轮验收标准 1 直接冲突",
+      "why_blocking": "旁白在铸造、听审、绑定三步都是一等公民，但 phase 在交付路径上没有任何消费者，三处独立证据（speech_unit.py / story_runtime.py / post_commit_handlers.py）都跳过非 character 段，且 test_a_block_that_opens_with_narration_still_speaks_for_its_character 把该行为固定为预期。「旁白该不该被配音」是产品语义，不是缺陷修复。",
+      "unblocks": "ADR-005 验收标准 1「按身份逐段配音」；ADR-006 D1「旁白身份由可信源写入」的落地形态。"
+    },
+    {
+      "id": "ADR007-PROVIDER-NEUTRAL",
+      "question": "是否引入中立能力声明契约（公共接口变更）；runtime_revision 是否定为必填；AGENTS.md「支持任意兼容第三方热拔插」是否下调为「机制已备，尚无第二家适配器」。",
+      "evidence": "docs/01_总体架构/ADR-007_provider中立的能力声明契约.md#8. 决策状态",
+      "why_blocking": "ADR-007 §8 写明「未裁决前，实现保持现状：SpeechRail 独占，非 SpeechRail 全关」，且「本 ADR 不授权任何绕过准入的改动」。AGENTS.md 声称的热拔插能力因此是目标而非现状。",
+      "unblocks": "替换服务商交付缺口；AGENTS.md 价值主张与实现的一致性。"
+    },
+    {
+      "id": "STORYBOOK-LISTEN-TAKE-BINDING",
+      "question": "聆听模式如何持久化「已提交叙事分段 → take_id」绑定：按回合快照、指纹 fail closed，还是新增迁移记录绑定。",
+      "evidence": null,
+      "why_blocking": "全部迁移中无任何表记录该绑定；DeliveryReceipt 不带 take_id 且只作 IPC 响应返回、不落库；render_key = HMAC(密钥, DryRenderRecipe.canonical_json) 是内容地址，配方不含 turn/block/segment 位置，因此回放靠重算 render_key 反推取件。玩家重铸音色即会静默取到从未在该会话播放过的音频。修法需新增迁移（高风险面），属架构裁决。",
+      "unblocks": "PRD §20 聆听模式的正确性；不修则重铸音色后回放会播错音频。",
+      "evidence_gap": "该项至今没有权威文档记录，ADR-006 与 ADR-007 均未覆盖；需要先补提案再裁决。"
+    },
+    {
+      "id": "STORYBOOK-FATE-PATH",
+      "question": "PRD §20「命运介入路径」的语义口径：投影玩家原话，还是投影角色实际做出的选择。",
+      "evidence": null,
+      "why_blocking": "storybook.schema.json 无对应字段，整段未实现。数据源 turn_advice_interpretations（迁移 009）存在，但 §20.3 的例子读起来是「主角实际做了什么」而非玩家原话；直接投影玩家原话会违反不变量 4（Advice ≠ Command）。",
+      "unblocks": "PRD §20 四段之外的第五段。",
+      "evidence_gap": "该项同样没有权威文档记录，需要先补提案再裁决。"
+    }
+  ]
 }

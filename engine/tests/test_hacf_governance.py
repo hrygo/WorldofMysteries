@@ -1696,3 +1696,67 @@ def test_an_unknown_role_is_reported_rather_than_granted_an_empty_scope(capsys):
     out = capsys.readouterr().out
     assert "AGT-NOT-A-ROLE" in out
     assert "不在 ROLE_DEFAULTS 枚举内" in out
+
+
+def _pending_decisions() -> list:
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    return card["pending_decisions"]
+
+
+def test_every_pending_decision_cites_a_section_that_still_resolves():
+    """待裁决清单是给人裁的，出处必须点得开——引错文档等于没引。"""
+    for item in _pending_decisions():
+        evidence = item.get("evidence")
+        if evidence is None:
+            assert item.get("evidence_gap"), (
+                f"{item['id']} 没有证据出处，必须用 evidence_gap 说明为什么没有"
+            )
+            continue
+        rel, _, heading = evidence.partition("#")
+        path = project_status.ROOT_DIR / rel
+        assert path.exists(), f"{item['id']} 的证据出处不存在：{rel}"
+        assert heading, f"{item['id']} 的证据出处缺少章节锚点：{evidence}"
+        assert heading in path.read_text(encoding="utf-8"), (
+            f"{item['id']} 引用的章节标题在 {rel} 里已经不存在了：{heading}"
+        )
+
+
+def test_a_pending_decision_is_never_dispatched_as_a_task():
+    """把待裁决项当任务派下去，等于替人类架构师做了那个决定。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    pending_ids = {item["id"] for item in card["pending_decisions"]}
+    for holder in ("critical_path", "execution_focus"):
+        task_id = card[holder]["dispatch"]["task_id"]
+        assert task_id not in pending_ids, (
+            f"{holder}.dispatch 把待裁决项 {task_id} 当成可执行任务派发了"
+        )
+
+
+def test_the_dispatch_card_states_what_it_is_not_allowed_to_do():
+    """派发卡必须同时说清禁区，否则接手者只会看到该做什么。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    for holder in ("critical_path", "execution_focus"):
+        dispatch = card[holder]["dispatch"]
+        assert dispatch.get("forbidden_actions"), f"{holder}.dispatch 没有写禁区"
+        assert dispatch.get("preconditions"), f"{holder}.dispatch 没有写前提"
+
+
+def test_the_status_report_actually_shows_the_pending_decisions(capsys):
+    """决策包如果只在 JSON 里而不在报告里，接手者看不到等于没有。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+
+    project_status.cmd_status(card)
+
+    report = capsys.readouterr().out
+    assert "【5. 待人类裁决" in report
+    for item in card["pending_decisions"]:
+        assert item["id"] in report, f"{item['id']} 没出现在状态报告里"
+        assert item["question"] in report, f"{item['id']} 的问题陈述没出现在状态报告里"

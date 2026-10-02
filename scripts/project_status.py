@@ -169,6 +169,17 @@ def cmd_status(state: dict, as_json: bool = False):
         deps = f" (前置依赖: {', '.join(m['depends_on'])})" if "depends_on" in m else ""
         print(f"  {status_badge} [{m['id']}] {m['name']} [{m['lead_role']}] [{status}]{deps}")
 
+    pending = state.get("pending_decisions") or []
+    if pending:
+        print("\n【5. 待人类裁决 (Pending Decisions)】")
+        print("   以下各项均需产品语义或架构裁决才能推进；未裁决前不得当作可执行任务派发。")
+        for item in pending:
+            print(f"\n   ⏸ {item['id']}")
+            print(f"      问题: {item['question']}")
+            print(f"      出处: {item.get('evidence') or '（尚无权威文档，需先补提案）'}")
+            print(f"      卡住原因: {item['why_blocking']}")
+            print(f"      裁决后解锁: {item['unblocks']}")
+
     print("\n💡 提示: 运行 `python3 scripts/project_status.py next` 查看下一步科学推进方向。")
     print("=" * 72)
 
