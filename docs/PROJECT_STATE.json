@@ -347,5 +347,26 @@
       "remaining_decision": "已由 ADR-009（docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md#8. 决策状态）承载，不再是「发布时机与 redub 策略」——take 都不存在，无从谈起。ADR-009 把问题改写为四个子问题：（1）音频字节是否应成为持久事实、若应在哪一点物化（同点渲染／播放时 tee／独立预渲染 job／不落库）；（2）覆盖范围是维持每回合一段还是改为逐段（§1.2 的天花板使后者成为 PRD §20.2 的前提）；（3）落库后的 take 是否即 replay 的唯一来源；（4）落库失败沿用 blocked/retry_wait 还是新增状态。四问均触及持久化地基与 ADR-005 D7 边界，需人类架构师裁决。",
       "proposal": "docs/01_总体架构/ADR-009_持久音频子系统的物化点与失败面.md"
     }
+  ],
+  "verified_gaps": [
+    {
+      "id": "PRD20-PROTAGONIST-PLACE",
+      "claim": "PRD §20 明列的「主角」与「时间与地点」的「地点」两项，在契约里只有裸 canonical id、投影层不做公开标签解析、App 视图完全未渲染。",
+      "why_it_is_a_gap": "PRD §20 把这两项列为故事书的组成部分，没有任何 ADR 将其门控；同一视图对其余每一项都做了 fail-closed 的公开标签处理（「某人」「持有人不明」「The Engine already dropped ids it could not resolve」），唯独这两项既没有解析也没有呈现。因此这不是设计取舍，是尚未实现的规格缺口。",
+      "evidence": {
+        "prd_lists_them": "PRD 产品基线 §20「包含：封面；标题；主角；时间与地点；章节；终章与结局；命运介入路径；已发现秘密；关键人物；重要关系变化；对世界造成的影响」共 11 项。",
+        "contract_carries_raw_ids": "contracts/schemas/storybook.schema.json 的 protagonist_ids 与 chapters[].scene_id 是仅有的两个未解析身份字段；全文无 place/location/venue 类字段，地点只以不透明 scene_id 承载。",
+        "projection_emits_them_raw": "engine/application/storybook_projection.py 的 project_story_book 直接写 \"protagonist_ids\": list(episode.protagonist_ids) 与 \"scene_id\": block.scene_id，而同函数的 key_characters / discovered_secrets / relationship_changes / world_impacts 全部经 character_display_names / proposition_display_names 白名单解析。",
+        "app_never_renders_them": "macos-app 的 StoryBookDTO 解码了 protagonistIds（并校验非空）与 sceneId，但全文 258 行的 StoryBookView 只渲染 title、startWorldTime/endWorldTime、chapters.segments、ending、unresolvedThreads 与四段阅读清单，从未引用这两个字段。"
+      },
+      "latent_zero_knowledge_hazard": "StoryBookSegmentDTO 的注释明写 speaker 是「a public label the Engine resolved fail-closed; it is never a canonical character id」。protagonist_ids 与 scene_id 是同一本书里仅有的两个仍携带 canonical id 的字段——目前因视图未渲染而没有泄漏到 UI，但任何人直接把它们渲染出来就会破坏这条原则。",
+      "roles_required": [
+        "AGT-ARB",
+        "AGT-AI",
+        "AGT-MAC"
+      ],
+      "scope_note": "契约加性字段与公开标签白名单属 AGT-ARB（contracts/）；投影层的标签解析属 AGT-AI（engine/application/）；视图呈现属 AGT-MAC（macos-app/）。三角色协作，单角色不得独改。",
+      "not_decided_here": "本条目只记录缺口与其证据，不决定公开标签的来源、缺失时如何呈现、以及 scene 无公开标签时是否退化为「某处」。那属于 ADR-006 D1「身份由可信源写入」的同类问题，需人类架构师给口径。"
+    }
   ]
 }

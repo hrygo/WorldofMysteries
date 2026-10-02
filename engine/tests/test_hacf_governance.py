@@ -2305,3 +2305,75 @@ def test_the_five_pending_decisions_all_have_a_proposal():
             f"{holder}.dispatch 的门控项里这几项没有提案：{missing}；"
             "决策包不完整时接手者会把它们当成可直接实现的任务"
         )
+
+
+# PRD §20 把「主角」与「时间与地点」的「地点」列为故事书的组成部分，但这两项是
+# 同一本书里仅有的两个仍携带 canonical id、且 App 从不渲染的字段。此前没有任何
+# 文档记录这个缺口——它既不是待裁决项（没有 ADR 门控它），也不是未接线子系统
+# （没有机制建好却无人调用），于是它对接手者完全不可见。
+def _verified_gaps():
+    return json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    ).get("verified_gaps") or []
+
+
+def test_every_verified_gap_says_why_it_is_not_a_decision():
+    """缺口条目必须给出证据、所需角色，并说清哪些部分仍需人类给口径。"""
+    gaps = _verified_gaps()
+    assert gaps, "verified_gaps 不应为空：已证实的规格缺口必须有可见的记录"
+    for item in gaps:
+        assert item.get("evidence"), f"{item['id']} 没有证据"
+        for key, value in item["evidence"].items():
+            assert value.strip(), f"{item['id']} 的证据条目 {key} 是空的"
+        assert item.get("roles_required"), f"{item['id']} 没写需要哪些角色"
+        assert item.get("why_it_is_a_gap"), f"{item['id']} 没说明为什么它是缺口而非取舍"
+        assert item.get("not_decided_here"), (
+            f"{item['id']} 没写清哪些部分本条目不决定——"
+            "缺口记录最容易被读成「已经决定怎么补」"
+        )
+
+
+def test_the_status_report_shows_the_verified_gaps(capsys):
+    """缺口只在 JSON 里而不在报告里，接手者看不到等于没有。"""
+    gaps = _verified_gaps()
+    if not gaps:
+        return
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    project_status.cmd_status(card)
+
+    report = capsys.readouterr().out
+    assert "【7. 已证实的规格缺口" in report
+    for item in gaps:
+        assert item["id"] in report, f"{item['id']} 没出现在状态报告里"
+        assert item["claim"] in report, f"{item['id']} 的结论没出现在状态报告里"
+
+
+def test_the_story_book_still_shows_no_protagonist_or_place():
+    """钉死 PRD §20 缺口的两端：投影层仍是裸 id，视图仍不渲染。
+
+    这是 `verified_gaps.PRD20-PROTAGONIST-PLACE` 的可执行形式。接线完成后它会转红，
+    届时应改写该条目而不是删掉这条断言——它记录的是接线前的事实。
+    """
+    root = project_status.ROOT_DIR
+    projection = (
+        root / "engine/application/storybook_projection.py"
+    ).read_text(encoding="utf-8")
+    assert '"protagonist_ids": list(episode.protagonist_ids)' in projection, (
+        "protagonist_ids 不再是裸 canonical id：PRD20-PROTAGONIST-PLACE 的"
+        "contract_carries_raw_ids / projection_emits_them_raw 两条证据已过期，需回写事实源"
+    )
+    assert '"scene_id": block.scene_id' in projection, (
+        "chapters[].scene_id 不再是裸 id：PRD20-PROTAGONIST-PLACE 的证据已过期，需回写事实源"
+    )
+
+    view = (root / "macos-app/WorldOfMysteries/StoryBookView.swift").read_text(
+        encoding="utf-8"
+    )
+    for field in ("protagonistIds", "sceneId"):
+        assert field not in view, (
+            f"StoryBookView 开始渲染 {field}：PRD20-PROTAGONIST-PLACE 的"
+            "app_never_renders_them 证据已过期——请确认它渲染的是公开标签而非 canonical id，"
+            "然后回写事实源（若直接渲染裸 id，同时构成零知识泄漏）"
+        )
