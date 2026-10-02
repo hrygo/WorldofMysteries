@@ -198,7 +198,7 @@
     "tracking_issue": 43,
     "current_stage": "H",
     "source_review_base_sha": "e0edf5332ffd49d1c1d40c1526f7e40db9759e33",
-    "decision": "2026-10-02 更正（SB-24）：撤回 SB-22 把「为 world_001 铸造五条」判定为可直接推进的错误判断——ADR-005 验收报告 §9.7 明确将其列为待人类决策（真实服务端写入，且 §9.6「重铸逐字节相同」标注未实测，坐实它需要真的跑这次铸造，裁决与实测互为前提）。同一次更正里还撤回了本文件对聆听模式 take 绑定的错误描述：绑定早已持久化且回放只读钉住的 take_id，真正的问题是整条通路零生产调用方——Story Book 回放目前没有任何音频通路，这是可直接推进的接线工作。更正后：四项待裁决（world_001 铸音 / 旁白配音 / 替换服务商 / V12 盲测）+ 一项待补提案（命运介入路径），外加一项可直接推进的接线工作（pinned-track 回放）。Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。",
+    "decision": "2026-10-02 更正（SB-24）：撤回 SB-22 把「为 world_001 铸造五条」判定为可直接推进的错误判断——ADR-005 验收报告 §9.7 明确将其列为待人类决策（真实服务端写入，且 §9.6「重铸逐字节相同」标注未实测，坐实它需要真的跑这次铸造，裁决与实测互为前提）。同一次更正里还撤回了本文件对聆听模式 take 绑定的错误描述：绑定早已持久化且回放只读钉住的 take_id，真正的问题是整条通路零生产调用方——Story Book 回放目前没有任何音频通路，这是可直接推进的接线工作。更正后：四项待裁决（world_001 铸音 / 旁白配音 / 替换服务商 / V12 盲测）+ 一项待补提案（命运介入路径），外加一项可直接推进的接线工作（pinned-track 回放）。Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。 同日补出 ADR-008 命运介入路径的语义与投影（待裁决提案）：逐条核实三个候选数据源的提交绑定后，把「玩家介入轨迹 vs 主角行动轨迹」这一先决语义问题连同四个候选方案的代价摆开，不代做裁决。该提案使 STORYBOOK-FATE-PATH 从「无文档记录的缺口」变为「有可裁决提案的待裁决项」。",
     "evidence_boundary": "本节区分三类证据，不得互相冒充：(1) 当前 tip 实测——PR #243 八项检查全绿（Stage 1/2/3、Relocatable 沙箱 arm64 包、Capsule Gate、All Quality Gates Passed、Determine CI Scope、PR Quality Gate Report），merge commit e0edf533；(2) 另一 SHA 上的本地实测——2026-10-02 FULL_P0 四阶段于 b935b8f1 通过，Python 2270 passed / 16 skipped；(3) 历史运行记录——Golden 五轮 T0–T7 于 f72f379（2026-09-27），未在当前 tip 重跑。CI 日志未回传用例计数，故云端只记结论不记数字。Developer ID 签名、公证与目标设备验收至今未执行。",
     "parallel_ready": [],
     "iteration_evidence": {
@@ -304,11 +304,10 @@
     },
     {
       "id": "STORYBOOK-FATE-PATH",
-      "question": "PRD §20「命运介入路径」的语义口径：投影玩家原话，还是投影角色实际做出的选择。",
-      "evidence": null,
-      "why_blocking": "storybook.schema.json 无对应字段，整段未实现。数据源 turn_advice_interpretations（迁移 009）存在，但 §20.3 的例子读起来是「主角实际做了什么」而非玩家原话；直接投影玩家原话会违反不变量 4（Advice ≠ Command）。",
-      "unblocks": "PRD §20 四段之外的第五段。",
-      "evidence_gap": "该项同样没有权威文档记录，需要先补提案再裁决。"
+      "question": "「命运介入路径 / 命运记录」指的是玩家介入的轨迹，还是主角的行动轨迹；并据此在 ADR-008 §4.1–4.4 四个方案中选定其一。",
+      "evidence": "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md#8. 决策状态",
+      "why_blocking": "storybook.schema.json 的 15 个属性中无任何字段承载第五段，PRD §20.3 的示意无实现。ADR-008 §2 已把三个候选数据源的提交绑定逐条核实清楚：turn_advice_interpretations（迁移 009）无 committed_world_revision 且注释明写「never advances world_meta or creates Domain events」，直接投影会违反不变量 4；beat_plans.npc_intents（迁移 012）无 domain_commits 外键，是叙事编排意图而非事实；四组 episode_* 事件（迁移 011）带 deferred FK 到 domain_commits，但已是现有四段、且是结果快照不是行动链。因此先决问题是语义归属，不是实现选择。",
+      "unblocks": "PRD §20 第五段落地；契约加性字段（与现有四段同构，缺失时给空段而非报错）。若选 ADR-008 §4.4 方案 D 还需先核实裁决器是否产出可持久化的行动判定，并按 ADR-002 就前向迁移单独立项。"
     }
   ],
   "verified_unwired": [

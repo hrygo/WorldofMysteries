@@ -1912,3 +1912,68 @@ def test_the_unwired_subsystem_names_what_it_retracted_each_time():
         for key in ("realtime_path_never_persists", "contract_has_no_audio_surface",
                     "not_superseded_dead_code"):
             assert item["evidence"].get(key), f"{item['id']} 缺证据条目 {key}"
+
+
+def test_only_committed_facts_could_back_a_storybook_section():
+    """ADR-008 §2 的判据：投影进故事书的东西必须有提交绑定，否则它不是「已发生」。"""
+    root = project_status.ROOT_DIR
+    migrations = root / "engine/infrastructure/migrations"
+    read = lambda pattern: "".join(
+        p.read_text(encoding="utf-8") for p in migrations.glob(pattern)
+    )
+
+    # 玩家建议表明确不是领域事实来源——用它投影第五段会违反不变量 4（Advice ≠ Command）。
+    advice = read("009*.sql")
+    assert "turn_advice_interpretations" in advice
+    assert "never advances world_meta or creates Domain events" in advice, (
+        "迁移 009 不再声明自己不产生领域事件：ADR-008 §2 的第一条判据需重核"
+    )
+    assert "committed_world_revision" not in advice, (
+        "turn_advice_interpretations 获得了提交绑定：它已成为领域事实，"
+        "ADR-008 §2 的候选源清单需重做"
+    )
+
+    # 而 Episode 结算的四组事件表确实带 deferred FK 到 domain_commits。
+    settlement = read("011*.sql")
+    for table in (
+        "episode_character_events",
+        "episode_relationship_events",
+        "episode_knowledge_changes",
+        "episode_world_events",
+    ):
+        start = settlement.find(f"CREATE TABLE {table}")
+        assert start != -1, f"{table} 不在迁移 011 里，ADR-008 §2 的候选源清单需重核"
+        body = settlement[start : start + 700]
+        assert "committed_world_revision" in body and "domain_commits(revision)" in body, (
+            f"{table} 不再带 committed_world_revision 外键，"
+            "「已提交事实」与「叙事提议」的边界已移动"
+        )
+
+    # beat_plans 是编排产物：无提交绑定，故其 npc_intents 是意图不是事实。
+    beats = read("012*.sql")
+    assert "domain_commits" not in beats, (
+        "beat_plans 获得了 domain_commits 绑定：npc_intents 的性质判断需重核"
+    )
+
+
+def test_the_fate_path_section_is_still_undecided():
+    """ADR-008 是提案而非裁决：契约里必须还没有第五段。"""
+    schema = json.loads(
+        (project_status.ROOT_DIR / "contracts/schemas/storybook.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert not any(
+        key in schema["properties"]
+        for key in ("fate_path", "intervention_path", "destiny", "fate", "interventions")
+    ), "第五段已进入契约：ADR-008 §8 的「未裁决前不加字段」已被越过，需核实是谁裁决的"
+
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    fate = next(
+        item for item in card["pending_decisions"] if item["id"] == "STORYBOOK-FATE-PATH"
+    )
+    assert fate["evidence"] == (
+        "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md#8. 决策状态"
+    ), "STORYBOOK-FATE-PATH 的出处未指向 ADR-008 §8：读者会找不到该看的提案"

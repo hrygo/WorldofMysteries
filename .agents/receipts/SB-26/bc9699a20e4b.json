@@ -1,0 +1,133 @@
+{
+  "receipt_id": "RCP-WORK-SB-26-bc9699a20e4b",
+  "receipt_type": "work",
+  "task_id": "SB-26",
+  "capsule_id": "CAP-SB-26",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:22e7d228c0b7f0a9b2c6ba419d237c60da4ef4f1fbba83d242e2dd7996134a94",
+  "diff_digest": "sha256:381da3900f7fbb05f89863b681287c5c16151695f1e7a12a3fb172125f8333c0",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "a0ddbb5346ee4bcd61f4a69fcfc0c0b2c420ce45",
+  "head_commit": "bc9699a20e4b7272c63a8cc05e1ebca0fabedd7b",
+  "target_ref": "origin/main",
+  "target_sha": "a0ddbb5346ee4bcd61f4a69fcfc0c0b2c420ce45",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T17:20:05.497270+00:00",
+      "finished_at": "2026-10-02T17:20:05.535167+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T17:20:05.535235+00:00",
+      "finished_at": "2026-10-02T17:22:08.386754+00:00",
+      "raw_log_digest": "sha256:ff5ae609e279413b385059161dc334ad6fc714b741465ad95b7c51ff042867b8",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T17:22:08.386851+00:00",
+      "finished_at": "2026-10-02T17:22:31.424848+00:00",
+      "raw_log_digest": "sha256:9e6f5da470dda2f59d1429bc550c5fedc2ca8961fbf180986c8f5dfa8ab6e65d",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T17:22:31.425053+00:00",
+      "finished_at": "2026-10-02T17:22:33.295658+00:00",
+      "raw_log_digest": "sha256:992b45ecde566694aa51cd6d2d30a88dcd968d684f129fe7c12266e15f44a626",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md",
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "docs/01_总体架构/ADR-008_命运介入路径的语义与投影.md"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-26-fate-path-adr"
+  },
+  "started_at": "2026-10-02T17:20:05.461544+00:00",
+  "finished_at": "2026-10-02T17:22:33.420239+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
