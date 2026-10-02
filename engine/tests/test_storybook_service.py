@@ -6,18 +6,20 @@ from types import SimpleNamespace
 
 import pytest
 
-from application.storybook_projection import StoryBookProjectionError
-from application.storybook_service import StoryBookService
+from application.storybook_projection import StoryBookArtifacts, StoryBookProjectionError
+from application.storybook_service import FinalizedEpisode, StoryBookService
 from contracts import Episode, NarrativeBlock, SecretState
 from contracts.models import NarrativeSegment
 
 
-def _bootstrap(names: dict[str, str]):
-    # The service only reads ``presentation.character_display_names``; a stub
-    # keeps this test focused on the assembly logic rather than the whole
-    # bootstrap fixture.
+def _bootstrap(names: dict[str, str], propositions: dict[str, str] | None = None):
+    # The service only reads the two presentation allowlists; a stub keeps this
+    # test focused on the assembly logic rather than the whole bootstrap fixture.
     return SimpleNamespace(
-        presentation=SimpleNamespace(character_display_names=names)
+        presentation=SimpleNamespace(
+            character_display_names=names,
+            proposition_display_names=propositions or {},
+        )
     )
 
 
@@ -56,10 +58,11 @@ def _episode(block_ids: list[str] | None) -> Episode:
 
 
 class _Ports:
-    def __init__(self, *, bootstrap, episode, blocks):
+    def __init__(self, *, bootstrap, episode, blocks, artifacts=None):
         self._bootstrap = bootstrap
         self._episode = episode
         self._blocks = blocks
+        self._artifacts = artifacts if artifacts is not None else StoryBookArtifacts()
 
     class _Boot:
         def __init__(self, outer): self._o = outer
@@ -67,7 +70,13 @@ class _Ports:
 
     class _Epi:
         def __init__(self, outer): self._o = outer
-        async def load_finalized_episode(self, session_id): return self._o._episode
+        async def load_finalized_episode(self, session_id):
+            episode = self._o._episode
+            if episode is None:
+                return None
+            return FinalizedEpisode(
+                episode=episode, artifacts=self._o._artifacts
+            )
 
     class _Nar:
         def __init__(self, outer): self._o = outer
