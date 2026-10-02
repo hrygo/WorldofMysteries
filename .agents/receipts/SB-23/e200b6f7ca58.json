@@ -1,0 +1,133 @@
+{
+  "receipt_id": "RCP-WORK-SB-23-e200b6f7ca58",
+  "receipt_type": "work",
+  "task_id": "SB-23",
+  "capsule_id": "CAP-SB-23",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:456d7d5e40315efdf05bffa10d85d5adf6b86fb9c4da683c90196a9e5f1ef823",
+  "diff_digest": "sha256:2fbf57a1b061dabec397b3fbc11bafc594f875a0e3533c047b8e23ad6a3ea023",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "c9f3e8ce1b94089410c6e3191f036c74afea426f",
+  "head_commit": "e200b6f7ca584ceb8205c0cfa577e68b0617767f",
+  "target_ref": "origin/main",
+  "target_sha": "c9f3e8ce1b94089410c6e3191f036c74afea426f",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T14:23:47.416346+00:00",
+      "finished_at": "2026-10-02T14:23:47.455866+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T14:23:47.455963+00:00",
+      "finished_at": "2026-10-02T14:25:55.820656+00:00",
+      "raw_log_digest": "sha256:9c3f5aaa0efd5675258a76ec41c0e33dc7a4b1fad6830e6a17658e4025a43933",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T14:25:55.820764+00:00",
+      "finished_at": "2026-10-02T14:26:19.235346+00:00",
+      "raw_log_digest": "sha256:99f7caf1c85b1f83acabb46d22e9adcb735d9ea5c371e4d3e7032ba17a55143f",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T14:26:19.235546+00:00",
+      "finished_at": "2026-10-02T14:26:21.210615+00:00",
+      "raw_log_digest": "sha256:6a86d31abe987d82dc01bfcc75fc3fd4eae53b0331b5e369585c80a9b0d0906b",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py",
+      "scripts/project_status.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/project_status.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-23-dispatch-card-single-source"
+  },
+  "started_at": "2026-10-02T14:23:47.378933+00:00",
+  "finished_at": "2026-10-02T14:26:21.336082+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
