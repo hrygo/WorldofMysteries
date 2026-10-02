@@ -101,8 +101,11 @@ private enum StoryBookFixture {
 
     /// The wire payload produced by the real `project_story_book`, committed so
     /// the App is checked against its producer rather than against a human's
-    /// memory of it. `scripts/` regenerates it; the Python side owns that
-    /// generator so drift is caught where the projection lives.
+    /// memory of it.
+    ///
+    /// The Engine owns it: `test_storybook_projection.py` rebuilds this payload
+    /// from the live projection and fails when the two disagree, so the file
+    /// cannot rot into a snapshot of a producer that no longer exists.
     static func shippedWire() -> Data? {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -261,7 +264,7 @@ struct StoryBookContractTests {
         // stand in for the producer, because the producer is the fixture.
         let fixture = try #require(
             StoryBookFixture.shippedWire(),
-            "Fixtures/storybook_wire.json 缺失——由 scripts/ 下的生成器产出"
+            "Fixtures/storybook_wire.json 缺失——用 WOM_REGEN_STORYBOOK_FIXTURE=1 跑 engine 的 test_storybook_projection.py 重新生成"
         )
 
         let book = try JSONDecoder().decode(StoryBookDTO.self, from: fixture)
