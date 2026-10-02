@@ -439,7 +439,31 @@ private func run(_ args: [String]) async throws {
         fail("post-COMMIT work never reached a terminal state: \(observed.reason ?? "unknown"); "
              + "saw \(observed.states)")
     }
-    let delivery = try require(work.delivery, "terminal work without a delivery state")
+    // A terminal work state does not promise a delivery. The wire contract
+    // sanctions `audio_state == unavailable` with a reason and no delivery:
+    // that is the engine's precise answer when this turn had nothing to voice,
+    // which is what a narration-only beat with no character segment looks
+    // like. Requiring the delivery first turned that exact answer into
+    // "terminal work without a delivery state" — a message that names neither
+    // the reason nor the stage, and sends the reader looking for a bug in the
+    // render path instead of at the turn that simply had nobody to speak.
+    if work.audioState == .unavailable {
+        emit(Facts(transcript: transcript, committedTurn: view.turn,
+                   storyRevision: view.storyRevision,
+                   discoveredClues: view.discoveredClues.map(\.displayName),
+                   submitDeliveryState: submitDeliveryState,
+                   observedWorkStates: observed.states,
+                   pollGaveUp: app.storyModel.postCommitWorkPollGaveUp,
+                   narrativeSegments: work.narrativeSegments.count,
+                   deliveryState: work.audioState.rawValue,
+                   deliveryReason: work.audioReason,
+                   speechUnitID: nil, voiceID: nil, mediaFrames: 0, mediaBytes: 0,
+                   pcmPeak: 0, pcmRMSMilli: 0, sampleRate: 24_000, playedToDevice: false,
+                   playbackTerminal: "not-started",
+                   healthModelReady: health.modelReady, healthVoiceReady: health.voiceReady))
+        fail("audio unavailable: \(work.audioReason ?? "unknown")")
+    }
+    let delivery = try require(work.delivery, "ready audio without a delivery state")
     guard delivery.state == .ready else {
         emit(Facts(transcript: transcript, committedTurn: view.turn,
                    storyRevision: view.storyRevision,
