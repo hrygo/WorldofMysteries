@@ -508,6 +508,7 @@ def verify_capsule(
             cwd=workspace_root,
             log_dir=log_dir or policy.log_dir_for(workspace_root, capsule["task_id"], head_commit),
             env_overrides=policy.env_overrides_from_lease(lease),
+            changed_files=files,
         )
     except gate_profile.GateProfileError as exc:
         print(f" {exc}")

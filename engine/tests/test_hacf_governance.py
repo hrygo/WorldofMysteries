@@ -360,6 +360,207 @@ def test_gate_profile_tampering_is_rejected(tmp_path):
         gate_profile.resolve_profile("FULL_P0", registry_path=registry_copy)
 
 
+def _real_stage_results(profile_id: str) -> list:
+    """按 ``run_profile`` 的形状还原真实档案的阶段，供覆盖核算使用。"""
+    profile, _, _ = gate_profile.resolve_profile(profile_id)
+    return [
+        {
+            "stage": index,
+            "name": stage.get("name", ""),
+            "command": [
+                gate_profile.expand_token(token, {}) for token in stage["command"]
+            ],
+            "cwd": str((REPO_ROOT / stage.get("cwd", ".")).resolve()),
+        }
+        for index, stage in enumerate(profile["stages"], start=1)
+    ]
+
+
+def test_a_role_profile_that_skips_the_changed_tests_is_reported_as_a_gap():
+    """SB-16 实测到的病态：档案全绿，却一条都没跑到本次改动的测试。
+
+    ``empty_selection_policy`` 抓的是「整个 ``-k`` 过滤一条都没收集到」（pytest
+    exit 5）。这里要抓的是另一回事：过滤收集到了 plenty 条，但没有一条来自本次
+    改动的文件 —— 门禁全绿，而这次改动一行都没被验证过。
+    """
+    gaps = gate_profile._uncovered_changed_tests(
+        "AI_GATEWAY_P0",
+        _real_stage_results("AI_GATEWAY_P0"),
+        ["engine/tests/test_storybook_contract_parity.py"],
+        REPO_ROOT,
+        dict(os.environ),
+    )
+
+    assert len(gaps) == 1
+    assert "test_storybook_contract_parity.py" in gaps[0]
+
+
+def test_the_tests_a_profile_actually_selects_are_not_reported_as_uncovered():
+    """不得把真跑到的测试误报成缺口 —— 否则这条告警会被当成噪声忽略。"""
+    gaps = gate_profile._uncovered_changed_tests(
+        "AI_GATEWAY_P0",
+        _real_stage_results("AI_GATEWAY_P0"),
+        ["engine/tests/test_context_compiler.py"],
+        REPO_ROOT,
+        dict(os.environ),
+    )
+
+    assert gaps == []
+
+
+def test_a_profile_without_a_keyword_filter_covers_what_it_runs():
+    """FULL_P0 跑全量套件，没有 ``-k`` 可言，因而不该报缺口。"""
+    gaps = gate_profile._uncovered_changed_tests(
+        "FULL_P0",
+        _real_stage_results("FULL_P0"),
+        ["engine/tests/test_storybook_contract_parity.py"],
+        REPO_ROOT,
+        dict(os.environ),
+    )
+
+    assert gaps == []
+
+
+def test_swift_test_runs_the_whole_package_so_changed_swift_tests_are_covered():
+    gaps = gate_profile._uncovered_changed_tests(
+        "MACOS_APP_P0",
+        _real_stage_results("MACOS_APP_P0"),
+        ["macos-app/WorldOfMysteriesTests/StoryBookTests.swift"],
+        REPO_ROOT,
+        dict(os.environ),
+    )
+
+    assert gaps == []
+
+
+def test_changing_production_code_alone_is_not_a_coverage_gap():
+    """只有「改了测试文件却没跑到」才是缺口；改生产代码无从判断覆盖。"""
+    gaps = gate_profile._uncovered_changed_tests(
+        "AI_GATEWAY_P0",
+        _real_stage_results("AI_GATEWAY_P0"),
+        ["engine/ai/gateway.py", "engine/infrastructure/story_runtime.py"],
+        REPO_ROOT,
+        dict(os.environ),
+    )
+
+    assert gaps == []
+
+
+def test_run_profile_records_the_gap_in_coverage_gaps(tmp_path):
+    """凭单里那条 ``coverage_gaps`` 必须真被填上，而不只是字段存在。
+
+    ``coverage_gaps`` 从receipt schema 到 ``capsule_audit`` 到 PR 证据卡都是现成的，
+    唯独没人给「档案没跑到本次改动」这个情况赋值。这条断言盯的就是那条接线。
+    """
+    staging = REPO_ROOT / ".hacf" / "tmp" / f"cheap_p0_{tmp_path.name}"
+    staging.mkdir(parents=True, exist_ok=True)
+    staged = staging / "cheap_p0.json"
+    staged.write_text(
+        json.dumps(
+            {
+                "gate_profile_id": "CHEAP_P0",
+                "risk_class": "low",
+                "stages": [
+                    {"stage": 1, "name": "noop", "cwd": ".", "command": ["true"]}
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    registry = gate_profile.load_registry()
+    registry["profiles"]["CHEAP_P0"] = {
+        "file": str(staged),
+        "sha256": gate_profile.sha256_file(staged),
+    }
+    registry_copy = tmp_path / "registry.json"
+    registry_copy.write_text(json.dumps(registry), encoding="utf-8")
+
+    result = gate_profile.run_profile(
+        "CHEAP_P0",
+        cwd=REPO_ROOT,
+        registry_path=registry_copy,
+        repo_root=REPO_ROOT,
+        quiet=True,
+        changed_files=["engine/tests/test_context_compiler.py"],
+    )
+
+    assert result["result"] == "passed"
+    assert any(
+        "test_context_compiler.py" in gap for gap in result["coverage_gaps"]
+    )
+
+
+def _run_empty_selection_profile(tmp_path, policy: str):
+    """跑一个 ``-k`` 注定收集不到任何东西的 pytest 阶段。
+
+    真实档案的 pytest 命令形如 ``uv run --locked --extra dev pytest``，pytest 落在
+    index 6 —— 这正是那个前缀匹配从未生效、``empty_selection_policy`` 形同虚设的
+    原因，所以这里必须用真实 argv 而不能图省事写个短命令。
+    """
+    staging = REPO_ROOT / ".hacf" / "tmp" / f"empty_sel_{tmp_path.name}_{policy}"
+    staging.mkdir(parents=True, exist_ok=True)
+    staged = staging / "empty_p0.json"
+    staged.write_text(
+        json.dumps(
+            {
+                "gate_profile_id": "EMPTY_P0",
+                "risk_class": "low",
+                "stages": [
+                    {
+                        "stage": 1,
+                        "name": "selects nothing",
+                        "cwd": "engine",
+                        "command": [
+                            "uv", "run", "--locked", "--extra", "dev",
+                            "pytest", "-q", "-k",
+                            "zzz_no_such_test_selector_zzz",
+                        ],
+                        "empty_selection_policy": policy,
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    registry = gate_profile.load_registry()
+    registry["profiles"]["EMPTY_P0"] = {
+        "file": str(staged),
+        "sha256": gate_profile.sha256_file(staged),
+    }
+    registry_copy = tmp_path / f"registry_{policy}.json"
+    registry_copy.write_text(json.dumps(registry), encoding="utf-8")
+    return gate_profile.run_profile(
+        "EMPTY_P0",
+        cwd=REPO_ROOT,
+        registry_path=registry_copy,
+        repo_root=REPO_ROOT,
+        quiet=True,
+    )
+
+
+def test_a_profile_that_declares_warn_records_the_gap_instead_of_failing(tmp_path):
+    """``.hacf/gates/ai_gateway_p0.json`` 写着「缺口将被显式记录」，那就得真的记录。
+
+    该档案声明 ``empty_selection_policy: "warn"``：命令选择不到任何用例时应当
+    记为 ``passed_with_gap`` 并把缺口写进 receipt，而不是直接判failed。
+    """
+    result = _run_empty_selection_profile(tmp_path, "warn")
+
+    assert result["stages"][0]["status"] == "passed_with_gap"
+    assert result["result"] == "passed"
+    assert any("未收集到任何测试" in gap for gap in result["coverage_gaps"])
+
+
+def test_a_profile_that_forbids_empty_selection_still_fails_closed(tmp_path):
+    """反向：没声明 warn 的档案不得因为选择器空转而放行。"""
+    result = _run_empty_selection_profile(tmp_path, "fail")
+
+    assert result["stages"][0]["status"] == "failed"
+    assert result["result"] == "failed"
+
+
 def test_capsule_carries_no_executable_gate_commands():
     """契约不得携带 verification_commands，也不得承载 attestation（凭证分离）。"""
     schema = json.loads(
