@@ -153,3 +153,176 @@ def test_golden_001_turns_advice_matches_schema():
         with open(a_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         validator.validate(data)
+
+
+# ---- Story Book additive sections (PRD §20 / §20.4) --------------------
+
+
+def _story_book(**overrides):
+    """The SB-01 core shape, which every later revision must stay compatible with."""
+    book = {
+        "schema_version": "1.0",
+        "episode_id": "episode_session-1",
+        "world_id": "world-1",
+        "worldline_id": "worldline-1",
+        "title": "哈维诊所的停顿",
+        "protagonist_ids": ["char_evelyn"],
+        "start_world_time": "1349-06-12T21:40:00",
+        "end_world_time": "1349-06-12T21:52:00",
+        "chapters": [
+            {
+                "block_id": "b1",
+                "scene_id": "consultation_room",
+                "segments": [
+                    {"type": "narration", "speaker": None, "text": "雨落在诊所的窗外。"}
+                ],
+            }
+        ],
+        "ending": {"type": "partial_truth", "main_problem": "Jonathan 去向不明"},
+        "unresolved_threads": ["Jonathan 是否还活着"],
+    }
+    book.update(overrides)
+    return book
+
+
+def _story_book_validator():
+    return Draft202012Validator(load_schema("storybook.schema.json"))
+
+
+def test_story_book_additive_sections_are_optional_and_backward_compatible():
+    """SB-01 readers must keep working: the new sections may simply be absent."""
+    _story_book_validator().validate(_story_book())
+
+
+def test_story_book_accepts_the_full_additive_shape():
+    _story_book_validator().validate(
+        _story_book(
+            discovered_secrets=[
+                {
+                    "proposition": "病人失踪了",
+                    "holder": None,
+                    "certainty": 1,
+                    "status": "confirmed",
+                    "acquired_world_time": "1349-06-12T20:30:00",
+                }
+            ],
+            key_characters=[{"label": "莫里斯医生", "change_count": 3}],
+            relationship_changes=[
+                {
+                    "from": "Jonathan",
+                    "to": None,
+                    "dimensions": {"trust": 0.3, "fear": -0.1},
+                }
+            ],
+            world_impacts=[
+                {
+                    "event_type": "patient_left_clinic",
+                    "world_time": "1349-06-12T21:52:00",
+                    "importance": "local",
+                    "persistence": "world",
+                    "actors": ["莫里斯医生"],
+                    "targets": [],
+                }
+            ],
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "section,bad",
+    [
+        # A canonical proposition_id must have no way into the book: the
+        # proposition is required, and an empty label is not a public name.
+        ("discovered_secrets", [{"holder": None, "certainty": 1, "status": "confirmed"}]),
+        (
+            "discovered_secrets",
+            [{"proposition": "", "holder": None, "certainty": 1, "status": "confirmed"}],
+        ),
+        (
+            "discovered_secrets",
+            [
+                {
+                    "proposition": "病人失踪了",
+                    "holder": None,
+                    "certainty": 1.4,
+                    "status": "confirmed",
+                }
+            ],
+        ),
+        (
+            "discovered_secrets",
+            [
+                {
+                    "proposition": "病人失踪了",
+                    "holder": None,
+                    "certainty": 1,
+                    "status": "rumoured",
+                }
+            ],
+        ),
+        # The canonical proposition id must have no door into the book at all.
+        (
+            "discovered_secrets",
+            [
+                {
+                    "proposition": "病人失踪了",
+                    "proposition_id": "fact.patient_disappeared",
+                    "holder": None,
+                    "certainty": 1,
+                    "status": "confirmed",
+                }
+            ],
+        ),
+        # change_count counts real commits; zero changes is not a key character.
+        ("key_characters", [{"label": "莫里斯医生", "change_count": 0}]),
+        ("key_characters", [{"label": "", "change_count": 1}]),
+        # dimensions is closed: an invented axis is a contract violation.
+        (
+            "relationship_changes",
+            [{"from": None, "to": None, "dimensions": {"luck": 1}}],
+        ),
+        (
+            "relationship_changes",
+            [{"from": None, "to": None, "dimensions": {}, "reason": "because"}],
+        ),
+        # "a relationship changed" with no changed dimension is not a change.
+        (
+            "relationship_changes",
+            [{"from": "Jonathan", "to": "莫里斯医生", "dimensions": {}}],
+        ),
+        # Neither endpoint has a public name: the reader learns nothing, and a
+        # bare pair of anonymous ids is exactly what must never reach the book.
+        (
+            "relationship_changes",
+            [{"from": None, "to": None, "dimensions": {"trust": 0.3}}],
+        ),
+        # importance/persistence are closed vocabularies from world_event.schema.
+        (
+            "world_impacts",
+            [
+                {
+                    "event_type": "e",
+                    "importance": "cosmic",
+                    "persistence": "world",
+                    "actors": [],
+                    "targets": [],
+                }
+            ],
+        ),
+        (
+            "world_impacts",
+            [
+                {
+                    "event_type": "e",
+                    "importance": "local",
+                    "persistence": "forever",
+                    "actors": [],
+                    "targets": [],
+                }
+            ],
+        ),
+    ],
+)
+def test_story_book_additive_sections_reject_malformed_entries(section, bad):
+    with pytest.raises(ValidationError):
+        _story_book_validator().validate(_story_book(**{section: bad}))

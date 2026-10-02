@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mysterious.world/schemas/v1/storybook.schema.json",
   "title": "StoryBook",
-  "description": "PRD §20 Story Book 阅读模式核心：已结算 Episode 的纯读投影。章节正文取自实际发生的 Narrative Blocks；Episode 结束后模型绝不重写一篇「差不多」的小说、也不改变任何已提交事实（§20.1）。隐藏身份以公开称谓（fail-closed）呈现，绝不携带 canonical id。秘密 / 关键人物 / 关系变化 / 世界影响 / 聆听模式音轨为后续 additive 字段。",
+  "description": "PRD §20 Story Book 阅读模式：已结算 Episode 的纯读投影。章节正文取自实际发生的 Narrative Blocks；Episode 结束后模型绝不重写一篇「差不多」的小说、也不改变任何已提交事实（§20.1）。隐藏身份以公开称谓（fail-closed）呈现，绝不携带 canonical id。已发现秘密 / 关键人物 / 关系变化 / 世界影响为 additive 字段；聆听模式音轨仍为后续字段。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -130,11 +130,240 @@
         }
       }
     },
+    "discovered_secrets": {
+      "description": "本次 Episode 中被角色确知的事实（PRD §20「已发现秘密」）。只收录 proposition 在公开称谓表中有名字的条目：没有公开称谓的事实整条省略，绝不退化为 proposition_id。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/discoveredSecret"
+      }
+    },
+    "key_characters": {
+      "description": "本次 Episode 中状态发生过变化的人物（PRD §20「关键人物」）。change_count 是该人物在本 Episode 内被提交的状态变更次数。只收录在公开称谓表中有名字的人物。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/keyCharacter"
+      }
+    },
+    "relationship_changes": {
+      "description": "本次 Episode 中被提交的关系维度变化（PRD §20「重要关系变化」）。dimensions 只含有实际发生变化的维度；from / to 为公开称谓，无公开称计时为 null，绝不退化为 canonical character id。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationshipChange"
+      }
+    },
+    "world_impacts": {
+      "description": "本次 Episode 中真正写入 World State 的结果（PRD §20.4「世界影响」）。event_type 与 world_time 取自已提交的 WorldEvent；actors / targets 只保留在公开称谓表中有名字的条目，无法解析的 id 直接丢弃。",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/worldImpact"
+      }
+    },
     "unresolved_threads": {
       "type": "array",
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "publicLabel": {
+      "description": "公开称谓。无公开称谓时为 null；canonical id 永远不得出现在这里。",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "discoveredSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposition",
+        "holder",
+        "certainty",
+        "status"
+      ],
+      "properties": {
+        "proposition": {
+          "description": "命题的公开称谓。proposition_id 不出现在本书中。",
+          "type": "string",
+          "minLength": 1
+        },
+        "holder": {
+          "$ref": "#/$defs/publicLabel"
+        },
+        "certainty": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "status": {
+          "enum": [
+            "confirmed",
+            "probable",
+            "uncertain",
+            "contradicted",
+            "revoked"
+          ]
+        },
+        "acquired_world_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "keyCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "change_count"
+      ],
+      "properties": {
+        "label": {
+          "description": "人物的公开称谓。canonical character id 永远不得出现在这里。",
+          "type": "string",
+          "minLength": 1
+        },
+        "change_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "relationshipChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "dimensions"
+      ],
+      "anyOf": [
+        {
+          "properties": {
+            "from": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "to": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/publicLabel"
+        },
+        "to": {
+          "$ref": "#/$defs/publicLabel"
+        },
+        "dimensions": {
+          "description": "本 Episode 中实际变化的维度及其增量。未变化的维度不出现。",
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "trust": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "affection": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "respect": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "fear": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "dependency": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "hostility": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "worldImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_type",
+        "importance",
+        "persistence",
+        "actors",
+        "targets"
+      ],
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "world_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "importance": {
+          "enum": [
+            "personal",
+            "relationship",
+            "local",
+            "world"
+          ]
+        },
+        "persistence": {
+          "enum": [
+            "episode",
+            "character",
+            "world"
+          ]
+        },
+        "actors": {
+          "description": "行为者的公开称谓；无法解析的 id 已丢弃。",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "targets": {
+          "description": "受影响对象的公开称谓；无法解析的 id 已丢弃。",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     }
   }
