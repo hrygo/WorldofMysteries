@@ -6,13 +6,13 @@
   "title": "把 VF-114~120 的核实结论与盲测生成器补合入 main",
   "assigned_role": "AGT-ARB",
   "status": "CREATED",
-  "created_at": "2026-10-02T09:01:28.977063+00:00",
+  "created_at": "2026-10-02T09:21:26.240268+00:00",
   "risk_class": "privileged",
   "base": {
     "target_ref": "origin/main",
-    "base_sha": "3eab7b53a50b72178d9c0ad6db402ac33ad24b66",
-    "target_sha": "3eab7b53a50b72178d9c0ad6db402ac33ad24b66",
-    "context_snapshot": "sha256:f89b40557cfada28196a0c99510a208a7df8c4d3508638cbea5bec96c7f3358e"
+    "base_sha": "048d3231bc2e7ee11325b5ef76e71add86459725",
+    "target_sha": "048d3231bc2e7ee11325b5ef76e71add86459725",
+    "context_snapshot": "sha256:5a20b894209748cecec6262991a411ff3cd7ceccb76c71b93535786d29a481ed"
   },
   "scope": {
     "read": [
