@@ -455,7 +455,14 @@ private func run(_ args: [String]) async throws {
                    healthModelReady: health.modelReady, healthVoiceReady: health.voiceReady))
         fail("delivery unavailable: \(delivery.reason ?? "unknown")")
     }
-    let recipe = try require(delivery.renderRecipe, "ready delivery without a render recipe")
+    // The recipe lives on the segment, not on the turn. A delivery is a batch
+    // of per-character segments and there is deliberately no singular mirror
+    // left describing "the" voice of a turn, so this picks the first segment
+    // that is actually renderable rather than inventing a turn-level answer.
+    let segment = try require(
+        delivery.speechUnits.first { $0.state == .ready && $0.renderRecipe != nil },
+        "ready delivery without a renderable segment")
+    let recipe = try require(segment.renderRecipe, "ready segment without a render recipe")
 
     // 4. Real audio out: verified SpeechRail PCM over the media socket into the
     //    system default output device.
