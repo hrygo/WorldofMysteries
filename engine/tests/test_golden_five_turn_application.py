@@ -117,7 +117,7 @@ def _bundle_payload() -> dict:
                 "clue_appointment_book": "异常的预约记录",
                 "clue_removed_page": "被撕去的预约页",
                 "clue_basement_powder": "门框黑粉",
-                "clue_jonathan_note": "Jonathan 的纸片",
+                "clue_jonathan_note": "乔纳森的纸片",
             },
         },
         "advice_template": advice,
