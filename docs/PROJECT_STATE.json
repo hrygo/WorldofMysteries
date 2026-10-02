@@ -165,18 +165,26 @@
       "assigned_role": "AGT-ARB",
       "role_title": "把待裁决项整理成人类架构师能直接裁的决策包",
       "task_id": "ADR005-PENDING-DECISIONS",
-      "task_title": "把已建好却零调用方的 pinned-track 回放通路接进回合交付",
-      "rationale": "核实发现：迁移 007 的 audio_track_units 已逐段钉住 take_id 并外键到已提交的 turn 与 narrative block，OfflineStoryBookReplayResolver 直接读钉住的 take_id 且全程 storage-only，重铸由 kind='redub' 的新修订承接。机制早已建好，但 SQLiteAudioTrackRepository 与 OfflineStoryBookReplayResolver 的非测试调用方均为 0，audio_replay.py 无人导入，StoryBook 读取路径完全不查 audio_tracks——Story Book 回放当前没有任何音频通路。这是接线工作，不需要架构裁决，唯一需人裁的是发布时机与 redub 策略。其余四项待裁决整理成决策包，不要顺手替架构师决定。",
-      "preconditions": "接线前先确认发布时机与 redub 策略的裁决口径；未裁决前可只做只读侧与测试，不落真实 track。同时不得顺带裁决旁白是否配音、替换服务商范围、盲测口径、world_001 铸音——四项均待人类架构师裁决；ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
+      "task_title": "把五项待裁决整理成人类架构师能直接裁的决策包（Story Book 音频通路已从「接线」降级为裁决）",
+      "rationale": "更正（SB-28）：本卡上一版把 Story Book 音频通路称作「接线工作，不需要架构裁决，唯一需人裁的是发布时机与 redub 策略」——该措辞源自 SB-24B 的误判，SB-25 已撤回结论却未同步到本卡，于是同一文件里 verified_unwired 说「不再是发布时机与 redub 策略」、派发卡说「唯一需人裁的就是它」，自相矛盾。核实结论：take 层本身零生产调用方。publish_pcm 是写入 audio_takes 的唯一入口（全仓唯一的 INSERT 也在 audio_take_store.py 内），它只被 audio_take_coordinator 调用，coordinator 只被 audio_prefetch 引用，而 prefetch 零生产调用方；实时路径 VoiceRenderRuntime.media_handler 把 provider PCM 直接写 socket、不落库。所以缺的不是 track 绑定而是「有没有 take」——在人类裁定实时路径是否落 take 之前，接回放侧只会得到一条永远查不到记录的通路，Story Book 聆听模式仍不成立。本卡因此不派发任何实现切片：只读核实跑道已用尽（ADR-007 §1 已带三provider 实测，ADR-008 §1.1 已核实裁决器输出形状，verified_unwired 四项证据齐备）。本卡只做一件事——把五项待裁决整理成人类架构师能直接裁的决策包，不替架构师裁决。",
+      "preconditions": "无可执行前置：五项均待人类架构师裁决，且 PERSISTENT-AUDIO-SUBSYSTEM 的三条子问题是其余一切的前置（实时路径是否落 take／落库 take 是否 replay 的唯一来源／落库失败如何不反向影响已 COMMIT 的叙事）。裁决到位前只做两件事：把决策包做实，以及在确认不是给已核实的事换说法的前提下继续只读核实。同时不得顺带裁决旁白是否配音、替换服务商范围、盲测口径、world_001 铸音、命运介入路径的语义归属；ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
       "forbidden_actions": [
         "调用 SpeechRail 铸造接口为 world_001 新增已发布声音（§9.7 待人类决策）",
         "退役或改写任何已发布声音登记（§9.7 待人类决策）",
         "让 narration 段进入配音路径（ADR-006 待裁决）",
-        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）"
+        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）",
+        "在人类裁定 PERSISTENT-AUDIO-SUBSYSTEM 三问之前，让实时路径落 take、或把 Story Book 回放接到 track（不得以「接线」名义绕过裁决）"
       ],
       "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围",
       "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-ARB --task-id ADR005-PENDING-DECISIONS --title \"待裁决决策包\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS"
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS",
+      "gated_by": [
+        "ADR005-WORLD-CAST",
+        "ADR006-NARRATION-VOICE",
+        "ADR007-PROVIDER-NEUTRAL",
+        "STORYBOOK-FATE-PATH",
+        "PERSISTENT-AUDIO-SUBSYSTEM"
+      ]
     }
   },
   "historical_gate_reports": [
@@ -198,7 +206,7 @@
     "tracking_issue": 43,
     "current_stage": "H",
     "source_review_base_sha": "e0edf5332ffd49d1c1d40c1526f7e40db9759e33",
-    "decision": "2026-10-02 更正（SB-24）：撤回 SB-22 把「为 world_001 铸造五条」判定为可直接推进的错误判断——ADR-005 验收报告 §9.7 明确将其列为待人类决策（真实服务端写入，且 §9.6「重铸逐字节相同」标注未实测，坐实它需要真的跑这次铸造，裁决与实测互为前提）。同一次更正里还撤回了本文件对聆听模式 take 绑定的错误描述：绑定早已持久化且回放只读钉住的 take_id，真正的问题是整条通路零生产调用方——Story Book 回放目前没有任何音频通路，这是可直接推进的接线工作。更正后：四项待裁决（world_001 铸音 / 旁白配音 / 替换服务商 / V12 盲测）+ 一项待补提案（命运介入路径），外加一项可直接推进的接线工作（pinned-track 回放）。Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。 同日补出 ADR-008 命运介入路径的语义与投影（待裁决提案）：逐条核实三个候选数据源的提交绑定后，把「玩家介入轨迹 vs 主角行动轨迹」这一先决语义问题连同四个候选方案的代价摆开，不代做裁决。该提案使 STORYBOOK-FATE-PATH 从「无文档记录的缺口」变为「有可裁决提案的待裁决项」。",
+    "decision": "2026-10-02 更正（SB-24）：撤回 SB-22 把「为 world_001 铸造五条」判定为可直接推进的错误判断——ADR-005 验收报告 §9.7 明确将其列为待人类决策（真实服务端写入，且 §9.6「重铸逐字节相同」标注未实测，坐实它需要真的跑这次铸造，裁决与实测互为前提）。同一次更正里还撤回了本文件对聆听模式 take 绑定的错误描述：绑定早已持久化且回放只读钉住的 take_id，真正的问题是整条通路零生产调用方——Story Book 回放目前没有任何音频通路，这是可直接推进的接线工作。更正后：四项待裁决（world_001 铸音 / 旁白配音 / 替换服务商 / V12 盲测）+ 一项待补提案（命运介入路径），外加一项曾被称作「可直接推进的接线工作（pinned-track 回放）」——该判断已于同日被 SB-28 撤回：take 层本身零生产调用方（含唯一写入口 publish_pcm），所以它不是接线工作而是第五项待裁决（PERSISTENT-AUDIO-SUBSYSTEM）。更正后：五项待裁决（world_001 铸音 / 旁白配音 / 替换服务商 / 命运介入路径 / Story Book 音频通路三问），无任何可直接推进的实现切片。。Golden 五轮 T0–T7 的证据仍绑定 2026-09-27 的 SHA f72f379，不重跑、不改写。 同日补出 ADR-008 命运介入路径的语义与投影（待裁决提案）：逐条核实三个候选数据源的提交绑定后，把「玩家介入轨迹 vs 主角行动轨迹」这一先决语义问题连同四个候选方案的代价摆开，不代做裁决。该提案使 STORYBOOK-FATE-PATH 从「无文档记录的缺口」变为「有可裁决提案的待裁决项」。",
     "evidence_boundary": "本节区分三类证据，不得互相冒充：(1) 当前 tip 实测——PR #243 八项检查全绿（Stage 1/2/3、Relocatable 沙箱 arm64 包、Capsule Gate、All Quality Gates Passed、Determine CI Scope、PR Quality Gate Report），merge commit e0edf533；(2) 另一 SHA 上的本地实测——2026-10-02 FULL_P0 四阶段于 b935b8f1 通过，Python 2270 passed / 16 skipped；(3) 历史运行记录——Golden 五轮 T0–T7 于 f72f379（2026-09-27），未在当前 tip 重跑。CI 日志未回传用例计数，故云端只记结论不记数字。Developer ID 签名、公证与目标设备验收至今未执行。",
     "parallel_ready": [],
     "iteration_evidence": {
@@ -266,18 +274,26 @@
       "assigned_role": "AGT-ARB",
       "role_title": "把待裁决项整理成人类架构师能直接裁的决策包",
       "task_id": "ADR005-PENDING-DECISIONS",
-      "task_title": "把已建好却零调用方的 pinned-track 回放通路接进回合交付",
-      "rationale": "核实发现：迁移 007 的 audio_track_units 已逐段钉住 take_id 并外键到已提交的 turn 与 narrative block，OfflineStoryBookReplayResolver 直接读钉住的 take_id 且全程 storage-only，重铸由 kind='redub' 的新修订承接。机制早已建好，但 SQLiteAudioTrackRepository 与 OfflineStoryBookReplayResolver 的非测试调用方均为 0，audio_replay.py 无人导入，StoryBook 读取路径完全不查 audio_tracks——Story Book 回放当前没有任何音频通路。这是接线工作，不需要架构裁决，唯一需人裁的是发布时机与 redub 策略。其余四项待裁决整理成决策包，不要顺手替架构师决定。",
-      "preconditions": "接线前先确认发布时机与 redub 策略的裁决口径；未裁决前可只做只读侧与测试，不落真实 track。同时不得顺带裁决旁白是否配音、替换服务商范围、盲测口径、world_001 铸音——四项均待人类架构师裁决；ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
+      "task_title": "把五项待裁决整理成人类架构师能直接裁的决策包（Story Book 音频通路已从「接线」降级为裁决）",
+      "rationale": "更正（SB-28）：本卡上一版把 Story Book 音频通路称作「接线工作，不需要架构裁决，唯一需人裁的是发布时机与 redub 策略」——该措辞源自 SB-24B 的误判，SB-25 已撤回结论却未同步到本卡，于是同一文件里 verified_unwired 说「不再是发布时机与 redub 策略」、派发卡说「唯一需人裁的就是它」，自相矛盾。核实结论：take 层本身零生产调用方。publish_pcm 是写入 audio_takes 的唯一入口（全仓唯一的 INSERT 也在 audio_take_store.py 内），它只被 audio_take_coordinator 调用，coordinator 只被 audio_prefetch 引用，而 prefetch 零生产调用方；实时路径 VoiceRenderRuntime.media_handler 把 provider PCM 直接写 socket、不落库。所以缺的不是 track 绑定而是「有没有 take」——在人类裁定实时路径是否落 take 之前，接回放侧只会得到一条永远查不到记录的通路，Story Book 聆听模式仍不成立。本卡因此不派发任何实现切片：只读核实跑道已用尽（ADR-007 §1 已带三provider 实测，ADR-008 §1.1 已核实裁决器输出形状，verified_unwired 四项证据齐备）。本卡只做一件事——把五项待裁决整理成人类架构师能直接裁的决策包，不替架构师裁决。",
+      "preconditions": "无可执行前置：五项均待人类架构师裁决，且 PERSISTENT-AUDIO-SUBSYSTEM 的三条子问题是其余一切的前置（实时路径是否落 take／落库 take 是否 replay 的唯一来源／落库失败如何不反向影响已 COMMIT 的叙事）。裁决到位前只做两件事：把决策包做实，以及在确认不是给已核实的事换说法的前提下继续只读核实。同时不得顺带裁决旁白是否配音、替换服务商范围、盲测口径、world_001 铸音、命运介入路径的语义归属；ADR-006 与 ADR-007 状态均为待裁决，ADR-007 §8 明写「本 ADR 不授权任何绕过准入的改动」。",
       "forbidden_actions": [
         "调用 SpeechRail 铸造接口为 world_001 新增已发布声音（§9.7 待人类决策）",
         "退役或改写任何已发布声音登记（§9.7 待人类决策）",
         "让 narration 段进入配音路径（ADR-006 待裁决）",
-        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）"
+        "放宽 provider 准入或绕过 voice_provider_not_ready（ADR-007 待裁决）",
+        "在人类裁定 PERSISTENT-AUDIO-SUBSYSTEM 三问之前，让实时路径落 take、或把 Story Book 回放接到 track（不得以「接线」名义绕过裁决）"
       ],
       "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围",
       "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-ARB --task-id ADR005-PENDING-DECISIONS --title \"待裁决决策包\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS"
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-pending-decisions --role AGT-ARB --task-id ADR005-PENDING-DECISIONS",
+      "gated_by": [
+        "ADR005-WORLD-CAST",
+        "ADR006-NARRATION-VOICE",
+        "ADR007-PROVIDER-NEUTRAL",
+        "STORYBOOK-FATE-PATH",
+        "PERSISTENT-AUDIO-SUBSYSTEM"
+      ]
     }
   },
   "pending_decisions": [
