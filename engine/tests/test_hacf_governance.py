@@ -2250,3 +2250,58 @@ def test_adr_009_is_a_proposal_and_the_fact_source_points_at_it():
     assert "ADR-009" in unwired["remaining_decision"], (
         "remaining_decision 不再指向 ADR-009：待裁问题又退回成散落的叙述"
     )
+
+
+# 派发卡的 gated_by 列了五项待裁决，但「列出来」不等于「裁得动」：每一项都必须指得开
+# 一份真存在的提案。ADR-009 补上最后一份之前，PERSISTENT-AUDIO-SUBSYSTEM 只有一句
+# remaining_decision，裁不了——这条守卫让那种状态无法再悄悄存在。
+def test_every_gated_decision_points_at_a_proposal_a_human_can_rule_on():
+    """gated_by 的每一项都必须解析到真实存在的提案文件（已提交项还要带章节锚点）。"""
+    card, cards = _dispatch_cards()
+    root = project_status.ROOT_DIR
+    by_pending = {item["id"]: item for item in card["pending_decisions"]}
+    by_unwired = {item["id"]: item for item in card["verified_unwired"]}
+
+    for holder, dispatch in cards.items():
+        for gate in dispatch["gated_by"]:
+            if gate in by_pending:
+                evidence = by_pending[gate].get("evidence")
+                assert evidence, f"{holder}.dispatch 门控的 {gate} 没有 evidence 出处"
+                rel, _, anchor = evidence.partition("#")
+                path = root / rel
+                assert path.exists(), f"{gate} 的提案不存在：{rel}"
+                assert anchor and anchor in path.read_text(encoding="utf-8"), (
+                    f"{gate} 的提案章节已不存在：{rel}#{anchor}"
+                )
+            elif gate in by_unwired:
+                proposal = by_unwired[gate].get("proposal")
+                assert proposal, (
+                    f"{holder}.dispatch 门控的 {gate} 没有 proposal 出处："
+                    "它在 verified_unwired 里，表示的是一个已证实的缺口；"
+                    "若连提案都没有，人类无从裁定，接手者会误以为可以直接实现"
+                )
+                assert (root / proposal).exists(), f"{gate} 的提案不存在：{proposal}"
+            else:
+                raise AssertionError(f"{holder}.dispatch 门控了不存在的事项：{gate}")
+
+
+def test_the_five_pending_decisions_all_have_a_proposal():
+    """决策包齐备性：五项待裁决各自都有可点开的提案，缺一项就退回上一轮的半成品状态。"""
+    card, cards = _dispatch_cards()
+    root = project_status.ROOT_DIR
+    unwired_with_proposal = {
+        item["id"] for item in card["verified_unwired"] if item.get("proposal")
+    }
+    for holder, dispatch in cards.items():
+        gates = set(dispatch["gated_by"])
+        assert gates, f"{holder}.dispatch 没有 gated_by"
+        missing = [
+            gate
+            for gate in gates
+            if gate not in {i["id"] for i in card["pending_decisions"]}
+            and gate not in unwired_with_proposal
+        ]
+        assert not missing, (
+            f"{holder}.dispatch 的门控项里这几项没有提案：{missing}；"
+            "决策包不完整时接手者会把它们当成可直接实现的任务"
+        )
