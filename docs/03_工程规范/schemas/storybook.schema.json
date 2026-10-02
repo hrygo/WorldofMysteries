@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mysterious.world/schemas/v1/storybook.schema.json",
+  "title": "StoryBook",
+  "description": "PRD §20 Story Book 阅读模式核心：已结算 Episode 的纯读投影。章节正文取自实际发生的 Narrative Blocks；Episode 结束后模型绝不重写一篇「差不多」的小说、也不改变任何已提交事实（§20.1）。隐藏身份以公开称谓（fail-closed）呈现，绝不携带 canonical id。秘密 / 关键人物 / 关系变化 / 世界影响 / 聆听模式音轨为后续 additive 字段。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "episode_id",
+    "world_id",
+    "worldline_id",
+    "title",
+    "protagonist_ids",
+    "chapters",
+    "ending"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "worldline_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protagonist_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "start_world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "end_world_time": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "chapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_id",
+          "segments"
+        ],
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "segments": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "text"
+              ],
+              "properties": {
+                "type": {
+                  "enum": [
+                    "narration",
+                    "character",
+                    "transition"
+                  ]
+                },
+                "speaker": {
+                  "description": "公开称谓。已按 fail-closed 由 public label 解析；无公开称谓则为 null，绝不退化为 canonical character id。",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ending": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "main_problem": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "unresolved_threads": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
