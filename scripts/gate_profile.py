@@ -24,7 +24,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GATES_DIR = REPO_ROOT / ".hacf" / "gates"
@@ -278,6 +278,100 @@ def run_profile(
     profile, profile_path, profile_digest = resolve_profile(
         profile_id, registry_path=registry_path, repo_root=repo_root
     )
+    result = _execute_stage_entries(
+        [(profile_id, stage) for stage in profile["stages"]],
+        cwd=cwd,
+        log_dir=log_dir,
+        repo_root=repo_root,
+        env_overrides=env_overrides,
+        quiet=quiet,
+        changed_files=changed_files,
+    )
+    result.update(
+        {
+            "gate_profile_id": profile_id,
+            "gate_profile_file": str(profile_path.relative_to(repo_root)),
+            "gate_profile_digest": f"sha256:{profile_digest}",
+            "risk_class": profile.get("risk_class", "medium"),
+        }
+    )
+    return result
+
+
+def run_profiles(
+    profile_ids: List[str],
+    cwd: Path,
+    log_dir: Optional[Path] = None,
+    registry_path: Optional[Path] = None,
+    repo_root: Path = REPO_ROOT,
+    env_overrides: Optional[Dict[str, str]] = None,
+    quiet: bool = False,
+    changed_files: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """执行多枚门禁档案的并集，返回以首枚为身份、覆盖全部档案的结构化结果。
+
+    一个切片同时改动多个角色的辖区时，各枚胶囊各带一份档案。逐枚跑会把
+    `swift test` / `xcodebuild` 重跑数遍，只取其一又会让本地预演窄于 PR 实际
+    内容——那正是「本地绿、云端红」的反面：本地验的比该验的少。
+    因此按 (name, cwd, command) 去重后取并集：重复阶段只跑一次，任何档案独有
+    的阶段都不会被漏掉。
+    """
+    if not profile_ids:
+        raise GateProfileError("run_profiles 需要至少一枚门禁档案")
+
+    resolved = []
+    for profile_id in profile_ids:
+        profile, profile_path, profile_digest = resolve_profile(
+            profile_id, registry_path=registry_path, repo_root=repo_root
+        )
+        resolved.append((profile_id, profile, profile_path, profile_digest))
+
+    entries: List[Tuple[str, Dict[str, Any]]] = []
+    seen: Set[Tuple[Any, ...]] = set()
+    for profile_id, profile, _path, _digest in resolved:
+        for stage in profile["stages"]:
+            key = (
+                stage.get("name") or "",
+                stage.get("cwd", "."),
+                tuple(stage["command"]),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append((profile_id, stage))
+
+    result = _execute_stage_entries(
+        entries,
+        cwd=cwd,
+        log_dir=log_dir,
+        repo_root=repo_root,
+        env_overrides=env_overrides,
+        quiet=quiet,
+        changed_files=changed_files,
+    )
+    primary_id, primary, primary_path, primary_digest = resolved[0]
+    result.update(
+        {
+            "gate_profile_id": primary_id,
+            "gate_profile_file": str(primary_path.relative_to(repo_root)),
+            "gate_profile_digest": f"sha256:{primary_digest}",
+            "risk_class": primary.get("risk_class", "medium"),
+            "contributing_profile_ids": [pid for pid, _p, _f, _d in resolved],
+        }
+    )
+    return result
+
+
+def _execute_stage_entries(
+    entries: List[Tuple[str, Dict[str, Any]]],
+    cwd: Path,
+    log_dir: Optional[Path],
+    repo_root: Path,
+    env_overrides: Optional[Dict[str, str]],
+    quiet: bool,
+    changed_files: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """按顺序执行已去重的 (profile_id, stage) 序列。"""
     env = dict(os.environ)
     if env_overrides:
         env.update({k: v for k, v in env_overrides.items() if v})
@@ -289,7 +383,7 @@ def run_profile(
     stage_results: List[Dict[str, Any]] = []
     gaps: List[str] = []
 
-    for index, stage in enumerate(profile["stages"], start=1):
+    for index, (profile_id, stage) in enumerate(entries, start=1):
         stage_name = stage.get("name") or f"stage {index}"
         stage_cwd = (cwd / stage.get("cwd", ".")).resolve()
         argv = [expand_token(token, env) for token in stage["command"]]
@@ -391,10 +485,6 @@ def run_profile(
 
     overall = "passed" if all(s["status"] != "failed" for s in stage_results) else "failed"
     return {
-        "gate_profile_id": profile_id,
-        "gate_profile_file": str(profile_path.relative_to(repo_root)),
-        "gate_profile_digest": f"sha256:{profile_digest}",
-        "risk_class": profile.get("risk_class", "medium"),
         "started_at": started_at,
         "finished_at": _now(),
         "result": overall,

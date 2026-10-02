@@ -231,6 +231,17 @@ repo/
      `main`、改写提交信息都不会让凭单失效；凭单里的 `head_commit` 仅供追溯。
    - **范围裁决审的是 `base_sha → HEAD` 的完整范围**（已提交内容 + 工作树），不是只看工作树：
      否则「先提交再验收」会让本地范围裁决恒为空集、越界改动只剩 CI 一道防线。
+   - **一个切片跨多个角色辖区时，用 `--also-capsule` 带上其余胶囊**（可重复）：
+     ```bash
+     python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json \
+       --also-capsule .agents/capsules/<TASK_ID>-MAC.json \
+       --also-capsule .agents/capsules/<TASK_ID>-AI.json --cwd "$(pwd)"
+     ```
+     角色之间的 `forbidden` 互为禁区（`path_verdict` 先判 forbidden 再看 grant，grant 永远越不过它），
+     所以**没有任何单枚胶囊能覆盖跨 lane 的变更集**。范围裁决按覆盖式并集执行——被任一胶囊授权即放行，
+     与 CI `capsule_audit` 同一判定（`hacf_policy.is_authorized_union`，两侧共用同一份实现）；
+     门禁按各胶囊档案的并集执行（`(name, cwd, command)` 去重，既不重跑也不漏跑）。
+     不带 `--also-capsule` 时单枚胶囊覆盖不到其余 lane，本地会判越界而 CI 放行，且**凭单签不出来**。
 4. **集成预演 (Integrate · 本地)**：
    ```bash
    # 门禁 → expected_main_sha CAS 复核 → 本地 ff 合入 → post-merge smoke → Integration Receipt

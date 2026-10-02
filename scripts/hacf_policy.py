@@ -374,23 +374,53 @@ def touches_high_risk(path: str) -> bool:
     return bool(matches_any(path, PRIVILEGED_SURFACES) or matches_any(path, ESCALATION_ONLY_SURFACES))
 
 
-def audit_scope(capsule: Dict[str, Any], files: List[str]) -> Dict[str, Any]:
-    """四类边界裁决。返回 violations / escalations / granted 三类结论。"""
+def audit_scope_union(
+    capsules: List[Dict[str, Any]], files: List[str]
+) -> Dict[str, Any]:
+    """覆盖式边界裁决：一个文件只要求「被至少一枚胶囊授权」。
+
+    这与 `capsule_audit.audit_pr` 的按文件汇总口径逐字一致——两侧若各写一份，
+    就会出现「CI 放行、本地拒绝」的治理空洞，而这种空洞恰好落在最需要证据的
+    多角色切片上（跨 lane 的改动没有任何单枚胶囊能全覆盖，因为角色之间的
+    `forbidden` 互为禁区，见 `path_verdict` 里 forbidden 先于 grant 的次序）。
+
+    传入单枚胶囊时结果与历史行为完全一致。
+    """
     violations: List[Dict[str, str]] = []
     escalations: List[Dict[str, str]] = []
     granted_uses: List[str] = []
 
-    for path in files:
-        verdict = path_verdict(capsule, path)
-        kind = verdict["verdict"]
-        if kind == "forbidden":
-            violations.append({"path": path, "reason": verdict["reason"]})
-        elif kind == "escalation_required":
-            escalations.append({"path": path, "reason": verdict["reason"]})
-        elif kind == "out_of_scope":
-            violations.append({"path": path, "reason": verdict["reason"]})
-        elif touches_high_risk(path):
-            granted_uses.append(path)
+    multi = len(capsules) > 1
+    per_file: Dict[str, List[Dict[str, str]]] = {path: [] for path in files}
+    for capsule in capsules:
+        for path in files:
+            per_file[path].append(path_verdict(capsule, path))
+
+    for path, verdicts in per_file.items():
+        if is_authorized_union(verdicts):
+            if touches_high_risk(path):
+                granted_uses.append(path)
+            continue
+        forbidden = [v for v in verdicts if v["verdict"] == "forbidden"]
+        if forbidden:
+            reason = forbidden[0]["reason"]
+            if multi:
+                reason += f"（{len(capsules)} 枚胶囊均禁此路径，无一授权）"
+            violations.append(
+                {
+                    "path": path,
+                    "reason": reason,
+                }
+            )
+            continue
+        escalation = [v for v in verdicts if v["verdict"] == "escalation_required"]
+        if escalation:
+            escalations.append({"path": path, "reason": escalation[0]["reason"]})
+        else:
+            reason = "超出 write scope"
+            if multi:
+                reason += "（无任何胶囊授权）"
+            violations.append({"path": path, "reason": reason})
 
     return {
         "changed_files": files,
@@ -398,6 +428,21 @@ def audit_scope(capsule: Dict[str, Any], files: List[str]) -> Dict[str, Any]:
         "escalations": escalations,
         "privileged_uses": granted_uses,
     }
+
+
+def audit_scope(capsule: Dict[str, Any], files: List[str]) -> Dict[str, Any]:
+    """四类边界裁决（单枚胶囊）。保留为并集口径的一枚特例。"""
+    return audit_scope_union([capsule], files)
+
+
+def is_authorized_union(verdicts: List[Dict[str, str]]) -> bool:
+    """覆盖式归属的唯一判定：被任一胶囊授权即放行。
+
+    CI 的按文件汇总与本地的范围裁决都调用它。两侧各写一份「任一授权即放行」
+    正是这次要修的病根——一旦分叉，结果就是本地拒绝一个 CI 会放行的切片，
+    而接手者只会怀疑自己写错了范围。
+    """
+    return any(v["verdict"] == "authorized" for v in verdicts)
 
 
 def runner_identity(role: str) -> Dict[str, str]:

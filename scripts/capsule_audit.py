@@ -261,7 +261,7 @@ def audit_pr(
 
     # 4. 按文件汇总覆盖结论：被任一胶囊授权即放行，无任何胶囊覆盖才判越界
     for path, verdicts in sorted(per_file.items()):
-        if any(v["verdict"] == "authorized" for v in verdicts):
+        if policy.is_authorized_union(verdicts):
             continue
         forbidding = [v for v in verdicts if v["verdict"] == "forbidden"]
         if forbidding:

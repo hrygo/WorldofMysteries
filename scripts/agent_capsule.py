@@ -412,15 +412,32 @@ def verify_capsule(
     cwd: Path = REPO_ROOT,
     allow_stale: bool = False,
     log_dir: Optional[Path] = None,
+    co_capsule_paths: Optional[List[Path]] = None,
 ) -> bool:
-    """范围裁决 + 受保护门禁执行 + 生成 Work Receipt。绝不回写胶囊。"""
+    """范围裁决 + 受保护门禁执行 + 生成 Work Receipt。绝不回写胶囊。
+
+    `co_capsule_paths` 是本切片其余角色辖区的胶囊。范围裁决按覆盖式并集
+    （被任一胶囊授权即放行），门禁按各胶囊档案的并集执行——两侧口径都与
+    CI 的 `capsule_audit` 对齐，见 `hacf_policy.audit_scope_union`。
+    """
     capsule = policy.load_capsule(capsule_path)
     capsule_digest = policy.capsule_digest(capsule_path)
     started_at = policy.now_iso()
 
+    co_capsules: List[Dict[str, Any]] = []
+    co_digests: List[str] = []
+    for co_path in co_capsule_paths or []:
+        co_capsules.append(policy.load_capsule(co_path))
+        co_digests.append(policy.capsule_digest(co_path))
+
     print(f" [AgentCapsule] verifying task [{capsule['task_id']}] {capsule['title']}")
     print(f"   role={capsule['assigned_role']} · risk={capsule.get('risk_class')} · revision={capsule.get('capsule_revision')}")
     print(f"   capsule_digest=sha256:{capsule_digest[:32]}… (胶囊不被回写)")
+    for co in co_capsules:
+        print(
+            f"   + co-capsule [{co['task_id']}] role={co['assigned_role']} · "
+            f"profile={co['gates']['profile']}（覆盖式并集参与范围裁决与门禁）"
+        )
 
     head_commit = policy.run_git(["rev-parse", "HEAD"], cwd=cwd)
     target_ref = capsule["base"]["target_ref"]
@@ -472,8 +489,9 @@ def verify_capsule(
             target_sha_now, stale_context, empty_audit,
             "空变更范围：base_sha 未覆盖实际改动",
         )
-    audit = policy.audit_scope(capsule, files)
-    print(f"\n️  Scope audit · changed files: {len(files)}")
+    audit = policy.audit_scope_union([capsule] + co_capsules, files)
+    scope_label = " + ".join([capsule["task_id"]] + [c["task_id"] for c in co_capsules])
+    print(f"\n️  Scope audit · capsules: {scope_label} · changed files: {len(files)}")
     for violation in audit["violations"]:
         print(f"   ❌ [SCOPE BREACH] {violation['path']} — {violation['reason']}")
     for escalation in audit["escalations"]:
@@ -483,7 +501,10 @@ def verify_capsule(
     if not (audit["violations"] or audit["escalations"]):
         print("   ✅ 所有变更均在授权范围内")
 
-    if audit["privileged_uses"] and capsule.get("risk_class") not in ("high", "privileged"):
+    # 高风险面可能只由协同胶囊授权，此时该胶囊的 risk_class 才是这道门的归属，
+    # 不能拿主胶囊的 medium 去否决它。
+    risk_classes = {c.get("risk_class") for c in [capsule] + co_capsules}
+    if audit["privileged_uses"] and not risk_classes & {"high", "privileged"}:
         print(
             "\n 触碰高风险面要求 risk_class 至少为 high，请重新 pack 并注明扩权理由。"
         )
@@ -501,12 +522,21 @@ def verify_capsule(
     workspace_root = cwd
     lease = policy.load_workspace_lease(workspace_root)
     profile_id = capsule["gates"]["profile"]
-    print(f"\n🚦 Executing protected gate profile '{profile_id}' …")
+    profile_ids = [pid for pid in [profile_id] + [c["gates"]["profile"] for c in co_capsules]]
+    profile_ids = list(dict.fromkeys(profile_ids))
+    gate_log_dir = log_dir or policy.log_dir_for(
+        workspace_root, capsule["task_id"], head_commit
+    )
+    if len(profile_ids) > 1:
+        print(f"\n🚦 Executing gate profile union: {' ∪ '.join(profile_ids)} …")
+    else:
+        print(f"\n🚦 Executing protected gate profile '{profile_id}' …")
     try:
-        gate_result = gate_profile.run_profile(
-            profile_id,
+        runner = gate_profile.run_profiles if len(profile_ids) > 1 else gate_profile.run_profile
+        gate_result = runner(
+            profile_ids if len(profile_ids) > 1 else profile_id,
             cwd=workspace_root,
-            log_dir=log_dir or policy.log_dir_for(workspace_root, capsule["task_id"], head_commit),
+            log_dir=gate_log_dir,
             env_overrides=policy.env_overrides_from_lease(lease),
             changed_files=files,
         )
@@ -524,6 +554,17 @@ def verify_capsule(
     #    「本变更集自身改写该 profile」的受权治理演进由 policy 统一裁决（与 CI 审计同一规则），
     #    并在凭单 notes 中留痕；其余不一致一律视为篡改。
     receipt_notes: List[str] = []
+    if co_capsules:
+        receipt_notes.append(
+            "范围裁决按覆盖式并集执行（被任一胶囊授权即放行），"
+            "与 CI capsule_audit 同一口径；协同胶囊："
+            + "；".join(
+                f"{c['capsule_id']}({c['assigned_role']}, "
+                f"profile={c['gates']['profile']}, "
+                f"digest=sha256:{digest[:32]}…)"
+                for c, digest in zip(co_capsules, co_digests)
+            )
+        )
     actual_profile_digest = gate_result.get("gate_profile_digest")
     capsule_profile_digest = capsule["gates"].get("profile_digest")
     evolution: Dict[str, Any] = {"accepted": False, "reason": ""}
@@ -691,6 +732,12 @@ def main() -> int:
 
     verify_parser = subparsers.add_parser("verify", help="范围裁决 + 门禁执行 + 签发 Work Receipt")
     verify_parser.add_argument("--capsule", required=True)
+    verify_parser.add_argument(
+        "--also-capsule",
+        action="append",
+        default=[],
+        help="本切片其余角色辖区的胶囊；可重复。范围裁决按覆盖式并集，门禁按档案并集执行",
+    )
     verify_parser.add_argument("--cwd", default=str(REPO_ROOT), help="执行工作区（worktree 场景）")
     verify_parser.add_argument("--allow-stale", action="store_true", help="调试用：允许在陈旧上下文上执行")
 
@@ -719,7 +766,10 @@ def main() -> int:
             return 0
         if args.command == "verify":
             ok = verify_capsule(
-                Path(args.capsule), cwd=Path(args.cwd).resolve(), allow_stale=args.allow_stale
+                Path(args.capsule),
+                cwd=Path(args.cwd).resolve(),
+                allow_stale=args.allow_stale,
+                co_capsule_paths=[Path(p) for p in args.also_capsule],
             )
             return 0 if ok else 1
         if args.command == "show":
