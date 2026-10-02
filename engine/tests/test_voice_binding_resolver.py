@@ -320,6 +320,52 @@ async def test_a_scope_with_no_binding_reports_the_missing_review(probes):
 
 
 @pytest.mark.asyncio
+async def test_shipping_the_character_roster_does_not_let_anyone_be_voiced(probes):
+    """The objection that kept the character roster out of the bundle, answered.
+
+    A prior author declined to ship ``character_display_names`` because doing so
+    would "put the supporting cast into the voice-casting and speaker-binding
+    path", and treated that as a behaviour change wanting its own review. This
+    states that objection as two facts that must both hold:
+
+    1. the roster really does make the character castable-eligible — otherwise
+       the objection was about something that was never going to happen and the
+       empty Story Book sections were being paid for with no benefit; and
+    2. eligibility is not voice. ``resolve_voice_runtime`` still refuses with
+       ``voice_binding_not_reviewed`` and still never reaches the provider.
+
+    If a future change ever wires castability straight through to a rendered
+    voice, (2) goes red. That is the point: the roster may name people in the
+    book without ever speaking for them.
+    """
+    from application.story_disclosure import disclosed_castable_roster
+    from application.story_initialization import GOLDEN_CHARACTER_DISPLAY_NAMES
+
+    castable = disclosed_castable_roster(
+        active_character_ids=["protagonist_klein", "npc_doctor_morris"],
+        protagonist_id="protagonist_klein",
+        character_display_names=GOLDEN_CHARACTER_DISPLAY_NAMES,
+    )
+
+    assert castable is not None
+    assert ("npc_doctor_morris", "莫里斯医生") in castable
+
+    repository = _Repository(None)
+
+    with pytest.raises(VoiceBindingResolutionError) as caught:
+        await resolve_voice_runtime(
+            repository=repository,
+            session=_session(),
+            config=AudioProviderConfig(),
+            voice_id=VOICE_ID,
+            scope=_scope(presentation_identity="莫里斯医生"),
+        )
+
+    assert caught.value.code == "voice_binding_not_reviewed"
+    assert probes == []
+
+
+@pytest.mark.asyncio
 async def test_a_reservation_nobody_listened_to_does_not_render(probes):
     repository = _Repository(_unreviewed_binding())
 

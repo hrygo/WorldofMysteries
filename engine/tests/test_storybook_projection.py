@@ -507,26 +507,34 @@ def test_reading_the_book_twice_gives_the_same_page():
     assert _shipped_book(payload) == _shipped_book(payload)
 
 
-def test_the_sections_awaiting_character_names_are_empty_and_that_is_known():
-    """Pin the two remaining gaps so they cannot be forgotten silently.
+def test_the_shipped_roster_and_the_two_sections_it_feeds_stay_in_step():
+    """关键人物 and 关系变化 are a function of the shipped roster — nothing else.
 
-    关键人物 and 关系变化 both need ``character_display_names``, which the
-    bundle deliberately does not ship yet: adding it also puts the supporting
-    cast into the voice-casting and speaker-binding path, which is a behaviour
-    change worth its own review rather than a side effect of filling in a table.
+    A prior author left ``character_display_names`` out on purpose, reasoning
+    that shipping it would push the supporting cast into voice casting and
+    speaker binding, and installed this test as a tripwire: shipping the roster
+    was supposed to turn it red so whoever did it had to say so out loud.
 
-    Asserting the emptiness is deliberate. When that table is shipped, this
-    test goes red and whoever did it has to say out loud that the book now shows
-    people — the same discipline ``golden_policy`` applies to content digests.
+    SB-19 established that the casting gate does not rest on this table —
+    ``resolve_voice_runtime`` refuses with ``voice_binding_not_reviewed``
+    unless a reviewed binding already exists — and pre-registered the digest
+    the roster produces. SB-20 emits it. This assertion now holds in both
+    states and pins what actually matters: the two sections are populated
+    exactly when the roster is shipped. A bundle that gains one without the
+    other, or ships a roster and still renders nobody, goes red.
     """
     presentation = _shipped_payload()["presentation"]
-    assert "character_display_names" not in presentation
-
+    roster = presentation.get("character_display_names") or {}
     book = _shipped_book(_shipped_payload())
 
-    assert book["discovered_secrets"], "秘密段是本切片的目标，不该为空"
-    assert book["key_characters"] == []
-    assert book["relationship_changes"] == []
+    assert book["discovered_secrets"], "秘密段由命题表驱动，不依赖角色名册"
+
+    if roster:
+        assert book["key_characters"], "名册已出货，关键人物段不该为空"
+        assert book["relationship_changes"], "名册已出货，关系变化段不该为空"
+    else:
+        assert book["key_characters"] == []
+        assert book["relationship_changes"] == []
 
 
 # ---------------------------------------------------------------------------
