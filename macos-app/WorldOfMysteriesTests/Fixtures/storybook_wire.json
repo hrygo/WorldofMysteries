@@ -1,0 +1,95 @@
+{
+  "chapters": [
+    {
+      "block_id": "block-1",
+      "scene_id": "consultation_room",
+      "segments": [
+        {
+          "speaker": null,
+          "text": "雨落在诊所的窗外。",
+          "type": "narration"
+        },
+        {
+          "speaker": "莫里斯医生",
+          "text": "你还没有回答我的问题。",
+          "type": "character"
+        }
+      ]
+    }
+  ],
+  "discovered_secrets": [
+    {
+      "acquired_world_time": "1349-06-12T20:35:00",
+      "certainty": 0.95,
+      "holder": null,
+      "proposition": "病人反复做噩梦",
+      "status": "confirmed"
+    },
+    {
+      "acquired_world_time": "1349-06-12T20:30:00",
+      "certainty": 1.0,
+      "holder": null,
+      "proposition": "病人失踪了",
+      "status": "confirmed"
+    },
+    {
+      "acquired_world_time": "1349-06-12T20:35:00",
+      "certainty": 1.0,
+      "holder": null,
+      "proposition": "病人家属怀疑莫里斯医生",
+      "status": "confirmed"
+    },
+    {
+      "acquired_world_time": "1349-06-12T21:20:00",
+      "certainty": 0.9,
+      "holder": null,
+      "proposition": "莫里斯医生声称病人是自行离开的",
+      "status": "probable"
+    }
+  ],
+  "end_world_time": "1349-06-12T21:52:00",
+  "ending": {
+    "main_problem": "乔纳森·维尔去向不明",
+    "type": "partial_truth"
+  },
+  "episode_id": "episode-001",
+  "key_characters": [
+    {
+      "change_count": 2,
+      "label": "莫里斯医生"
+    }
+  ],
+  "protagonist_ids": [
+    "char_evelyn_gray"
+  ],
+  "relationship_changes": [
+    {
+      "dimensions": {
+        "fear": 0.2,
+        "trust": 0.3
+      },
+      "from": null,
+      "to": "莫里斯医生"
+    }
+  ],
+  "schema_version": "1.0",
+  "start_world_time": "1349-06-12T21:40:00",
+  "title": "哈维诊所的停顿",
+  "unresolved_threads": [
+    "乔纳森·维尔是否还活着"
+  ],
+  "world_id": "world-tingen",
+  "world_impacts": [
+    {
+      "actors": [],
+      "event_type": "patient_discovered_missing",
+      "importance": "local",
+      "persistence": "world",
+      "targets": [
+        "莫里斯医生"
+      ],
+      "world_time": "1349-06-12T21:20:00"
+    }
+  ],
+  "worldline_id": "wl-1349-main"
+}
