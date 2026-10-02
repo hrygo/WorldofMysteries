@@ -23,11 +23,25 @@ from application.story_initialization import (
 from application.story_turn_commit import DomainValidationContext
 from contracts import StorySession, StorySessionStatus
 
-# This is the canonical digest produced from the shipped Golden 001 scenario
-# bundle. Restored sessions are accepted only for a digest whose rules revision
-# remains explicitly registered here.
+# Digests produced from the shipped Golden 001 scenario bundle. Restored
+# sessions are accepted only for a digest whose rules revision remains
+# explicitly registered here, so changing product content — a public name, a
+# clue label, a new presentation table — is a registered act rather than a
+# silent one.
+#
+# Both are kept. The second is the digest the builder produces once it emits
+# the knowledge-proposition table that makes 已发现秘密 projectable at all
+# (SB-09); it is registered *before* the builder emits it, so no main is ever in
+# the state "the bundle says X and nothing accepts X". It was measured by
+# running the builder, not assumed — see the SB-10 test that re-checks it.
+#
+# A session bootstrapped under the earlier digest carries that content in its
+# own bootstrap, so dropping its registration would make it un-restorable over
+# a rename that says nothing about the rules.
 _GOLDEN_RULES_BY_CONTENT_DIGEST = {
     "610ecbdb2875b86ac5ed52b100d5def3481408d5f4e16030cec2ed09da288d07":
+        GOLDEN_POLICY_VERSION,
+    "789b95741e72582946de8f3258d88cda7cbf3f5c17c0f7ad850d4ac0e44cb1b1":
         GOLDEN_POLICY_VERSION,
 }
 
