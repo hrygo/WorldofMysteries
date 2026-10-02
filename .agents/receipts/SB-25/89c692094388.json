@@ -1,0 +1,130 @@
+{
+  "receipt_id": "RCP-WORK-SB-25-89c692094388",
+  "receipt_type": "work",
+  "task_id": "SB-25",
+  "capsule_id": "CAP-SB-25",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:bf300852d5129886c8c4366fb29d3aa04cd22f23baf12e7f046db6faa448d9c8",
+  "diff_digest": "sha256:abf539878492434b63506208ab6f64c7d4d05961dd0794e2685b4437efc25910",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "0e5e1fde4daa9fca6ae751706b0c86361d3b1b13",
+  "head_commit": "89c6920943888fcf90a955ae3d74ad2b30e20369",
+  "target_ref": "origin/main",
+  "target_sha": "0e5e1fde4daa9fca6ae751706b0c86361d3b1b13",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T16:31:20.857288+00:00",
+      "finished_at": "2026-10-02T16:31:20.895195+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T16:31:20.895282+00:00",
+      "finished_at": "2026-10-02T16:33:23.747296+00:00",
+      "raw_log_digest": "sha256:4a0b86dd74dd22f27a9e34061d65ecf9ec9a9805e4df16cd6129385a76d42ca2",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T16:33:23.747384+00:00",
+      "finished_at": "2026-10-02T16:33:46.737019+00:00",
+      "raw_log_digest": "sha256:80774c9ba4d5edcbd7db6d6a5ea053a0fd4ba59956b4f80cb0bb2e2588962eac",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T16:33:46.737270+00:00",
+      "finished_at": "2026-10-02T16:33:48.588011+00:00",
+      "raw_log_digest": "sha256:203239236117331c0a5d39baee10d5d01079249b5543e9e0c5c23e9ede33b0d5",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "docs/PROJECT_STATE.json",
+      "engine/tests/test_hacf_governance.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": []
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-25-take-layer-unwired"
+  },
+  "started_at": "2026-10-02T16:31:20.821793+00:00",
+  "finished_at": "2026-10-02T16:33:48.705260+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}
