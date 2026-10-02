@@ -143,7 +143,7 @@
         "M5"
       ],
       "lead_role": "AGT-VOICE",
-      "description": "真实模型/基础语音、Story Book 历史回放、核心路径可独立使用及目标 Mac 发布验证；TTS 失败不改变已提交事实。 2026-10-02 更新：其中「Story Book 历史回放」子项已由 PR #220–#243 交付到可读取状态（story.storybook.get 首次对外可达、四段投影与 App 呈现），但回放路径的端到端复跑验收与「已提交叙事分段 → take 绑定」的持久化地基仍缺：全部迁移中无任何表记录该绑定，DeliveryReceipt 不带 take_id 且不落库，回放靠重算 render_key 反推取件，若音色/模型/发音在渲染与装配之间被修订过（玩家重铸音色即触发），会静默取到从未在该会话播放过的音频。该缺口的修法属 ADR-006 范畴，需人类架构师裁决后方可实施。"
+      "description": "真实模型/基础语音、Story Book 历史回放、核心路径可独立使用及目标 Mac 发布验证；TTS 失败不改变已提交事实。 2026-10-02 更新：其中「Story Book 历史回放」子项已由 PR #220–#243 交付到可读取状态（story.storybook.get 首次对外可达、四段投影与 App 呈现），但该路径**只有叙事，没有任何音频**。本条曾记「全部迁移中无任何表记录『已提交叙事分段 → take 绑定』……回放靠重算 render_key 反推取件」，该描述已于 SB-24B 撤回：绑定机制（迁移 007 的 audio_track_units）确实存在且设计正确。真正的问题是**整条持久音频通路从未接线**——take 层本身就没有生产调用方，详见 verified_unwired 的 PERSISTENT-AUDIO-SUBSYSTEM。因此 PRD §20.2 聆听模式「重用 Story Session 已生成音频」当前无法成立：没有已生成音频可供重用。修法涉及是否让实时路径落 take，属架构裁决，需人类架构师定夺。"
     }
   ],
   "critical_path": {
@@ -313,17 +313,20 @@
   ],
   "verified_unwired": [
     {
-      "id": "PINNED-TRACK-REPLAY",
-      "claim": "已提交叙事分段 → take 绑定不是缺失，而是已建好但零生产调用方。",
+      "id": "PERSISTENT-AUDIO-SUBSYSTEM",
+      "claim": "Story Book 回放缺的不只是 track 绑定，而是整条持久音频子系统——take 层本身从未接线。",
       "evidence": {
         "persisted": "迁移 007 的 audio_track_units 表逐段记录 turn_id / narrative_block_id / segment_index / story_revision / take_id，且 turn_id 与 narrative_block_id 分别外键到 turn_transactions(id) 与 narrative_blocks(id)，UNIQUE(track_id, narrative_block_id, segment_index) 固定分段唯一。",
         "replay_reads_pins": "OfflineStoryBookReplayResolver.resolve 直接 load unit.take_id，全程 storage-only，不接 provider / render / 网络回调；render_key 只出现在 audio_take_store.py 与 audio_take_coordinator.py，回放路径根本不碰它。",
         "recast_is_designed_for": "kind='redub' + supersedes_track_id + UNIQUE(track_family_id, revision) 意味着重铸发布新修订并继续钉住旧 take，而不是就地改写——「重铸音色后回放播错音频」的风险在 schema 层已被挡住。",
-        "but_unwired": "SQLiteAudioTrackRepository 与 OfflineStoryBookReplayResolver 的非测试调用方均为 0；audio_replay.py 没有任何非测试模块导入；SQLiteAudioTakeStore 在 audio_replay.py 之外同样没有非测试构造点。StoryBook 读取路径完全不查询 audio_tracks。"
+        "but_unwired": "publish_pcm 是写入 audio_takes 的唯一入口（裸 SQL 亦被 database_manager 的 SQLite 授权器以 SQLITE_DENY 挡下 INSERT/UPDATE），而它只有 audio_take_coordinator 调用，coordinator 只被 audio_prefetch 引用，prefetch 零生产调用方。SQLiteAudioTakeStore / SQLiteAudioTrackRepository / AudioTakeRenderCoordinator / AudioTakePrefetchQueue / OfflineStoryBookReplayResolver 五个类在全仓（排除测试与 .venv）均无任何构造点。1925 行测试覆盖的是一套无人实例化的子系统。",
+        "realtime_path_never_persists": "实时路径 VoiceRenderRuntime.media_handler 把 provider PCM 直接写 socket，engine/infrastructure/audio/ 全目录无任何落库动作。",
+        "contract_has_no_audio_surface": "storybook.schema.json 的 15 个字段全是叙事，无音频；App 侧 StoryBookModel/StoryBookView 亦无音频呈现。PRD §20.2 要求「重用 Story Session 已生成音频」，而运行态里不存在已生成音频。",
+        "not_superseded_dead_code": "docs/01_总体架构/ADR-005_音色供给与铸造_v1.0.md D7 把 take 当一等持久事实（「播放原缓存并保留原证据」「显式重播使用单独的新 take」），PR #178 明写 StoryBook-pinned takes。ADR-005 状态为终态架构定义，故这是设计到位而从未接线，不是被实时流取代的死代码。"
       },
-      "consequence": "Story Book 回放当前没有任何音频通路——不是「重铸后可能播错」，而是运行态里根本没有接线。PR #175「pin AudioTakes in immutable StoryBook tracks」与 #178「replay pinned tracks and clean rebuildable takes」交付了机制，但没有一片把它接进回合交付。",
-      "retracts": "本文件上一版（SB-24 首版）称「全部迁移中无任何表记录该绑定、回放靠重算 render_key 反推取件、玩家重铸音色即会静默取到从未播放过的音频」——三条均经源码核实为假，已撤回。",
-      "remaining_decision": "接线本身不再是架构问题（schema 与 resolver 都已定），需裁的是发布时机与 redub 策略：每回合音频就绪后何时 publish 首版 track、重铸时谁触发 redub 修订、以及重铸期间回放应指向旧修订还是暂不可用。"
+      "consequence": "Story Book 回放当前没有任何音频通路——不是「重铸后可能播错」，而是运行态里既没有 track 也没有 take。PR #175 / #178 交付了机制，但没有一片把它接进回合交付；PRD §20.2 聆听模式「重用 Story Session 已生成音频」在接线前无法成立。",
+      "retracts": "本条目上一版（SB-24B）称「Story Book 回放缺音频是因为 track 层未接线，接线本身不再是架构问题，只需裁发布时机与 redub 策略」——该判断同样不完整：track 层未接线只是表象，其下的 take 层同样零生产调用方，因此「裁发布时机」这一提法本身就不成立。SB-22 / SB-24 / SB-24B 三次误判同源于此。",
+      "remaining_decision": "不再是「发布时机与 redub 策略」——take 都不存在，无从谈起。真正要裁的是：（一）实时渲染路径是否应当落 take，若否则 dry/prefetch 通路应由谁在何时触发；（二）落库后的 take 是否即 replay 的唯一来源，还是允许回放时按需重渲；（三）take 落库失败不得反向影响已 COMMIT 的叙事（不变量 9），失败面如何表达。这三条都触及持久化地基与 ADR-005 D7 边界，需人类架构师裁决。"
     }
   ]
 }
