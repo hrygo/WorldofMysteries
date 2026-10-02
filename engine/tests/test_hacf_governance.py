@@ -2460,3 +2460,270 @@ def test_the_apps_allowed_wire_keys_cover_the_storybook_contract():
         f"契约新增了 {missing}，但 App 的 StoryBookDTO 不允许这些键："
         "引擎一旦发出，App 会在运行时拒收整本书——而单测全绿，因为没人对账这两侧"
     )
+
+
+# ---- SB-34 的事故形状：多 lane 切片在本地无法签发凭单 --------------------------
+#
+# SB-34 同时改契约（AGT-ARB）、投影（AGT-AI）与 App（AGT-MAC）。角色之间的
+# forbidden 互为禁区，且 `path_verdict` 先判 forbidden 再看 grant，所以**没有任何
+# 单枚胶囊能覆盖全量变更集**——这不是配置疏漏，是角色边界的直接后果。
+#
+# CI 的按文件汇总按「被任一胶囊授权即放行」放行（PR #260 实测通过），而本地
+# `verify` 过去拿单枚胶囊去裁决同一变更集，于是本地判 6 处越界、拒绝签发凭单。
+# 后果不是「本地红」而是**证据链断裂**：SOP 第 3 步的 Work Receipt 在所有跨 lane
+# 切片上结构性取不到，而 CI 的凭单检查是 hard=False，合入照常通过——没人会发现。
+SB34_CHANGE_SET = [
+    "contracts/schemas/storybook.schema.json",
+    "docs/PROJECT_STATE.json",
+    "engine/application/storybook_projection.py",
+    "engine/tests/test_hacf_governance.py",
+    "engine/tests/test_storybook_projection.py",
+    "macos-app/WorldOfMysteries/StoryBookView.swift",
+    "macos-app/WorldOfMysteries/StorySessionControl.swift",
+    "macos-app/WorldOfMysteriesTests/Fixtures/storybook_wire.json",
+    "macos-app/WorldOfMysteriesTests/StoryBookTests.swift",
+]
+
+
+def _lane_capsule(role: str, task_id: str, grants=None):
+    """按角色真实默认值构造一枚胶囊，不用手搓 scope——手搓会让守卫失去意义。"""
+    defaults = agent_capsule.ROLE_DEFAULTS[role]
+    return {
+        "capsule_id": f"CAP-{task_id}",
+        "task_id": task_id,
+        "assigned_role": role,
+        "risk_class": "high",
+        "scope": {
+            "read": defaults["read"],
+            "write": defaults["write"],
+            "forbidden": defaults["forbidden"],
+            "privileged_grants": grants or [],
+        },
+        "gates": {"profile": "FULL_P0", "profile_digest": "sha256:" + "0" * 64},
+    }
+
+
+def test_no_single_capsule_can_authorize_a_multi_lane_change_set():
+    """前提守卫：多 lane 切片确实无法由单枚胶囊覆盖，否则下面几条并集守卫是空的。"""
+    arb = _lane_capsule("AGT-ARB", "SB-34A", ["contracts/schemas/storybook.schema.json"])
+    alone = hacf_policy.audit_scope(arb, SB34_CHANGE_SET)
+    breached = {v["path"] for v in alone["violations"]}
+    assert "macos-app/WorldOfMysteries/StoryBookView.swift" in breached, (
+        "AGT-ARB 竟然能独自授权 macos-app——那 forbidden 顺序变了，本组守卫的前提失效"
+    )
+    assert "engine/application/storybook_projection.py" in breached, (
+        "AGT-ARB 竟然能独自授权 engine/application——那角色边界变了，本组守卫的前提失效"
+    )
+
+
+def test_the_union_of_the_lane_capsules_authorizes_the_whole_change_set():
+    """并集口径：SB-34 那 9 个文件在三枚 lane 胶囊下全部授权。"""
+    capsules = [
+        _lane_capsule("AGT-ARB", "SB-34A", ["contracts/schemas/storybook.schema.json"]),
+        _lane_capsule("AGT-AI", "SB-34I"),
+        _lane_capsule("AGT-MAC", "SB-34M"),
+    ]
+    audit = hacf_policy.audit_scope_union(capsules, SB34_CHANGE_SET)
+    assert not audit["violations"], audit["violations"]
+    assert not audit["escalations"], audit["escalations"]
+    assert audit["privileged_uses"] == ["contracts/schemas/storybook.schema.json"]
+
+
+def test_a_path_no_capsule_authorizes_is_still_refused_under_the_union():
+    """并集不是橡皮章：无人授权的路径照样拒绝。"""
+    capsules = [
+        _lane_capsule("AGT-AI", "SB-34I"),
+        _lane_capsule("AGT-MAC", "SB-34M"),
+    ]
+    audit = hacf_policy.audit_scope_union(capsules, ["macos-app/Packaging/App.entitlements"])
+    assert audit["violations"], "并集把没有任何胶囊授权的路径也放行了"
+
+
+def test_an_ungranted_high_risk_surface_still_escalates_under_the_union():
+    """并集不吞掉扩权门：高风险面未获 grant 时仍须升级，不得因为「别的胶囊也许管」而放行。"""
+    capsules = [
+        _lane_capsule("AGT-AI", "SB-34I"),
+        _lane_capsule("AGT-MAC", "SB-34M"),
+    ]
+    audit = hacf_policy.audit_scope_union(
+        capsules, ["contracts/schemas/storybook.schema.json"]
+    )
+    assert audit["escalations"], "高风险面未获 grant 却没有升级——扩权门被并集吞掉了"
+    assert not audit["violations"]
+
+
+def test_the_local_audit_and_the_ci_aggregation_never_disagree():
+    """本地范围裁决与 CI 按文件汇总必须逐文件同判，否则交接者只会怀疑自己写错范围。
+
+    两侧现在共用 `hacf_policy.is_authorized_union`；这条守卫在有人给其中一侧
+    重新实现一份判定时转红。
+    """
+    capsules = [
+        _lane_capsule("AGT-ARB", "SB-34A", ["contracts/schemas/storybook.schema.json"]),
+        _lane_capsule("AGT-AI", "SB-34I"),
+        _lane_capsule("AGT-MAC", "SB-34M"),
+    ]
+    local = hacf_policy.audit_scope_union(capsules, SB34_CHANGE_SET)
+    flagged = {v["path"] for v in local["violations"]} | {
+        e["path"] for e in local["escalations"]
+    }
+    for path in SB34_CHANGE_SET:
+        ci_verdicts = [hacf_policy.path_verdict(c, path) for c in capsules]
+        ci_allows = hacf_policy.is_authorized_union(ci_verdicts)
+        assert ci_allows == (path not in flagged), (
+            f"{path}：CI 判放行={ci_allows}，本地判放行={path not in flagged}"
+        )
+
+
+def _stages_of(profile_id: str):
+    data = json.loads(
+        (REPO_ROOT / f".hacf/gates/{profile_id.lower()}.json").read_text(encoding="utf-8")
+    )
+    return data["stages"]
+
+
+def _stage_key(stage):
+    return (stage.get("name") or "", stage.get("cwd", "."), tuple(stage["command"]))
+
+
+def test_gate_profile_union_dedupes_shared_stages_and_keeps_every_unique_one(monkeypatch):
+    """门禁并集既不重跑共享阶段，也不漏掉任一档案独有的阶段。
+
+    漏跑会让本地预演窄于 PR 实际内容——那是「本地绿、云端红」的反面：
+    本地验的比该验的少。重跑则让每次验收多花数分钟。
+    """
+    captured = {}
+
+    def fake(entries, **kwargs):
+        captured["entries"] = entries
+        return {
+            "started_at": "",
+            "finished_at": "",
+            "result": "passed",
+            "stages": [],
+            "coverage_gaps": [],
+            "workspace_root": str(kwargs.get("cwd")),
+        }
+
+    monkeypatch.setattr(gate_profile, "_execute_stage_entries", fake)
+    result = gate_profile.run_profiles(["FULL_P0", "MACOS_APP_P0"], cwd=REPO_ROOT)
+
+    keys = [_stage_key(stage) for _pid, stage in captured["entries"]]
+    assert len(keys) == len(set(keys)), "并集里有重复阶段，同一个 swift test 会被跑两遍"
+    for profile_id in ("FULL_P0", "MACOS_APP_P0"):
+        for stage in _stages_of(profile_id):
+            assert _stage_key(stage) in keys, f"{profile_id} 的阶段在并集中被漏掉了"
+    assert result["gate_profile_id"] == "FULL_P0", "身份必须仍取首枚，否则凭单摘要比对会错位"
+    assert result["contributing_profile_ids"] == ["FULL_P0", "MACOS_APP_P0"]
+
+
+def test_run_profile_alone_still_executes_exactly_one_profile(monkeypatch):
+    """单档案路径没有被并集改造带偏：不产生 contributing 字段，阶段数不变。"""
+    captured = {}
+
+    def fake(entries, **kwargs):
+        captured["entries"] = entries
+        return {
+            "started_at": "",
+            "finished_at": "",
+            "result": "passed",
+            "stages": [],
+            "coverage_gaps": [],
+            "workspace_root": str(kwargs.get("cwd")),
+        }
+
+    monkeypatch.setattr(gate_profile, "_execute_stage_entries", fake)
+    result = gate_profile.run_profile("FULL_P0", cwd=REPO_ROOT)
+
+    assert len(captured["entries"]) == len(_stages_of("FULL_P0"))
+    assert "contributing_profile_ids" not in result
+
+def _fake_gate_run_union(actual_digest: str):
+    def _run(profile_ids, cwd=None, log_dir=None, **kwargs):  # noqa: ANN001, ANN003
+        ids = list(profile_ids) if isinstance(profile_ids, list) else [profile_ids]
+        return {
+            "gate_profile_id": ids[0],
+            "gate_profile_digest": actual_digest,
+            "result": "passed",
+            "stages": [],
+            "coverage_gaps": [],
+            "contributing_profile_ids": ids,
+        }
+
+    return _run
+
+
+
+
+def test_verify_signs_a_receipt_for_a_multi_lane_change_set(tmp_path, monkeypatch):
+    """端到端：跨角色辖区的切片过去签不出凭单，覆盖式并集下必须签出 passed。
+
+    这是 SB-34 的直接回归。两枚胶囊的 `forbidden` 互指对方写入的文件——刻意
+    构造得互不相交，确保放行来自并集而不是某一枚胶囊 scope 写宽了。
+    """
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, primary_path, head = _gate_evolution_workspace(
+        tmp_path, registry_digest=EVOLVED_PROFILE_DIGEST
+    )
+
+    lane_b = workspace / "engine" / "application" / "projection.py"
+    lane_b.parent.mkdir(parents=True)
+    lane_b.write_text("# lane B\n", encoding="utf-8")
+    _git(workspace, "add", ".")
+    _git(workspace, "commit", "-q", "-m", "lane B work")
+
+    primary = json.loads(primary_path.read_text(encoding="utf-8"))
+    head_now = _git(workspace, "rev-parse", "HEAD").stdout.strip()
+    primary["base"]["target_sha"] = head_now
+    primary_path.write_text(json.dumps(primary, indent=2), encoding="utf-8")
+
+    co = _gate_evolution_capsule("AGT-AI")
+    co["capsule_id"] = "CAP-T-GOV-LANE-B"
+    co["task_id"] = "T-GOV-LANE-B"
+    co["scope"]["write"] = ["engine/application/"]
+    co["scope"]["forbidden"] = [".hacf/", "app.txt"]
+    # 刻意给协同胶囊另一份档案：两枚胶囊档案相同时并集退化为单档案执行，
+    # 那条路径由 run_profiles 的单元测试负责；这里要证明的是跨档案并集确实被调用。
+    co["gates"]["profile"] = "MACOS_APP_P0"
+    co["base"] = {
+        "target_ref": "main",
+        "base_sha": head,
+        "target_sha": head_now,
+        "context_snapshot": "sha256:" + "d" * 64,
+    }
+    co_path = workspace / ".agents" / "capsules" / "T-GOV-LANE-B.json"
+    co_path.write_text(json.dumps(co, indent=2), encoding="utf-8")
+
+    monkeypatch.setattr(gate_profile, "run_profiles", _fake_gate_run_union(EVOLVED_PROFILE_DIGEST))
+
+    assert agent_capsule.verify_capsule(
+        primary_path, cwd=workspace, co_capsule_paths=[co_path]
+    ) is True, "跨 lane 切片仍签不出凭单——SB-34 的症状未闭合"
+
+    receipts = sorted((workspace / ".agents" / "receipts" / "T-GOV-EVOLUTION").glob("*.json"))
+    receipt = json.loads(receipts[-1].read_text(encoding="utf-8"))
+    assert receipt["verdict"] == "passed"
+    assert not receipt["scope_audit"]["violations"], receipt["scope_audit"]["violations"]
+    assert any("CAP-T-GOV-LANE-B" in note for note in receipt["notes"]), (
+        "凭单没有留痕协同胶囊：事后无法复算这枚凭单究竟授权了哪些角色辖区"
+    )
+
+
+def test_verify_without_the_co_capsule_still_refuses_that_same_change_set(tmp_path, monkeypatch):
+    """对照：拿掉协同胶囊，同一变更集必须仍然被拒——证明放行确实来自并集。"""
+    _isolate_in_process_git_env(monkeypatch)
+    workspace, primary_path, _head = _gate_evolution_workspace(
+        tmp_path, registry_digest=EVOLVED_PROFILE_DIGEST
+    )
+    lane_b = workspace / "engine" / "application" / "projection.py"
+    lane_b.parent.mkdir(parents=True)
+    lane_b.write_text("# lane B\n", encoding="utf-8")
+    _git(workspace, "add", ".")
+    _git(workspace, "commit", "-q", "-m", "lane B work")
+
+    capsule = json.loads(primary_path.read_text(encoding="utf-8"))
+    capsule["base"]["target_sha"] = _git(workspace, "rev-parse", "HEAD").stdout.strip()
+    primary_path.write_text(json.dumps(capsule, indent=2), encoding="utf-8")
+    monkeypatch.setattr(gate_profile, "run_profile", _fake_gate_run(EVOLVED_PROFILE_DIGEST))
+
+    assert agent_capsule.verify_capsule(primary_path, cwd=workspace) is False
