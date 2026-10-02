@@ -167,22 +167,9 @@
       "task_title": "让已发布的铸音绑定命中真实 world，而不是只命中测试 world",
       "rationale": "ADR-005 验收报告 §9 以实测算术证明：五条已发布绑定只对 live-app-path-world 命中，world_001 派生的五个角色 id 在服务商目录里一条都没有，真实场景会全部重铸。这是当前唯一既被证据钉死、又不需要产品语义裁决的交付缺口。",
       "preconditions": "不得顺带裁决旁白是否配音（乙）、替换服务商范围（丙）、盲测口径（丁）——三项均待人类架构师裁决；ADR-006 与 ADR-007 状态为待裁决，不得当作已生效授权。",
-      "authorized_scope": [
-        "engine/infrastructure/audio/",
-        "engine/infrastructure/voice_binding_resolver.py",
-        "engine/tests/",
-        "docs/06_实施基线/"
-      ],
-      "forbidden_patterns": [
-        "macos-app/WorldOfMysteries/**",
-        "engine/domain/**",
-        "engine/ai/**",
-        "contracts/**",
-        ".hacf/**",
-        ".github/**"
-      ],
       "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-VOICE --task-id ADR005-WORLD-CAST --title \"真实 world 铸音绑定\"",
-      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-world-cast --role AGT-VOICE --task-id ADR005-WORLD-CAST"
+      "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-world-cast --role AGT-VOICE --task-id ADR005-WORLD-CAST",
+      "scope_source": "scripts/agent_capsule.py::ROLE_DEFAULTS —— 本卡不再复述授权范围"
     }
   },
   "historical_gate_reports": [
@@ -275,20 +262,6 @@
       "task_title": "让已发布的铸音绑定命中真实 world，而不是只命中测试 world",
       "rationale": "ADR-005 验收报告 §9 以实测算术证明：五条已发布绑定只对 live-app-path-world 命中，world_001 派生的五个角色 id 在服务商目录里一条都没有，真实场景会全部重铸。这是当前唯一既被证据钉死、又不需要产品语义裁决的交付缺口。",
       "preconditions": "不得顺带裁决旁白是否配音（乙）、替换服务商范围（丙）、盲测口径（丁）——三项均待人类架构师裁决；ADR-006 与 ADR-007 状态为待裁决，不得当作已生效授权。",
-      "authorized_scope": [
-        "engine/infrastructure/audio/",
-        "engine/infrastructure/voice_binding_resolver.py",
-        "engine/tests/",
-        "docs/06_实施基线/"
-      ],
-      "forbidden_patterns": [
-        "macos-app/WorldOfMysteries/**",
-        "engine/domain/**",
-        "engine/ai/**",
-        "contracts/**",
-        ".hacf/**",
-        ".github/**"
-      ],
       "pack_command": "python3 scripts/agent_capsule.py pack --role AGT-VOICE --task-id ADR005-WORLD-CAST --title \"真实 world 铸音绑定\"",
       "worktree_command": "python3 scripts/collab_pipeline.py start --branch feat/adr005-world-cast --role AGT-VOICE --task-id ADR005-WORLD-CAST"
     }

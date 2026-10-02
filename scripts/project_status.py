@@ -18,6 +18,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 STATE_FILE = ROOT_DIR / "docs" / "PROJECT_STATE.json"
+SCRIPTS_DIR = Path(__file__).resolve().parent
 
 #: The pre-commit hook injects these, and a ``git`` call that inherits them is
 #: hijacked back to the real repository even when cwd is an isolated worktree.
@@ -106,6 +107,26 @@ def load_state() -> dict:
         return json.load(f)
 
 
+def role_scope(role: str) -> dict:
+    """Read a role's authoritative scope out of ``agent_capsule.ROLE_DEFAULTS``.
+
+    ``docs/PROJECT_STATE.json`` used to restate each dispatch card's authorized
+    scope and forbidden patterns in prose, and the restatements drifted: a card
+    could name a directory the capsule would later adjudicate as out of scope,
+    while omitting one the role really holds. The card is handed to the next
+    agent verbatim, so a drifted restatement is worse than no statement — it is
+    a confident wrong answer. Scope has exactly one source, and this reads it.
+    """
+    if str(SCRIPTS_DIR) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS_DIR))
+    from agent_capsule import ROLE_DEFAULTS
+
+    defaults = ROLE_DEFAULTS.get(role)
+    if defaults is None:
+        return {}
+    return defaults
+
+
 def cmd_status(state: dict, as_json: bool = False):
     if as_json:
         print(json.dumps(state, indent=2, ensure_ascii=False))
@@ -183,8 +204,19 @@ def cmd_next(state: dict, as_json: bool = False):
 
 def cmd_dispatch(state: dict, as_json: bool = False):
     dp = state["critical_path"]["dispatch"]
+    scope = role_scope(dp["assigned_role"])
+    write_scope = scope.get("write", [])
+    read_scope = scope.get("read", [])
+    forbidden = scope.get("forbidden", [])
     if as_json:
-        print(json.dumps(dp, indent=2, ensure_ascii=False))
+        merged = dict(dp)
+        merged.pop("authorized_scope", None)
+        merged.pop("forbidden_patterns", None)
+        merged["role_scope_source"] = f"scripts/agent_capsule.py::ROLE_DEFAULTS[{dp['assigned_role']}]"
+        merged["write"] = write_scope
+        merged["read"] = read_scope
+        merged["forbidden"] = forbidden
+        print(json.dumps(merged, indent=2, ensure_ascii=False))
         return
 
     _warn_if_stale(state)
@@ -196,13 +228,24 @@ def cmd_dispatch(state: dict, as_json: bool = False):
     print(f"【拟定任务标识】: {dp['task_id']}")
     print(f"【任务标准标题】: {dp['task_title']}")
 
-    print("\n【授权工作目录范围 (Authorized Scope)】:")
-    for scope in dp["authorized_scope"]:
-        print(f"  - {scope}")
+    print("\n【授权范围 (Authorized Scope) — 单一事实源: agent_capsule.ROLE_DEFAULTS】:")
+    if not scope:
+        print(f"  ❌ 角色 {dp['assigned_role']} 不在 ROLE_DEFAULTS 枚举内，无法给出授权范围。")
+    else:
+        print("  ✍️  可写 (write):")
+        for item in write_scope:
+            print(f"     - {item}")
+        print("  👁️  可读 (read):")
+        for item in read_scope:
+            print(f"     - {item}")
 
-    print("\n【严格禁触红线 (Forbidden Patterns)】:")
-    for fbd in dp["forbidden_patterns"]:
+    print("\n【严格禁触红线 (Forbidden Patterns) — 同一事实源】:")
+    for fbd in forbidden:
         print(f"  ⛔ {fbd}")
+    if scope:
+        print(f"  门禁档案: {scope.get('gate_profile')} · 风险等级: {scope.get('risk_class')}")
+        if scope.get("invariants"):
+            print(f"  关联不变量: {', '.join(str(i) for i in scope['invariants'])}")
 
     print("\n【步骤 1: 生成强类型任务胶囊 (Pack Capsule)】")
     print(f"  {dp['pack_command']}")
