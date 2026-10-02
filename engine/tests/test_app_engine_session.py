@@ -39,7 +39,7 @@ TURN_ADVICE = (
     '已经够了，把我们知道的东西整理清楚，然后离开。',
 )
 FIVE_CLUE_DISPLAY_NAMES = (
-    '医生的停顿', '异常的预约记录', '被撕去的预约页', '门框黑粉', 'Jonathan 的纸片',
+    '医生的停顿', '异常的预约记录', '被撕去的预约页', '门框黑粉', '乔纳森的纸片',
 )
 DRIVER_SOURCES = [
     'IPCEnvelope', 'IPCFrameCodec', 'MediaProtocol', 'EngineRuntimeModels',

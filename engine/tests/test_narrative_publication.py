@@ -703,7 +703,7 @@ async def test_a_character_may_speak_twice_and_the_order_is_kept():
             "narration": "雨落在诊所的窗外。",
             "lines": [
                 {"speaker": "莫里斯医生", "text": "你还没问。"},
-                {"speaker": "Jonathan", "text": "我什么也没看见。"},
+                {"speaker": "乔纳森·维尔", "text": "我什么也没看见。"},
                 {"speaker": "莫里斯医生", "text": "记录我已经改了。"},
             ],
         },
@@ -718,7 +718,7 @@ async def test_a_character_may_speak_twice_and_the_order_is_kept():
 
     assert candidate.lines == (
         NarrativeLine(speaker="莫里斯医生", text="你还没问。"),
-        NarrativeLine(speaker="Jonathan", text="我什么也没看见。"),
+        NarrativeLine(speaker="乔纳森·维尔", text="我什么也没看见。"),
         NarrativeLine(speaker="莫里斯医生", text="记录我已经改了。"),
     )
 
@@ -1101,7 +1101,7 @@ def _candidate(*lines):
     )
 
 
-ROSTER = (("npc_doctor_morris", "莫里斯医生"), ("npc_jonathan_vale", "Jonathan"))
+ROSTER = (("npc_doctor_morris", "莫里斯医生"), ("npc_jonathan_vale", "乔纳森·维尔"))
 
 
 def test_a_label_becomes_the_id_the_voice_binds_to():
@@ -1114,7 +1114,7 @@ def test_a_label_becomes_the_id_the_voice_binds_to():
 def test_two_characters_each_speak_for_themselves():
     assert _bind(
         ROSTER,
-        _candidate(("莫里斯医生", "别动那只表。"), ("Jonathan", "我什么也没看见。")),
+        _candidate(("莫里斯医生", "别动那只表。"), ("乔纳森·维尔", "我什么也没看见。")),
     ) == [
         ("npc_doctor_morris", "别动那只表。"),
         ("npc_jonathan_vale", "我什么也没看见。"),
@@ -1123,8 +1123,8 @@ def test_two_characters_each_speak_for_themselves():
 
 def test_scene_order_of_the_dialogue_is_preserved():
     """Who speaks first is part of what was said, not an implementation detail."""
-    forward = _bind(ROSTER, _candidate(("莫里斯医生", "一。"), ("Jonathan", "二。")))
-    backward = _bind(ROSTER, _candidate(("Jonathan", "二。"), ("莫里斯医生", "一。")))
+    forward = _bind(ROSTER, _candidate(("莫里斯医生", "一。"), ("乔纳森·维尔", "二。")))
+    backward = _bind(ROSTER, _candidate(("乔纳森·维尔", "二。"), ("莫里斯医生", "一。")))
     assert forward != backward
     assert forward[0][0] == "npc_doctor_morris"
 
@@ -1210,7 +1210,7 @@ async def test_each_bound_speaker_becomes_its_own_segment():
         reads=repository,
         publisher=repository,
         compiler=CountingCompiler(
-            _candidate(("莫里斯医生", "别动那只表。"), ("Jonathan", "我什么也没看见。"))
+            _candidate(("莫里斯医生", "别动那只表。"), ("乔纳森·维尔", "我什么也没看见。"))
         ),
     ).ensure(
         turn_id="turn-1",
@@ -1244,7 +1244,7 @@ async def test_two_attempts_binding_differently_publish_under_different_identiti
         )
         return block
 
-    assert (await publish("莫里斯医生")).id != (await publish("Jonathan")).id
+    assert (await publish("莫里斯医生")).id != (await publish("乔纳森·维尔")).id
 
 
 def test_a_line_must_carry_text_and_a_speaker():
