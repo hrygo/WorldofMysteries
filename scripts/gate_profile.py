@@ -172,6 +172,95 @@ def collect_toolchain(repo_root: Path = REPO_ROOT) -> Dict[str, str]:
     return toolchain
 
 
+_TEST_FILE_PREFIXES = (
+    "engine/tests/",
+    "contracts/tests/",
+    "macos-app/WorldOfMysteriesTests/",
+)
+
+
+def _is_test_file(path: str) -> bool:
+    return path.startswith(_TEST_FILE_PREFIXES) and path.endswith((".py", ".swift"))
+
+
+def _relative_to_stage(path: str, stage_cwd: Path, repo_root: Path) -> Optional[str]:
+    absolute = (repo_root / path).resolve()
+    try:
+        return absolute.relative_to(stage_cwd.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def _uncovered_changed_tests(
+    profile_id: str,
+    stages: List[Dict[str, Any]],
+    changed_files: List[str],
+    repo_root: Path,
+    env: Dict[str, str],
+) -> List[str]:
+    """列出「本次改了、但已执行的门禁一条都没跑到」的测试文件。
+
+    ``empty_selection_policy`` 只管「整个 ``-k`` 过滤一条都没收集到」（pytest exit 5）。
+    这里管的是另一种情况：过滤收集到了 plenty 条，却没有任何一条来自本次改动的文件
+    —— 门禁全绿，而这次改动一行都没被验证过。
+
+    判定一律走 pytest / swift 自己的选择器，而不是复刻 ``-k`` 的匹配规则：重写一遍
+    匹配语义等于引入第二份可能与 pytest 不一致的实现，而这里要的恰恰是
+    「pytest 会不会选中它」这个问题的权威答案。
+    """
+    candidates = [f for f in changed_files if _is_test_file(f)]
+    if not candidates:
+        return []
+    covered: set = set()
+    for result in stages:
+        argv = result.get("command") or []
+        stage_cwd = Path(result["cwd"])
+        if "pytest" in argv:
+            targets = []
+            for path in candidates:
+                if not path.endswith(".py"):
+                    continue
+                relative = _relative_to_stage(path, stage_cwd, repo_root)
+                if relative is not None:
+                    targets.append((path, relative))
+            if not targets:
+                continue
+            if "-k" not in argv:
+                # 整个测试面全跑，没有过滤可言。
+                covered.update(path for path, _ in targets)
+                continue
+            probe = subprocess.run(
+                [*argv, "--collect-only", "-q", *[rel for _, rel in targets]],
+                cwd=stage_cwd,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            lines = probe.stdout.splitlines()
+            for path, relative in targets:
+                # `-q --collect-only` prints one `<path>: <count>` line per file;
+                # without `-q` it prints node ids instead. Accept either shape so
+                # a pytest upgrade cannot silently turn every file into a "gap".
+                selected = any(
+                    line.startswith(f"{relative}:") or line.startswith(f"{relative}::")
+                    for line in lines
+                )
+                if selected:
+                    covered.add(path)
+        elif argv[:2] == ["swift", "test"]:
+            # `swift test` 跑整个包，不按文件过滤。
+            for path in candidates:
+                if path.endswith(".swift") and _relative_to_stage(
+                    path, stage_cwd, repo_root
+                ):
+                    covered.add(path)
+    return [
+        f"[{profile_id}] 本次改动的测试文件未被门禁执行到: {path}"
+        for path in candidates
+        if path not in covered
+    ]
+
+
 def run_profile(
     profile_id: str,
     cwd: Path,
@@ -180,8 +269,12 @@ def run_profile(
     repo_root: Path = REPO_ROOT,
     env_overrides: Optional[Dict[str, str]] = None,
     quiet: bool = False,
+    changed_files: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """执行受保护门禁档案，返回可写入 receipt 的结构化结果。"""
+    """执行受保护门禁档案，返回可写入 receipt 的结构化结果。
+
+    ``changed_files`` 用于覆盖诚实性核算：门禁全绿不等于这次改动被验证过。
+    """
     profile, profile_path, profile_digest = resolve_profile(
         profile_id, registry_path=registry_path, repo_root=repo_root
     )
@@ -240,7 +333,10 @@ def run_profile(
 
         status = "passed"
         note = ""
-        if res.returncode == PYTEST_NO_TESTS_EXIT_CODE and "pytest" in argv[0:3]:
+        # `pytest` sits at index 6 of `uv run --locked --extra dev pytest ...`,
+        # so a prefix match never fired and the profile's own
+        # `empty_selection_policy` was silently inert for every real profile.
+        if res.returncode == PYTEST_NO_TESTS_EXIT_CODE and "pytest" in argv:
             if policy == "warn":
                 status = "passed_with_gap"
                 note = "未收集到任何测试：该用例面尚未落地，缺口已计入 receipt。"
@@ -284,6 +380,13 @@ def run_profile(
                 "raw_log_digest": log_digest,
                 "note": note,
             }
+        )
+
+    if changed_files:
+        gaps.extend(
+            _uncovered_changed_tests(
+                profile_id, stage_results, list(changed_files), repo_root, env
+            )
         )
 
     overall = "passed" if all(s["status"] != "failed" for s in stage_results) else "failed"
