@@ -240,7 +240,12 @@ public struct ContentView: View {
             ComponentGalleryView()
         case .settings:
             settingsContent
-        case .character, .storyBook, .cards, .worldline, .notes:
+        case .storyBook:
+            StoryBookView(
+                model: appState.storyBookModel,
+                sessionId: appState.storyModel.view?.sessionId
+            )
+        case .character, .cards, .worldline, .notes:
             plannedModuleBlueprint
         }
     }

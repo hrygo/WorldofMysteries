@@ -273,6 +273,20 @@ public actor EngineIPCClient {
         )
     }
 
+    /// The reading-mode Story Book for a finalized session (PRD §20.1).
+    /// Fails with the engine's stable public code when the session has no
+    /// finalized Episode yet.
+    public func storyBook(
+        sessionId: String,
+        traceId: String = UUID().uuidString
+    ) async throws -> StoryBookDTO {
+        try await storyRequest(
+            method: "story.storybook.get",
+            payload: StoryBookRequestDTO(sessionId: sessionId),
+            traceId: traceId
+        )
+    }
+
     public func storyOpen(
         openRequestId: String,
         expectedStoreRevision: Int,

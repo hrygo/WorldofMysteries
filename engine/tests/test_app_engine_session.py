@@ -47,6 +47,13 @@ DRIVER_SOURCES = [
     'EngineProcessManager', 'EngineConnectionState',
     'StorySessionControl', 'StoryRequestJournal', 'StorySubmissionCoordinator',
     'StorySessionModel', 'AppState',
+    # story.storybook.get DTOs. EngineIPCClient builds the request payload and
+    # decodes the committed Episode projection against these, so the real App
+    # build below fails with "cannot find type ... in scope" without the file.
+    'DomainContracts',
+    # AppState owns the Story Book model. Only the model half is compiled here:
+    # the SwiftUI view is not part of the transport contract under test.
+    'StoryBookModel',
     # story.expression.get DTOs. EngineIPCClient and StorySessionModel
     # decode against these types, so omitting the file breaks the real
     # App build below with "cannot find type ... in scope".
