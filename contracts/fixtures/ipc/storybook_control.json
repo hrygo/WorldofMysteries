@@ -1,0 +1,347 @@
+{
+  "cases": [
+    {
+      "id": "storybook_get_request_valid",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session-1"
+      },
+      "valid": true
+    },
+    {
+      "id": "storybook_get_request_missing_session_id",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1.0"
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_request_undeclared_key",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "session-1",
+        "scope": "read"
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_request_wrong_schema_version",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1",
+        "session_id": "session-1"
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_request_empty_session_id",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": ""
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_request_overlong_session_id",
+      "shape": "storybook_get_request",
+      "value": {
+        "schema_version": "1.0",
+        "session_id": "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_response_required_only",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "哈维诊所的停顿",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "block-1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "雨落在诊所的窗外。"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "partial_truth",
+          "main_problem": "乔纳森·维尔去向不明"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "storybook_get_response_all_four_sections",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "哈维诊所的停顿",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "block-1",
+            "scene_id": "consultation_room",
+            "segments": [
+              {
+                "type": "narration",
+                "speaker": null,
+                "text": "雨落在诊所的窗外。"
+              },
+              {
+                "type": "character",
+                "speaker": "莫里斯医生",
+                "text": "你还没有回答我的问题。"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "partial_truth",
+          "main_problem": "乔纳森·维尔去向不明"
+        },
+        "unresolved_threads": [
+          "乔纳森·维尔是否还活着"
+        ],
+        "discovered_secrets": [
+          {
+            "proposition": "病人失踪了",
+            "holder": null,
+            "certainty": 1,
+            "status": "confirmed",
+            "acquired_world_time": "1349-06-12T20:30:00"
+          }
+        ],
+        "key_characters": [
+          {
+            "label": "莫里斯医生",
+            "change_count": 2
+          }
+        ],
+        "relationship_changes": [
+          {
+            "from": "爱伦·格雷",
+            "to": "莫里斯医生",
+            "dimensions": {
+              "trust": 0.3,
+              "fear": 0.2
+            }
+          }
+        ],
+        "world_impacts": [
+          {
+            "event_type": "patient_discovered_missing",
+            "world_time": "1349-06-12T21:20:00",
+            "importance": "local",
+            "persistence": "world",
+            "actors": [
+              "爱伦·格雷"
+            ],
+            "targets": [
+              "莫里斯医生"
+            ]
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "storybook_get_response_holder_may_be_null",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "t",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "b1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "x"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "closed"
+        },
+        "discovered_secrets": [
+          {
+            "proposition": "有人来过",
+            "holder": null,
+            "certainty": 0.4,
+            "status": "probable"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "storybook_get_response_refuses_a_canonical_proposition_id",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "t",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "b1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "x"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "closed"
+        },
+        "discovered_secrets": [
+          {
+            "proposition": "病人失踪了",
+            "holder": null,
+            "certainty": 1,
+            "status": "confirmed",
+            "proposition_id": "fact.patient_disappeared"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_response_refuses_an_undeclared_section",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "t",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "b1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "x"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "closed"
+        },
+        "fate_interventions": [
+          "Clock did something"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_response_refuses_certainty_above_one",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "t",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "b1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "x"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "closed"
+        },
+        "discovered_secrets": [
+          {
+            "proposition": "p",
+            "holder": null,
+            "certainty": 1.5,
+            "status": "confirmed"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "storybook_get_response_refuses_a_relationship_that_moved_nothing",
+      "shape": "storybook_get_response",
+      "value": {
+        "schema_version": "1.0",
+        "episode_id": "episode-001",
+        "world_id": "world-tingen",
+        "worldline_id": "wl-1349-main",
+        "title": "t",
+        "protagonist_ids": [
+          "char_evelyn_gray"
+        ],
+        "chapters": [
+          {
+            "block_id": "b1",
+            "segments": [
+              {
+                "type": "narration",
+                "text": "x"
+              }
+            ]
+          }
+        ],
+        "ending": {
+          "type": "closed"
+        },
+        "relationship_changes": [
+          {
+            "from": "甲",
+            "to": "乙",
+            "dimensions": {}
+          }
+        ]
+      },
+      "valid": false
+    }
+  ]
+}
