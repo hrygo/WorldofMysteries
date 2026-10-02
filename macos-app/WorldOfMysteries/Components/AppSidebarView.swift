@@ -99,8 +99,8 @@ public enum NavigationItem: String, CaseIterable, Identifiable, Sendable {
     /// 模块交付状态（诚实表达：规划中的入口必须能被用户识别）。
     public var availability: NavigationAvailability {
         switch self {
-        case .world, .fate, .gallery, .settings: .available
-        case .character, .storyBook, .cards, .worldline, .notes: .planned
+        case .world, .fate, .gallery, .settings, .storyBook: .available
+        case .character, .cards, .worldline, .notes: .planned
         }
     }
 

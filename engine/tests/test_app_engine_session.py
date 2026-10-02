@@ -47,6 +47,9 @@ DRIVER_SOURCES = [
     'EngineProcessManager', 'EngineConnectionState',
     'StorySessionControl', 'StoryRequestJournal', 'StorySubmissionCoordinator',
     'StorySessionModel', 'AppState',
+    # AppState owns the Story Book model. Only the model half is compiled here:
+    # the SwiftUI view is not part of the transport contract under test.
+    'StoryBookModel',
     # story.expression.get DTOs. EngineIPCClient and StorySessionModel
     # decode against these types, so omitting the file breaks the real
     # App build below with "cannot find type ... in scope".
@@ -80,8 +83,8 @@ def child_environment() -> dict[str, str]:
     }
 
 
-def test_driver_sources_cover_engine_ipc_top_level_type_dependencies():
-    """Keep this separately compiled driver in step with EngineIPCClient DTOs."""
+def _engine_ipc_referenced_sources() -> set[str]:
+    """Top-level Swift files whose declarations EngineIPCClient names."""
     declaration = re.compile(
         r'^(?:(?:public|package|internal|private|fileprivate|open|nonisolated|final|indirect)\s+)*'
         r'(?:actor|class|enum|protocol|struct|typealias)\s+([A-Za-z_]\w*)',
@@ -95,11 +98,36 @@ def test_driver_sources_cover_engine_ipc_top_level_type_dependencies():
         declarations = declaration.findall(source.read_text(encoding='utf-8'))
         if any(re.search(rf'\b{re.escape(name)}\b', engine_client) for name in declarations):
             referenced_sources.add(source.stem)
+    return referenced_sources
+
+
+def test_driver_sources_cover_engine_ipc_top_level_type_dependencies():
+    """Keep this separately compiled driver in step with EngineIPCClient DTOs."""
+    referenced_sources = _engine_ipc_referenced_sources()
 
     missing = referenced_sources - set(DRIVER_SOURCES)
     assert not missing, (
         'The App driver omits Swift source files declaring top-level types used by '
         f'EngineIPCClient: {sorted(missing)}'
+    )
+
+
+def test_package_probe_sources_cover_engine_ipc_top_level_type_dependencies():
+    """Keep the packaged-release probe in step with EngineIPCClient DTOs too.
+
+    `build_macos_package.py` compiles its own curated subset of the production
+    client. A new IPC DTO declared outside that subset breaks `swiftc` there
+    while every fast suite stays green, and the only symptom is a packaging job
+    failing minutes later — long after the slice that caused it was merged.
+    """
+    import build_macos_package
+
+    missing = _engine_ipc_referenced_sources() - set(
+        build_macos_package.PACKAGE_PROBE_SWIFT_SOURCES
+    )
+    assert not missing, (
+        'The packaged probe omits Swift source files declaring top-level types '
+        f'used by EngineIPCClient: {sorted(missing)}'
     )
 
     missing_files = [name for name in DRIVER_SOURCES if not (SWIFT / f'{name}.swift').is_file()]

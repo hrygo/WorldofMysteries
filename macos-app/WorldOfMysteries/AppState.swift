@@ -19,6 +19,9 @@ public final class AppState {
     /// Voice-first turn control. It commits through the same durable path as a
     /// typed turn and only renders audio *after* that commit succeeds.
     public let voiceTurn: VoiceTurnController
+    /// Reading-mode Story Book (PRD §20). A pure read of one finalized Episode;
+    /// it never asks the model to rewrite what already happened.
+    public let storyBookModel: StoryBookModel
 
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var stopTask: Task<Void, Never>?
@@ -62,6 +65,7 @@ public final class AppState {
             client: ipcClient,
             submissionCoordinator: coordinator
         )
+        self.storyBookModel = StoryBookModel(client: ipcClient)
     }
 
     /// The revision tokens one voice turn must present. They are read from the
