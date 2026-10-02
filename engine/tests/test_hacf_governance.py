@@ -12,6 +12,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import date
@@ -2081,4 +2082,90 @@ def test_the_action_intent_still_binds_to_the_protagonist_only():
     ).read_text(encoding="utf-8")
     assert "unsupported_scenario" in initialization, (
         "场景准入已放开：ADR-008 §1.1(5).3「生产可用场景只有 golden_001」已过期"
+    )
+
+
+# SB-25 撤回了「Story Book 回放缺音频只是 track 层没接线」的结论，却没同步到派发卡：
+# 同一份 PROJECT_STATE.json 里 verified_unwired 写着「不再是发布时机与 redub 策略」，
+# 派发卡仍写着「唯一需人裁的是发布时机与 redub 策略」。下一个接手者照卡派工，就会重蹈
+# SB-22——把待裁决项当成可直接推进的任务。
+def _dispatch_cards():
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs/PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    return card, {holder: card[holder]["dispatch"] for holder in ("critical_path", "execution_focus")}
+
+
+def test_the_dispatch_card_never_contradicts_the_verified_findings():
+    """派发卡一旦由待裁决项门控，就不能再声称这件事「不需要裁决」。"""
+    card, cards = _dispatch_cards()
+    pending_ids = {item["id"] for item in card["pending_decisions"]}
+    unwired_ids = {item["id"] for item in card["verified_unwired"]}
+
+    for holder, dispatch in cards.items():
+        gated_by = dispatch.get("gated_by")
+        assert gated_by, f"{holder}.dispatch 没有写 gated_by：接手者无从知道这件事被什么门控"
+        assert set(gated_by), f"{holder}.dispatch 的 gated_by 是空的"
+
+        unknown = sorted(set(gated_by) - pending_ids - unwired_ids)
+        assert not unknown, f"{holder}.dispatch 的 gated_by 指向不存在的事项：{unknown}"
+
+        # 宣布撤回的那一句必须能引述它撤回的原话，否则无法说明自己撤回了什么；
+        # 但描述现状的句子若仍在断言那个结论，就是把误判留在了事实源里。
+        # 判据因此落在句级：带更正/撤回标记的句子豁免，其余句子一律不许出现。
+        RETRACTING = ("更正", "撤回", "上一版", "误判", "已被推翻", "自相矛盾")
+        sentences = re.split(r"(?<=[。；])", dispatch["rationale"])
+        asserted = "".join(
+            sentence
+            for sentence in sentences
+            if not any(mark in sentence for mark in RETRACTING)
+        )
+        blob = json.dumps(
+            {
+                "task_title": dispatch["task_title"],
+                "preconditions": dispatch["preconditions"],
+                "rationale_asserting_sentences": asserted,
+            },
+            ensure_ascii=False,
+        )
+        for phrase in ("不需要架构裁决", "唯一需人裁的是发布时机", "可直接推进的接线工作"):
+            assert phrase not in blob, (
+                f"{holder}.dispatch 仍断言「{phrase}」：它已被 verified_unwired 的结论推翻。"
+                "照这张卡派工会把待裁决项当成可直接推进的任务——这正是 SB-22 的失败形态。"
+            )
+
+
+def test_the_two_dispatch_cards_cannot_drift_apart():
+    """两张派发卡内容重复过一次，其中一张被更正而另一张没被更正是 SB-28 的成因。"""
+    _, cards = _dispatch_cards()
+    critical, focus = cards["critical_path"], cards["execution_focus"]
+    for field in ("task_id", "task_title", "rationale", "gated_by", "forbidden_actions"):
+        assert critical[field] == focus[field], (
+            f"两张派发卡的 {field} 不一致：单张被更正会让状态报告自我矛盾，"
+            "必须同改两张"
+        )
+
+
+def test_the_take_layer_still_has_no_production_writer():
+    """派发卡把这件事降级为裁决，前提是「take 确实没人写」这件事没变。
+
+    一旦有人接上了写侧，`gated_by` 里 PERSISTENT-AUDIO-SUBSYSTEM 的第一问就已有答案，
+    派发卡必须随之改写——否则它会继续声称「无从接线」。
+    """
+    root = project_status.ROOT_DIR
+    modules = [
+        path
+        for path in (root / "engine").rglob("*.py")
+        if "/tests/" not in f"/{path.relative_to(root).as_posix()}"
+        and not path.relative_to(root).as_posix().startswith("engine/tests/")
+    ]
+    callers = sorted(
+        path.relative_to(root).as_posix()
+        for path in modules
+        if "publish_pcm" in path.read_text(encoding="utf-8")
+        and path.name != "audio_take_store.py"
+    )
+    assert callers == ["engine/infrastructure/audio_take_coordinator.py"], (
+        f"publish_pcm 的调用方变了：{callers}；take 写侧不再只有 coordinator 一条链，"
+        "PERSISTENT-AUDIO-SUBSYSTEM 的第一问已有答案，PROJECT_STATE 的派发卡需重写"
     )
