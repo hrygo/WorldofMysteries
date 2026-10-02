@@ -942,3 +942,163 @@ public nonisolated struct StoryAdviceGetViewDTO: Codable, Sendable, Equatable {
         try container.encode(replayed, forKey: .replayed)
     }
 }
+
+// MARK: - Story Book (PRD §20.1)
+//
+// Mirrored from `contracts/schemas/storybook.schema.json` — a *separate*
+// contract from the Episode DTOs in `DomainContracts.swift`. The two happen to
+// agree on `ending` today, but each schema declares `additionalProperties:
+// false` independently, so sharing one Swift type would let an Episode-side
+// field silently reshape the Story Book wire and be rejected by the Engine.
+
+/// The reading-mode Story Book for one finalized Episode: a pure read of what
+/// already happened (PRD §20.1 — never a post-hoc rewrite).
+public nonisolated struct StoryBookDTO: Codable, Sendable, Equatable {
+    /// Closed set from the schema; an unknown kind is a contract violation, not
+    /// a segment the App would render without knowing what it is.
+    static let segmentTypes: Set<String> = ["narration", "character", "transition"]
+
+    public let schemaVersion: String
+    public let episodeId: String
+    public let worldId: String
+    public let worldlineId: String
+    public let title: String
+    public let protagonistIds: [String]
+    public let startWorldTime: String?
+    public let endWorldTime: String?
+    public let chapters: [StoryBookChapterDTO]
+    public let ending: StoryBookEndingDTO
+    public let unresolvedThreads: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case episodeId = "episode_id"
+        case worldId = "world_id"
+        case worldlineId = "worldline_id"
+        case title
+        case protagonistIds = "protagonist_ids"
+        case startWorldTime = "start_world_time"
+        case endWorldTime = "end_world_time"
+        case chapters
+        case ending
+        case unresolvedThreads = "unresolved_threads"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(
+            decoder,
+            allowed: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
+                      "protagonist_ids", "start_world_time", "end_world_time", "chapters",
+                      "ending", "unresolved_threads"],
+            required: ["schema_version", "episode_id", "world_id", "worldline_id", "title",
+                       "protagonist_ids", "chapters", "ending"],
+            allowNull: ["start_world_time", "end_world_time", "unresolved_threads"],
+        )
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try StoryControl.schema(container.decode(String.self, forKey: .schemaVersion))
+        episodeId = try StoryControl.identifier(container.decode(String.self, forKey: .episodeId))
+        worldId = try StoryControl.identifier(container.decode(String.self, forKey: .worldId))
+        worldlineId = try StoryControl.identifier(container.decode(String.self, forKey: .worldlineId))
+        title = try StoryControl.identifier(container.decode(String.self, forKey: .title))
+        protagonistIds = try container.decode([String].self, forKey: .protagonistIds)
+        guard !protagonistIds.isEmpty else { throw StoryControlError.invalidPayload }
+        startWorldTime = try container.decodeIfPresent(String.self, forKey: .startWorldTime)
+        endWorldTime = try container.decodeIfPresent(String.self, forKey: .endWorldTime)
+        chapters = try container.decode([StoryBookChapterDTO].self, forKey: .chapters)
+        guard !chapters.isEmpty else { throw StoryControlError.invalidPayload }
+        ending = try container.decode(StoryBookEndingDTO.self, forKey: .ending)
+        unresolvedThreads = try container.decodeIfPresent([String].self, forKey: .unresolvedThreads)
+    }
+}
+
+/// One committed Narrative Block, replayed as a chapter.
+public nonisolated struct StoryBookChapterDTO: Codable, Sendable, Equatable {
+    public let blockId: String
+    public let sceneId: String?
+    public let segments: [StoryBookSegmentDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case blockId = "block_id"
+        case sceneId = "scene_id"
+        case segments
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["block_id", "scene_id", "segments"],
+                          required: ["block_id", "segments"], allowNull: ["scene_id"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        blockId = try StoryControl.identifier(container.decode(String.self, forKey: .blockId))
+        sceneId = try container.decodeIfPresent(String.self, forKey: .sceneId)
+        segments = try container.decode([StoryBookSegmentDTO].self, forKey: .segments)
+        guard !segments.isEmpty else { throw StoryControlError.invalidPayload }
+    }
+}
+
+/// One segment of a chapter. `speaker` is a public label the Engine resolved
+/// fail-closed; it is never a canonical character id.
+public nonisolated struct StoryBookSegmentDTO: Codable, Sendable, Equatable {
+    public let type: String
+    public let speaker: String?
+    public let text: String
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case speaker
+        case text
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["type", "speaker", "text"],
+                          required: ["type", "text"], allowNull: ["speaker"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(String.self, forKey: .type)
+        guard StoryBookDTO.segmentTypes.contains(kind) else {
+            throw StoryControlError.invalidPayload
+        }
+        type = kind
+        text = try container.decode(String.self, forKey: .text)
+        guard !text.isEmpty else { throw StoryControlError.invalidPayload }
+        speaker = try container.decodeIfPresent(String.self, forKey: .speaker)
+    }
+}
+
+public nonisolated struct StoryBookEndingDTO: Codable, Sendable, Equatable {
+    public let type: String
+    public let mainProblem: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case mainProblem = "main_problem"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["type", "main_problem"],
+                          required: ["type"], allowNull: ["main_problem"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try StoryControl.identifier(container.decode(String.self, forKey: .type))
+        mainProblem = try container.decodeIfPresent(String.self, forKey: .mainProblem)
+    }
+}
+
+public nonisolated struct StoryBookRequestDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: String
+    public let sessionId: String
+
+    public init(schemaVersion: String = StoryControl.schemaVersion, sessionId: String) {
+        self.schemaVersion = schemaVersion
+        self.sessionId = sessionId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case sessionId = "session_id"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        try checkWireKeys(decoder, allowed: ["schema_version", "session_id"],
+                          required: ["schema_version", "session_id"])
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try StoryControl.schema(container.decode(String.self, forKey: .schemaVersion))
+        sessionId = try StoryControl.identifier(container.decode(String.self, forKey: .sessionId))
+    }
+}
