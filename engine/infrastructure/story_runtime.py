@@ -68,6 +68,8 @@ from application.story_session_facade import (
     TurnDeliveryView,
 )
 from application.story_session_open import StorySessionOpenService
+from application.storybook_projection import StoryBookProjectionError
+from application.storybook_service import StoryBookService
 from application.story_turn_commit import StoryTurnCommitResult
 from application.turn_context_binding import (
     AuthorizedContextSource,
@@ -93,6 +95,7 @@ from .audio.foundry_policy import DEFAULT_VARIANT, execution_policy
 from .audio.voice_foundry_adapter import SpeechRailVoiceFoundryAdapter
 from .audio.voice_runtime import SealedSpeechUnitRegistry, VoiceRenderRuntime
 from .beat_plan_repository import SQLiteBeatPlanRepository
+from .database_schema import StorageError
 from .database_manager import DatabaseManager, DatabasePaths
 from .episode_finalization_repository import SQLiteEpisodeFinalizationRepository
 from .episode_settlement import (
@@ -338,6 +341,108 @@ async def _live_worker_factory(
         await transport.aclose()
         raise
     return LiveFirstTurnFactory(execution)
+
+
+_STORYBOOK_ERROR_CODES = {
+    "storybook_session_unknown": "story_session_not_active",
+    "storybook_not_finalized": "story_session_not_active",
+    "storybook_has_no_chapters": "storage_failure",
+    "storybook_chapter_missing": "storage_failure",
+}
+
+
+class _StoryBookRejected(Exception):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def _validate_storybook_payload(payload: Mapping[str, object]) -> str:
+    if not isinstance(payload, Mapping) or set(payload) != {
+        "schema_version",
+        "session_id",
+    }:
+        raise _StoryBookRejected("schema_invalid")
+    if payload.get("schema_version") != "1.0":
+        raise _StoryBookRejected("schema_invalid")
+    session_id = payload.get("session_id")
+    if (
+        not isinstance(session_id, str)
+        or not session_id.strip()
+        or len(session_id) > 256
+        or "\x00" in session_id
+    ):
+        raise _StoryBookRejected("schema_invalid")
+    return session_id
+
+
+class _StoryBookBootstrapAdapter:
+    def __init__(self, database: DatabaseManager) -> None:
+        self._reads = SQLiteStoryBootstrapRepository(database)
+
+    async def load(self, session_id: str):
+        return await self._reads.load(session_id)
+
+
+class _StoryBookEpisodeAdapter:
+    def __init__(self, episodes: SQLiteEpisodeFinalizationRepository) -> None:
+        self._reads = episodes
+
+    async def load_finalized_episode(self, session_id: str):
+        # ``load_by_session`` raises StorageError when the session has not been
+        # finalized; that is a normal "no Story Book yet" answer, not an outage,
+        # so it becomes ``None`` rather than propagating as a storage fault.
+        try:
+            return (await self._reads.load_by_session(session_id)).episode
+        except StorageError:
+            return None
+
+
+class _StoryBookNarrativeAdapter:
+    def __init__(self, narratives: SQLiteNarrativeBlockRepository) -> None:
+        self._reads = narratives
+
+    async def load_narrative_block(self, block_id: str):
+        try:
+            return await self._reads.load_narrative_block(block_id)
+        except StorageError:
+            return None
+
+
+def _storybook_handler(service: StoryBookService) -> StoryRequestHandler:
+    """Adapt the Story Book service to the request-handler contract."""
+
+    async def get_storybook(
+        _context: Mapping[str, object], payload: Mapping[str, object]
+    ) -> tuple[dict[str, object] | None, str | None, bool]:
+        try:
+            session_id = _validate_storybook_payload(payload)
+        except _StoryBookRejected as exc:
+            return None, exc.code, False
+        try:
+            return await service.story_book(session_id), None, False
+        except StoryBookProjectionError as exc:
+            return (
+                None,
+                _STORYBOOK_ERROR_CODES.get(exc.code, "service_unavailable"),
+                False,
+            )
+
+    return get_storybook
+
+
+def _storybook_handlers(
+    database: DatabaseManager,
+    episodes: SQLiteEpisodeFinalizationRepository,
+    narratives: SQLiteNarrativeBlockRepository,
+) -> dict[str, StoryRequestHandler]:
+    """Expose the committed Story Book projection at the IPC edge (PRD20.1)."""
+    service = StoryBookService(
+        bootstraps=_StoryBookBootstrapAdapter(database),
+        episodes=_StoryBookEpisodeAdapter(episodes),
+        narratives=_StoryBookNarrativeAdapter(narratives),
+    )
+    return {"story.storybook.get": _storybook_handler(service)}
 
 
 def _post_commit_control_handlers(
@@ -978,6 +1083,7 @@ class StoryRuntime:
         handlers = {
             **story_handlers,
             **story_expression_control_handlers(expression_query),
+            **_storybook_handlers(database, episodes, public_narratives),
         }
         return cls(
             database=database,
