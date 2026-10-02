@@ -103,6 +103,14 @@ nosetests.xml
 *.sqlite-wal
 *.sqlite-shm
 
+# Trusted Golden 001 内容构建产物 (scripts/build_story_content.py)。
+# canon.db 被上面的 *.db 覆盖，但 write_five_turn_directory 与
+# write_episode_artifacts 写在它旁边的 JSON 不被任何规则覆盖：在仓库里
+# 跑一次构建就会留下 24 个未跟踪文件，而 `git add -A` 会把它们一起提交。
+# 这些文件是打包运行时的产物，源码在 fixtures/golden_001/ 与
+# docs/07_工程启动/golden_001_runtime/，入库的是那些，不是这些。
+engine/infrastructure/story_content/
+
 # 保留契约定义与数据迁移 SQL 脚本
 !contracts/**/*.sql
 !engine/**/migrations/*.sql
