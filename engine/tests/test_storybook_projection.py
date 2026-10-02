@@ -454,15 +454,34 @@ def _shipped_payload() -> dict:
     return builder.build_payload()
 
 
-def _shipped_book(payload: dict) -> dict:
+def _shipped_book(payload: dict, artifacts=None) -> dict:
     presentation = payload["presentation"]
     return project_story_book(
         episode=_episode(block_ids=["b1"]),
         narrative_blocks={"b1": _block("b1")},
         character_display_names=presentation.get("character_display_names", {}),
         proposition_display_names=presentation.get("proposition_display_names", {}),
-        artifacts=StoryBookArtifacts(
-            knowledge_changes=tuple(payload["knowledge"]),
+        artifacts=artifacts
+        or StoryBookArtifacts(knowledge_changes=tuple(payload["knowledge"])),
+    )
+
+
+def _golden_turn_artifacts(payload: dict) -> StoryBookArtifacts:
+    """Artifacts shaped like the ones the shipped five turns actually commit.
+
+    Counts come from the acceptance oracle
+    (``docs/04_Golden_Scenarios/golden_001/expected_episode.json``):
+    **zero** character events, one relationship event, three knowledge
+    changes, one world event. The zero is the load-bearing part — it is why
+    关键人物 stays empty no matter what the roster says.
+    """
+    return StoryBookArtifacts(
+        knowledge_changes=tuple(payload["knowledge"]),
+        relationship_events=(
+            _relationship_event("char_evelyn_gray", "npc_doctor_morris", trust=0.3),
+        ),
+        world_events=(
+            _world_event("occult_evidence", actors=["npc_doctor_morris"]),
         ),
     )
 
@@ -515,26 +534,84 @@ def test_the_shipped_roster_and_the_two_sections_it_feeds_stay_in_step():
     speaker binding, and installed this test as a tripwire: shipping the roster
     was supposed to turn it red so whoever did it had to say so out loud.
 
-    SB-19 established that the casting gate does not rest on this table —
-    ``resolve_voice_runtime`` refuses with ``voice_binding_not_reviewed``
-    unless a reviewed binding already exists — and pre-registered the digest
-    the roster produces. SB-20 emits it. This assertion now holds in both
-    states and pins what actually matters: the two sections are populated
-    exactly when the roster is shipped. A bundle that gains one without the
-    other, or ships a roster and still renders nobody, goes red.
+    SB-19 got the shape of this wrong and asserted the roster fills *both*
+    sections. It fills one. Each section is a function of its own input, and
+    only two of the four read the roster at all:
+
+    =========================  ==============================  ==========
+    section                    fed by                          roster?
+    =========================  ==============================  ==========
+    已发现秘密                  knowledge + proposition names   no
+    对世界造成的影响             world events                    no*
+    重要关系变化                relationship events             yes
+    关键人物                   character events                yes
+    =========================  ==============================  ==========
+
+    (*) ``world_impacts`` projects ``event_type`` / ``importance`` regardless
+    of names; the roster only decides whether ``actors`` / ``targets`` carry
+    labels instead of being dropped.
+
+    关键人物 is empty for a reason the roster cannot fix: the shipped five
+    turns commit **zero** character events. That is the oracle's
+    ``character_event_ids: []``, not a missing allowlist — and conflating the
+    two would send the next person looking for a roster that is already
+    shipped.
     """
     presentation = _shipped_payload()["presentation"]
     roster = presentation.get("character_display_names") or {}
-    book = _shipped_book(_shipped_payload())
+    payload = _shipped_payload()
+    book = _shipped_book(payload, _golden_turn_artifacts(payload))
 
-    assert book["discovered_secrets"], "秘密段由命题表驱动，不依赖角色名册"
+    assert book["discovered_secrets"], "秘密段由命题表驱动，与角色名册无关"
+    assert book["world_impacts"], "世界影响的事件类型不依赖角色名册"
 
     if roster:
-        assert book["key_characters"], "名册已出货，关键人物段不该为空"
         assert book["relationship_changes"], "名册已出货，关系变化段不该为空"
+        # 主角不在公开名册里 —— 她是玩家自己，App 本来就知道她是谁。
+        assert book["relationship_changes"][0]["from"] is None
+        assert book["relationship_changes"][0]["to"] in roster.values()
     else:
-        assert book["key_characters"] == []
         assert book["relationship_changes"] == []
+
+    assert book["key_characters"] == [], (
+        "出货五轮不产生任何角色状态变更（oracle character_event_ids == []），"
+        "关键人物段为空与角色名册无关"
+    )
+
+
+def test_key_characters_is_driven_by_character_events_not_by_the_roster():
+    """证明上一条断言里的「空」另有原因，而不是名册没出货。
+
+    同一份名册，同一段投影，只要喂进一条角色事件，关键人物段就立刻有内容。
+    于是关键人物段的空只能归因于零角色事件。
+    """
+    payload = _shipped_payload()
+    payload["presentation"]["character_display_names"] = {
+        "npc_doctor_morris": "莫里斯医生",
+    }
+
+    without = _shipped_book(
+        payload,
+        StoryBookArtifacts(
+            relationship_events=(
+                _relationship_event("char_evelyn_gray", "npc_doctor_morris"),
+            )
+        ),
+    )
+    with_event = _shipped_book(
+        payload,
+        StoryBookArtifacts(
+            character_events=(_character_event("npc_doctor_morris", 2),),
+            relationship_events=(
+                _relationship_event("char_evelyn_gray", "npc_doctor_morris"),
+            ),
+        ),
+    )
+
+    assert without["key_characters"] == []
+    assert with_event["key_characters"] == [
+        {"label": "莫里斯医生", "change_count": 2}
+    ]
 
 
 # ---------------------------------------------------------------------------
