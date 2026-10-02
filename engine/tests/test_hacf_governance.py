@@ -1613,3 +1613,86 @@ def test_scope_audit_covers_committed_range_not_only_working_tree(tmp_path, monk
     assert receipt["verdict"] == "failed"
     assert "范围裁决未通过" in rendered
     assert "macos-app/App.swift" in rendered
+
+
+def _dispatch_state(role: str) -> dict:
+    return {
+        "critical_path": {
+            "dispatch": {
+                "assigned_role": role,
+                "role_title": "角色标题",
+                "task_id": "SB-23",
+                "task_title": "任务标题",
+                "pack_command": "python3 scripts/agent_capsule.py pack",
+                "worktree_command": "python3 scripts/collab_pipeline.py start",
+            }
+        }
+    }
+
+
+def test_the_dispatch_card_takes_its_scope_from_the_role_defaults(capsys):
+    """派发卡是下一位 Agent 逐字照抄的东西，它说的范围必须是真的那份。"""
+    role = "AGT-VOICE"
+    scope = project_status.role_scope(role)
+    assert scope, f"{role} 应当有角色默认值"
+
+    project_status.cmd_dispatch(_dispatch_state(role))
+
+    out = capsys.readouterr().out
+    for item in scope["write"]:
+        assert f"- {item}" in out, f"可写范围漏了 {item}"
+    for item in scope["read"]:
+        assert f"- {item}" in out, f"可读范围漏了 {item}"
+    for item in scope["forbidden"]:
+        assert item in out, f"禁触红线漏了 {item}"
+
+
+def test_the_dispatch_card_cannot_restate_a_scope_of_its_own(capsys):
+    """卡片一旦把范围抄回自己就会漂移——本用例钉死它不许再抄。"""
+    card = json.loads(
+        (project_status.ROOT_DIR / "docs" / "PROJECT_STATE.json").read_text(encoding="utf-8")
+    )
+    for holder in ("critical_path", "execution_focus"):
+        dispatch = card[holder].get("dispatch", {})
+        assert "authorized_scope" not in dispatch, (
+            f"{holder}.dispatch 复述了 authorized_scope：它与 ROLE_DEFAULTS 漂移过"
+        )
+        assert "forbidden_patterns" not in dispatch, (
+            f"{holder}.dispatch 复述了 forbidden_patterns：它与 ROLE_DEFAULTS 漂移过"
+        )
+
+    project_status.cmd_dispatch(card)
+    out = capsys.readouterr().out
+    assert "单一事实源" in out
+
+
+def test_the_dispatch_card_follows_the_defaults_when_they_change(monkeypatch, capsys):
+    """反向扰动：改角色默认值，卡片必须跟着变——证明它不是在念自己的草稿。"""
+    monkeypatch.setitem(
+        agent_capsule.ROLE_DEFAULTS,
+        "AGT-VOICE",
+        {
+            "write": ["engine/tests/test_only_probe.py"],
+            "read": ["contracts/"],
+            "forbidden": ["scripts/**"],
+            "gate_profile": "VOICE_P0",
+            "risk_class": "medium",
+            "invariants": [9],
+        },
+    )
+
+    project_status.cmd_dispatch(_dispatch_state("AGT-VOICE"))
+
+    out = capsys.readouterr().out
+    assert "engine/tests/test_only_probe.py" in out
+    assert "scripts/**" in out
+    assert "engine/infrastructure/audio/" not in out, "卡片仍在念写死的旧范围"
+
+
+def test_an_unknown_role_is_reported_rather_than_granted_an_empty_scope(capsys):
+    """查不到角色时必须显式说查不到；空列表会被读成「什么都能写」。"""
+    project_status.cmd_dispatch(_dispatch_state("AGT-NOT-A-ROLE"))
+
+    out = capsys.readouterr().out
+    assert "AGT-NOT-A-ROLE" in out
+    assert "不在 ROLE_DEFAULTS 枚举内" in out
