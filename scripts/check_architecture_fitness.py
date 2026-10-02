@@ -119,6 +119,74 @@ def check_ai_layer_safety() -> list[str]:
     return violations
 
 
+STORYBOOK_READING_MODULES = (
+    "engine/application/storybook_projection.py",
+    "engine/application/storybook_service.py",
+)
+
+#: Importing any of these into the reading logic would put a model or a network
+#: hop between a committed Narrative Block and the page the reader sees.
+MODEL_CAPABLE_MODULES = {
+    "agentscope",
+    "ai",
+    "openai",
+    "anthropic",
+    "requests",
+    "httpx",
+    "aiohttp",
+    "urllib",
+}
+
+
+def _forbidden_imports_in(py_file: Path, forbidden: set[str]) -> list[str]:
+    """Report every import in ``py_file`` whose root module is forbidden."""
+    try:
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+    except (OSError, SyntaxError, ValueError) as exc:
+        return [f"Error reading {py_file.name}: {exc}"]
+
+    violations = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in forbidden:
+                    violations.append((node.lineno, alias.name))
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            if node.module.split(".")[0] in forbidden:
+                violations.append((node.lineno, node.module))
+    return [
+        f"{py_file}:{lineno} imports '{module}'"
+        for lineno, module in violations
+    ]
+
+
+def check_storybook_reading_path_is_model_free() -> list[str]:
+    """PRD §20.1 / Invariant 9: reading the Story Book must never rewrite it.
+
+    §20.1 allows a necessary transition or a closing paragraph but forbids
+    letting the model republish an "approximately the same" novel once the
+    Episode has been committed. The only structural way to keep that promise is
+    for the modules that assemble the book to contain no model and no network
+    hop at all.
+
+    The scope is deliberately the projection and the service — the two modules
+    that actually read committed state and shape the page. ``story_runtime`` is
+    the composition root and must wire the model for the rest of the engine, so
+    including it would flag the entire runtime rather than the reading path.
+    """
+    violations = []
+    for relative in STORYBOOK_READING_MODULES:
+        target = REPO_ROOT / relative
+        if not target.is_file():
+            violations.append(f"[Invariant 9 Violation] {relative} is missing")
+            continue
+        violations.extend(
+            f"[Invariant 9 Violation] {line}"
+            for line in _forbidden_imports_in(target, MODEL_CAPABLE_MODULES)
+        )
+    return violations
+
+
 ALLOWED_ROOT_FILES = {
     "LICENSE",
     "AGENTS.md",
@@ -201,6 +269,18 @@ def main() -> int:
             print(f"❌ {v}")
     else:
         print("✅ REPO_ROOT is clean (ZERO unexpected reports/dumps/temporary files).")
+
+    # 6. Story Book reading path stays model-free (Invariant 9 / PRD §20.1)
+    reading_violations = check_storybook_reading_path_is_model_free()
+    if reading_violations:
+        all_violations.extend(reading_violations)
+        for v in reading_violations:
+            print(f"❌ {v}")
+    else:
+        print(
+            "✅ Story Book reading path is model-free "
+            "(ZERO model/network imports on the §20.1 read path)."
+        )
 
     if all_violations:
         print(f"\n💥 Total {len(all_violations)} architecture fitness violation(s) detected!")

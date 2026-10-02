@@ -1,0 +1,132 @@
+{
+  "receipt_id": "RCP-WORK-SB-18-74cbd5aaab38",
+  "receipt_type": "work",
+  "task_id": "SB-18",
+  "capsule_id": "CAP-SB-18",
+  "capsule_revision": 1,
+  "capsule_digest": "sha256:a44a05f620123db3db23b9c17c26e70f0a3689015d1712f78d07c41772437915",
+  "diff_digest": "sha256:3cb3f0c11da2bc05f63c8fb9d2a94c4a0a7cb57c6868ac53fdb1d1976ea3230b",
+  "assigned_role": "AGT-ARB",
+  "risk_class": "privileged",
+  "base_commit": "b0ca3a2e91a5f59651910db16dabb8c219def892",
+  "head_commit": "74cbd5aaab384e8f44ef1168e4f81fac8d051de0",
+  "target_ref": "origin/main",
+  "target_sha": "b0ca3a2e91a5f59651910db16dabb8c219def892",
+  "stale_context": false,
+  "gate_profile_id": "FULL_P0",
+  "gate_profile_digest": "sha256:7aee88d64a790cf32dedf224fd100ce4d623c8a92a5f7ee06703783decccfee6",
+  "gate_result": "passed",
+  "gate_stages": [
+    {
+      "stage": 1,
+      "name": "Architecture Fitness & Boundaries",
+      "command": [
+        "python3",
+        "scripts/check_architecture_fitness.py"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T11:28:21.538767+00:00",
+      "finished_at": "2026-10-02T11:28:21.579262+00:00",
+      "raw_log_digest": "sha256:883149b11bf4f55aafe7c933a259cada04fb2a54650a18bd46cf4b2b78216b4e",
+      "note": ""
+    },
+    {
+      "stage": 2,
+      "name": "Python Engine & Contracts Test Suite",
+      "command": [
+        "uv",
+        "run",
+        "--locked",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite/engine",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T11:28:21.579347+00:00",
+      "finished_at": "2026-10-02T11:30:25.577032+00:00",
+      "raw_log_digest": "sha256:6e3d536765037763c5f702cf846f2d7a78c3a3161a6f771f1c8768b226731429",
+      "note": ""
+    },
+    {
+      "stage": 3,
+      "name": "Swift 6 macOS App & Protocol Tests",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite/.hacf/spm-scratch"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T11:30:25.577127+00:00",
+      "finished_at": "2026-10-02T11:30:48.772924+00:00",
+      "raw_log_digest": "sha256:29f85aee2fa9b9fd4ccb8e737b5ac5e6b6c3a91a2ea4f70d6210bc5ba3674d86",
+      "note": ""
+    },
+    {
+      "stage": 4,
+      "name": "Xcode App Target Build (默认 MainActor 隔离编译验证)",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "WorldOfMysteries.xcodeproj",
+        "-scheme",
+        "WorldOfMysteries",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "../.hacf/run/xcode-derived",
+        "build"
+      ],
+      "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite/macos-app",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-10-02T11:30:48.773140+00:00",
+      "finished_at": "2026-10-02T11:30:50.693681+00:00",
+      "raw_log_digest": "sha256:b55a9507291f4b58c1be2a883159c5471bf0415d1faeb2324daea2514e0627fe",
+      "note": ""
+    }
+  ],
+  "coverage_gaps": [],
+  "scope_audit": {
+    "changed_files": [
+      "engine/tests/test_hacf_governance.py",
+      "scripts/check_architecture_fitness.py"
+    ],
+    "violations": [],
+    "escalations": [],
+    "privileged_uses": [
+      "scripts/check_architecture_fitness.py"
+    ]
+  },
+  "toolchain": {
+    "python": "3.14.7",
+    "uv": "uv 0.12.18 (Homebrew 2026-09-22 aarch64-apple-darwin)",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "engine_uv_lock_digest": "sha256:fddfb2d7170dd500db490ab633e1aad875fd54881aa80a5b4a4967f4723e3441"
+  },
+  "runner": {
+    "host": "HRYGO-AI-STUDIO",
+    "user": "hrygo",
+    "role": "AGT-ARB",
+    "cwd": "/Users/hrygo/Documents/wom-worktrees/feat-sb-18-pin-no-rewrite"
+  },
+  "started_at": "2026-10-02T11:28:21.502676+00:00",
+  "finished_at": "2026-10-02T11:30:50.820809+00:00",
+  "verdict": "passed",
+  "merge_authorizing": false,
+  "merge": {},
+  "notes": [],
+  "integrity": {
+    "digest_algorithm": "sha256",
+    "statement": "本凭单为可复算摘要记录（digest-recorded receipt），不是密码学签名；其可信度由受保护分支策略、CODEOWNERS 评审与 CI 复算共同保证。"
+  }
+}

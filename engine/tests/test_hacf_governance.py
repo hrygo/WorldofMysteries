@@ -27,6 +27,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 import generate_pr_report as reporter  # noqa: E402
 import agent_capsule  # noqa: E402
+import check_architecture_fitness as fitness  # noqa: E402
 import collab_pipeline  # noqa: E402
 import gate_profile  # noqa: E402
 import hacf_policy  # noqa: E402
@@ -559,6 +560,149 @@ def test_a_profile_that_forbids_empty_selection_still_fails_closed(tmp_path):
 
     assert result["stages"][0]["status"] == "failed"
     assert result["result"] == "failed"
+
+
+# ---- PRD §20.1: reading the Story Book must never rewrite it --------------
+
+
+def test_the_reading_path_carries_no_model_capable_import():
+    """不变量 9 / §20.1 的结构面：装配故事书的两个模块不得触达模型或网络。"""
+    assert fitness.check_storybook_reading_path_is_model_free() == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import agentscope\n",
+        "from agentscope import Msg\n",
+        "import openai\n",
+        "import httpx\n",
+        "from urllib import request\n",
+        "from ai import ModelRouter\n",
+        "import ai.model_router\n",
+    ],
+    ids=lambda s: s.strip().replace(" ", "_"),
+)
+def test_the_fitness_check_catches_a_model_reaching_the_reading_path(tmp_path, source):
+    """这条规则本身必须会红，否则它只是一句声明。"""
+    offender = tmp_path / "storybook_projection.py"
+    offender.write_text(source, encoding="utf-8")
+
+    violations = fitness._forbidden_imports_in(offender, fitness.MODEL_CAPABLE_MODULES)
+
+    assert len(violations) == 1
+    assert "imports" in violations[0] and str(offender) in violations[0]
+
+
+def test_the_fitness_check_names_the_invariant_when_a_real_module_drifts(tmp_path):
+    """外层包装必须把违规标成不变量 9，否则 Stage 1 报告读不出严重性。"""
+    staged = tmp_path / "engine" / "application"
+    staged.mkdir(parents=True)
+    (staged / "storybook_projection.py").write_text(
+        "from openai import OpenAI\n", encoding="utf-8"
+    )
+    (staged / "storybook_service.py").write_text("x = 1\n", encoding="utf-8")
+
+    original_root, original_modules = fitness.REPO_ROOT, fitness.STORYBOOK_READING_MODULES
+    fitness.REPO_ROOT = tmp_path
+    fitness.STORYBOOK_READING_MODULES = (
+        "engine/application/storybook_projection.py",
+        "engine/application/storybook_service.py",
+    )
+    try:
+        violations = fitness.check_storybook_reading_path_is_model_free()
+    finally:
+        fitness.REPO_ROOT, fitness.STORYBOOK_READING_MODULES = (
+            original_root,
+            original_modules,
+        )
+
+    assert any("Invariant 9 Violation" in v and "openai" in v for v in violations)
+
+
+def test_a_missing_reading_module_is_reported_rather_than_skipped():
+    """文件不见了必须报缺失，不能当作「没有违规」而静默放行。"""
+    original_modules = fitness.STORYBOOK_READING_MODULES
+    fitness.STORYBOOK_READING_MODULES = ("engine/application/not_there.py",)
+    try:
+        violations = fitness.check_storybook_reading_path_is_model_free()
+    finally:
+        fitness.STORYBOOK_READING_MODULES = original_modules
+
+    assert violations and "missing" in violations[0]
+
+
+# §20.1 says the book is the Narrative Blocks that actually happened, plus any
+# necessary transition — never a novel the model wrote afterwards. Nothing
+# pinned that: the projection's own tests asserted speakers and structure, and
+# the "no model call" claim lived only in a module docstring.
+_VERBATIM_TEXTS = (
+    "  雨落在诊所的窗外。  ",
+    "第 3 次敲门，无人应答。",
+    "「你终于来了。」——他说",
+    "她把账本翻到第 12 页，指尖停在空白处。",
+)
+
+
+def _verbatim_book():
+    from application.storybook_projection import project_story_book
+    from contracts import Episode, NarrativeBlock
+    from contracts.models import NarrativeSegment
+
+    segments = [
+        NarrativeSegment(type="narration", text=text) for text in _VERBATIM_TEXTS
+    ]
+    block = NarrativeBlock(
+        schema_version="1.0",
+        id="b1",
+        story_session_id="session-1",
+        source_story_revision=1,
+        scene_id="consultation_room",
+        segments=segments,
+    )
+    episode = Episode.model_validate(
+        {
+            "schema_version": "1.0",
+            "id": "episode-1",
+            "world_id": "world-1",
+            "worldline_id": "worldline-1",
+            "protagonist_ids": ["char_evelyn"],
+            "title": "哈维诊所的停顿",
+            "start_world_time": "1349-06-12T21:40:00",
+            "ending": {"type": "partial_truth", "main_problem": None},
+            "secret_states": {},
+            "unresolved_threads": [],
+            "narrative_block_ids": ["b1"],
+        }
+    )
+    book = project_story_book(
+        episode=episode,
+        narrative_blocks={"b1": block},
+        character_display_names={},
+        proposition_display_names={},
+    )
+    return book, segments
+
+
+def test_the_book_reproduces_committed_prose_verbatim():
+    """§20.1 的行为面：书里的正文必须就是当时提交的那段原文。
+
+    任何 strip、标点归一、数字改写或「润色」都会在这里现形 —— 而这正是模型
+    重写一篇「差不多」的小说在输出上留下的痕迹。
+    """
+    book, segments = _verbatim_book()
+
+    produced = [segment["text"] for segment in book["chapters"][0]["segments"]]
+    assert produced == list(_VERBATIM_TEXTS)
+    assert produced == [segment.text for segment in segments]
+
+
+def test_the_book_neither_adds_nor_drops_a_segment():
+    """重写还常表现为合并、拆分或总结；段数与顺序必须原样保留。"""
+    book, segments = _verbatim_book()
+
+    assert len(book["chapters"]) == 1
+    assert len(book["chapters"][0]["segments"]) == len(segments)
 
 
 def test_capsule_carries_no_executable_gate_commands():
