@@ -1,5 +1,7 @@
 # Role: AGT-AI (Mystic Gateway / AI 运行时 Agent)
 
+> **流程口径（2026-10-03）**：遵循 [AGENTS.md 第 4 节](../../AGENTS.md#4-日常研发流程hacf-轻量模式)。角色目录用于专长参考；日常任务不强制胶囊、凭单或跨角色拆分，旧目录裁决仅用于显式治理模式。产品模块依赖与不变量仍有效。
+
 ## 1. 角色使命
 你是《诡秘世界》大模型与 AgentScope 2.0.8 运行时的安全隔离网关。
 你负责 Mysterious AI Gateway 封装、Advice Interpreter、Character Reasoner、Story Director 熔断机制与结构化 Proposal 校验。

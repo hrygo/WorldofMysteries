@@ -1,123 +1,43 @@
 ---
 name: wom-collaborator
 description: >-
-  《诡秘世界》HACF 2.1 人机协同研发核心驱动技能。指导多专精 Agent 与人类架构师执行任务切片（AgentCapsule）、
-  事务型并行隔离工作区（CollabPipeline + 资源命名空间租约）、受保护门禁档案（Gate Profile）、
-  范围裁决与仲裁扩权、Work/Integration Receipt 证据链与 GitHub Actions 双层防御合流。
+  《诡秘世界》日常轻量研发协作：用户目标、按变更面验证、PR 与 CI、按需工作区隔离。
+  仅显式治理任务使用 HACF 胶囊、范围裁决与凭单。
 ---
 
-# 《诡秘世界》HACF 2.1 人机协同研发核心技能 (wom-collaborator)
+# 《诡秘世界》轻量研发协作
 
-本技能为所有参与《诡秘世界》（World of Mysteries）开发的人类架构师与专精 AI Agent 提供标准化的协同推进作业指引。
+2026-10-03 起采用 [ADR-009](../../../docs/01_总体架构/ADR-009_HACF日常流程轻量化.md)。
+执行约定以 [AGENTS.md 第 4 节](../../../AGENTS.md#4-日常研发流程hacf-轻量模式) 为准。
 
-> **版本**：HACF 2.1（2026-09-16 起）。决策依据
-> [`ADR-004`](../../../docs/01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md)、
-> 实施方案 [`v1.1`](../../../docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)。
-> 已废除的 2.0 机制：共享 `.venv` 软链、胶囊携带验收命令、向胶囊回写签名、`forbidden_patterns` 空转。
+## 日常任务
 
----
+1. 查清用户目标、当前实现与实际影响，保留用户数据和他人改动。
+2. 一个功能可以在同一分支跨目录同步契约、实现和测试；角色表示专长，不扩大用户授权。
+3. 按变更面验证；涉及治理、工具链或跨域变更时执行完整质量门禁。
+4. PR 说明问题、结果、实际验证与风险。质量结论以 CI、构建和评审为依据，
+   功能完成还需对应接线、真实服务或用户体验证据。
+5. 并行写入或工作区不干净时使用独立 worktree、独立环境和短路径运行资源；
+   回收前核实干净且内容已落地，不强删未知改动。
 
-## 1. 五条不可违背的协同原则
+日常任务不要求 `pack`、胶囊、Work Receipt、Integration Receipt、本地 `integrate`
+或按角色目录拆分 PR。`Capsule Gate` 保留历史检查名，默认仅校验门禁档案与 registry。
 
-1. **门禁主权**：验收命令只存在于 `.hacf/gates/*.json`（受保护，摘要记录于 `registry.json`）。
-   胶囊只引用 `gates.profile` 与 `gates.profile_digest`，任务**不得**自带验收命令。
-2. **契约与凭证分离**：`.agents/capsules/*.json` 是不可变契约，任何 `verify` 都不得回写它；
-   验收结果单独落盘为 `.agents/receipts/<TASK_ID>/<head_sha>.json`。
-3. **内容隔离**：每个 Worktree 使用**独立** `engine/.venv`（`uv sync --locked --extra dev`）；
-   严禁软链主仓 venv（会让 editable `.pth` 被跨工作区重写）。
-4. **资源隔离**：源码隔离由 `git worktree` 提供，运行时隔离由 `.hacf/workspace.json` 租约提供
-   （TMPDIR / SPM scratch / 测试库 / IPC socket / 端口段）。
-5. **证据优先于叙述**：摘要为 sha256 内容摘要而非密码学签名；
-   门禁结论只来自 CI required checks，任何报告卡片不得宣称未经复算的通过状态。
-
----
-
-## 2. 7 大专精 Agent 角色与边界
-
-| 角色代号 | 角色中文名 | 授权写域（write） | 高风险面告警 |
-|:---|:---|:---|:---|
-| **`AGT-ARB`** | 架构仲裁者 | `docs/`, `contracts/`, `scripts/`, `.hacf/`, `.github/`, `.agents/` | 唯一可改门禁档案与 registry 的角色 |
-| **`AGT-DOM`** | 领域逻辑编织者 | `engine/domain/`, `engine/tests/` | 禁止 import SQLite / AgentScope / 云 SDK |
-| **`AGT-DATA`** | 数据内核管家 | `engine/infrastructure/`, `engine/tests/` | 迁移文件需仲裁扩权；`canon.db` 只读 |
-| **`AGT-AI`** | AI 运行时网关 | `engine/ai/`, `engine/application/`, `engine/tests/`, `engine/infrastructure/story_runtime.py`, `engine/infrastructure/episode_settlement.py`, `engine/infrastructure/scenarios/` | 禁止直接写库事务 |
-| **`AGT-VOICE`** | 语音引擎大师 | `engine/domain/audio_voice.py`, `engine/infrastructure/audio/`, 音频测试 | 禁止反向篡改已提交 StoryState |
-| **`AGT-MAC`** | macOS App 极客 | `macos-app/WorldOfMysteries/`, `.../WorldOfMysteriesTests/` | 禁止直连数据库、禁止改 `engine/**` |
-| **`AGT-QA`** | 自动化质检官 | `engine/tests/`, `macos-app/WorldOfMysteriesTests/`, `fixtures/golden_001/` | 只写断言，禁止改实现 |
-
-**高风险面（非 ARB 均需显式 grant）**：`contracts/`、`.hacf/`、`.github/`、`engine/**/migrations/`，
-以及 `uv.lock`、`pyproject.toml`、`Package.swift`、`project.pbxproj` 等构建与工具链面。
-触碰时 `risk_class` 至少为 `high`。
-
----
-
-## 3. 标准作业流程 (SOP)
-
-### 步骤 1：任务切片（不可变契约）
 ```bash
-python3 scripts/agent_capsule.py pack \
-    --role <ROLE_ID> --task-id <TASK_ID> --title "<TASK_TITLE>" \
-    --focus "关键词1,关键词2"          # 可选：按任务焦点排序 AST 切片
+python3 scripts/gate_profile.py resolve
+python3 scripts/gate_profile.py run --profile <ID>
+python3 scripts/capsule_audit.py --base-ref origin/main
 ```
-- 产物 `.agents/capsules/<TASK_ID>.json`，含 `base`（base_sha / target_sha / context_snapshot）、
-  `scope`（read/write/forbidden/privileged_grants）、`gates`（profile + digest）、`context`、`acceptance`；
-- 需要触碰高风险面时追加 `--grant-privileged "<glob>" --risk-class high`（扩权将随 PR 进入评审）。
 
-### 步骤 2：开启隔离工作区
-```bash
-python3 scripts/collab_pipeline.py start \
-    --branch feat/<branch> --role <ROLE_ID> --task-id <TASK_ID>
-```
-- 工作区位于 `../wom-worktrees/<branch>`，自动创建独立 `.venv` 与资源租约
-  （`start --skip-venv` 仅用于不跑 Python 门禁的场景）；
-- 切换目录后先 `python3 scripts/agent_capsule.py show --capsule ...` 复核边界与切片。
+## 显式治理任务
 
-### 步骤 3：本地门禁
-```bash
-bash scripts/gate_runner.sh              # 默认 FULL_P0（全量三阶段）
-bash scripts/gate_runner.sh DOMAIN_P0    # 角色专精档案（按需）
-```
-档案清单：`FULL_P0` / `DOMAIN_P0` / `DATA_KERNEL_P0` / `AI_GATEWAY_P0` / `VOICE_P0` / `MACOS_APP_P0`。
+仅当用户或任务明确选择严格多执行者治理时，采用
+[旧 HACF 2.1 SOP](../../../docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)
+和 `capsule_audit.py --mode governed`。保留七种角色；历史胶囊/凭单通过 Git 追溯，
+不扫描历史凭证来授权新任务。胶囊不可回写，凭单只能如实记录测试结果。
 
-### 步骤 4：范围裁决与签发 Work Receipt
-```bash
-python3 scripts/agent_capsule.py verify \
-    --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
-```
-- 依次执行：上下文陈旧性校验 → 四类边界裁决（violation / escalation）→ 受保护门禁 → 签发凭单；
-- 越界或需扩权时退出码 1，并记录失败凭单；**胶囊不会被修改**；
-- 目标分支已前进时判定 `stale_context` 并拒绝（除非 `--allow-stale` 调试）。
+经用户授权、核验无活跃任务且数据可恢复后，可清理已结束任务的数据；当前树只需保留活跃任务数据。
 
-### 步骤 5：集成与合入
-```bash
-python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
-```
-- 顺序：工作区门禁 → `expected_main_sha` compare-and-swap 复核 → `--ff-only` 合入 →
-  post-merge smoke → 签发 `Integration Receipt`（唯一可授权合入的凭证）→ 清理工作区与分支；
-- 合入前后目标分支不一致时必须 rebase 并重跑，不得绕过。
-
-### 步骤 6：云端权威守门
-1. `capsule-audit.yml`：边界裁决 + 门禁档案主权（以目标分支 registry 为权威）+ 凭单证据完整性；
-2. `ci.yml`：架构适应度 / Pytest（`--locked`）/ Swift 6 三阶段；
-3. `pr-gate-reporter.yml`：只复述凭单事实的证据摘要卡片；
-4. 代码类 PR 无胶囊或无凭单将被阻断（文档类变更按元数据处理）。
-
----
-
-## 4. 常见反模式（触发即返工）
-
-| 反模式 | 后果 |
-|:---|:---|
-| 在 `verify` 前手改 `.agents/capsules/*.json` | 凭单 `capsule_digest` 不匹配，CI 拒绝合入 |
-| 把命令写进胶囊或让 `true` 充当验收 | 已被移除该字段；命令主权在受保护档案 |
-| 用符号链接共享主仓 `.venv` | 环境写入竞争，跨工作区污染 |
-| 在 Worktree 内改 `contracts/`、`.hacf/`、`migrations/` 而不扩权 | `SCOPE_ESCALATION_REQUIRED`，凭单判失败 |
-| 直接 `git merge` 绕过 `integrate` | 失去 CAS 复核、post-merge smoke 与合入凭单 |
-| 把本地日志/压缩输出当作机器证据 | 证据层只认退出码、原始输出摘要与凭单 |
-
----
-
-## 5. 终端执行准则
-
-- 本机实际执行命令时遵循 RTK 路由规则；写入持久化产物（本文档、`AGENTS.md`、prompts、PR/Issue 模板、CI、示例）时一律使用可移植原生命令；
-- 严禁绕过 `scripts/gate_runner.sh`（受保护档案执行器）强行合并代码；
-- 门禁档案变更必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
+产品不变量、模块依赖边界和跨语言契约一致性在两种模式中都有效。
+门禁档案变更仍需同步 registry 并接受评审；用户授权是实施与远端操作的依据。
+本机执行使用 RTK；共享文档与示例使用原生命令。

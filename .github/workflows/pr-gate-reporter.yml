@@ -2,7 +2,7 @@ name: PR Gate Reporter & Sticky Comment
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled]
     branches: [main]
 
 permissions:
@@ -20,6 +20,8 @@ defaults:
 
 jobs:
   report-pr-status:
+    # 日常 PR 使用 CI 检查与简短描述；仅人工请求时生成旧凭单报告。
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'hacf-evidence') }}
     name: "Generate PR Quality Gate Report"
     runs-on: ubuntu-latest
     timeout-minutes: 5

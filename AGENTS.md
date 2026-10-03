@@ -4,7 +4,7 @@
 > **工程形态**：SwiftUI macOS App (arm64, macOS 26+) + 同机独立 Local Engine Service (Python 3.14.7 CPython standard GIL build + AgentScope 2.0.8)  
 > **数据内核**：SQLite 本地多模型四库物理隔离架构（`canon.db`, `world.db`, `retrieval.db`, `runtime.db`）  
 > **语音交互**：OpenAI Audio API 规范适配器，默认对接本地 SpeechRail (WebSocket/REST)，支持任意兼容第三方热拔插  
-> **协同框架**：HACF 2.1 (人机与多专精 Agent 协同体系，门禁主权 + 契约凭证分离) + GitHub Actions 工业级双层防御流水线  
+> **协同框架**：HACF 轻量模式（CI 与评审为主，任务凭证按需） + GitHub Actions 工业级双层防御流水线
 > **核心规范根目录**：[`docs/`](docs/)（主入口：[`docs/README.md`](docs/README.md)）
 >
 > **关联仓库（卡牌制作工具）**：[`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art) —— Canon 内容生产面（22 条成神途径 × 序列 9→0 的正典核验、六维语义契约与分层卡面生产）；本仓库单向消费其结论，不重复维护、不反向写入。
@@ -114,7 +114,7 @@ repo/
 ├── .agents/                 # 多 Agent 协同元数据与模板
 │   ├── prompts/            # 7 大专精 Agent 角色提示词模板 (01 到 07)
 │   ├── capsules/           # 不可变任务契约 JSON (verify 严禁回写)
-│   └── receipts/           # Work / Integration Receipt (唯一可授权合入的凭证)
+│   └── receipts/           # Work / Integration Receipt（可选治理模式的历史凭证）
 ├── .github/                 # GitHub 原生协同与自动化 CI/CD 体系
 │   ├── workflows/          # ci.yml, capsule-audit.yml, pr-gate-reporter.yml, nightly-golden-audit.yml
 │   ├── ISSUE_TEMPLATE/     # 01_agent_task.yml, 02_architecture_spike.yml, config.yml
@@ -141,7 +141,7 @@ repo/
 - `macos-app/`：**严禁** 依赖 Python 运行时内部类型或直接读取 `world.db`，严格通过 UDS IPC NDJSON 通信。
 - `contracts/`：跨语言交互的唯一协议与 Schema 源头，Swift 与 Python 均由其严格生成与校验。
 - `.hacf/gates/`：**门禁命令主权的唯一所在**。任何脚本、胶囊、角色默认值**严禁**内嵌验收命令；
-  覆盖档案后必须由 `AGT-ARB` 执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
+  经用户授权覆盖档案后必须执行 `python3 scripts/gate_profile.py refresh-registry` 并附架构评审。
 - `.agents/capsules/`：不可变任务契约，`verify` **严禁**回写；验收结果一律写入 `.agents/receipts/`。
 - `docs/` 及所有 Markdown：**严禁**泄露开发机绝对路径（如 `file:///Users/...` 或 `/Users/...`），文档与文件链接一律只允许使用相对于项目根目录或当前文档的相对路径。
 - **仓库根目录（Root Cleanliness）**：**严禁**随意在项目根目录生成、倾倒临时文件、中间报告、调试日志或脚本（如 `pr_report.md`、`*.log`、`*.tmp` 等）。所有自动化工具、流水线与 Agent 作业产物必须严格收拢至指定子目录：
@@ -159,170 +159,60 @@ repo/
 
 ---
 
-## 4. 人机协同研发工作框架 (HACF 2.1)
+## 4. 日常研发流程（HACF 轻量模式）
 
-本项目采用工业级的 **“任务胶囊切片 + 门禁主权 + 事务型并行工作区 + 可复算凭单验收”** 协同模型：
+> 2026-10-03 起，依据 [ADR-009](docs/01_总体架构/ADR-009_HACF日常流程轻量化.md)，
+> 本节取代旧 HACF 2.1 的日常强制 SOP。旧文档、角色模板与胶囊说明仅供显式治理模式使用。
 
-> 摘要为 sha256 **内容摘要**而非密码学签名；抗伪造由受保护分支、CODEOWNERS 评审与 CI 复算共同承担。
-> 完整规范见 [`docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)
-> 与 [`ADR-004`](docs/01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md)。
+### 4.1 默认流程
 
-### 4.1 7 大专精 Agent 角色矩阵
-| 角色代号 | 角色名称 | 核心职责 | 授权管辖目录 |
-|:---|:---|:---|:---|
-| **`AGT-ARB`** | 架构仲裁者 | 系统拓扑治理、任务派发、扩权审批、冲突仲裁、ADR 决策 | `docs/`, `contracts/`, `scripts/`, `.hacf/`, `.github/`, `.agents/` |
-| **`AGT-DOM`** | 领域逻辑编织者 | World, Character, Story 状态机与确定性 Outcome Resolver | `engine/domain/`, `engine/tests/` |
-| **`AGT-DATA`** | 数据内核管家 | 四库物理隔离、Outbox 事件发布、迁移脚本与事务队列 | `engine/infrastructure/database*`, `outbox*` |
-| **`AGT-AI`** | AI 运行时网关 | AgentScope 2.0.8 适配、Bounded Tools 限制、Prompt 注册表 | `engine/ai/`, `engine/application/`, `engine/tests/`, `engine/infrastructure/story_runtime.py`, `engine/infrastructure/episode_settlement.py`, `engine/infrastructure/scenarios/` |
-| **`AGT-VOICE`** | 语音引擎大师 | OpenAI Audio API 规范适配、SpeechRail 热拔插、指纹缓存 | `engine/domain/audio*`, `infrastructure/audio/` |
-| **`AGT-MAC`** | macOS App 极客 | SwiftUI 界面交互、@Observable 数据流、Swift 6 严格并发 | `macos-app/WorldOfMysteries/`, `macos-app/WorldOfMysteriesTests/`, `engine/tests/test_app_engine_session.py`, `engine/tests/test_voice_turn_e2e.py`, `engine/tests/fixtures/app_engine_driver.swift`, `engine/tests/fixtures/voice_turn_e2e_driver.swift` |
-| **`AGT-QA`** | 自动化质检官 | Golden Scenario 5 轮全景回归、三阶段流水线终审 | `fixtures/`, `engine/tests/`, `macos-app/WorldOfMysteriesTests/` |
+1. 查清用户目标、现状、影响与必要回退；一个功能可以在同一分支跨目录完成。
+2. 开发并按改动面验证；需要时使用 `gate_profile.py resolve` 与受保护档案。
+3. PR 描述说明问题、结果、验证与实际风险；CI 和评审决定是否可合入。
+4. 并行写入或主工作区不干净时使用独立 worktree、独立环境与短路径运行资源。
+   普通单人任务不强制隔离工作区；回收前确认工作区干净且内容已落地，不强删未知改动。
 
-> **角色代号是接口**：唯一口径为 `contracts/engineering/task_capsule.schema.json` 的角色枚举 ——
-> `AGT-ARB` / `AGT-DOM` / `AGT-DATA` / `AGT-AI` / `AGT-VOICE` / `AGT-MAC` / `AGT-QA`。
-> 早期文档里的 `AGT-DAT` / `AGT-VOX` 只是历史别名：`pack --role` 只接受枚举值，写别名会直接 `ValueError`；
-> 新增/改名角色必须同时更新枚举、`scripts/agent_capsule.py` 的 `ROLE_DEFAULTS` 与 `.github/CODEOWNERS`。
->
-> **`engine/tests/` 下的 App 跨进程夹具归 `AGT-MAC`**：`fixtures/app_engine_driver.swift`、
-> `fixtures/voice_turn_e2e_driver.swift` 与 `test_voice_turn_e2e.py` 编译并驱动**生产 App 源码**，
-> 编码的是 App 自己的启动与会话契约，属于 App 测试载体而非 QA 断言。App 行为变更若只有 QA 角色
-> 有权修改这些文件，`FULL_P0` 就会在无人能修的情况下变红——那不是门禁，是逼人回退真实修复。
+日常任务**不要求**任务胶囊、Work Receipt、Integration Receipt、按角色目录拆任务、
+本地 `integrate` 预演或凭单独立提交。授权来自用户，角色不能扩大授权。
+用户数据保护、第 2 节的 15 条不变量、第 3 节的产品模块依赖边界及跨语言契约要求保持有效。
 
-### 4.2 协同作业标准流程 (SOP)
+### 4.2 质量门禁
 
-> **顺序不可颠倒**：`pack`（定基线）→ `start`（隔离工作区）→ 编码并**提交** → `verify`（签发凭单）→
-> 凭单作为独立提交带上 → `integrate` / `submit` → **合入后回收工作区**。四条硬规则：
-> ① **`target_ref` 是合入目标（默认 `origin/main`），不是当前工作分支**；只有合入目标前进才判定上下文陈旧；
-> ② **先提交再验收**：`changes_digest` 取 `base_sha...HEAD` 的**已提交内容**，提交前执行只会得到空摘要；
-> ③ `.agents/capsules/` 与 `.agents/receipts/` 不计入摘要（否则「签发凭单 → 提交凭单」会让凭单自我失效），
-> 所以凭单必须在验收之后单独提交；
-> ④ **合入即回收**：PR 显示 `MERGED` 后立即回收隔离工作区、本地分支与短路径运行时命名空间，
-> 不留到「下一个任务开始前」——含独立 `engine/.venv` 的孤立工作区是 GB 级磁盘占用，
-> 还会在 `git worktree list` 与 `collab_pipeline.py status` 里长期伪装成活跃工作区。
+- `All Quality Gates Passed`：架构与契约、Python、Swift 和真实 Xcode App 构建，按变更面执行。
+- `Capsule Gate`：保留历史检查名以兼容分支保护；默认仅校验门禁档案与 registry 一致性，
+  不读取历史胶囊、不要求任务凭单，不以 Agent 自述的目录授权阻断日常 PR。
+- 门禁配置、CI、契约和数据迁移等高风险变更先分析影响与回退，按用户已授权范围实施；
+  不再通过新造角色或胶囊 grant 代替人类授权。档案变更仍须同步 registry 并接受评审。
+- 测试通过不等于功能已完成；真实接线、真实服务与用户体验按对应验收要求核实。
 
-1. **任务切片派发 (Pack)**：
-   ```bash
-   python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>" --focus "<关键词>"
-   ```
-   *背后深度内聚：只引用受保护门禁档案（`gates.profile` + `profile_digest`），按任务焦点排序 AST 切片，
-   记录 `base_sha` / `target_sha` / `context_snapshot`。契约不携带任何验收命令。*
-   - **`target_ref` 是合入目标（默认 `origin/main`），不是当前工作分支**：只有合入目标前进才判定上下文陈旧。
-     若把特性分支记成目标，提交自己的改动就会触发 `stale_context`、`verify` 永远拒绝签发凭单；
-     非默认合入目标用 `--target-ref` 显式指定。
-   - `pack` 在 `main` 工作区执行最直观（`start --role --task-id` 的自动 pack 现已采用同一口径）。
-2. **并行无锁编码 (Start Worktree)**：
-   ```bash
-   python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
-   ```
-   *背后深度内聚：秒级创建隔离目录、**每工作区独立** `engine/.venv`（`uv sync --locked --extra dev`，共享 uv 缓存）、
-   资源命名空间租约（TMPDIR / SPM scratch / 测试库 / socket / 端口段）。*
-   - **工作区基线默认是 `origin/main`，不是本地 `main`**：本仓库 main 受保护且只走 squash 合入，
-     本地 main 会持续落后（实测落后 392 个提交，另有 39 个本地提交不在 origin/main 上），
-     在它上面建工作区会让 Agent 基于上游根本不存在的代码开发——本地门禁全绿，PR 打开才大面积冲突。
-     需要别的基线时用 `--base <ref>`；显式传入的 ref 若落后 `origin/main`，命令会打印告警并给出落后提交数，
-     此时应先 `git fetch` 再重开工作区（已建的工作区不会自动换基线）。
-3. **本地验证与凭单 (Verify & Receipt)**：
-   ```bash
-   # 0. 先提交实质改动：未提交的内容不会进入 changes_digest
-   git commit -m "<type>(<scope>): <summary>"
-   # 1. 四类边界裁决（read/write/forbidden/privileged）+ 受保护门禁 + 签发 Work Receipt
-   python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json --cwd "$(pwd)"
-   # 2. 凭单作为独立提交带上（证据文件不计入摘要，不会让凭单失效）
-   git add .agents/receipts/<TASK_ID>/ && git commit -m "chore(evidence): attach <TASK_ID> Work Receipt"
-   ```
-   - **陈旧上下文的处置**：合入目标已前进时，在最新基线上重新 `pack`（生成 `capsule_revision` 修订版）后
-     再验收；不要用 `--allow-stale` 绕过，它仅用于调试且会在凭单里留下 `stale_context=true`。
-   - **凭单绑定内容摘要，不绑定 commit SHA**：`diff_digest` 与 CI 复算值一致即有效，rebase、合入最新
-     `main`、改写提交信息都不会让凭单失效；凭单里的 `head_commit` 仅供追溯。
-   - **范围裁决审的是 `base_sha → HEAD` 的完整范围**（已提交内容 + 工作树），不是只看工作树：
-     否则「先提交再验收」会让本地范围裁决恒为空集、越界改动只剩 CI 一道防线。
-   - **一个切片跨多个角色辖区时，用 `--also-capsule` 带上其余胶囊**（可重复）：
-     ```bash
-     python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json \
-       --also-capsule .agents/capsules/<TASK_ID>-MAC.json \
-       --also-capsule .agents/capsules/<TASK_ID>-AI.json --cwd "$(pwd)"
-     ```
-     角色之间的 `forbidden` 互为禁区（`path_verdict` 先判 forbidden 再看 grant，grant 永远越不过它），
-     所以**没有任何单枚胶囊能覆盖跨 lane 的变更集**。范围裁决按覆盖式并集执行——被任一胶囊授权即放行，
-     与 CI `capsule_audit` 同一判定（`hacf_policy.is_authorized_union`，两侧共用同一份实现）；
-     门禁按各胶囊档案的并集执行（`(name, cwd, command)` 去重，既不重跑也不漏跑）。
-     不带 `--also-capsule` 时单枚胶囊覆盖不到其余 lane，本地会判越界而 CI 放行，且**凭单签不出来**。
-4. **集成预演 (Integrate · 本地)**：
-   ```bash
-   # 门禁 → expected_main_sha CAS 复核 → 本地 ff 合入 → post-merge smoke → Integration Receipt
-   python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
-   ```
-   *越界或需扩权时退出码 1；高风险面（`contracts/`、`.hacf/`、`.github/`、`migrations/`）须由 `AGT-ARB` 显式 grant。*
-   *本地 main 仅作预演：受保护主分支拒绝直接 push，合入必须走 PR。*
-5. **提交 PR (Submit)**：
-   ```bash
-   # 推送分支 → 建（或复用）PR → 可选 auto-merge（必需检查通过后自动合入）
-   python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
-   ```
-   *必需检查为 `All Quality Gates Passed` 与 `Capsule Gate`。检查名是公开接口：定义在
-   `.hacf/required-checks.json`，由 `scripts/check_required_checks.py` 在 CI 守卫，
-   `scripts/sync_branch_protection.py`（默认 dry-run）负责与 ruleset 同步——改名而未同步会让所有 PR 永久 pending。*
-   *按改动面收窄本地门禁耗时：`python3 scripts/gate_profile.py resolve` 给出建议档案
-   （治理/工具链路径一律全量，纯元数据走最轻档案）。*
-   - **维护通道（唯一免胶囊情形）**：当 PR 的代码变更**全部**落在 `.github/workflows/`、
-     `.github/dependabot.yml`、`engine/uv.lock`、`macos-app/Package.resolved` 时，`Capsule Gate`
-     按自动化维护 PR 放行，不要求胶囊与 Work Receipt（由 CI 三阶段门禁全权守门）。任何其他代码路径
-     都必须携带胶囊与凭单；`*.md` 等文档属元数据，不参与代码胶囊判定。
-6. **合并后回收 (Cleanup)**：
-   ```bash
-   # 1. 先证明内容已落地（squash 合入后，分支提交不会出现在 main 历史上）
-   gh pr view <branch> --json state,mergedAt,mergeCommit
-   # 取 mergeCommit.oid 与本地分支尖端比对：输出为空即该分支内容已全部落在 main
-   git diff --stat "<mergeCommit.oid>" "<branch>"
-   # 2. 回收本地：工作区（含独立 .venv）+ 本地分支 + /tmp 短命名空间，一条命令三者齐清
-   python3 scripts/collab_pipeline.py abort --branch "<branch>"
-   # 3. 清掉远端已删除头分支留下的本地引用
-   git fetch --prune
-   ```
-   - **`abort` 是强制回收**：它执行 `git worktree remove --force` 与 `git branch -D`，会丢弃未提交改动与
-     未合入提交。动手前确认工作区干净（工作区位于 `../wom-worktrees/<branch-slug>/`，`<branch-slug>`
-     是分支名把 `/` 换成 `-`；`git -C ../wom-worktrees/<branch-slug> status --short` 应无输出），
-     并以第 1 步的证据确认内容已经落地；证据不足时保留工作区，不做强删。
-   - **`git branch --merged` 在本仓库会漏报**：主线走 squash 合入，分支提交不在 `origin/main` 历史上，
-     已合入的分支同样不出现在 `--merged` 结果里——靠它判断会把已合入分支当成「未合入」长期留着。
-     判定口径只有两条：PR 状态为 `MERGED`，或第 1 步的差分为空。
-   - **远端分支不归本地清理**：已合入的远端头分支由仓库的 auto-delete 设置回收，本地只需
-     `git fetch --prune` 清掉失效的 `origin/<branch>` 引用；删除仍存在的远端分支属远端状态变更，须单独授权。
-   - **只剩本地分支的残留**：工作区已被移除时 `abort` 会直接返回（找不到工作区、不删分支），
-     此时按上文证明内容已落地后另行 `git branch -D <branch>`，并核对租约记录的
-     `/tmp/wom-ws-<branch-hash>/` 是否已回收。
-   - **本地预演路径自带回收，PR 通道没有**：`integrate --auto-clean` 在合入后执行同一套回收
-     （工作区 + 分支 + 短命名空间）；走 PR 通道时 `submit` **不做任何回收**，第 6 步是唯一收尾，
-     漏掉就会留下孤儿工作区与分支。
-   - **收尾自检**：`python3 scripts/collab_pipeline.py status`、`git worktree list`、
-     `ls -d /tmp/wom-ws-*` 三处都应只剩活跃任务；已合入的分支不允许停留在任何一处。
+```bash
+python3 scripts/gate_profile.py resolve
+python3 scripts/gate_profile.py run --profile <ID>
+python3 scripts/capsule_audit.py --base-ref origin/main
+```
+
+### 4.3 可选治理模式
+
+用户或任务明确选择严格多执行者治理时，才使用旧 `pack → start → commit → verify → receipt`
+流程和 `capsule_audit.py --mode governed`。7 个角色代号、胶囊/凭单 Schema 保持可用；历史证据通过 Git 追溯，
+角色目录授权只在该模式内裁决；参考 [HACF 2.1 旧实施方案](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)。
+不得为普通任务自动恢复旧流程。历史任务数据经用户授权、确认无活跃任务且可恢复后可以清理，
+见 [Agent 协作资料](.agents/README.md)；不得清理未知改动或未经核验的工作区。
 
 ---
 
-## 5. GitHub 原生协同与工业级 CI/CD 双层防御体系
+## 5. GitHub CI 与评审
 
-工程构建了**本地轻快极速拦截（< 3 秒）**与**云端 GitHub Actions 权威守门（< 1.5 分钟）**的双层防御体系：
+日常研发按改动面运行本地验证，云端 CI 提供合入必需检查。运行耗时以实际日志为准。
 
-```text
-本地工作区 (Local)                      GitHub Actions (Cloud CI)
-┌───────────────────────────┐         ┌─────────────────────────────────┐
-│ collab_pipeline.py        │         │ 1. capsule-audit.yml            │
-│ 跑批受保护门禁 + PR 提交   │──Push──>│    核验 PR 未超出 capsule.scope  │
-│ 签发摘要凭单 (Receipt)     │         │    门禁档案主权 (目标分支 registry)│
-│                           │         │    分级：BLOCKING 才阻断合入      │
-└───────────────────────────┘         ├─────────────────────────────────┤
-                                      │ 2. ci.yml (3-Stage Gates)       │
-                                      │    Stage 1: 架构 AST 检查 & Schema│
-                                      │    Stage 2: Python 3.14 (uv 缓存) │
-                                      │    Stage 3: Swift 6 + Xcode Build │
-                                      ├─────────────────────────────────┤
-                                      │ 3. pr-gate-reporter.yml         │
-                                      │    只复述凭单事实的证据摘要卡片   │
-                                      └─────────────────────────────────┘
-                                                       │
-                                                       ▼
-                                      保护分支主线 (main)：严格 PR 合入（squash / rebase）
-```
+| 工作流 | 日常职责 |
+|---|---|
+| `ci.yml` | 架构与契约、Python、Swift 与 Xcode App 构建；按变更面选择平台作业 |
+| `capsule-audit.yml` | 门禁配置一致性检查；保留 `Capsule Gate` 名称，不强制任务凭证 |
+| `pr-gate-reporter.yml` | 仅带人工添加的 `hacf-evidence` 标签时生成凭单报告 |
+| `nightly-golden-audit.yml` | Golden 夜间回归 |
+
+受保护 `main` 仍通过 PR 与必需检查合入；日常流程不要求本地集成预演或额外凭单。
 
 ### GitHub Actions 现代工程基线准则
 - **官方 Actions 运行时**：必须基于 Node 24 运行时（现行基线：`actions/checkout@v7`、`actions/setup-python@v7`、`actions/cache@v6`、`astral-sh/setup-uv@v10.1.0`、`actions/github-script@v9`、`actions/upload-artifact@v7`；Node 20 时代的旧主版本已全部淘汰）；
@@ -347,7 +237,7 @@ repo/
 | **总体架构 & ADR** | [`docs/01_总体架构/`](docs/01_总体架构/) | `ADR-001` (本地拓扑), `ADR-002` (数据架构), `ADR-003` (AI Runtime), [`ADR-004`](docs/01_总体架构/ADR-004_协同层门禁主权与凭证分离_v1.0.md) (协同层门禁主权与凭证分离), [`架构专家评估报告`](docs/01_总体架构/架构专家评估与系统优化报告_v1.0.md), [`系统核心深模块演进设计方案`](docs/01_总体架构/系统核心深模块演进设计方案_v1.0.md) |
 | **领域引擎实现** | [`docs/02_领域引擎/`](docs/02_领域引擎/) | `World`, `Character`, `Story`, `Lore`, `Memory_Knowledge`, `Audio_Voice` (OpenAI 适配与 SpeechRail) |
 | **工程与协议契约** | [`docs/03_工程规范/`](docs/03_工程规范/) | `Context_Compiler`, `Engine_API_Contracts`, `Data_Architecture`, `macOS_App_Platform_Baseline`, `Swift6_Xcode27_Best_Practices` |
-| **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案 v1.1`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)（HACF 2.1 权威基线）, [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
+| **人机协同与 CI/CD** | [`docs/03_工程规范/`](docs/03_工程规范/) | [`高效人机协同研发体系实施方案 v1.1`](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)（显式治理模式旧基线；日常流程以 [ADR-009](docs/01_总体架构/ADR-009_HACF日常流程轻量化.md) 为准）, [`GitHub Actions 质检基线`](docs/03_工程规范/GitHub_Actions_流水线与端到端质检基线_v1.0.md), [`GitHub 原生工作流规程`](docs/03_工程规范/GitHub_原生人机协同工作流作业规程_v1.0.md) |
 | **回归测试基准** | [`docs/04_Golden_Scenarios/`](docs/04_Golden_Scenarios/) | `golden_001` 5 轮状态断言与端到端期望 |
 | **关联仓库（卡牌制作工具）** | [`hrygo/lotm-card-art`](https://github.com/hrygo/lotm-card-art) | Canon 内容生产面：序列卡槽正典、六维语义契约与分层卡面生产（本仓库单向消费，见第 3 节） |
 
@@ -376,7 +266,7 @@ repo/
    - 研发编排协议（`contracts/engineering/`：task_capsule / work_receipt / gate_profile）与产品领域契约分开版本化，禁止混入产品 namespace。
 5. **受保护门禁与凭单**：
    - 验收命令只能定义在 `.hacf/gates/*.json`；新增/调整门禁需同步 `python3 scripts/gate_profile.py refresh-registry`；
-   - `verify` 只签发 `.agents/receipts/` 下的凭单，严禁回写胶囊；合入授权以 `Integration Receipt` 为准。
+   - 显式治理模式中 `verify` 只签发 `.agents/receipts/` 下的凭单，严禁回写胶囊；日常 PR 无需凭单，合入依据用户授权、CI 与评审。
    - **脚本与测试里调用 git 前必须清掉钩子注入的 `GIT_DIR` / `GIT_INDEX_FILE` / `GIT_WORK_TREE` /
      `GIT_COMMON_DIR` / `GIT_OBJECT_DIRECTORY`**：pre-commit 钩子（`gate_runner.sh`）会把这些变量注入
      测试进程，`git -C <临时仓库>` 也会被它们劫持回真实仓库——夹具的裁决会落到真仓库上，曾实际损坏隔离
@@ -384,7 +274,7 @@ repo/
 6. **专精 Agent Skills 协同规范**：
    - **项目级专精业务 Skills ([`.agents/skills/`](.agents/skills/))**：
      - **`wom-navigator`**：工程态势罗盘与架构调度中枢，响应“当前项目状态和进展”、“下一步推进方向”与“任务指派”，联动 `scripts/project_status.py` 事实源；
-     - **`wom-collaborator`**：HACF 2.1 人机协同总枢纽，指导不可变任务契约切片、受保护门禁档案、独立工作区与资源租约、四类范围裁决与仲裁扩权、Work/Integration Receipt 证据链与 GitHub Actions 双层合流；
+     - **`wom-collaborator`**：日常轻量协作入口，指导按变更面验证与按需工作区隔离；显式治理任务才使用胶囊与凭单；
      - **`wom-invariants-guard`**：15 项核心不变量守护者，提供逐项违例判定标准、反模式排查清单与 AST 架构适应度静态扫描；
      - **`wom-domain-weaver`**：纯领域核心业务编织，指导 World/Character/Story 状态机与确定性 Outcome Resolver（纯函数 Reducer 模式）；
      - **`wom-data-steward`**：四库物理隔离管家，指导 SQLite 多模型隔离架构、Transactional Outbox 异步事件与 100% 幂等重建；

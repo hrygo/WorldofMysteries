@@ -49,7 +49,7 @@
 | 数据内核 | SQLite 本地多模型四库物理隔离：`canon.db` / `world.db` / `retrieval.db` / `runtime.db` |
 | 进程通信 | UDS IPC + NDJSON，32-bit length prefixed framing（App 不直连数据库） |
 | 语音交互 | OpenAI Audio API 规范适配器，默认对接本地 SpeechRail，支持兼容第三方热拔插 |
-| 协同框架 | HACF 2.1（任务胶囊切片 + 受保护门禁主权 + Worktree 事务隔离 + 可复算凭单链） |
+| 协同框架 | HACF 轻量模式（功能分支 + CI + 评审，隔离与任务凭证按需） |
 
 ```text
 Canon ─▶ Domain Truth (World · Character · Memory · Story · Outcome Resolver)
@@ -89,7 +89,7 @@ docs/         完整设计文档与工程基线规范（主入口 docs/README.md
 环境要求：macOS 26+（Apple Silicon arm64）、Xcode 27 / Swift 6.4、Python 3.14.7、`uv`。
 
 ```bash
-# 全量本地三阶段门禁（架构适应度 + Python + Swift）
+# 全量本地四阶段门禁（架构适应度 + Python + Swift + Xcode）
 bash scripts/gate_runner.sh
 
 # 分阶段单独执行
@@ -100,30 +100,30 @@ cd macos-app && swift test
 
 ## 7. 质量保障
 
-双层防御：本地极速拦截（`scripts/gate_runner.sh`，秒级）+ 云端权威守门（GitHub Actions）。
+本地按改动面验证（`scripts/gate_runner.sh`）+ 云端 CI 守门（GitHub Actions）。
 
 | 工作流 | 作用 |
 |---|---|
 | `.github/workflows/ci.yml` | Stage 1 架构适应度与 Schema、Stage 2 Python、Stage 3 Swift，聚合为 `All Quality Gates Passed` |
-| `.github/workflows/capsule-audit.yml` | 核验 PR 未超出角色 `authorized_scope` 与任务胶囊签名 |
-| `.github/workflows/pr-gate-reporter.yml` | 在 PR 自动发表质检报告卡片 |
+| `.github/workflows/capsule-audit.yml` | 校验门禁档案与 registry 一致性；保留 `Capsule Gate` 检查名 |
+| `.github/workflows/pr-gate-reporter.yml` | 仅带 `hacf-evidence` 标签的 PR 生成可选凭单报告 |
 | `.github/workflows/nightly-golden-audit.yml` | Golden Scenario 夜间回归 |
 
-## 8. 人机协同开发 (HACF 2.1)
+## 8. 日常研发协作
+
+功能分支开发 → 按改动面验证 → PR → CI 与评审 → 合入后按需回收工作区。
+一项功能可以跨目录完成，日常任务无需胶囊、凭单或本地集成预演。
+并行写入和不干净的工作区使用独立隔离；产品不变量与质量门禁保持有效。
 
 ```bash
-# 1. 任务切片派发
-python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>"
-
-# 2. 并行无锁工作区
-python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
-
-# 3. 边界裁决、凭单签发与原子合入
-python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
-python3 scripts/collab_pipeline.py integrate --branch feat/<branch> --auto-clean
+python3 scripts/gate_profile.py resolve
+python3 scripts/gate_profile.py run --profile <ID>
+python3 scripts/capsule_audit.py --base-ref origin/main
 ```
 
-7 大专精角色（`AGT-ARB` / `AGT-DOM` / `AGT-DATA` / `AGT-AI` / `AGT-VOICE` / `AGT-MAC` / `AGT-QA`）的职责与授权目录见 [`AGENTS.md`](AGENTS.md) 第 4 节。
+执行约定见 [`AGENTS.md`](AGENTS.md) 第 4 节，依据见
+[ADR-009：HACF 日常流程轻量化](docs/01_总体架构/ADR-009_HACF日常流程轻量化.md)。
+旧协作工具保留供显式治理任务使用。
 
 ## 9. 文档索引
 

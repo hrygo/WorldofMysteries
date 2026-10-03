@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""
-Capsule Audit (HACF 2.1) — PR 侧权威审计
+"""PR 审计：默认轻量门禁配置校验；显式 governed 模式保留 HACF 任务凭证审计。
 
-取代 HACF 2.0 中「只检查字段是否存在」的内联脚本，落实四条硬规则：
-1. 触碰代码路径的 PR 必须携带任务胶囊，且变更不得超出 capsule.scope.write；
-2. forbid/privileged 边界与本地一致：高风险面必须显式 grant，否则要求仲裁扩权；
-3. 必须存在 head 与 PR 提交一致、verdict=passed 的 Work Receipt（无证据不放行）；
-4. 门禁档案摘要以**目标分支（受保护）**的 registry 为权威，
-   PR 内同时改写 profile 与 registry 无法自证通过。
+日常 PR 不依赖胶囊、凭单或角色目录授权。产品质量结论来自 CI 与评审。
+轻量模式只证明门禁档案与 registry 一致，不宣称摘要能抵抗二者同时改写。
+决策见 ADR-009。
 """
 
 from __future__ import annotations
@@ -70,6 +66,35 @@ def load_receipts(repo_root: Path, task_id: str) -> List[Dict[str, Any]]:
     return receipts
 
 
+def audit_lightweight(repo_root: Path) -> dict[str, Any]:
+    """校验实际门禁配置，不读取任务元数据或推断产品验收结果。"""
+    blocking: list[str] = []
+    registry_path = repo_root / ".hacf" / "gates" / "registry.json"
+    try:
+        registry = gate_profile.load_registry(registry_path)
+        if not registry["profiles"]:
+            raise gate_profile.GateProfileError("gate registry has no profiles")
+        for profile_id in registry["profiles"]:
+            gate_profile.resolve_profile(
+                profile_id, registry_path=registry_path, repo_root=repo_root
+            )
+    except (
+        gate_profile.GateProfileError, OSError, ValueError, KeyError, TypeError, AttributeError
+    ) as exc:
+        blocking.append(f"门禁配置校验失败: {exc}")
+
+    return {
+        "ok": not blocking,
+        "failures": blocking,
+        "blocking": blocking,
+        "advisory": [],
+        "notices": [
+            "lightweight：日常 PR 无需胶囊、凭单或按角色拆分。",
+            "本检查仅校验门禁配置；产品质量与功能完成结论来自 CI 测试、构建及评审。",
+        ],
+    }
+
+
 def audit_pr(
     *,
     changed_files: Sequence[str],
@@ -78,8 +103,9 @@ def audit_pr(
     repo_root: Path = REPO_ROOT,
     authoritative_registry: Optional[Dict[str, Any]] = None,
     current_diff_digest: str = "",
+    mode: str = "lightweight",
 ) -> Dict[str, Any]:
-    """返回结构化审计结论；blocking 非空时由调用方（CI）阻断合入。
+    """默认轻量校验；显式 governed 模式执行以下旧任务审计。
 
     分级原则——只拦「不可逆 / 不可信」，不拦进度：
       * blocking：越界写、forbidden 命中、门禁档案篡改、胶囊不可读或未携带；
@@ -89,6 +115,11 @@ def audit_pr(
     边界裁决为**覆盖式**：一个文件只要求「被至少一枚胶囊授权」，
     而不是「被 PR 内每一枚胶囊授权」，多角色协同 PR 因此不再必然失败。
     """
+    if mode == "lightweight":
+        return audit_lightweight(repo_root)
+    if mode != "governed":
+        raise ValueError(f"unknown audit mode: {mode}")
+
     blocking: List[str] = []
     advisory: List[str] = []
     notices: List[str] = []
@@ -289,7 +320,13 @@ def audit_pr(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="HACF 2.1 PR Capsule & Evidence Audit")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=("lightweight", "governed"),
+        default="lightweight",
+        help="默认轻量配置校验；governed 显式启用任务范围与凭单审计",
+    )
     parser.add_argument("--base-ref", default="origin/main")
     parser.add_argument("--head-ref", default="HEAD")
     parser.add_argument("--repo-root", default=str(REPO_ROOT))
@@ -316,26 +353,35 @@ def main() -> int:
         print("❌ Capsule audit failed: unable to resolve the PR head.")
         return 1
 
-    # 优先只审计本次 PR 变更集涉及的胶囊；若本次 PR 未修改胶囊，则回退至仓库现有胶囊
+    # 仅显式治理模式读取本次 PR 携带的胶囊；历史任务不能授权新变更。
     changed_capsules = [
         repo_root / f
         for f in changed
-        if f.startswith(".agents/capsules/") and f.endswith(".json") and (repo_root / f).exists()
+        if args.mode == "governed"
+        and f.startswith(".agents/capsules/")
+        and f.endswith(".json")
+        and (repo_root / f).exists()
     ]
-    if not changed_capsules and (repo_root / ".agents" / "capsules").exists():
-        changed_capsules = sorted((repo_root / ".agents" / "capsules").glob("*.json"))
+
+    registry = None
+    diff_digest = ""
+    if args.mode == "governed":
+        registry = registry_from_ref(args.base_ref, repo_root)
+        diff_digest = "sha256:" + policy.changes_digest(
+            args.base_ref, args.head_ref, cwd=repo_root
+        )
 
     result = audit_pr(
         changed_files=changed,
         capsule_paths=changed_capsules,
         head_sha=head_sha,
         repo_root=repo_root,
-        authoritative_registry=registry_from_ref(args.base_ref, repo_root),
-        current_diff_digest="sha256:"
-        + policy.changes_digest(args.base_ref, args.head_ref, cwd=repo_root),
+        authoritative_registry=registry,
+        current_diff_digest=diff_digest,
+        mode=args.mode,
     )
 
-    print(f"\n📋 变更文件 {len(changed)} 个；审计结论: {'PASS' if result['ok'] else 'FAIL'}")
+    print(f"\n📋 {args.mode} · 变更文件 {len(changed)} 个；审计结论: {'PASS' if result['ok'] else 'FAIL'}")
     for notice in result["notices"]:
         print(f"   ️  {notice}")
     for failure in result["blocking"]:
@@ -349,9 +395,9 @@ def main() -> int:
                 "严格模式请设 HACF_STRICT_EVIDENCE=1）。"
             )
         else:
-            print("\n Capsule scope & evidence audit PASSED.")
+            print(f"\n✅ {args.mode} 审计通过；产品测试与构建结果请查看 CI。")
         return 0
-    print("\n❌ Capsule audit FAILED：存在越界或不可信变更，拒绝合入。")
+    print(f"\n❌ {args.mode} audit FAILED：存在阻断项。")
     return 1
 
 
