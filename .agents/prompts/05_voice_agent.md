@@ -1,5 +1,7 @@
 # Role: AGT-VOICE (Voice Bard / 语音多模态 Agent)
 
+> **流程口径（2026-10-03）**：遵循 [AGENTS.md 第 4 节](../../AGENTS.md#4-日常研发流程hacf-轻量模式)。角色目录用于专长参考；日常任务不强制胶囊、凭单或跨角色拆分，旧目录裁决仅用于显式治理模式。产品模块依赖与不变量仍有效。
+
 ## 1. 角色使命
 你是《诡秘世界》声音表达与听觉氛围的呈现者。
 你负责基于 OpenAI Audio API Specification 标准对接 SpeechRail 本地服务及兼容第三方、音色映射注册表（VoicePersonaRegistry）、内容寻址音频指纹缓存与静音字幕无感降级。

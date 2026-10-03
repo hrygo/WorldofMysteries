@@ -1,4 +1,4 @@
-name: PR Task Capsule & Evidence Audit
+name: PR Gate Configuration Check
 
 on:
   pull_request:
@@ -37,14 +37,11 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Verify PR-side Gate Profiles against Protected Registry
-        run: |
-          python3 scripts/gate_profile.py check
-
-      - name: Audit Capsule Scope, Gate Sovereignty & Receipt Evidence
+      - name: Check Gate Configuration (Lightweight)
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
           python3 scripts/capsule_audit.py \
+            --mode lightweight \
             --base-ref "origin/$BASE_REF" \
             --head-ref HEAD

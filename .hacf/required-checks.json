@@ -15,7 +15,7 @@
       "workflow": ".github/workflows/capsule-audit.yml",
       "required": true,
       "level": "blocking",
-      "description": "任务胶囊边界与证据审计：仅 BLOCKING 级发现阻断合入，证据完备性默认降级为提示"
+      "description": "轻量门禁档案与 registry 一致性校验（保留历史检查名）；日常 PR 不强制胶囊或凭单"
     }
   ]
 }

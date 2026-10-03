@@ -1,6 +1,6 @@
 # 贡献指南 · Contributing
 
-本项目采用 **HACF 2.0（人机协同研发框架）**：任何改动都以「任务胶囊 + 隔离工作区 + 机器验签 + 双层门禁」的方式进入 `main`。完整规范见 [`AGENTS.md`](AGENTS.md)。
+本项目默认采用 **HACF 轻量模式**：功能分支开发、按改动面验证、PR、CI 与评审。日常任务无需胶囊或凭单；决策见 [ADR-009](docs/01_总体架构/ADR-009_HACF日常流程轻量化.md)，执行约定见 [`AGENTS.md`](AGENTS.md) 第 4 节。
 
 ## 1. 环境基线
 
@@ -24,47 +24,36 @@
 
 边界由 `scripts/check_architecture_fitness.py` 静态校验，本地与 CI 都会执行。
 
-## 3. 标准作业流程 (SOP)
+## 3. 日常作业流程
 
-```bash
-# 1. 任务切片派发（生成强类型自包含任务胶囊）
-python3 scripts/agent_capsule.py pack --role <ROLE> --task-id <TASK_ID> --title "<TITLE>"
+1. 明确目标和影响，在功能分支完成一项可评审的功能；允许跨目录同步修改契约、实现和测试。
+2. 按改动面运行相关测试，必要时执行完整受保护门禁。
+3. 提交 PR，说明结果、验证与实际风险，由 CI 与评审守门。
+4. 并行开发或已有工作区不干净时建立独立 worktree 与环境；回收前核对干净和内容落地。
 
-# 2. 事务型并行隔离工作区
-python3 scripts/collab_pipeline.py start --branch feat/<branch> --role <ROLE> --task-id <TASK_ID>
-
-# 3. 授权范围核验 + sha256 验收签名
-python3 scripts/agent_capsule.py verify --capsule .agents/capsules/<TASK_ID>.json
-
-# 4. 本地集成预演（门禁 + CAS 复核 + ff 合入 + post-merge smoke + 集成凭单）
-python3 scripts/collab_pipeline.py integrate --branch feat/<branch>
-
-# 5. 提交 PR（受保护主分支的唯一合入通道，可直接开 auto-merge）
-python3 scripts/collab_pipeline.py submit --branch feat/<branch> --auto-merge
-```
-
-7 大专精角色的职责与授权目录见 [`AGENTS.md`](AGENTS.md) 第 4 节；`.github/CODEOWNERS` 是目录所有权的硬防线。
+角色表示专长，不能扩大用户授权，也不要求按角色拆 PR。只有明确选择严格治理的任务才采用
+旧胶囊 SOP 与 `capsule_audit.py --mode governed`；历史凭证保留供追溯。
 
 ## 4. 本地门禁
 
-提交前必须本地全绿：
+按改动面选择本地验证；治理、工具链或跨域变更执行全量：
 
 ```bash
-bash scripts/gate_runner.sh                       # 全量：架构适应度 + pytest + swift test
+bash scripts/gate_runner.sh                       # 全量：架构适应度 + pytest + swift test + Xcode App 构建
 python3 scripts/gate_profile.py resolve           # 按改动面给出建议档案，避免每轮都跑全量
 python3 scripts/gate_profile.py run --profile <ID>
 ```
 
 云端由 `.github/workflows/` 复跑同一套门禁。main 的必需检查为 `All Quality Gates Passed`
 与 `Capsule Gate`，定义在 [`.hacf/required-checks.json`](.hacf/required-checks.json)：
-检查名是公开接口，由 `scripts/check_required_checks.py` 在 CI 守卫，
+`Capsule Gate` 仅检查门禁配置一致性。检查名是公开接口，由 `scripts/check_required_checks.py` 在 CI 守卫，
 `scripts/sync_branch_protection.py`（默认 dry-run）负责与 ruleset 同步。
 
 ## 5. 提交与 PR 规范
 
 - 提交信息使用 Conventional Commits：`feat(scope): ...`、`fix(scope): ...`、`docs(scope): ...`、`ci(scope): ...`；
-- 一个 PR 只解决一个任务胶囊，禁止超出 `authorized_scope` 的顺带改动；
-- PR 必须按 `.github/PULL_REQUEST_TEMPLATE.md` 逐项自检，附上胶囊验签结果与门禁输出；
+- 一个 PR 解决一个连贯目标，保留用户与他人改动，避免无关重构；
+- PR 按 `.github/PULL_REQUEST_TEMPLATE.md` 说明问题、结果、验证和实际风险，无需胶囊摘要或凭单；
 - `docs/` 与 `contracts/` 的权威改动需同步更新受影响文档，避免规范漂移。
 
 ## 6. 文档与证据

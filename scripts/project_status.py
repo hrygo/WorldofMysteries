@@ -237,7 +237,7 @@ def cmd_next(state: dict, as_json: bool = False):
     print("=" * 72)
 
 
-def cmd_dispatch(state: dict, as_json: bool = False):
+def cmd_dispatch(state: dict, as_json: bool = False, governed: bool = False):
     dp = state["critical_path"]["dispatch"]
     scope = role_scope(dp["assigned_role"])
     write_scope = scope.get("write", [])
@@ -247,6 +247,10 @@ def cmd_dispatch(state: dict, as_json: bool = False):
         merged = dict(dp)
         merged.pop("authorized_scope", None)
         merged.pop("forbidden_patterns", None)
+        merged["workflow_mode"] = "governed" if governed else "lightweight"
+        if not governed:
+            merged.pop("pack_command", None)
+            merged.pop("worktree_command", None)
         merged["role_scope_source"] = f"scripts/agent_capsule.py::ROLE_DEFAULTS[{dp['assigned_role']}]"
         merged["write"] = write_scope
         merged["read"] = read_scope
@@ -256,14 +260,15 @@ def cmd_dispatch(state: dict, as_json: bool = False):
 
     _warn_if_stale(state)
     print("=" * 72)
-    print("🚀 《诡秘世界》自动化任务派发卡片 (Task Dispatch Voucher)")
+    print("🚀 《诡秘世界》任务建议")
     print("=" * 72)
 
     print(f"\n【指派专精角色】: {dp['assigned_role']} - {dp['role_title']}")
     print(f"【拟定任务标识】: {dp['task_id']}")
     print(f"【任务标准标题】: {dp['task_title']}")
 
-    print("\n【授权范围 (Authorized Scope) — 单一事实源: agent_capsule.ROLE_DEFAULTS】:")
+    print("\n【可选治理角色范围 — 单一事实源: agent_capsule.ROLE_DEFAULTS】:")
+    print("  角色范围仅供显式治理模式使用；日常任务以用户授权和产品模块边界为准。")
     if not scope:
         print(f"  ❌ 角色 {dp['assigned_role']} 不在 ROLE_DEFAULTS 枚举内，无法给出授权范围。")
     else:
@@ -274,7 +279,7 @@ def cmd_dispatch(state: dict, as_json: bool = False):
         for item in read_scope:
             print(f"     - {item}")
 
-    print("\n【严格禁触红线 (Forbidden Patterns) — 同一事实源】:")
+    print("\n【可选治理角色禁区 (Forbidden Patterns) — 同一事实源】:")
     for fbd in forbidden:
         print(f"  ⛔ {fbd}")
     if scope:
@@ -282,15 +287,21 @@ def cmd_dispatch(state: dict, as_json: bool = False):
         if scope.get("invariants"):
             print(f"  关联不变量: {', '.join(str(i) for i in scope['invariants'])}")
 
-    print("\n【步骤 1: 生成强类型任务胶囊 (Pack Capsule)】")
-    print(f"  {dp['pack_command']}")
+    if not governed:
+        print("\n【默认轻量流程】")
+        print("  功能分支开发 → 按改动面验证 → PR → CI 与评审。")
+        print("  无需胶囊、凭单或按角色拆分；并行写入或工作区不干净时按需隔离。")
+        print("  旧治理步骤仅在 dispatch --governed 中显示。")
+    else:
+        print("\n【可选治理步骤 1: 生成任务胶囊 (Pack Capsule)】")
+        print(f"  {dp['pack_command']}")
 
-    print("\n【步骤 2: 启动事务型隔离工作区 (Start Worktree)】")
-    print(f"  {dp['worktree_command']}")
+        print("\n【可选治理步骤 2: 启动隔离工作区 (Start Worktree)】")
+        print(f"  {dp['worktree_command']}")
 
-    print("\n【步骤 3: 专精角色编码完成后的验签合流指令】")
-    print(f"  python3 scripts/agent_capsule.py verify --capsule .agents/capsules/{dp['task_id']}.json")
-    print(f"  python3 scripts/collab_pipeline.py integrate --branch feat/{dp['task_id'].lower()} --auto-clean")
+        print("\n【可选治理步骤 3: 验证与本地集成预演】")
+        print(f"  python3 scripts/agent_capsule.py verify --capsule .agents/capsules/{dp['task_id']}.json")
+        print(f"  python3 scripts/collab_pipeline.py integrate --branch feat/{dp['task_id'].lower()} --auto-clean")
     print("=" * 72)
 
 
@@ -306,6 +317,7 @@ def main():
 
     p_dispatch = subparsers.add_parser("dispatch", help="输出明确的被派发人物与可执行派发命令")
     p_dispatch.add_argument("--json", action="store_true", help="以 JSON 格式输出")
+    p_dispatch.add_argument("--governed", action="store_true", help="显式显示旧胶囊治理步骤")
 
     args = parser.parse_args()
 
@@ -316,7 +328,7 @@ def main():
     elif args.command == "next":
         cmd_next(state, getattr(args, "json", False))
     elif args.command == "dispatch":
-        cmd_dispatch(state, getattr(args, "json", False))
+        cmd_dispatch(state, getattr(args, "json", False), args.governed)
     else:
         parser.print_help()
 
