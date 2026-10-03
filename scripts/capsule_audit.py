@@ -149,23 +149,17 @@ def audit_pr(
         except policy.PolicyError as exc:
             report(f"胶囊不可读: {capsule_path}: {exc}", hard=True)
 
-    # 识别自动化维护 PR（如 Dependabot、纯依赖锁文件或 CI 流水线微调）
+    # 维护豁免只由实际改动路径决定；机器人身份和分支名不能授权业务改动。
     MAINTENANCE_ALLOWED_PREFIXES = (
         ".github/dependabot.yml",
         ".github/workflows/",
         "engine/uv.lock",
         "macos-app/Package.resolved",
     )
-    is_maintenance = False
-    actor = os.getenv("GITHUB_ACTOR", "")
-    head_ref_name = os.getenv("GITHUB_HEAD_REF", "")
-    if "dependabot" in actor.lower() or head_ref_name.startswith("dependabot/"):
-        is_maintenance = True
-    elif code_files and all(
+    is_maintenance = bool(code_files) and all(
         any(f.startswith(prefix) or f == prefix for prefix in MAINTENANCE_ALLOWED_PREFIXES)
         for f in code_files
-    ):
-        is_maintenance = True
+    )
 
     if is_maintenance and not capsules:
         notices.append(
