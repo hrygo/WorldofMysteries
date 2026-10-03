@@ -103,10 +103,36 @@ def test_lightweight_audit_still_rejects_broken_gate_registry(repository, damage
     assert result["blocking"]
 
 
-def test_governed_mode_still_requires_an_explicit_task_capsule(repository):
+@pytest.mark.parametrize(
+    ("actor", "head_ref"),
+    [
+        ("developer", "feature/world"),
+        ("dependabot[bot]", "feature/world"),
+        ("developer", "dependabot/uv/engine/pypdf-6.19.0"),
+    ],
+)
+def test_governed_mode_still_requires_an_explicit_task_capsule(
+    repository, monkeypatch, actor, head_ref
+):
+    monkeypatch.setenv("GITHUB_ACTOR", actor)
+    monkeypatch.setenv("GITHUB_HEAD_REF", head_ref)
     result = audit(repository, mode="governed")
     assert not result["ok"]
     assert any("未携带任务胶囊" in problem for problem in result["blocking"])
+
+
+def test_governed_maintenance_exemption_depends_on_changed_paths(repository, monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTOR", "developer")
+    monkeypatch.setenv("GITHUB_HEAD_REF", "chore/dependencies")
+    result = capsule_audit.audit_pr(
+        changed_files=["engine/uv.lock"],
+        capsule_paths=[],
+        head_sha="a" * 40,
+        repo_root=repository,
+        mode="governed",
+    )
+    assert result["ok"], result
+    assert any("[MAINTENANCE]" in notice for notice in result["notices"])
 
 
 def test_unknown_mode_is_rejected(repository):
