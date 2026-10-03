@@ -32,7 +32,7 @@
 4. 并行开发或已有工作区不干净时建立独立 worktree 与环境；回收前核对干净和内容落地。
 
 角色表示专长，不能扩大用户授权，也不要求按角色拆 PR。只有明确选择严格治理的任务才采用
-旧胶囊 SOP 与 `capsule_audit.py --mode governed`；历史凭证保留供追溯。
+旧胶囊 SOP 与 `capsule_audit.py --mode governed`；历史凭证通过 Git 追溯，当前留存约定见 [Agent 协作资料](.agents/README.md)。
 
 ## 4. 本地门禁
 

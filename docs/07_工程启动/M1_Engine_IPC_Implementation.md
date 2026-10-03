@@ -43,7 +43,7 @@ App lifecycle integration, signed bundled Python, automatic first-run/reconnect 
 
 用户要求将自动报告的根因修复追加到同一个 PR。本增量基于已合入计划主线的
 `f9f664adfdc4b55d5d501c3e12d7b751af18a76e`，不覆盖原有 IPC 实现或历史胶囊。
-限定报告子任务使用 [PR50-EVIDENCE-REPORT 胶囊](../../.agents/capsules/PR50-EVIDENCE-REPORT-R2.json)，
+限定报告子任务使用 `PR50-EVIDENCE-REPORT-R2` 胶囊（[历史记录查询](../../.agents/README.md#历史任务数据)），
 按现有覆盖式范围审计与原 IPC 胶囊共同约束 PR；受保护门禁与产品契约保持不变。
 
 ### 根因与修复

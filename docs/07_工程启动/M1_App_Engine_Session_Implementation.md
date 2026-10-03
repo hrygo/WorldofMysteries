@@ -4,7 +4,7 @@
 
 - Tracks #45 under #43; consumes the real system transport merged by #50.
 - Base: `main@f7fa79c718cc80f15a261d1f195d731a3a3f2987`.
-- Branch: `feat/app-engine-session`; capsule: [M1-APP-ENGINE-SESSION](../../.agents/capsules/M1-APP-ENGINE-SESSION.json).
+- Branch: `feat/app-engine-session`; capsule: `M1-APP-ENGINE-SESSION` ([historical lookup](../../.agents/README.md#历史任务数据)).
 - Contribution sources: [AGENTS](../../AGENTS.md), [CONTRIBUTING](../../CONTRIBUTING.md), [PR template](../../.github/PULL_REQUEST_TEMPLATE.md), [CODEOWNERS](../../.github/CODEOWNERS), existing macOS/collaboration Skills and [IPC protocol](IPC_Protocol_v1.0.md).
 - The user approved internal IPC/bootstrap work only without new end-user configuration, permissions, fees, network dependencies or save migration. This implementation does not certify installed-app acceptance.
 
@@ -51,4 +51,4 @@ The next packaging/integration increment must supply and verify the pinned arm64
 
 The initial candidate `7aa75a6` passed 282 of 283 Python cases on macOS; its valid fragmented-response fixture exceeded an artificial 300 ms test deadline while deliberately sleeping after each three-byte chunk. Fragment reassembly now uses the unchanged production five-second request budget. The separate timeout case retains 300 ms and must specifically return `timedOut`; wrong request/trace and malformed frame tests likewise assert their exact errors after a successful handshake. No production timeout or safety limit was relaxed.
 
-The initial Swift suite also exposed a legacy Artifact test that expected a nonexistent socket to connect successfully. That assumption is incompatible with real transport. The replacement verifies unauthenticated resolver rejection and uses the actual, now module-internal `ArtifactIPCCodec` to preserve missing-payload rejection, reject malformed nonempty payloads, and propagate engine denial. No successful connection is simulated. This bounded testability/coverage increment has its own [regression capsule](../../.agents/capsules/M1-APP-ENGINE-REGRESSION.json); the original session capsule is unchanged. Target CI must revalidate the new head before claiming closure.
+The initial Swift suite also exposed a legacy Artifact test that expected a nonexistent socket to connect successfully. That assumption is incompatible with real transport. The replacement verifies unauthenticated resolver rejection and uses the actual, now module-internal `ArtifactIPCCodec` to preserve missing-payload rejection, reject malformed nonempty payloads, and propagate engine denial. No successful connection is simulated. This bounded testability/coverage increment has its own `M1-APP-ENGINE-REGRESSION` capsule ([historical lookup](../../.agents/README.md#历史任务数据)); the original session capsule is unchanged in that historical snapshot. Target CI must revalidate the new head before claiming closure.

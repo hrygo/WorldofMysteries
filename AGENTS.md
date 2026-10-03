@@ -194,9 +194,10 @@ python3 scripts/capsule_audit.py --base-ref origin/main
 ### 4.3 可选治理模式
 
 用户或任务明确选择严格多执行者治理时，才使用旧 `pack → start → commit → verify → receipt`
-流程和 `capsule_audit.py --mode governed`。7 个角色代号、胶囊/凭单 Schema 与历史证据保持可用，
+流程和 `capsule_audit.py --mode governed`。7 个角色代号、胶囊/凭单 Schema 保持可用；历史证据通过 Git 追溯，
 角色目录授权只在该模式内裁决；参考 [HACF 2.1 旧实施方案](docs/03_工程规范/高效人机协同研发体系实施方案_v1.1.md)。
-不得为普通任务自动恢复旧流程，不批量删除历史证据或已有工作区。
+不得为普通任务自动恢复旧流程。历史任务数据经用户授权、确认无活跃任务且可恢复后可以清理，
+见 [Agent 协作资料](.agents/README.md)；不得清理未知改动或未经核验的工作区。
 
 ---
 
