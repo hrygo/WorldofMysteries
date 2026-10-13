@@ -74,7 +74,7 @@ def read_lock(path: Path = LOCK) -> dict:
         raise BundleError('Runtime lock must be an object')
     required = {'format_version': 1, 'python_version': '3.14.7', 'implementation': 'cpython',
                 'gil_enabled': True, 'architecture': 'arm64', 'platform': 'darwin',
-                'provider': 'astral-sh/python-build-standalone', 'agentscope_version': '2.0.8'}
+                'provider': 'astral-sh/python-build-standalone', 'agentscope_version': '2.0.9'}
     if any(type(record.get(k)) is not type(v) or record[k] != v for k, v in required.items()):
         raise BundleError('Unsupported runtime lock')
     if not re.fullmatch(r'[0-9a-f]{64}', str(record.get('sha256', ''))):
@@ -278,7 +278,7 @@ def stage_engine(output: Path, logs: Path, *, archive: Path | None = None) -> di
 from importlib.metadata import distributions,version
 from agentscope.message import UserMsg
 assert UserMsg(name='packaging-probe',content='offline').get_text_content() == 'offline'
-assert version('agentscope') == '2.0.8'
+assert version('agentscope') == '2.0.9'
 assert _wom_sqlite3.sqlite_version == '3.53.4'
 class Result(pydantic.BaseModel):
     ok: bool

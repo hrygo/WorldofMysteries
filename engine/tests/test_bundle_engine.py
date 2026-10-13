@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import tarfile
+import tomllib
 
 import pytest
 
@@ -41,6 +42,15 @@ def test_upstream_lock_is_fixed_and_gil_enabled():
     assert 'freethreaded' not in lock['filename']
     assert len(lock['sha256']) == 64
     assert lock['release'] in lock['url']
+
+
+def test_packaged_agentscope_pin_matches_engine_and_dependency_lock():
+    project = tomllib.loads((ROOT/'engine/pyproject.toml').read_text())
+    dependency_lock = tomllib.loads((ROOT/'engine/uv.lock').read_text())
+    version = bundler.read_lock()['agentscope_version']
+    assert f'agentscope=={version}' in project['project']['dependencies']
+    assert [p['version'] for p in dependency_lock['package']
+            if p['name'] == 'agentscope'] == [version]
 
 
 @pytest.mark.parametrize('field,value', [('gil_enabled',1),('gil_enabled',False),('architecture','x86_64'),
