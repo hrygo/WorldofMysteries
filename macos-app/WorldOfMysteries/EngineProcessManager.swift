@@ -93,7 +93,7 @@ public nonisolated struct EngineLaunchConfiguration: Sendable {
               let manifest = try? JSONDecoder().decode(BundledRuntimeManifest.self, from: data),
               manifest.formatVersion == 1, manifest.pythonVersion == "3.14.7",
               manifest.architecture == "arm64", manifest.gilEnabled,
-              manifest.protocolVersion == "1.0", manifest.agentscopeVersion == "2.0.8" else {
+              manifest.protocolVersion == "1.0", manifest.agentscopeVersion == "2.0.9" else {
             throw EngineConnectionError.runtimeUnavailable
         }
         let resolvedRoot = root.resolvingSymlinksInPath().standardizedFileURL.path + "/"

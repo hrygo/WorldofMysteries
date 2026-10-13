@@ -12,7 +12,7 @@ struct EnginePackageProbe {
         dependency.arguments = ["-I", "-B", "-c", """
 import agentscope,pydantic_core,openai,jsonschema,sqlite3,ssl,ctypes,json,sys,platform
 from importlib.metadata import version
-assert platform.python_version() == '3.14.7' and version('agentscope') == '2.0.8'
+assert platform.python_version() == '3.14.7' and version('agentscope') == '2.0.9'
 assert agentscope.__file__.startswith(sys.prefix + '/')
 print(json.dumps({'passed':True,'agentscope':version('agentscope')}))
 """]

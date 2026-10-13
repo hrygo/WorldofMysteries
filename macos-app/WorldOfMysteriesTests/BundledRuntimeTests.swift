@@ -19,8 +19,12 @@ struct BundledRuntimeTests {
         try Data("test fixture: never executed".utf8).write(to: executable)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         try Data().write(to: root.appendingPathComponent("engine/infrastructure/ipc_server.py"))
+        let lockURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Packaging/python-runtime.lock.json")
+        let lock = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: lockURL)) as? [String: Any])
+        let agentscopeVersion = try #require(lock["agentscope_version"] as? String)
         let manifest: [String: Any] = ["format_version":1, "python_version":"3.14.7", "architecture":"arm64",
-             "gil_enabled":true, "agentscope_version":"2.0.8", "protocol_version":"1.0"]
+             "gil_enabled":true, "agentscope_version":agentscopeVersion, "protocol_version":"1.0"]
         try JSONSerialization.data(withJSONObject:manifest).write(to:root.appendingPathComponent("runtime-manifest.json"))
         try change(root)
         let bundle = try #require(Bundle(url: app))

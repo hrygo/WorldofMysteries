@@ -91,7 +91,7 @@ struct PrimitivesGallerySection: View {
         ) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                 MysticKeyValueRow(
-                    key: "引擎", value: "AgentScope 2.0.8", isMonospaced: true, systemIcon: "cpu")
+                    key: "引擎", value: "AgentScope 2.0.9", isMonospaced: true, systemIcon: "cpu")
                 MysticKeyValueRow(
                     key: "运行时", value: "Python 3.14.7", isMonospaced: true, systemIcon: "terminal")
                 MysticKeyValueRow(
